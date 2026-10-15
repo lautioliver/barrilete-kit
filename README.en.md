@@ -200,7 +200,7 @@ With no members, issues stay unassigned. The team is changed with `/add-member` 
 | 🌿 | GitHub conventions | `docs/convencion-nombres-github.md`: branches, commits, PRs, issues, labels |
 | 🏷️ | Labels | `.github/labels.yml` (source), `.github/labeler.yml` (auto-labeling), `.github/workflows/labels.yml` (sync + labeler + checks) |
 | 📬 | Issues and PRs | `.github/ISSUE_TEMPLATE/` (forms with labels), `.github/pull_request_template.md`, `.github/workflows/desbloquear.yml` |
-| ✅ | Docs tested in CI | `.github/workflows/docs.yml` + `scripts/agentes/check-docs.py`: broken links, paths and ADRs, map paths that no longer exist |
+| ✅ | Docs tested in CI | `.github/workflows/docs.yml` + `scripts/agentes/check-docs.py`: broken links, paths and ADRs, map paths that no longer exist. In a repo with `.agent-kit.json` it only checks the kit's `.md` files, `docs/`, `AGENTS.md` and `llms.txt`, and runs shellcheck and the tests only on the kit's scripts (`check-docs.py --listar <glob>`) |
 | 🧪 | Pre-PR verification | `scripts/agentes/verificar.py`: based on what changed, runs lint, typecheck, affected tests, migration drift… |
 | 👥 | Team | `.github/equipo.json` + `scripts/agentes/equipo.py`: who receives issues, by area |
 | 🎨 | Brand | `.github/marca/`: Barrilete, the template's identity (init removes it) |

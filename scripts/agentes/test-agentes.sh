@@ -84,7 +84,7 @@ printf '#!/bin/sh\necho [ -z a ]\n' >"$TMP/r/ajeno/malo.sh"
 printf '#!/bin/sh\nexit 1\n' >"$TMP/r/ajeno/test-propio.sh"
 listar() { (cd "$TMP/r" && python3 scripts/agentes/check-docs.py --listar "$1" 2>/dev/null); }
 # En un proyecto recién inicializado el check falla por los TODO del mapa: se mira solo lo ajeno.
-salida=$(check); ! grep -q "ajeno/README.md" <<<"$salida"; afirmar $? "con .agent-kit.json, un .md ajeno con link roto no falla el check"
+salida=$(check); grep -q "^Documentación\|^Aviso" <<<"$salida" && ! grep -q "ajeno/README.md" <<<"$salida"; afirmar $? "con .agent-kit.json, un .md ajeno con link roto no falla el check"
 lista=$(listar '*.sh'); grep -qx "scripts/agentes/test-agentes.sh" <<<"$lista"; afirmar $? "con .agent-kit.json, --listar '*.sh' devuelve los scripts del kit"
 ! grep -q "^ajeno/" <<<"$lista"; afirmar $? "con .agent-kit.json, --listar '*.sh' no devuelve los .sh ajenos"
 lista=$(listar '*test-*.sh'); grep -qx "scripts/agentes/test-agentes.sh" <<<"$lista" && ! grep -q "^ajeno/" <<<"$lista"
@@ -100,7 +100,7 @@ printf '# Doc\n\n[roto](no-existe.md)\n' >"$TMP/r/docs/ajeno-en-docs.md"
 salida=$(check); grep -q "docs/ajeno-en-docs.md.*link roto" <<<"$salida"; afirmar $? "con .agent-kit.json, un link roto en docs/ sigue fallando"
 rm "$TMP/r/docs/ajeno-en-docs.md"
 printf '\n[roto](no-existe.md)\n' >>"$TMP/r/README.md"
-salida=$(check); grep -q "README.md.*link roto" <<<"$salida"; afirmar $? "con .agent-kit.json, un link roto en un archivo del kit sigue fallando"
+salida=$(check); grep -q "^- README.md:.*link roto" <<<"$salida"; afirmar $? "con .agent-kit.json, un link roto en un archivo del kit sigue fallando"
 rm "$TMP/r/.agent-kit.json"; git -C "$TMP/r" add -A  # sin manifiesto, el kit es lo que git rastrea
 salida=$(check); grep -q "ajeno/README.md.*link roto" <<<"$salida"; afirmar $? "sin .agent-kit.json (la plantilla), se revisa todo"
 lista=$(listar '*.sh'); grep -qx "ajeno/malo.sh" <<<"$lista"; afirmar $? "sin .agent-kit.json, --listar devuelve todos los archivos del repo"
