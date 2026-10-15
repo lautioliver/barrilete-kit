@@ -347,10 +347,10 @@ afirmar $? "grow.py no instala el workflow de labels que el instalador dejó afu
 python3 - "$U10" "$SHA3" <<'PY'
 import json, sys
 k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
-assert k["ref"] == sys.argv[2] and k["version"] is None, k
+assert k["ref"] == sys.argv[2] and k["version"] == "1.0.0", k
 assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
 PY
-afirmar $? "grow.py registra el commit clonado como ref, y conserva withheld y version null (no escribe la VERSION de la rama por defecto)"
+afirmar $? "grow.py registra el commit clonado como ref con la versión de su tag (v1.0.0), y conserva withheld"
 
 # grow.py trae los archivos del HEAD de la plantilla (C), que va por delante del último tag (B): el registro
 # tiene que quedar en C, no en el commit de la instalación (A). Si no, update.py baja lo que trajo grow.py a B.
@@ -375,7 +375,8 @@ PY
 afirmar $? "grow.py registra el commit desde el que trajo los archivos (C) como ref, con version null (salida: $(tail -1 <<<"$s"))"
 (cd "$U12" && rm -rf .agent-kit/pending && git add -A && git commit -qm grow) >/dev/null 2>&1
 s=$(cd "$U12" && python3 scripts/update.py --template "$P6" 2>&1); c=$?
-grep -q '# C' "$U12/.claude/skills/debug/SKILL.md" && es -f "$U12/scripts/nuevo-c.sh" && es -z "$(git -C "$U12" status --porcelain)" && es "$c" -ne 0
+grep -q '# C' "$U12/.claude/skills/debug/SKILL.md" && es -f "$U12/scripts/nuevo-c.sh" && es -z "$(git -C "$U12" status --porcelain)" && es "$c" -ne 0 \
+  && grep -q 'does not contain the commit' <<<"$s" && ! grep -q Traceback <<<"$s"
 afirmar $? "grow.py + update.py: el tag B no contiene C, así que update.py no degrada ni borra lo que trajo grow.py"
 (cd "$P6" && echo 1.1.0 >VERSION && git add -A && git commit -qm v1.1.0 && git tag v1.1.0) >/dev/null 2>&1
 s=$(cd "$U12" && python3 scripts/update.py --template "$P6" 2>&1); c=$?
