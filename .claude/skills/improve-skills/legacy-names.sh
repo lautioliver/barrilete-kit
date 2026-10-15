@@ -7,7 +7,9 @@
 # - normalize_legacy_names: the 0.9 (Spanish) keys and values of the retro frontmatter become the new
 #   ones, so old and new retros count as the same group when they are read or saved.
 #   Usage: normalize_legacy_names < text   (only rewrites the frontmatter, the first block between --- lines)
+# shellcheck disable=SC2034  # used by the scripts that source this file
 RETROS_BRANCH=agents/retros
+# shellcheck disable=SC2034
 RETROS_LEGACY_BRANCH=agentes/retros
 
 retros_tip() {
