@@ -46,6 +46,8 @@ for modo in completo chico; do
   # Completo: el mapa trae TODO de ejemplo y check-docs falla a propósito hasta que el proyecto los completa;
   # lo que no puede fallar son los links, rutas ni índices. Chico: no tiene mapa y tiene que pasar entero.
   s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1); c=$?
+  # La salida tiene que ser la del check (un resumen), nunca un traceback: un traceback no menciona esos errores y el grep de abajo pasaría igual.
+  ! grep -q Traceback <<<"$s" && grep -q '^Docs ' <<<"$s"; afirmar $? "[$modo] check-docs.py del proyecto recién creado termina con su resumen, sin Traceback"
   if [ "$modo" = chico ]; then es "$c" -eq 0; else ! grep -q 'missing path\|broken link\|missing from the index\|does not exist' <<<"$s"; fi
   afirmar $? "[$modo] check-docs.py del proyecto recién creado no marca links, rutas ni índices rotos"
   [ -f "$p/docs/decisions/README.md" ] && ! ls "$p"/docs/decisions/ADR-001-* >/dev/null 2>&1 && ! grep -rq 'ADR-001-language-labels' "$p/docs" "$p/README.md"
@@ -86,6 +88,73 @@ copiar "$p"
 for w in docs labels; do
   grep -qxF "    branches: [main, develop, 'release/**']" "$p/.github/workflows/$w.yml" && ! grep -q 'for the template itself' "$p/.github/workflows/$w.yml"
   afirmar $? "[completo develop releases] $w.yml corre en los pushes a [main, develop, 'release/**']"
+done
+
+# --lang (#113): con es, cada X.md se reemplaza por su X.es.md; con en (default), los .es.md se borran.
+# Se prueba con pares de ejemplo agregados a la copia (el contenido real se traduce en #115).
+con_pares() { # con_pares <copia>: pares de ejemplo en el repo, en el perfil chico y en un archivo que el init borra
+  local p="$1"
+  mkdir -p "$p/profiles/small"
+  echo "SAMPLE-EN" >"$p/SAMPLE.md"; echo "SAMPLE-ES" >"$p/SAMPLE.es.md"
+  echo "FULL-EN" >"$p/AGENTS.md"; echo "FULL-ES" >"$p/AGENTS.es.md"
+  echo "SMALL-EN" >"$p/profiles/small/AGENTS.md"; echo "SMALL-ES" >"$p/profiles/small/AGENTS.es.md"
+  echo "TRIAL-ES" >"$p/docs/try-the-template.es.md"
+  # Textos que el perfil chico edita con perl: su hermano .es.md (copia del actual) no puede pisar la edición.
+  cp "$p/docs/decisions/README.md" "$p/docs/decisions/README.es.md"
+  cp "$p/.github/pull_request_template.md" "$p/.github/pull_request_template.es.md"
+  # Un archivo que el perfil chico borra (DELETE) y su hermano: el hermano no puede volver como X.md con --lang es.
+  echo "DEL-EN" >"$p/DELETED.md"; echo "DEL-ES" >"$p/DELETED.es.md"; echo "DELETED.md" >>"$p/profiles/small/DELETE"
+  (cd "$p" && git add -A && git commit -qm pares)
+}
+for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-releases es"; do
+  read -r modo idioma <<<"$combinacion"
+  p="$TMP/lang-$modo-$idioma"
+  copiar "$p"; con_pares "$p"
+  extra=(); [ "$modo" = chico ] && extra=(--small)
+  base=(main); [ "$modo" = completo-releases ] && base=(develop releases)
+  [ "$idioma" = en ] && args=(--lang en) || args=(--lang=es)
+  (cd "$p" && ./scripts/init-template.sh Demo "${base[@]}" "${args[@]}" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); afirmar $? "[$modo --lang $idioma] el init termina bien"
+  es -z "$(find "$p" -name '*.es.md' -not -path '*/.git/*')"; afirmar $? "[$modo --lang $idioma] no queda ningún .es.md"
+  if [ "$idioma" = es ]; then
+    grep -qx SAMPLE-ES "$p/SAMPLE.md"; afirmar $? "[$modo --lang es] SAMPLE.md es la versión .es.md"
+    if [ "$modo" = chico ]; then esperado=SMALL-ES; else esperado=FULL-ES; fi
+  else
+    grep -qx SAMPLE-EN "$p/SAMPLE.md"; afirmar $? "[$modo --lang en] SAMPLE.md queda en inglés"
+    if [ "$modo" = chico ]; then esperado=SMALL-EN; else esperado=FULL-EN; fi
+  fi
+  grep -qx "$esperado" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma] AGENTS.md es $esperado (el perfil pisa al archivo completo, cada uno en su idioma)"
+  if [ "$modo" = chico ]; then ! [ -e "$p/DELETED.md" ]; afirmar $? "[$modo --lang $idioma] lo que borra el perfil chico no vuelve desde su hermano .es.md"; fi
+  if [ "$modo" = chico ]; then
+    # shellcheck disable=SC2016  # backticks de Markdown literales
+    viejo1='el PR lleva el label `business-logic`'
+    # shellcheck disable=SC2016
+    viejo2='agregá el label `business-logic`'
+    ! grep -qF "$viejo1" "$p/docs/decisions/README.md" && ! grep -qF "$viejo2" "$p/.github/pull_request_template.md"
+    afirmar $? "[$modo --lang $idioma] los ajustes del perfil chico (label business-logic) valen también con el hermano .es.md"
+  fi
+  ! [ -e "$p/docs/try-the-template.md" ]; afirmar $? "[$modo --lang $idioma] el init sigue borrando la guía de prueba, también su versión .es.md"
+  python3 -c "import json,sys; sys.exit(0 if json.load(open('$p/.agent-kit.json')).get('language') == '$idioma' else 1)"
+  afirmar $? "[$modo --lang $idioma] .agent-kit.json registra language: $idioma"
+done
+# El proyecto instalado tiene un solo idioma: un docs/*.es.md propio no activa la paridad (interruptor parity).
+p="$TMP/lang-propio"
+copiar "$p"
+(cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1 && git add -A && git commit -qm init)
+grep -q '"parity": false' "$p/docs/agents-map.json"; afirmar $? "[completo] el init deja parity apagado en el mapa del proyecto"
+printf '# Guía\n' >"$p/docs/manual.es.md"
+s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
+! grep -q 'sibling\|headings\|code blocks' <<<"$s"; afirmar $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"
+p="$TMP/lang-default"
+copiar "$p"; con_pares "$p"
+(cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1); afirmar $? "[sin --lang] el init termina bien"
+grep -qx SAMPLE-EN "$p/SAMPLE.md" && python3 -c "import json,sys; sys.exit(0 if json.load(open('$p/.agent-kit.json')).get('language') == 'en' else 1)"
+afirmar $? "[sin --lang] el idioma por defecto es en y queda registrado"
+for malo in "--lang fr" "--lang" "--lang="; do
+  p="$TMP/lang-malo"; rm -rf "$p"; copiar "$p"
+  # shellcheck disable=SC2086  # $malo se parte a propósito en opción y valor
+  s=$(cd "$p" && ./scripts/init-template.sh Demo $malo 2>&1); c=$?
+  [ "$c" -ne 0 ] && grep -q -- '--lang' <<<"$s" && [ -e "$p/scripts/init-template.sh" ]
+  afirmar $? "el init rechaza '$malo' con un mensaje sobre --lang y sin tocar nada"
 done
 
 # Los test-*.sh que deja el init pasan en el proyecto nuevo (los corre el CI), con cualquier rama base.

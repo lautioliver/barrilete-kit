@@ -1,23 +1,37 @@
 #!/usr/bin/env bash
 # Replaces the template placeholders and deletes itself.
-# Usage: ./scripts/init-template.sh "Project name" [main|develop] [releases] [--small]
+# Usage: ./scripts/init-template.sh "Project name" [main|develop] [releases] [--small] [--lang en|es]
 #   base branch: main (default) or develop.
 #   releases:  only with develop. Adds the develop → release/vX.Y.Z → main flow
 #              to publish versions without touching production (app with active users).
 #   --small:   for projects of one or two people. Replaces several files with
 #              short versions (profiles/small/) and deletes what solves team
 #              problems (epics, review between sessions, path map, labeler…).
+#   --lang:    prose language, en (default) or es. With es, each X.md is replaced by its
+#              sibling X.es.md; in both cases the leftover .es.md files are deleted (ADR-001).
+#              It is recorded as "language" in .agent-kit.json.
 set -euo pipefail
-USO="Usage: $0 \"Project name\" [main|develop] [releases] [--small]"
+USO="Usage: $0 \"Project name\" [main|develop] [releases] [--small] [--lang en|es]"
 CHICO=""
+LANG_KIT="en"
 POS=()
-for a in "$@"; do
-  case "$a" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --small) CHICO=1 ;;
-    -*) echo "$USO"; echo "Unknown option: $a"; exit 1 ;;
-    *) POS+=("$a") ;;
+    --lang=*) LANG_KIT="${1#--lang=}" ;;
+    --lang)
+      [ $# -ge 2 ] || { echo "$USO"; echo "--lang needs a value: en or es."; exit 1; }
+      LANG_KIT="$2"; shift ;;
+    -*) echo "$USO"; echo "Unknown option: $1"; exit 1 ;;
+    *) POS+=("$1") ;;
   esac
+  shift
 done
+case "$LANG_KIT" in
+  en|es) ;;
+  *) echo "$USO"; echo "--lang must be en or es (got: '$LANG_KIT')."; exit 1 ;;
+esac
+export LANG_KIT
 export P="${POS[0]:?$USO}"
 export B="${POS[1]:-main}"
 MODO="${POS[2]:-}"
@@ -39,17 +53,32 @@ else
   export R="Los PRs de trabajo van a \`$B\`. \`main\` es producción y solo recibe PRs de release desde \`$B\`."
 fi
 cd "$(git rev-parse --show-toplevel)"
+# Language (ADR-001): X.md and X.es.md are siblings. With es, the Spanish one replaces the English one;
+# in both cases no .es.md is left. It goes before the edits and deletions that follow, so they apply to
+# the file that stays (the DELETE list of --small already took the siblings of its own entries).
+apply_language() {
+  { find . -name '*.es.md' -not -path './.git/*' -not -path './profiles/*' || true; } | while read -r f; do
+    if [ "$LANG_KIT" = es ]; then mv -f -- "$f" "${f%.es.md}.md"; else rm -f -- "$f"; fi
+  done
+}
 if [ -n "$CHICO" ]; then
   # The short files overwrite the full ones; then what does not apply is deleted.
   (cd profiles/small && find . -type f ! -name DELETE) | while read -r f; do
     mkdir -p "$(dirname "$f")"
     cp "profiles/small/$f" "$f"
   done
-  grep -v '^#' profiles/small/DELETE | while read -r r; do [ -n "$r" ] && rm -rf -- "$r"; done
+  # A .md entry also takes its Spanish sibling (ADR-001), or --lang es would bring the file back as X.md.
+  grep -v '^#' profiles/small/DELETE | while read -r r; do
+    [ -n "$r" ] || continue
+    rm -rf -- "$r"
+    case "$r" in *.md) rm -f -- "${r%.md}.es.md" ;; esac
+  done
+  apply_language
   # Without the business-logic label: it is edited in place (not copied) so it does not get outdated.
   perl -pi -e 's/el PR lleva el label `business-logic`\./el PR lo dice en "Lógica de negocio afectada"./' docs/decisions/README.md
   perl -pi -e 's/ Si sí: cuál, y agregá el label `business-logic`\./ Si sí: cuál, y por qué cambia./' .github/pull_request_template.md
 fi
+apply_language
 rm -rf profiles
 # The kit ADRs ("Ámbito: kit" line, see docs/decisions/README.md) explain how the template is,
 # not the project: the project numbers its own from ADR-001. Their index lines go in template: blocks.
@@ -88,6 +117,7 @@ else
 fi
 rm -- scripts/init-template.sh scripts/test-init.sh scripts/test-renames.sh  # the tests only make sense with the template
 rm -f scripts/test-update.sh  # builds template versions: it needs the init
+rm -f scripts/agents/test-i18n.sh  # tests the kit's own docs (it assumes the template content)
 # The template version stays in .agent-kit.json; VERSION and CHANGELOG.md belong to the template.
 V=$(cat VERSION 2>/dev/null || true)
 export V
@@ -98,9 +128,11 @@ if [ -f docs/agents-map.json ]; then
 import json
 ruta = "docs/agents-map.json"
 mapa = json.load(open(ruta, encoding="utf-8"))
-mapa["verify"] = [v for v in mapa.get("verify", []) if v.get("name") not in ("init", "update", "renames")]
+mapa["verify"] = [v for v in mapa.get("verify", []) if v.get("name") not in ("init", "update", "renames", "i18n")]
 # CHANGELOG.md and the kit ADRs are deleted above: their ignore entries would hide the project's own ADR-001.
 mapa["ignore_check"] = [g for g in mapa.get("ignore_check", []) if g not in ("CHANGELOG.md", "docs/decisions/ADR-001-*")]
+mapa["parity"] = False  # a project has one language: the siblings check is the template's
+mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("CHANGELOG.md", "docs/decisions/ADR-001-*")]
 open(ruta, "w", encoding="utf-8").write(json.dumps(mapa, ensure_ascii=False, indent=2) + "\n")
 PY
 fi
@@ -117,7 +149,7 @@ for base, dirs, files in os.walk("."):
             archivos[ruta] = hashlib.sha1(open(ruta, "rb").read()).hexdigest()
 json.dump({
     "project": os.environ["P"], "base_branch": os.environ["B"], "releases": os.environ["RELEASES"] == "releases",
-    "mode": os.environ["MODO_KIT"], "date": os.environ["F"], "version": os.environ["V"] or None,
+    "mode": os.environ["MODO_KIT"], "language": os.environ["LANG_KIT"], "date": os.environ["F"], "version": os.environ["V"] or None,
     "files": dict(sorted(archivos.items())),
 }, open(".agent-kit.json", "w"), ensure_ascii=False, indent=2)
 PY

@@ -101,6 +101,26 @@ def archivos_cambiados(args):
     return sorted(n for n in nombres if n)
 
 
+def hermano_de_idioma(ruta):
+    """X.md ↔ X.es.md (ADR-001), or None if it is not a prose file."""
+    if ruta.endswith(".es.md"):
+        return ruta[:-len(".es.md")] + ".md"
+    if ruta.endswith(".md"):
+        return ruta[:-len(".md")] + ".es.md"
+    return None
+
+
+def pares_sin_actualizar(cambiados):
+    """(changed, sibling) for each X.md / X.es.md that exists and changed without its sibling:
+    one language went ahead of the other (check-docs.py only compares the structure)."""
+    pares = []
+    for a in cambiados:
+        h = hermano_de_idioma(a)
+        if h and h not in cambiados and os.path.exists(os.path.join(RAIZ, a)) and os.path.exists(os.path.join(RAIZ, h)):
+            pares.append((a, h))
+    return pares
+
+
 def main():
     args = sys.argv[1:]
     with open(os.path.join(RAIZ, "docs", "agents-map.json")) as f:
@@ -124,8 +144,10 @@ def main():
         if tocados:
             sensibles.append({"type": s["type"], "files": tocados, "skill": s.get("skill")})
 
+    sin_par = pares_sin_actualizar(cambiados)
     if "--json" in args:
-        print(json.dumps({"changed": cambiados, "docs": docs, "sensitive": sensibles}, ensure_ascii=False, indent=2))
+        print(json.dumps({"changed": cambiados, "docs": docs, "sensitive": sensibles,
+                          "unpaired": [{"changed": a, "sibling": h} for a, h in sin_par]}, ensure_ascii=False, indent=2))
         return
 
     print(f"Changed files: {len(cambiados)}")
@@ -135,6 +157,11 @@ def main():
     for d, e in docs.items():
         estado = "already modified in this change" if e["already_changed"] else "NOT MODIFIED"
         print(f"- {d} ({estado}) — {'; '.join(e['reasons'])}: {', '.join(e['files'][:5])}")
+    print("\n## Language siblings")
+    if not sin_par:
+        print("_Every X.md / X.es.md that changed has its sibling in this change._")
+    for a, h in sin_par:
+        print(f"- {a} changed but its sibling {h} did not (UNPAIRED): update it or say in the PR why it can wait.")
     print("\n## Sensitive paths touched")
     if not sensibles:
         print("_None._")

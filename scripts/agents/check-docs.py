@@ -15,6 +15,9 @@ Checks:
 - Skills (.claude/skills/*/SKILL.md) over 120 lines, and docs/agents/lessons.md over 40.
 - Subagents (.claude/agents/*.md) without name, description or tools, with a model that is not
   opus, sonnet or haiku, or that do not point to the common contract (docs/agents/subagent-contract.md).
+- Language siblings (ADR-001), only with "parity": true in the map: every X.md has its X.es.md (and the
+  other way around) with the same number of headings and code blocks. "parity_ignore" in the map lists
+  the exceptions (globs). The ignore_check paths do NOT exempt: profiles/ has siblings too.
 - Members of .github/team.json that are repeated or have areas that are not in labels.yml.
 The paths in "ignore_check" of the map (for example, historical logs) are not validated.
 
@@ -89,7 +92,7 @@ def del_alcance(ruta):
     return KIT is None or ruta in KIT or ruta in ("AGENTS.md", "llms.txt") or ruta.startswith("docs/")
 
 
-def md_files():
+def md_files(aplicar_ignore=True):
     for base, dirs, files in os.walk("."):
         dirs[:] = [d for d in dirs if d not in IGNORAR_DIRS and not d.startswith(".claude/worktrees")]
         if "/.claude/worktrees" in base:
@@ -97,7 +100,7 @@ def md_files():
         for f in files:
             if f.endswith(".md") or f == "llms.txt":
                 ruta = os.path.normpath(os.path.join(base, f))
-                if not any(r.match(ruta) for r in IGNORAR) and del_alcance(ruta):
+                if not (aplicar_ignore and any(r.match(ruta) for r in IGNORAR)) and del_alcance(ruta):
                     yield ruta
 
 
@@ -138,6 +141,45 @@ for indice in ("docs/README.md", "docs/llms.txt"):
         for num, f in adrs.items():
             if num != "000" and f not in contenido:
                 errores.append(f"{indice}: the ADR {f} is missing from the index")
+
+def estructura(ruta):
+    """(number of headings, number of code blocks) outside the ``` blocks: a "# comment" inside one is not a heading."""
+    encabezados = bloques = 0
+    cerco = None  # (character, length) of the open fence; it closes with the same character and at least as long
+    with open(ruta, encoding="utf-8") as fh:
+        for linea in fh:
+            m = re.match(r" {0,3}(`{3,}|~{3,})", linea)
+            if cerco is None and m:
+                cerco = (m.group(1)[0], len(m.group(1)))
+                bloques += 1
+            elif cerco is not None:
+                if m and m.group(1)[0] == cerco[0] and len(m.group(1)) >= cerco[1] and not linea.strip(cerco[0] + " \n"):
+                    cerco = None
+            elif re.match(r"#{1,6}\s", linea):
+                encabezados += 1
+    return encabezados, bloques
+
+
+# Language siblings (ADR-001): X.md in English and X.es.md in Spanish. Only with "parity": true in the map:
+# the template turns it on when its content is translated (#115); the init turns it off in the projects.
+EXENTOS = [glob_a_regex(g) for g in MAPA.get("parity_ignore", [])] if MAPA else []
+pares = [a for a in md_files(aplicar_ignore=False)
+         if a.endswith(".md") and not any(r.match(a) for r in EXENTOS)]
+if MAPA.get("parity"):
+    for es in sorted(a for a in pares if a.endswith(".es.md")):
+        en = es[:-len(".es.md")] + ".md"
+        if not os.path.exists(en):
+            errores.append(f"{es}: has no English sibling {en} (rename the file or add it).")
+    for en in sorted(a for a in pares if not a.endswith(".es.md")):
+        es = en[:-len(".md")] + ".es.md"
+        if not os.path.exists(es):
+            errores.append(f"{en}: missing its Spanish sibling {es}.")
+            continue
+        (h_en, b_en), (h_es, b_es) = estructura(en), estructura(es)
+        if h_es != h_en:
+            errores.append(f"{es}: {h_es} headings, but {en} has {h_en} (one of the two is out of date).")
+        if b_es != b_en:
+            errores.append(f"{es}: {b_es} code blocks, but {en} has {b_en} (one of the two is out of date).")
 
 if MAPA:
     mapa = MAPA
