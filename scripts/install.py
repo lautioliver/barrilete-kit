@@ -8,6 +8,7 @@ Usage (from the root of the project, with a clean working tree):
   --small           small-project mode (the same as the init's).
   --draft           prints the plan and writes nothing.
   --template <url or path>   where to get the kit from (default: AGENT_KIT_TEMPLATE, the clone this script is in, or GitHub).
+  --lang en|es      language of the installed prose (the init's --lang).
   --version vX.Y.Z  kit version (default: the latest tag that includes this script; without one, the default branch).
   -- <options>      everything after `--` goes to scripts/init-template.sh as is (for example `-- --lang es`).
 
@@ -40,7 +41,7 @@ PENDIENTES = ".agent-kit/pending"
 LABELS_GITHUB = {"bug", "documentation", "duplicate", "enhancement", "good first issue", "help wanted", "invalid",
                  "question", "wontfix"}
 USO = 'Usage: python3 install.py "Project name" [main|develop] [releases] [--small] [--draft] ' \
-      "[--template <url or path>] [--version vX.Y.Z] [-- <init options>]"
+      "[--template <url or path>] [--version vX.Y.Z] [--lang en|es] [-- <init options>]"
 
 
 def salir(msg):
@@ -79,7 +80,7 @@ def numero(version):
 
 def parsear(args):
     """(positionals, options, init options)."""
-    opciones = {"small": False, "draft": False, "template": None, "version": None}
+    opciones = {"small": False, "draft": False, "template": None, "version": None, "lang": None}
     pos, extra = [], []
     i = 0
     while i < len(args):
@@ -89,7 +90,7 @@ def parsear(args):
             break
         if a in ("--small", "--draft"):
             opciones[a[2:]] = True
-        elif a in ("--template", "--version"):
+        elif a in ("--template", "--version", "--lang"):
             if i + 1 >= len(args) or args[i + 1].startswith("--"):
                 salir(f"{a} needs a value.\n{USO}")
             opciones[a[2:]] = args[i + 1]
@@ -397,7 +398,7 @@ def main():
     proyecto, base = pos[0], (pos[1] if len(pos) > 1 else "main")
     if base not in ("main", "develop"):
         salir(f"the base branch must be main or develop (got {base}).\n{USO}")
-    args_init = [proyecto, base] + pos[2:] + (["--small"] if op["small"] else []) + extra
+    args_init = [proyecto, base] + pos[2:] + (["--small"] if op["small"] else []) + (["--lang", op["lang"]] if op["lang"] else []) + extra
 
     r = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
     if r.returncode != 0:

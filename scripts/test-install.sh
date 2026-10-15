@@ -352,6 +352,13 @@ assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
 PY
 afirmar $? "grow.py conserva ref, withheld y version null del registro (no escribe la VERSION de la rama por defecto)"
 
+# --lang es llega al init: el registro guarda el idioma.
+U11="$TMP/usuario-lang"
+(repo "$U11") >/dev/null 2>&1
+s=$(cd "$U11" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" --lang es 2>&1); c=$?
+es "$c" -eq 0 && grep -q '"language": "es"' "$U11/.agent-kit.json"
+afirmar $? "--lang es llega al init y queda en .agent-kit.json (salida: $(tail -1 <<<"$s"))"
+
 # Fuera de un repo git, o dentro de la plantilla: error claro.
 mkdir -p "$TMP/vacio"
 s=$(cd "$TMP/vacio" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
