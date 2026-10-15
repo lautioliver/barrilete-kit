@@ -223,6 +223,37 @@ afirmar $? "lo que va después de -- llega al init (--small deja mode small)"
 s=$(cd "$U2" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" -- --nada 2>&1); c=$?
 es "$c" -ne 0; afirmar $? "una opción que el init rechaza hace fallar la instalación"
 
+# Casos borde (revisión): un archivo donde el kit espera una carpeta, un workflow con la otra extensión,
+# un labels.yml propio, un hook de barandas que ya está con otro comando, y la rama base inválida.
+U3="$TMP/usuario-borde"
+(
+  repo "$U3" && printf 'no soy una carpeta\n' >scripts-ejemplo && mv scripts-ejemplo scripts
+  cat >.claude/settings.json <<'JSON'
+{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 scripts/agents/guardrails.py", "timeout": 5}]}]}}
+JSON
+  printf 'name: Labels propio\non: push\njobs: {}\n' >.github/workflows/labels.yaml
+  mkdir -p .github && printf -- '- name: "solo-mio"\n  color: "ABCDEF"\n  description: ""\n' >.github/labels.yml
+  git add -A && git commit -qm borde
+) >/dev/null 2>&1
+s=$(cd "$U3" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
+es "$c" -eq 0 && es -f "$U3/.agent-kit.json"; afirmar $? "[borde] un archivo donde el kit espera una carpeta no deja la instalación a medias (salida: $(tail -1 <<<"$s"))"
+es "$(cat "$U3/scripts")" = "no soy una carpeta" && es -f "$U3/.agent-kit/pending/scripts/update.py"
+afirmar $? "[borde] lo que no cabe queda en .agent-kit/pending/ y el archivo del proyecto no se toca"
+es -f "$U3/.github/workflows/barrilete-labels.yml" && es -f "$U3/.github/workflows/labels.yaml" && ! [ -e "$U3/.github/workflows/labels.yml" ]
+afirmar $? "[borde] un workflow con la otra extensión (.yaml) cuenta como el mismo nombre"
+es "$(grep -c 'solo-mio' "$U3/.github/labels.yml")" = 1 && grep -q 'mi-label' "$U3/.agent-kit/pending/.github/labels.yml" \
+  && grep -q 'labels.yml' <<<"$s" && grep -qi 'before the first sync' <<<"$s"
+afirmar $? "[borde] con un labels.yml propio, el combinado queda en pending y el resumen avisa que hay que integrarlo antes del primer sync"
+es "$(grep -c 'guardrails.py' "$U3/.claude/settings.json")" = 1
+afirmar $? "[borde] el hook de barandas que ya estaba (con otro comando) no se duplica"
+U4="$TMP/usuario-base"
+(repo "$U4") >/dev/null 2>&1
+s=$(cd "$U4" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo releases --template "$P" 2>&1); c=$?
+es "$c" -ne 0 && grep -qi "base branch" <<<"$s" && es -z "$(git -C "$U4" status --porcelain)"
+afirmar $? "[borde] una rama base que no es main ni develop falla antes de tocar nada"
+s=$(cd "$U4" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "--upload-pack=touch $TMP/inyectado" 2>&1); c=$?
+es "$c" -ne 0 && ! [ -e "$TMP/inyectado" ]; afirmar $? "[borde] un --template que empieza con - no se toma como opción de git"
+
 # Fuera de un repo git, o dentro de la plantilla: error claro.
 mkdir -p "$TMP/vacio"
 s=$(cd "$TMP/vacio" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
