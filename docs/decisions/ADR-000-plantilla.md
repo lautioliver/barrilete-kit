@@ -4,6 +4,8 @@
 
 Propuesto | Aceptado (AAAA-MM-DD) | Reemplazado por ADR-NNN
 
+<!-- Solo en ADRs del kit (los que explican cómo es la plantilla): línea `Ámbito: kit`. El init los borra. En un proyecto no va. -->
+
 Origen: <auditoría, plan o issue que la motivó, con link>.
 
 ## Contexto

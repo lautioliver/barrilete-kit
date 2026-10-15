@@ -53,7 +53,7 @@ fi
 rm -rf perfiles
 # Los ADRs del kit (línea "Ámbito: kit", ver docs/decisions/README.md) explican cómo es la plantilla,
 # no el proyecto: el proyecto numera los suyos desde ADR-001. Sus líneas de los índices van en bloques plantilla:.
-{ grep -rlx 'Ámbito: kit' docs/decisions 2>/dev/null || true; } | while read -r f; do rm -f -- "$f"; done
+{ grep -lx 'Ámbito: kit' docs/decisions/ADR-*.md 2>/dev/null || true; } | while read -r f; do rm -f -- "$f"; done
 # La marca (Barrilete) y la guía de prueba son de la plantilla, no del proyecto nuevo.
 rm -rf .github/marca
 rm -f docs/probar-la-plantilla.md .github/ISSUE_TEMPLATE/5-prueba.yml
