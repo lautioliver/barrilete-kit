@@ -99,6 +99,8 @@ con_pares() { # con_pares <copia>: pares de ejemplo en el repo, en el perfil chi
   echo "FULL-EN" >"$p/AGENTS.md"; echo "FULL-ES" >"$p/AGENTS.es.md"
   echo "SMALL-EN" >"$p/profiles/small/AGENTS.md"; echo "SMALL-ES" >"$p/profiles/small/AGENTS.es.md"
   echo "TRIAL-ES" >"$p/docs/try-the-template.es.md"
+  # Un archivo que el perfil chico borra (DELETE) y su hermano: el hermano no puede volver como X.md con --lang es.
+  echo "DEL-EN" >"$p/DELETED.md"; echo "DEL-ES" >"$p/DELETED.es.md"; echo "DELETED.md" >>"$p/profiles/small/DELETE"
   (cd "$p" && git add -A && git commit -qm pares)
 }
 for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-releases es"; do
@@ -118,6 +120,7 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
     if [ "$modo" = chico ]; then esperado=SMALL-EN; else esperado=FULL-EN; fi
   fi
   grep -qx "$esperado" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma] AGENTS.md es $esperado (el perfil pisa al archivo completo, cada uno en su idioma)"
+  if [ "$modo" = chico ]; then ! [ -e "$p/DELETED.md" ]; afirmar $? "[$modo --lang $idioma] lo que borra el perfil chico no vuelve desde su hermano .es.md"; fi
   ! [ -e "$p/docs/try-the-template.md" ]; afirmar $? "[$modo --lang $idioma] el init sigue borrando la guía de prueba, también su versión .es.md"
   python3 -c "import json,sys; sys.exit(0 if json.load(open('$p/.agent-kit.json')).get('language') == '$idioma' else 1)"
   afirmar $? "[$modo --lang $idioma] .agent-kit.json registra language: $idioma"

@@ -54,6 +54,16 @@ copia; par docs/sample
 s=$(check)
 ! grep -q Traceback <<<"$s"; afirmar $? "el check de paridad no deja un Traceback"
 
+# Cercos de código: uno de cuatro backticks que envuelve uno de tres, y uno con ~~~, cuentan como un bloque cada uno.
+copia
+printf '# T\n\n````md\n```bash\nls\n```\n````\n\n~~~\n# not a heading\n~~~\n' >"$TMP/r/docs/fences.md"
+printf '# T\n\n````md\n```bash\nls\n```\n````\n\n~~~\n# no es encabezado\n~~~\n' >"$TMP/r/docs/fences.es.md"
+s=$(check)
+! grep -q 'fences' <<<"$s"; afirmar $? "cercos de cuatro backticks y de ~~~: el mismo contenido en los dos idiomas no da diferencias"
+printf '\n~~~\nx\n~~~\n' >>"$TMP/r/docs/fences.es.md"
+s=$(check)
+grep -q 'docs/fences.es.md.*3 code blocks.*docs/fences.md.*2' <<<"$s"; afirmar $? "un bloque ~~~ de más en un idioma se cuenta"
+
 # Aviso del PR: agents_map.py dice qué par cambió de un solo lado.
 copia; par docs/sample
 (cd "$TMP/r" && git add -A && git commit -qm pares && git checkout -qb feat && echo "More." >>docs/sample.md && git commit -qam cambio)
