@@ -1,15 +1,16 @@
-# .github/workflows/labels.yml — <PROYECTO>
-# 1) sync:    aplica .github/labels.yml al repo (borra labels que no estén en el archivo).
-# 2) labeler: etiqueta PRs según rama y archivos (.github/labeler.yml).
-# 3) check:   valida los labels del PR contra docs/convencion-nombres-github.md §5 y, en las ramas
-#             de agentes (claude/…), que el cuerpo cierre o referencie un issue (Refs #n, para un PR
-#             que no lo cierra, como un diagnóstico) y muestre el rojo de los tests.
+# .github/workflows/labels.yml — <PROJECT>
+# 1) sync:    applies .github/labels.yml to the repo (deletes labels that are not in the file;
+#             `aliases` rename the old labels and keep the ones already set on issues).
+# 2) labeler: labels PRs according to branch and files (.github/labeler.yml).
+# 3) check:   validates the PR labels against docs/github-naming-convention.md §5 and, on agent
+#             branches (claude/…), that the body closes or references an issue (Refs #n, for a PR
+#             that does not close it, like a diagnosis) and shows the red of the tests.
 name: Labels
 
 on:
   push:
-    # main: para la plantilla misma. El init lo deja en [<RAMA_BASE>].
-    branches: [main, <RAMA_BASE>]
+    # main: for the template itself. The init leaves it as [<BASE_BRANCH>].
+    branches: [main, <BASE_BRANCH>]
     paths: ['.github/labels.yml']
   pull_request_target:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
@@ -27,7 +28,7 @@ jobs:
       - uses: EndBug/label-sync@v2
         with:
           config-file: .github/labels.yml
-          delete-other-labels: true   # borra bug, enhancement, etc. (convención §5)
+          delete-other-labels: true   # deletes bug, enhancement, etc. (convention §5)
 
   labeler:
     if: github.event_name == 'pull_request_target' && contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)
@@ -37,14 +38,14 @@ jobs:
       issues: read
       pull-requests: write
     steps:
-      # No hace checkout del código del PR: seguro con pull_request_target.
-      # La config se lee de la rama base, así que los cambios a labeler.yml rigen después del merge.
+      # It does not check out the PR code: safe with pull_request_target.
+      # The config is read from the base branch, so changes to labeler.yml apply after the merge.
       - uses: actions/labeler@v5
         with:
-          sync-labels: false   # no quita labels puestos a mano (tipo:audit, logica-negocio, etc.)
-      # Las ramas de agentes (claude/…) no dicen el tipo: se copia del issue que el PR cierra.
-      # Salió de /mejorar-skills en un repo real: las ramas de agentes llegaban sin tipo y el check fallaba.
-      - name: Copiar tipo y área del issue
+          sync-labels: false   # does not remove labels set by hand (type:audit, business-logic, etc.)
+      # Agent branches (claude/…) do not say the type: it is copied from the issue the PR closes.
+      # It came out of /improve-skills in a real repo: agent branches arrived without a type and the check failed.
+      - name: Copy type and area from the issue
         uses: actions/github-script@v7
         with:
           script: |
@@ -53,7 +54,7 @@ jobs:
               ...context.repo, issue_number: pr.number,
             });
             const tiene = p => actual.some(l => l.name.startsWith(p));
-            if (tiene('tipo:')) return core.info('El PR ya tiene tipo:.');
+            if (tiene('type:')) return core.info('The PR already has a type:.');
             const nums = new Set();
             for (const m of (pr.body || '').matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)/gi)) nums.add(Number(m[1]));
             const rama = pr.head.ref.match(/^[a-z]+\/(\d+)-/);
@@ -65,14 +66,14 @@ jobs:
               } catch { continue; }
               if (issue.pull_request) continue;
               const nombres = issue.labels.map(l => (typeof l === 'string' ? l : l.name));
-              const tipo = nombres.find(l => l.startsWith('tipo:'));
+              const tipo = nombres.find(l => l.startsWith('type:'));
               if (!tipo) continue;
               const copiar = [tipo, ...(tiene('area:') ? [] : nombres.filter(l => l.startsWith('area:')))];
               await github.rest.issues.addLabels({ ...context.repo, issue_number: pr.number, labels: copiar });
-              core.notice(`Copiado del issue #${n}: ${copiar.join(', ')}`);
+              core.notice(`Copied from issue #${n}: ${copiar.join(', ')}`);
               return;
             }
-            core.info('No encontré un issue con tipo: (Closes #n o el número en la rama).');
+            core.info('I did not find an issue with type: (Closes #n or the number in the branch).');
 
   labels:
     needs: [labeler]
@@ -91,34 +92,34 @@ jobs:
             const names = pr.labels.map(l => l.name);
             const count = p => names.filter(n => n.startsWith(p)).length;
             const errors = [];
-            if (count('tipo:') !== 1)    errors.push(`tipo: debe haber exactamente 1 (hay ${count('tipo:')}). Ramas claude/, cursor/ y release/ lo llevan a mano.`);
-            if (count('prioridad:') > 0) errors.push('prioridad: no se usa en PRs (solo en issues).');
-            if (count('estado:') > 1)    errors.push(`estado: máximo 1 (hay ${count('estado:')}).`);
-            if (count('area:') === 0)    core.warning('Ningún area: detectado. Si el PR toca producto, ponelo a mano.');
-            if (count('area:') > 2)      core.warning(`${count('area:')} labels area: (la convención pide 1–2). Revisá si conviene dividir el PR.`);
-            if (names.includes('logica-negocio')) {
-              core.notice('logica-negocio: requiere revisión de todo el equipo y la sección "Lógica de negocio afectada" completa.');
-              // Si cambia una regla definida, el ADR que la define se enmienda en el mismo PR.
-              // Excepción explícita: una línea "ADR sin cambios: <motivo>" en el cuerpo.
+            if (count('type:') !== 1)    errors.push(`type: there must be exactly 1 (there are ${count('type:')}). claude/, cursor/ and release/ branches carry it by hand.`);
+            if (count('priority:') > 0) errors.push('priority: is not used on PRs (only on issues).');
+            if (count('status:') > 1)    errors.push(`status: at most 1 (there are ${count('status:')}).`);
+            if (count('area:') === 0)    core.warning('No area: detected. If the PR touches the product, set it by hand.');
+            if (count('area:') > 2)      core.warning(`${count('area:')} area: labels (the convention asks for 1–2). Check whether the PR should be split.`);
+            if (names.includes('business-logic')) {
+              core.notice('business-logic: requires review by the whole team and the "Lógica de negocio afectada" section filled in.');
+              // If it changes a defined rule, the ADR that defines it is amended in the same PR.
+              // Explicit exception: an "ADR sin cambios: <motivo>" line in the body.
               const archivos = await github.paginate(github.rest.pulls.listFiles, {
                 ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100,
               });
               const tocaAdr = archivos.some(f => f.filename.startsWith('docs/decisions/'));
               const explica = /ADR sin cambios:\s*\S/i.test(pr.body || '');
-              if (!tocaAdr && !explica) errors.push('logica-negocio sin cambios en docs/decisions/: enmendá el ADR que define la regla, o agregá al cuerpo "ADR sin cambios: <motivo>".');
+              if (!tocaAdr && !explica) errors.push('business-logic without changes in docs/decisions/: amend the ADR that defines the rule, or add "ADR sin cambios: <motivo>" to the body.');
             }
-            // Ramas de agentes: lo que implement-issue pide en el cuerpo, validado acá en vez de en la skill.
+            // Agent branches: what implement-issue asks for in the body, validated here instead of in the skill.
             if (/^claude\//.test(pr.head.ref)) {
-              // Sin los comentarios <!-- … --> de la plantilla: mencionan "Rojo antes de implementar" y "sin test".
+              // Without the <!-- … --> comments of the template: they mention "Rojo antes de implementar" and "sin test".
               const body = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '');
-              // Refs #n, en su propia línea: el PR es parte del issue pero no lo cierra (un diagnóstico,
-              // un paso de varios). Un "ref #38" de pasada en el texto no cuenta.
+              // Refs #n, on its own line: the PR is part of the issue but does not close it (a diagnosis,
+              // one step of several). A passing "ref #38" in the text does not count.
               const cierra = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#\d+/i;
               const refiere = /^\s*refs?:?\s+#\d+/im;
               if (!cierra.test(body) && !refiere.test(body))
-                errors.push('el cuerpo no cierra ni referencia ningún issue: agregá "Closes #<n>" (o "Refs #<n>" si no lo cierra).');
+                errors.push('the body neither closes nor references any issue: add "Closes #<n>" (or "Refs #<n>" if it does not close it).');
               if (!/<summary>Rojo antes de implementar<\/summary>|sin tests?\b[^\S\n]*:?[^\S\n]*\n?[^\S\n]*\S/i.test(body))
-                errors.push('falta en "Cómo probarlo" el bloque "Rojo antes de implementar" de rojo.sh (o "sin test" con el motivo).');
+                errors.push('the "Rojo antes de implementar" block from red.sh is missing in "Cómo probarlo" (or "sin test" with the reason).');
             }
-            if (errors.length) core.setFailed('PR fuera de convención:\n- ' + errors.join('\n- '));
+            if (errors.length) core.setFailed('PR out of convention:\n- ' + errors.join('\n- '));
             else core.info('PR OK. Labels: ' + names.join(', '));

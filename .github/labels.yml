@@ -1,23 +1,33 @@
-# .github/labels.yml — <PROYECTO>
-# Fuente de verdad de los labels del repo. Ver docs/convencion-nombres-github.md §5
+# .github/labels.yml — <PROJECT>
+# Fuente de verdad de los labels del repo. Ver docs/github-naming-convention.md §5
 # Formato compatible con EndBug/label-sync y crazy-max/ghaction-github-labeler.
 
-# ── tipo: ────────────────────────────────────────────
-- name: "tipo:feature"
+# ── type: ────────────────────────────────────────────
+- name: "type:feature"
   color: "7B61FF"
   description: "Funcionalidad nueva o cambio de comportamiento visible"
-- name: "tipo:bug"
+  aliases:
+    - "tipo:feature"
+- name: "type:bug"
   color: "7B61FF"
   description: "Algo no funciona como está definido"
-- name: "tipo:task"
+  aliases:
+    - "tipo:bug"
+- name: "type:task"
   color: "7B61FF"
   description: "Trabajo técnico sin cambio visible"
-- name: "tipo:audit"
+  aliases:
+    - "tipo:task"
+- name: "type:audit"
   color: "7B61FF"
   description: "Hallazgo surgido de una auditoría"
-- name: "tipo:docs"
+  aliases:
+    - "tipo:audit"
+- name: "type:docs"
   color: "7B61FF"
   description: "Documentación"
+  aliases:
+    - "tipo:docs"
 
 # ── area: ────────────────────────────────────────────
 # TODO: una por área del producto; mismos nombres que los scopes de commit (§2).
@@ -32,35 +42,51 @@
   color: "1D76DB"
   description: "Documentación, ADRs y reglas para agentes"
 
-# ── prioridad: ───────────────────────────────────────
-- name: "prioridad:critica"
+# ── priority: ───────────────────────────────────────
+- name: "priority:critical"
   color: "B60205"
   description: "Rompe producción o afecta dinero/entradas"
-- name: "prioridad:alta"
+  aliases:
+    - "prioridad:critica"
+- name: "priority:high"
   color: "D93F0B"
   description: "Bloquea el próximo hito"
-- name: "prioridad:media"
+  aliases:
+    - "prioridad:alta"
+- name: "priority:medium"
   color: "FBCA04"
   description: "Importante pero no bloquea"
-- name: "prioridad:baja"
+  aliases:
+    - "prioridad:media"
+- name: "priority:low"
   color: "C5C5C5"
   description: "Mejora deseable, sin fecha"
+  aliases:
+    - "prioridad:baja"
 
-# ── estado: ──────────────────────────────────────────
-- name: "estado:a-triar"
+# ── status: ───────────────────────────────────────────────────────────────────────────────────
+- name: "status:triage"
   color: "FEF2C0"
   description: "Falta asignar tipo, área y prioridad"
-- name: "estado:necesita-info"
+  aliases:
+    - "estado:a-triar"
+- name: "status:needs-info"
   color: "FEF2C0"
   description: "No se puede avanzar sin más datos"
-- name: "estado:bloqueado"
+  aliases:
+    - "estado:necesita-info"
+- name: "status:blocked"
   color: "FEF2C0"
   description: "Depende de otro issue o de un tercero"
+  aliases:
+    - "estado:bloqueado"
 
 # ── especiales ───────────────────────────────────────
-- name: "logica-negocio"
+- name: "business-logic"
   color: "000000"
   description: "Toca una regla de negocio ya definida; requiere revisión del equipo"
+  aliases:
+    - "logica-negocio"
 - name: "breaking-change"
   color: "000000"
   description: "Rompe compatibilidad"

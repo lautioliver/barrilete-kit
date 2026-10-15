@@ -1,4 +1,0 @@
-{
-  "_ayuda": "Integrantes del equipo para asignar issues. Lo leen solo los scripts que crean issues (crear-issue, planificar.py). Se edita con /add-member y /remove-member (scripts/agentes/equipo.py). areas: labels area: de .github/labels.yml que cubre cada uno.",
-  "integrantes": []
-}

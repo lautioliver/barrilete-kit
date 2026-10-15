@@ -1,6 +1,6 @@
 name: Feature
 description: Funcionalidad nueva o cambio de comportamiento visible
-labels: ["tipo:feature", "estado:a-triar"]
+labels: ["type:feature", "status:triage"]
 body:
   - type: markdown
     attributes:

@@ -1,4 +1,4 @@
-# Visión — <PROYECTO>
+# Visión — <PROJECT>
 
 > Qué es, qué hay y qué viene. Narrativa, no especificación.
 

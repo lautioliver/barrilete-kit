@@ -1,6 +1,6 @@
-# Documentación de <PROYECTO>
+# Documentación de <PROJECT>
 
-TODO: qué es <PROYECTO> en una frase, con link al ADR que lo define.
+TODO: qué es <PROJECT> en una frase, con link al ADR que lo define.
 
 Esta carpeta es el mapa. El código es la verdad de lo que corre; acá se dice **dónde leer** y **qué no mezclar**.
 
@@ -60,9 +60,9 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 ### Decisiones
 
 - [Cómo se escribe un ADR](decisions/README.md)
-<!-- plantilla:inicio -->
-- [ADR-001 (kit)](decisions/ADR-001-idioma-labels-y-nombres-en-ingles.md) — idioma del kit: prosa en dos idiomas, labels y nombres en inglés (ADR del kit: el init no lo instala)
-<!-- plantilla:fin -->
+<!-- template:start -->
+- [ADR-001 (kit)](decisions/ADR-001-language-labels-and-names-in-english.md) — idioma del kit: prosa en dos idiomas, labels y nombres en inglés (ADR del kit: el init no lo instala)
+<!-- template:end -->
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — resumen en una línea`
 
 ### Guías
@@ -73,12 +73,12 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 
 - [`AGENTS.md`](../AGENTS.md) — convenciones cortas para quien toca el repo
 - [`llms.txt`](llms.txt) — índice compacto para modelos
-- [`convencion-nombres-github.md`](convencion-nombres-github.md) — ramas, commits, PRs, issues y labels ([`.github/labels.yml`](../.github/labels.yml))
-- [`mapa-agentes.json`](mapa-agentes.json) — qué docs revisar según lo que cambia, rutas sensibles y docs obligatorios
-- [`agentes/contrato-subagentes.md`](agentes/contrato-subagentes.md) — reglas y formato de salida de los subagentes de `.claude/agents/` (implementador, implementador liviano, revisor)
-- [`agentes/lecciones.md`](agentes/lecciones.md) — lo aprendido de las retros de los agentes, revisado en un PR (las retros crudas viven en la rama `agentes/retros`)
-- Skills en [`../.claude/skills/`](../.claude/skills/): `plan-feature`, `crear-issue`, `implement-issue`, `debug`, `db-migration`, `update-docs`, `review-pr`, `estado`, `git-workflow`, `mejorar-skills`, `orquestar`
-- Los docs se validan en CI: [`../scripts/agentes/check-docs.py`](../scripts/agentes/check-docs.py)
+- [`github-naming-convention.md`](github-naming-convention.md) — ramas, commits, PRs, issues y labels ([`.github/labels.yml`](../.github/labels.yml))
+- [`agents-map.json`](agents-map.json) — qué docs revisar según lo que cambia, rutas sensibles y docs obligatorios
+- [`agents/subagent-contract.md`](agents/subagent-contract.md) — reglas y formato de salida de los subagentes de `.claude/agents/` (implementador, implementador liviano, revisor)
+- [`agents/lessons.md`](agents/lessons.md) — lo aprendido de las retros de los agentes, revisado en un PR (las retros crudas viven en la rama `agentes/retros`)
+- Skills en [`../.claude/skills/`](../.claude/skills/): `plan-feature`, `create-issue`, `implement-issue`, `debug`, `db-migration`, `update-docs`, `review-pr`, `project-status`, `git-workflow`, `improve-skills`, `orchestrate`
+- Los docs se validan en CI: [`../scripts/agents/check-docs.py`](../scripts/agents/check-docs.py)
 
 ---
 

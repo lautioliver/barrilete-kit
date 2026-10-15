@@ -1,0 +1,22 @@
+# Rutas que el modo --small borra (relativas a la raíz). Una por línea.
+.claude/skills/plan-feature
+.claude/skills/review-pr
+.claude/skills/project-status
+.claude/skills/db-migration
+docs/agents-map.json
+docs/reference
+docs/development
+docs/guides
+scripts/agents/agents_map.py
+.github/labeler.yml
+.github/workflows/unblock.yml
+.github/workflows/pr-title.yml
+.github/ISSUE_TEMPLATE
+.claude/skills/git-workflow
+scripts/agents/verify.py
+.claude/skills/improve-skills
+docs/agents
+.claude/agents
+scripts/agents/test-agents.sh
+README.en.md
+.claude/skills/orchestrate

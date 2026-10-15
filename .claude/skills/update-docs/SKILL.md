@@ -13,10 +13,10 @@ Regla de fondo (`docs/README.md`): si un doc y el código no coinciden, **gana e
 
 1. **Qué tocar:**
    ```bash
-   python3 scripts/agentes/mapa.py            # rama actual contra la base
-   python3 scripts/agentes/mapa.py --pr <n>   # o un PR
+   python3 scripts/agents/agents_map.py            # rama actual contra la base
+   python3 scripts/agents/agents_map.py --pr <n>   # o un PR
    ```
-   Lista los docs que el mapa (`docs/mapa-agentes.json`) asocia a los archivos cambiados, marcando los que siguen **SIN MODIFICAR**.
+   Lista los docs que el mapa (`docs/agents-map.json`) asocia a los archivos cambiados, marcando los que siguen **NOT MODIFIED**.
 2. **Revisar cada uno** contra el diff (`git diff <base>...HEAD`). El mapa sugiere; vos decidís. Un doc listado puede no necesitar cambios (el cambio no altera lo que describe), y un doc no listado puede necesitarlos.
 3. **Además del mapa**, revisá siempre:
    - ¿Cambió un comando o una convención? → `AGENTS.md`.
@@ -26,7 +26,7 @@ Regla de fondo (`docs/README.md`): si un doc y el código no coinciden, **gana e
 4. **Escribir.** Cambios mínimos y precisos: describí lo que hay, no la historia del cambio (eso va en el PR). No dupliques listas canónicas: si la lista vive en otro archivo, enlazala.
 5. **Validar:**
    ```bash
-   python3 scripts/agentes/check-docs.py
+   python3 scripts/agents/check-docs.py
    ```
 6. **Reportar** qué docs cambiaste y cuáles del mapa decidiste no tocar y por qué. Esto va en el PR.
 
@@ -36,7 +36,7 @@ Con "¿qué docs quedaron viejos?" o "revisá que architecture.md esté al día"
 
 1. Corré `check-docs.py` (links y rutas rotas son el síntoma más barato).
 2. Por cada doc de `docs/reference/` y `docs/development/architecture.md`, compará lo que afirma con el código: endpoints, tablas, módulos, comandos. Priorizá lo que un agente usaría para decidir.
-3. Listá los desfases encontrados con archivo y línea. Los chicos, corregilos en un PR `docs(docs): …`; los grandes, como issues (`crear-issue`, `tipo:docs`).
+3. Listá los desfases encontrados con archivo y línea. Los chicos, corregilos en un PR `docs(docs): …`; los grandes, como issues (`create-issue`, `type:docs`).
 
 ## No hacer
 

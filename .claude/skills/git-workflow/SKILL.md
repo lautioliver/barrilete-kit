@@ -3,17 +3,17 @@ name: git-workflow
 description: Flujo de ramas, commits y PRs de este repo. Usar siempre que crees ramas, commits, pushes o pull requests.
 ---
 
-# Git workflow — <PROYECTO>
+# Git workflow — <PROJECT>
 
-Detalle en `docs/convencion-nombres-github.md`. Resumen obligatorio en `AGENTS.md`.
+Detalle en `docs/github-naming-convention.md`. Resumen obligatorio en `AGENTS.md`.
 
 ## Ramas
 
-- <REGLA_RAMAS> Creá la rama de trabajo desde `<RAMA_BASE>` actualizada.
+- <BRANCH_RULE> Creá la rama de trabajo desde `<BASE_BRANCH>` actualizada.
 - Nombre: `claude/<n°issue>-<descripcion>` (agente) o `<tipo>/<n°issue>-<descripcion>` (persona). Solo minúsculas, números y guiones.
-- Si no hay issue, preguntá si abrir uno (skill `crear-issue`) antes de inventar el número.
+- Si no hay issue, preguntá si abrir uno (skill `create-issue`) antes de inventar el número.
 
-<!-- releases:inicio -->
+<!-- releases:start -->
 ## Releases (`develop` → `release/*` → `main`)
 
 Para publicar sin tocar producción hasta que la versión esté probada:
@@ -30,7 +30,7 @@ Hotfix (algo roto en producción):
 - **Siempre vuelve a `develop`**, y a la `release/*` abierta si hay una. Si no vuelve, el bug reaparece en la próxima versión.
 
 Un agente no corta releases, ni mergea a `main`, ni crea tags sin que se lo pidan explícitamente.
-<!-- releases:fin -->
+<!-- releases:end -->
 
 ## Commits
 
@@ -43,9 +43,9 @@ Un agente no corta releases, ni mergea a `main`, ni crea tags sin que se lo pida
 1. Nunca push directo a las ramas troncales. Todo entra por PR.
 2. Título con el mismo formato que un commit.
 3. Cuerpo con `.github/pull_request_template.md`: Qué cambia / Por qué / Lógica de negocio afectada / Cómo probarlo / `Closes #n`.
-4. Labels: exactamente un `tipo:` (las ramas `claude/` no lo reciben automático: ponelo vos), 1–2 `area:`, ningún `prioridad:`. Solo labels de `.github/labels.yml`.
-5. Si cambia una regla de un ADR, auditoría o plan: label `logica-negocio` y explicarlo en "Lógica de negocio afectada".
+4. Labels: exactamente un `type:` (las ramas `claude/` no lo reciben automático: ponelo vos), 1–2 `area:`, ningún `priority:`. Solo labels de `.github/labels.yml`.
+5. Si cambia una regla de un ADR, auditoría o plan: label `business-logic` y explicarlo en "Lógica de negocio afectada".
 
 ```bash
-gh pr create --base <RAMA_BASE> --title "fix(api): …" --body-file <archivo> --label "tipo:bug" --label "area:api"
+gh pr create --base <BASE_BRANCH> --title "fix(api): …" --body-file <archivo> --label "type:bug" --label "area:api"
 ```

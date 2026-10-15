@@ -1,4 +1,4 @@
-# AGENTS.md — <PROYECTO>
+# AGENTS.md — <PROJECT>
 
 Contexto rápido para agentes y devs que tocan este repo. Es la fuente de las reglas para LLMs: `CLAUDE.md` solo lo importa.
 
@@ -50,7 +50,7 @@ Qué puede hacer un agente solo y qué tiene que consultar antes. "Consultar" es
 - Agregar, quitar o subir de versión mayor una dependencia.
 - Cambiar una API pública o un contrato que consumen terceros.
 - Tocar auth, permisos, sesiones o manejo de secretos.
-- Cambiar una regla de negocio ya definida (ADR, auditoría, plan) → label `logica-negocio`.
+- Cambiar una regla de negocio ya definida (ADR, auditoría, plan) → label `business-logic`.
 - Tocar infraestructura, deploy o CI.
 - Tomar una decisión difícil de revertir → proponer un ADR.
 - Ampliar el alcance más allá de lo que pide el issue.
@@ -61,27 +61,27 @@ Qué puede hacer un agente solo y qué tiene que consultar antes. "Consultar" es
 - Poner secretos en código, logs, issues o PRs.
 - Desactivar tests, checks o validaciones para que algo pase.
 
-Un hook (`scripts/agentes/barandas.py`, registrado en `.claude/settings.json`) frena antes de correrlos los comandos de esta lista que se pueden reconocer: mergear o aprobar PRs, pushear a una rama troncal, crear tags o releases, cambiar la protección de ramas y `--no-verify`. En Codex, Copilot y Cursor lo registran `.codex/hooks.json`, `.github/hooks/barandas.json` y `.cursor/hooks.json`. Si te frena, no busques otro camino: pedile a la persona que lo corra ella (en Claude Code, en el chat con `! <comando>`). Claude Code solo lo carga si la sesión se abrió en la raíz del repo. Cambiar el hook o su registro es tocar CI e infraestructura: se consulta.
+Un hook (`scripts/agents/guardrails.py`, registrado en `.claude/settings.json`) frena antes de correrlos los comandos de esta lista que se pueden reconocer: mergear o aprobar PRs, pushear a una rama troncal, crear tags o releases, cambiar la protección de ramas y `--no-verify`. En Codex, Copilot y Cursor lo registran `.codex/hooks.json`, `.github/hooks/guardrails.json` y `.cursor/hooks.json`. Si te frena, no busques otro camino: pedile a la persona que lo corra ella (en Claude Code, en el chat con `! <comando>`). Claude Code solo lo carga si la sesión se abrió en la raíz del repo. Cambiar el hook o su registro es tocar CI e infraestructura: se consulta.
 
-Las skills mejoran con el uso: `implement-issue` y `review-pr` terminan con una retro en la rama `agentes/retros` (`retro.sh`) y `/mejorar-skills` propone ajustes **siempre en un PR**; nunca quita ni afloja estas reglas. Lo que no llega a skill queda en `docs/agentes/lecciones.md`: es lo único de las retros que leen los agentes. Un PR con `logica-negocio` tiene que enmendar el ADR de la regla o decir "ADR sin cambios: <motivo>" (lo controla el check de labels).
+Las skills mejoran con el uso: `implement-issue` y `review-pr` terminan con una retro en la rama `agentes/retros` (`retro.sh`) y `/improve-skills` propone ajustes **siempre en un PR**; nunca quita ni afloja estas reglas. Lo que no llega a skill queda en `docs/agents/lessons.md`: es lo único de las retros que leen los agentes. Un PR con `business-logic` tiene que enmendar el ADR de la regla o decir "ADR sin cambios: <motivo>" (lo controla el check de labels).
 
-**Subagentes** (`.claude/agents/`, los lanza `/orquestar`: `implementador` en Sonnet, `implementador-liviano` en Haiku, `revisor` en Opus): las mismas reglas, más `docs/agentes/contrato-subagentes.md`. Trabajan solo en su worktree, no pueden consultar a la persona (comentan en el issue y devuelven `consulta`), nunca publican reviews ni comentarios en PRs, y el liviano escala a Sonnet si el issue toca rutas sensibles o lógica de negocio.
+**Subagentes** (`.claude/agents/`, los lanza `/orchestrate`: `implementer` en Sonnet, `implementer-light` en Haiku, `reviewer` en Opus): las mismas reglas, más `docs/agents/subagent-contract.md`. Trabajan solo en su worktree, no pueden consultar a la persona (comentan en el issue y devuelven `consulta`), nunca publican reviews ni comentarios en PRs, y el liviano escala a Sonnet si el issue toca rutas sensibles o lógica de negocio.
 
-Las rutas de cada categoría están en `docs/mapa-agentes.json` (`sensibles`). `scripts/agentes/mapa.py` dice si un cambio las toca, y `scripts/agentes/verificar.py` corre, antes del PR, las verificaciones que corresponden a lo que cambió (sección `verificar` del mapa).
+Las rutas de cada categoría están en `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` dice si un cambio las toca, y `scripts/agents/verify.py` corre, antes del PR, las verificaciones que corresponden a lo que cambió (sección `verify` del mapa).
 
 ## Convenciones de GitHub (obligatorio)
 
-Fuente de verdad: `docs/convencion-nombres-github.md`. Labels: `.github/labels.yml`. Solo lo marcado como decidido en su §12 es obligatorio. Lo que no esté decidido o cubierto se le pregunta al equipo antes de inventar un formato.
+Fuente de verdad: `docs/github-naming-convention.md`. Labels: `.github/labels.yml`. Solo lo marcado como decidido en su §12 es obligatorio. Lo que no esté decidido o cubierto se le pregunta al equipo antes de inventar un formato.
 
 - **Ramas:** Conventional Branch 1.1, `<tipo>/<n°issue>-<descripcion>`. Tipos: `feat`, `fix`, `hotfix`, `chore`, `release`. Si la crea un agente: `claude/<n°issue>-<descripcion>`. Solo minúsculas, números y guiones, sin tildes ni ñ.
-- **Rama base:** <REGLA_RAMAS> Ver la skill `git-workflow`.
+- **Rama base:** <BRANCH_RULE> Ver la skill `git-workflow`.
 - **Commits y títulos de PR:** Conventional Commits 1.0, `<tipo>(<scope>): <descripcion>`, en imperativo, minúscula, sin punto final, ≤ 72 caracteres. Tipos en inglés; descripción en español.
-- **Scopes:** los de `docs/convencion-nombres-github.md` §2. Si un cambio toca varios, se omite el scope o se divide en varios commits.
+- **Scopes:** los de `docs/github-naming-convention.md` §2. Si un cambio toca varios, se omite el scope o se divide en varios commits.
 - **Cuerpo del PR:** `.github/pull_request_template.md` (Qué cambia / Por qué / Lógica de negocio afectada / Cómo probarlo / `Closes #n`).
-- **Labels:** prefijo `grupo:valor` (`tipo:`, `area:`, `prioridad:`, `estado:`, más `logica-negocio` y `breaking-change`). Solo los de `.github/labels.yml`; no crear otros.
-- **Lógica de negocio:** si el PR cambia una regla ya definida (ADR, auditoría o plan), va el label `logica-negocio` y se explica en el PR.
+- **Labels:** prefijo `grupo:valor` (`type:`, `area:`, `priority:`, `status:`, más `business-logic` y `breaking-change`). Solo los de `.github/labels.yml`; no crear otros.
+- **Lógica de negocio:** si el PR cambia una regla ya definida (ADR, auditoría o plan), va el label `business-logic` y se explica en el PR.
 - **Equipo:** los issues nuevos se asignan solos a un integrante (por área y carga). El equipo se cambia con `/add-member` y `/remove-member`; no edites el archivo a mano. Asignado = responsable; en curso = con PR abierto.
-- **Issues:** se abren con la skill `crear-issue`. Título en imperativo y sin prefijo; el tipo va en el label `tipo:`. Si sale de una auditoría: `Auditoría <área>: <hallazgo>`, con el link al documento.
+- **Issues:** se abren con la skill `create-issue`. Título en imperativo y sin prefijo; el tipo va en el label `type:`. Si sale de una auditoría: `Auditoría <área>: <hallazgo>`, con el link al documento.
 - **Decisiones irreversibles:** ADR nuevo en `docs/decisions/` (ver su README).
 
 Nada entra a las ramas troncales sin PR. La única rama que se escribe sin PR es `agentes/retros`, y solo con `retro.sh`.
@@ -90,11 +90,11 @@ Nada entra a las ramas troncales sin PR. La única rama que se escribe sin PR es
 
 - `docs/README.md` — hub (cómo leer, capas de verdad)
 - `docs/llms.txt` — índice compacto para modelos
-- `docs/convencion-nombres-github.md` — ramas, commits, PRs, issues, labels
-- `docs/mapa-agentes.json` — qué docs revisar según lo que cambia, rutas sensibles, docs obligatorios
+- `docs/github-naming-convention.md` — ramas, commits, PRs, issues, labels
+- `docs/agents-map.json` — qué docs revisar según lo que cambia, rutas sensibles, docs obligatorios
 - `docs/reference/` — glosario, dominio, superficies, módulos, recorridos
 - `docs/development/` — setup, arquitectura, visión, roadmap, horizonte, deploy, auditorías
 - `docs/guides/` — integraciones y guías de uso
 - `docs/decisions/` — ADRs
-- `docs/agentes/lecciones.md` — lo aprendido de las retros, revisado en un PR
-- `docs/agentes/contrato-subagentes.md` — reglas y salida común de los subagentes (`.claude/agents/`)
+- `docs/agents/lessons.md` — lo aprendido de las retros, revisado en un PR
+- `docs/agents/subagent-contract.md` — reglas y salida común de los subagentes (`.claude/agents/`)

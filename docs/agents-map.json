@@ -1,0 +1,279 @@
+{
+  "_help": "Mapa para agentes y CI. 'docs': qué documento revisar cuando cambian ciertos archivos (lo usan update-docs, implement-issue y review-pr). 'sensitive': rutas que exigen consultar antes de cambiarlas y correr /security-review (ver AGENTS.md, Autonomía). 'verify': qué correr antes del PR según lo que cambió (scripts/agents/verify.py). 'required': documentos que tienen que existir (lo valida scripts/agents/check-docs.py). 'ignore_check': rutas que check-docs.py no valida, como bitácoras históricas que citan archivos que ya no existen. Globs estilo git: ** cualquier profundidad, * un nivel. Una ruta que empieza con ? es opcional: check-docs no falla si no coincide con ningún archivo (sirve para alternativas de stack, como package.json o *.lock). Las rutas propias del proyecto van sin ?: si dejan de existir, el check falla. TODO: completar con las rutas del proyecto.",
+  "docs": [
+    {
+      "when": [
+        "TODO/schema/**",
+        "?**/migrations/**"
+      ],
+      "review": [
+        "docs/reference/domain.md",
+        "docs/development/architecture.md"
+      ],
+      "reason": "cambió el modelo de datos"
+    },
+    {
+      "when": [
+        "TODO/api/routes/**"
+      ],
+      "review": [
+        "docs/development/architecture.md",
+        "docs/reference/surfaces.md"
+      ],
+      "reason": "cambió un endpoint o una pantalla"
+    },
+    {
+      "when": [
+        "TODO/modules/**"
+      ],
+      "review": [
+        "docs/reference/modules.md"
+      ],
+      "reason": "cambió la responsabilidad de un módulo"
+    },
+    {
+      "when": [
+        "?package.json",
+        "?**/package.json",
+        "?.github/workflows/**"
+      ],
+      "review": [
+        "AGENTS.md",
+        "docs/development/setup.md"
+      ],
+      "reason": "cambió un comando, una dependencia o el CI"
+    },
+    {
+      "when": [
+        "?infra/**",
+        "?Dockerfile",
+        "?**/*.toml"
+      ],
+      "review": [
+        "docs/development/deploy.md"
+      ],
+      "reason": "cambió la infraestructura o el deploy"
+    },
+    {
+      "when": [
+        ".claude/agents/**",
+        "docs/agents/subagent-contract.md"
+      ],
+      "review": [
+        "AGENTS.md",
+        "README.md",
+        "docs/agents/subagent-contract.md"
+      ],
+      "reason": "cambió un subagente (modelo, herramientas, escalado) o su contrato"
+    },
+    {
+      "when": [
+        ".claude/settings.json",
+        "scripts/agents/guardrails.py",
+        ".codex/hooks.json",
+        ".github/hooks/**",
+        ".cursor/hooks.json"
+      ],
+      "review": [
+        "AGENTS.md",
+        "README.md"
+      ],
+      "reason": "cambiaron las barandas (qué comandos frena el hook)"
+    }
+  ],
+  "sensitive": [
+    {
+      "type": "schema",
+      "paths": [
+        "TODO/schema/**",
+        "?**/migrations/**"
+      ],
+      "skill": "db-migration"
+    },
+    {
+      "type": "auth",
+      "paths": [
+        "TODO/auth/**",
+        "?**/middleware/**"
+      ]
+    },
+    {
+      "type": "money",
+      "paths": [
+        "TODO/payments/**"
+      ]
+    },
+    {
+      "type": "dependencies",
+      "paths": [
+        "?package.json",
+        "?**/package.json",
+        "?*.lock",
+        "?pnpm-lock.yaml"
+      ]
+    },
+    {
+      "type": "infra",
+      "paths": [
+        "?infra/**",
+        "?.github/workflows/**",
+        "?Dockerfile",
+        ".claude/settings.json",
+        "scripts/agents/guardrails.py",
+        ".codex/hooks.json",
+        ".github/hooks/**",
+        ".cursor/hooks.json"
+      ]
+    },
+    {
+      "type": "public-api",
+      "paths": [
+        "TODO/public-api/**"
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "name": "docs",
+      "always": true,
+      "run": "python3 scripts/agents/check-docs.py"
+    },
+    {
+      "name": "shellcheck",
+      "when": [
+        "**/*.sh"
+      ],
+      "run": "command -v shellcheck >/dev/null || { echo 'shellcheck is missing: brew install shellcheck (macOS) or apt install shellcheck. This check does not run without it.'; exit 1; }; shellcheck {files}"
+    },
+    {
+      "name": "prepare",
+      "when": [
+        ".claude/skills/implement-issue/prepare.sh",
+        ".claude/skills/implement-issue/test-prepare.sh"
+      ],
+      "run": "bash .claude/skills/implement-issue/test-prepare.sh"
+    },
+    {
+      "name": "agents",
+      "when": [
+        ".claude/agents/**",
+        "docs/agents/subagent-contract.md",
+        "scripts/agents/check-docs.py",
+        "scripts/agents/test-agents.sh"
+      ],
+      "run": "bash scripts/agents/test-agents.sh"
+    },
+    {
+      "name": "red",
+      "when": [
+        ".claude/skills/implement-issue/red.sh",
+        ".claude/skills/implement-issue/test-red.sh"
+      ],
+      "run": "bash .claude/skills/implement-issue/test-red.sh"
+    },
+    {
+      "name": "orchestrate",
+      "when": [
+        ".claude/skills/orchestrate/**",
+        ".claude/agents/reviewer.md",
+        ".claude/skills/implement-issue/SKILL.md",
+        ".gitignore",
+        "?profiles/small/DELETE"
+      ],
+      "run": "bash .claude/skills/orchestrate/test-orchestrate.sh"
+    },
+    {
+      "name": "retros",
+      "when": [
+        ".claude/skills/improve-skills/**"
+      ],
+      "run": "bash .claude/skills/improve-skills/test-retros.sh"
+    },
+    {
+      "name": "base",
+      "when": [
+        "scripts/agents/**"
+      ],
+      "run": "bash scripts/agents/test-base.sh"
+    },
+    {
+      "name": "guardrails",
+      "when": [
+        ".claude/settings.json",
+        "scripts/agents/guardrails.py",
+        "scripts/agents/test_guardrails.py",
+        ".codex/hooks.json",
+        ".github/hooks/**",
+        ".cursor/hooks.json"
+      ],
+      "run": "python3 -m unittest scripts/agents/test_guardrails.py"
+    },
+    {
+      "name": "init",
+      "when": [
+        "?scripts/init-template.sh",
+        "?scripts/test-init.sh"
+      ],
+      "run": "bash scripts/test-init.sh"
+    },
+    {
+      "name": "update",
+      "when": [
+        "?scripts/update.py",
+        "?scripts/test-update.sh",
+        "?scripts/init-template.sh"
+      ],
+      "run": "bash scripts/test-update.sh"
+    },
+    {
+      "name": "renames",
+      "when": [
+        "?scripts/test-renames.sh"
+      ],
+      "run": "bash scripts/test-renames.sh"
+    },
+    {
+      "name": "lint",
+      "always": true,
+      "run": "TODO: comando de lint (por ejemplo: npm run lint)"
+    },
+    {
+      "name": "typecheck",
+      "always": true,
+      "run": "TODO: comando de typecheck (por ejemplo: npx tsc --noEmit)"
+    },
+    {
+      "name": "tests",
+      "always": true,
+      "run": "TODO: tests, idealmente solo los afectados (por ejemplo: npx vitest related {files} --run)"
+    },
+    {
+      "name": "migrations",
+      "when": [
+        "TODO/schema/**",
+        "?**/migrations/**"
+      ],
+      "run": "TODO: verificar que el schema y las migraciones coinciden (generar y comprobar que no queda nada sin commitear)"
+    },
+    {
+      "name": "api-contract",
+      "when": [
+        "TODO/public-api/**"
+      ],
+      "run": "TODO: comparar el contrato público contra la base (por ejemplo: un diff de OpenAPI)"
+    }
+  ],
+  "required": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/llms.txt",
+    "docs/github-naming-convention.md",
+    "docs/decisions/README.md",
+    "docs/development/architecture.md"
+  ],
+  "ignore_check": [
+    "profiles/**",
+    "CHANGELOG.md",
+    "docs/decisions/ADR-001-*"
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Investiga un bug separando síntoma, causa y arreglo antes de tocar código. Usar con "/debug", "esto no anda", "investigá este error", con issues tipo:bug (implement-issue la llama) o cuando un test falla sin causa obvia.
+description: Investiga un bug separando síntoma, causa y arreglo antes de tocar código. Usar con "/debug", "esto no anda", "investigá este error", con issues type:bug (implement-issue la llama) o cuando un test falla sin causa obvia.
 ---
 
 # Debug

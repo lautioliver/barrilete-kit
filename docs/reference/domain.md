@@ -1,4 +1,4 @@
-# Dominio y datos — <PROYECTO>
+# Dominio y datos — <PROJECT>
 
 > Entidades, tablas, IDs, estados y sus transiciones.
 
