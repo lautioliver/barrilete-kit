@@ -2,7 +2,7 @@
 
 Gracias por probarla. Lo que más sirve es saber **dónde te trabaste**, no si te gustó.
 
-Leé esta guía [en el repo de la plantilla](https://github.com/lautioliver/barrilete-kit/blob/main/docs/try-the-template.md), no en tu copia: `init-template.sh` la borra en el paso 2.
+Leé esta guía [en el repo de la plantilla](https://github.com/lautioliver/barrilete-kit/blob/main/docs/try-the-template.es.md), no en tu copia: `init-template.sh` la borra en el paso 2.
 
 **Tiempo:** de 1 a 2 horas. **Herramienta:** la que uses todos los días (Claude Code, Codex, Copilot, Cursor…). Si no es Claude Code, mejor: es lo que menos se probó.
 
@@ -19,7 +19,7 @@ Los pasos usan los comandos de Claude Code (`/implement-issue 3`). En otra herra
 Hacelos en orden y anotá qué pasó en cada uno. Si algo no anda, no lo arregles en silencio: anotalo y seguí como puedas.
 
 1. **Crear el repo:** en GitHub, **Use this template → Create a new repository**, y clonalo.
-2. **Inicializar:** seguí el [README](../README.md#empezar). Elegí el modo que te corresponda: chico si son una o dos personas.
+2. **Inicializar:** seguí el [README](../README.es.md#empezar). Elegí el modo que te corresponda: chico si son una o dos personas.
 3. **Completar lo mínimo:** los `TODO:` que el README marca como mínimos. Anotá cuánto tardaste y qué no entendiste.
 4. **Labels y equipo:** corré el workflow Labels y, en modo completo, sumá a tu equipo con `/add-member`.
 5. **Un issue desde el chat:** pedile al agente algo real y chico ("abrí un issue para …").
