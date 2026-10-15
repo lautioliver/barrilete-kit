@@ -1,6 +1,6 @@
 name: Tarea
 description: Trabajo técnico sin cambio visible
-labels: ["tipo:task", "estado:a-triar"]
+labels: ["type:task", "status:triage"]
 body:
   - type: textarea
     id: que

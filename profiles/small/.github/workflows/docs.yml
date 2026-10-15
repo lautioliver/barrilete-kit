@@ -1,0 +1,46 @@
+# .github/workflows/docs.yml — <PROJECT> (modo chico)
+# Valida links, rutas mencionadas y ADRs de la documentación, y corre shellcheck y los tests de los scripts.
+name: Docs
+
+on:
+  pull_request:
+  push:
+    branches: [<BASE_BRANCH>]
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar documentación
+        run: python3 scripts/agents/check-docs.py
+      - name: Tests de los scripts de agentes
+        run: python3 -m unittest discover -s scripts/agents -p 'test_*.py'
+      - name: Instalar shellcheck 0.11.0
+        # Versión fija (la de ubuntu-latest es más vieja y reporta otros códigos que la local).
+        # Para subirla: cambiar la versión y el sha256 (está en la release de koalaman/shellcheck).
+        run: |
+          v=0.11.0; sum=8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+          curl -fsSL -o /tmp/sc.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v$v/shellcheck-v$v.linux.x86_64.tar.xz"
+          echo "$sum  /tmp/sc.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/sc.tar.xz -C /tmp && sudo install /tmp/shellcheck-v$v/shellcheck /usr/local/bin/shellcheck
+          shellcheck --version
+      - name: Shellcheck de los scripts
+        # Solo los del kit: en un repo con .agent-kit.json, los .sh del proyecto no se revisan.
+        run: |
+          # Primero la lista: si falla, el paso falla (en un pipe, xargs sin entrada pasaría en verde).
+          lista=$(python3 scripts/agents/check-docs.py --list '*.sh')
+          echo "$lista" | xargs -r shellcheck
+      - name: Tests de los scripts
+        # Aislados de la config de git del runner: no pueden depender de init.defaultBranch ni de otra config.
+        env:
+          GIT_CONFIG_GLOBAL: /dev/null
+          GIT_CONFIG_NOSYSTEM: "1"
+        run: |
+          lista=$(python3 scripts/agents/check-docs.py --list '*test-*.sh')
+          fallas=0
+          while read -r t; do [ -n "$t" ] || continue; echo "▶ $t"; bash "$t" || fallas=1; done <<<"$lista"
+          exit $fallas

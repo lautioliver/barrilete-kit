@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=\"${CLAUDE_PROJECT_DIR:-.}/scripts/agentes/barandas.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agentes/barandas.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\""
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-.}/scripts/agents/guardrails.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/guardrails.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\""
           }
         ]
       }

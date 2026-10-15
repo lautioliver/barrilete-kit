@@ -76,7 +76,7 @@ scripts/agentes/test-base.sh|scripts/agents/test-base.sh
 while IFS='|' read -r old new; do
   [ -n "$old" ] || continue
   [ "$old" = "$new" ] && continue
-  { [ ! -e "$old" ] && [ -e "$new" ]; }; check $? "$old -> $new"
+  if [ ! -e "$old" ] && [ -e "$new" ]; then ok "$old -> $new"; else fail "$old -> $new"; fi
 done <<<"$RENAMES"
 
 # Old names in the content of any file (except this test, the CHANGELOG and ADR-001).
@@ -84,10 +84,13 @@ OLD_NAMES='scripts/agentes|docs/agentes|barandas\.py|test_barandas|hooks/baranda
 LABELS_OLD='tipo:|prioridad:|estado:|logica-negocio|a-triar|necesita-info|estado:bloqueado'
 hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*)$' \
   | while read -r f; do [ -f "$f" ] && grep -IHnE "$OLD_NAMES" "$f"; done | head -5 || true)
-[ -z "$hits" ]; check $? "no file mentions an old file, path or flag name${hits:+ (e.g. $(head -1 <<<"$hits" | cut -c1-100))}"
-hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*)$' \
+if [ -z "$hits" ]; then ok "no file mentions an old file, path or flag name"
+else fail "no file mentions an old file, path or flag name (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi
+# labels.yml keeps the old names as `aliases` (label-sync renames them without losing the ones set on issues).
+hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|.*\.github/labels\.yml)$' \
   | while read -r f; do [ -f "$f" ] && grep -IHnE "$LABELS_OLD" "$f"; done | head -5 || true)
-[ -z "$hits" ]; check $? "no file mentions an old label${hits:+ (e.g. $(head -1 <<<"$hits" | cut -c1-100))}"
+if [ -z "$hits" ]; then ok "no file mentions an old label"
+else fail "no file mentions an old label (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi
 
 # JSON keys of agents-map.json and team.json.
 python3 - <<'PY'

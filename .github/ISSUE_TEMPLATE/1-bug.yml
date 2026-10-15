@@ -1,6 +1,6 @@
 name: Bug
 description: Algo no funciona como está definido
-labels: ["tipo:bug", "estado:a-triar"]
+labels: ["type:bug", "status:triage"]
 body:
   - type: markdown
     attributes:

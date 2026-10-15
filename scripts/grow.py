@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""Moves a project started with --small to the template's full mode.
+
+Usage: python3 scripts/grow.py [--releases] [--template <url or path>]
+
+Clones the template, initializes it in full mode with the data in .agent-kit.json
+and, for each file:
+  - if the project does not have it → adds it;
+  - if the project has it unchanged since the init → replaces it;
+  - if the project modified it → does NOT overwrite it: leaves the full version in
+    .agent-kit/pending/<path> to integrate by hand (or with the update-docs skill).
+It does not commit: the changes stay in the working tree to review them and open a PR.
+"""
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+PLANTILLA = os.environ.get("AGENT_KIT_TEMPLATE", "https://github.com/lautioliver/barrilete-kit")
+NO_TRAER = {"README.md", "README.en.md", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
+PENDIENTES = ".agent-kit/pending"
+
+
+def salir(msg):
+    print(f"grow.py: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def sh(*cmd, cwd=None):
+    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    if r.returncode != 0:
+        salir(f"{' '.join(cmd[:3])}… failed: {(r.stderr or r.stdout).strip()}")
+    return r.stdout
+
+
+def huella(ruta):
+    return hashlib.sha1(open(ruta, "rb").read()).hexdigest()
+
+
+def archivos(raiz):
+    for base, dirs, files in os.walk(raiz):
+        dirs[:] = [d for d in dirs if d != ".git"]
+        for n in files:
+            yield os.path.relpath(os.path.join(base, n), raiz)
+
+
+def main():
+    args = sys.argv[1:]
+    plantilla = args[args.index("--template") + 1] if "--template" in args else PLANTILLA
+    os.chdir(sh("git", "rev-parse", "--show-toplevel").strip())
+
+    if not os.path.exists(".agent-kit.json"):
+        salir("cannot find .agent-kit.json: this repo was not created with the template (or predates grow.py).")
+    kit = json.load(open(".agent-kit.json", encoding="utf-8"))
+    if kit.get("mode") != "small":
+        salir(f"the project is already in {kit.get('mode')} mode.")
+    if sh("git", "status", "--porcelain").strip():
+        salir("there are uncommitted changes. Commit or stash them before growing.")
+    releases = "--releases" in args
+    if releases and kit["base_branch"] == "main":
+        salir("--releases needs the develop base branch.")
+
+    tmp = tempfile.mkdtemp(prefix="agent-kit-")
+    try:
+        print(f"Cloning the template from {plantilla}…")
+        sh("git", "clone", "-q", "--depth", "1", plantilla, tmp)
+        init = ["./scripts/init-template.sh", kit["project"], kit["base_branch"]] + (["releases"] if releases else [])
+        sh(*init, cwd=tmp)
+        version = json.load(open(os.path.join(tmp, ".agent-kit.json"), encoding="utf-8")).get("version")
+
+        agregados, reemplazados, pendientes, iguales = [], [], [], 0
+        registradas = kit.get("files", {})
+
+        # The small mode architecture is project content: it is moved to where full mode expects it.
+        movido = None
+        if os.path.exists("docs/architecture.md") and not os.path.exists("docs/development/architecture.md"):
+            os.makedirs("docs/development", exist_ok=True)
+            sh("git", "mv", "docs/architecture.md", "docs/development/architecture.md")
+            movido = "docs/architecture.md → docs/development/architecture.md"
+
+        for ruta in sorted(archivos(tmp)):
+            if ruta in NO_TRAER:
+                continue
+            origen = os.path.join(tmp, ruta)
+            if movido and ruta == "docs/development/architecture.md":
+                continue
+            if not os.path.exists(ruta):
+                os.makedirs(os.path.dirname(ruta) or ".", exist_ok=True)
+                shutil.copy2(origen, ruta)
+                agregados.append(ruta)
+            elif huella(ruta) == huella(origen):
+                iguales += 1
+            elif registradas.get(ruta) == huella(ruta):
+                shutil.copy2(origen, ruta)
+                reemplazados.append(ruta)
+            else:
+                destino = os.path.join(PENDIENTES, ruta)
+                os.makedirs(os.path.dirname(destino), exist_ok=True)
+                shutil.copy2(origen, destino)
+                pendientes.append(ruta)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # Registry: the files the template brought are recorded as "untouched" from now on.
+    for ruta in agregados + reemplazados:
+        registradas[ruta] = huella(ruta)
+    if movido:
+        registradas.pop("docs/architecture.md", None)
+    kit.update({"mode": "full", "releases": releases, "files": dict(sorted(registradas.items()))})
+    if version:
+        kit["version"] = version  # grow brings the version of the template it cloned
+    json.dump(kit, open(".agent-kit.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    os.remove("scripts/grow.py")
+
+    print(f"\nDone: {len(agregados)} added, {len(reemplazados)} replaced (you had not touched them), "
+          f"{iguales} already equal, {len(pendientes)} pending.")
+    if movido:
+        print(f"Moved: {movido}")
+    if pendientes:
+        print(f"\nPending: you modified them, so I did not overwrite them. The full version is in {PENDIENTES}/:")
+        for p in pendientes:
+            print(f"  - {p}")
+        print("Integrate what is useful (for example, the new sections of AGENTS.md) and delete the .agent-kit/ folder.")
+    print("\nNext steps:")
+    print("  1. python3 scripts/agents/check-docs.py → flags the TODO/ paths of docs/agents-map.json and the")
+    print("     links to the old architecture. Fill in the map with the real paths of the project.")
+    print("  2. Review the diff, commit and open a PR.")
+    print("  3. After the merge, run the Labels workflow to create the new labels.")
+    print("  4. The blocking and epic skills need GitHub sub-issues and dependencies enabled.")
+
+
+if __name__ == "__main__":
+    main()

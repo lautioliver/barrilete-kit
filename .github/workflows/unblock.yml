@@ -1,0 +1,40 @@
+# .github/workflows/unblock.yml — <PROJECT>
+# When an issue is closed, it checks the issues it was blocking. If any has no
+# open blockers left, it removes the status:blocked label and leaves a comment.
+# Blocks are the native GitHub dependencies ("Blocked by"); see the create-issue skill.
+name: Unblock issues
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  unblock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const cerrado = context.payload.issue.number;
+            const base = `/repos/${context.repo.owner}/${context.repo.repo}/issues`;
+            const { data: bloqueados } = await github.request(`GET ${base}/${cerrado}/dependencies/blocking`);
+            for (const issue of bloqueados.filter(i => i.state === 'open')) {
+              const { data: bloqueantes } = await github.request(`GET ${base}/${issue.number}/dependencies/blocked_by`);
+              const abiertos = bloqueantes.filter(i => i.state === 'open');
+              if (abiertos.length > 0) {
+                core.info(`#${issue.number} is still blocked by ${abiertos.map(i => '#' + i.number).join(', ')}`);
+                continue;
+              }
+              const tieneLabel = issue.labels.some(l => (l.name ?? l) === 'status:blocked');
+              if (tieneLabel) {
+                await github.rest.issues.removeLabel({ ...context.repo, issue_number: issue.number, name: 'status:blocked' });
+              }
+              await github.rest.issues.createComment({
+                ...context.repo, issue_number: issue.number,
+                body: `Unblocked: #${cerrado} was closed and there are no open blockers left.`,
+              });
+              core.info(`#${issue.number} unblocked`);
+            }

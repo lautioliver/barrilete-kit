@@ -37,8 +37,8 @@ Tocar el schema también requiere la aprobación de Autonomía: pedí las dos en
 1. Cambiar el schema y generar la migración con la herramienta del proyecto. Revisar el SQL generado línea por línea.
 2. Correrla en local / tests desde cero y sobre datos existentes.
 3. Tests: el comportamiento nuevo, y que los datos viejos sigan siendo válidos.
-4. Docs: `docs/reference/domain.md` (y lo que diga `mapa.py`). Si es una decisión de modelo de datos difícil de revertir, ADR.
+4. Docs: `docs/reference/domain.md` (y lo que diga `agents_map.py`). Si es una decisión de modelo de datos difícil de revertir, ADR.
 
 ## 4. PR
 
-En el cuerpo del PR, la tabla del paso 1 completa, incluido el rollback. Si es un cambio en dos pasos, decir en qué paso está y abrir el issue del siguiente (`crear-issue`, bloqueado por este).
+En el cuerpo del PR, la tabla del paso 1 completa, incluido el rollback. Si es un cambio en dos pasos, decir en qué paso está y abrir el issue del siguiente (`create-issue`, bloqueado por este).
