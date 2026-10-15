@@ -352,6 +352,42 @@ assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
 PY
 afirmar $? "grow.py conserva ref, withheld y version null del registro (no escribe la VERSION de la rama por defecto)"
 
+# grow.py trae los archivos del HEAD de la plantilla (C), que va por delante del último tag (B): el registro
+# tiene que quedar en C, no en el commit de la instalación (A). Si no, update.py baja lo que trajo grow.py a B.
+P6="$TMP/plantilla-grow"
+mkdir -p "$P6"
+(cd "$P" && git archive v0.1.0 | tar -xf - -C "$P6") >/dev/null 2>&1
+(cd "$P6" && git init -q -b main && git add -A && git commit -qm A) >/dev/null 2>&1
+U12="$TMP/usuario-grow-ref"; (repo "$U12") >/dev/null 2>&1
+s=$(cd "$U12" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P6" -- --small 2>&1)
+(cd "$U12" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
+(
+  cd "$P6" && echo 1.0.0 >VERSION && echo "# B" >>.claude/skills/debug/SKILL.md && git add -A && git commit -qm B && git tag v1.0.0 \
+    && echo "# C" >>.claude/skills/debug/SKILL.md && echo "echo c" >scripts/nuevo-c.sh && git add -A && git commit -qm C
+) >/dev/null 2>&1
+SHAC=$(git -C "$P6" rev-parse HEAD)
+s=$(cd "$U12" && python3 scripts/grow.py --template "$P6" 2>&1); c=$?
+es "$c" -eq 0 && python3 - "$U12" "$SHAC" <<'PY'
+import json, sys
+k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
+assert k["ref"] == sys.argv[2] and k["version"] is None, k
+PY
+afirmar $? "grow.py registra el commit desde el que trajo los archivos (C) como ref, con version null (salida: $(tail -1 <<<"$s"))"
+(cd "$U12" && rm -rf .agent-kit/pending && git add -A && git commit -qm grow) >/dev/null 2>&1
+s=$(cd "$U12" && python3 scripts/update.py --template "$P6" 2>&1); c=$?
+grep -q '# C' "$U12/.claude/skills/debug/SKILL.md" && es -f "$U12/scripts/nuevo-c.sh" && es -z "$(git -C "$U12" status --porcelain)" && es "$c" -ne 0
+afirmar $? "grow.py + update.py: el tag B no contiene C, así que update.py no degrada ni borra lo que trajo grow.py"
+
+# Un ref que no está en la plantilla clonada (otro --template, un fork con otra historia): update.py frena sin tocar nada.
+U13="$TMP/usuario-ref-ajeno"; (repo "$U13") >/dev/null 2>&1
+s=$(cd "$U13" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1)
+(cd "$U13" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
+REF13=$(python3 -c "import json; print(json.load(open('$U13/.agent-kit.json'))['ref'])")
+s=$(cd "$U13" && python3 scripts/update.py --template "$P5" 2>&1); c=$?
+es "$c" -ne 0 && grep -qi 'does not have the commit' <<<"$s" && ! grep -q Traceback <<<"$s" && es -z "$(git -C "$U13" status --porcelain)" \
+  && grep -q "\"ref\": \"$REF13\"" "$U13/.agent-kit.json"
+afirmar $? "update.py frena sin tocar nada si el ref instalado no está en la plantilla clonada (salida: $(tail -1 <<<"$s"))"
+
 # --lang es llega al init: el registro guarda el idioma.
 U11="$TMP/usuario-lang"
 (repo "$U11") >/dev/null 2>&1
