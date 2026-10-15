@@ -21,7 +21,7 @@ import sys
 import tempfile
 
 PLANTILLA = os.environ.get("AGENT_KIT_TEMPLATE", "https://github.com/lautioliver/barrilete-kit")
-NO_TRAER = {"README.md", "README.en.md", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
+NO_TRAER = {"README.md", "README.en.md", "LICENSE", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
 PENDIENTES = ".agent-kit/pending"
 
 
@@ -84,9 +84,13 @@ def main():
                     salir(f"the template at {plantilla} predates --lang, and the project was installed in {kit['language']}.")
             init += ["--lang", kit["language"]]  # grow keeps the language the project was installed in
         sh(*init, cwd=tmp)
+        for viejo, nuevo in kit.get("renames", {}).items():  # a workflow the installer put under another name
+            if os.path.isfile(os.path.join(tmp, viejo)):
+                os.makedirs(os.path.dirname(os.path.join(tmp, nuevo)), exist_ok=True)
+                os.replace(os.path.join(tmp, viejo), os.path.join(tmp, nuevo))
         version = json.load(open(os.path.join(tmp, ".agent-kit.json"), encoding="utf-8")).get("version")
 
-        agregados, reemplazados, pendientes, iguales = [], [], [], 0
+        agregados, reemplazados, pendientes, iguales, retenidos, errores = [], [], [], 0, [], []
         registradas = kit.get("files", {})
 
         # The small mode architecture is project content: it is moved to where full mode expects it.
@@ -102,9 +106,16 @@ def main():
             origen = os.path.join(tmp, ruta)
             if movido and ruta == "docs/development/architecture.md":
                 continue
+            if ruta in kit.get("withheld", []) and not os.path.lexists(ruta):
+                retenidos.append(ruta)  # the installer left it out on purpose
+                continue
             if not os.path.exists(ruta):
-                os.makedirs(os.path.dirname(ruta) or ".", exist_ok=True)
-                shutil.copy2(origen, ruta)
+                try:
+                    os.makedirs(os.path.dirname(ruta) or ".", exist_ok=True)
+                    shutil.copy2(origen, ruta)
+                except OSError as e:
+                    errores.append(f"{ruta}: {e}")
+                    continue
                 agregados.append(ruta)
             elif huella(ruta) == huella(origen):
                 iguales += 1
@@ -125,8 +136,10 @@ def main():
     if movido:
         registradas.pop("docs/architecture.md", None)
     kit.update({"mode": "full", "releases": releases, "files": dict(sorted(registradas.items()))})
-    if version:
-        kit["version"] = version  # grow brings the version of the template it cloned
+    if version and not kit.get("ref"):
+        # grow brings the version of the template it cloned. Not in an installed repo: its registry says which
+        # commit it came from (ref), and the default branch's VERSION may not match any tag.
+        kit["version"] = version
     json.dump(kit, open(".agent-kit.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     os.remove("scripts/grow.py")
 
@@ -139,6 +152,14 @@ def main():
         for p in pendientes:
             print(f"  - {p}")
         print("Integrate what is useful (for example, the new sections of AGENTS.md) and delete the .agent-kit/ folder.")
+    if retenidos:
+        print("\nLeft out on purpose by the installer (you do not have them, so I did not bring them):")
+        for r in retenidos:
+            print(f"  - {r}")
+    if errores:
+        print("\nCould not add (the rest was applied):")
+        for e in errores:
+            print(f"  - {e}")
     print("\nNext steps:")
     print("  1. python3 scripts/agents/check-docs.py → flags the TODO/ paths of docs/agents-map.json and the")
     print("     links to the old architecture. Fill in the map with the real paths of the project.")
