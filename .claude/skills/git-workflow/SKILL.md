@@ -34,7 +34,7 @@ An agent does not cut releases, merge to `main` or create tags unless explicitly
 
 ## Commits
 
-- `<type>(<scope>): <description>` — imperative, lowercase, no period, ≤ 72 characters. Types and description in English.
+- `<type>(<scope>): <description>` — imperative, lowercase, no period, ≤ 72 characters. Types in English; the description in the language `AGENTS.md` sets.
 - One commit = one logical change. If it touches several scopes: no scope, or split.
 - Breaks compatibility: `feat(api)!: …` + footer `BREAKING CHANGE: …`.
 
@@ -42,9 +42,9 @@ An agent does not cut releases, merge to `main` or create tags unless explicitly
 
 1. Never push directly to the trunk branches. Everything goes in through a PR.
 2. Title with the same format as a commit.
-3. Body from `.github/pull_request_template.md`: What changes / Why / Business logic affected / How to test it / `Closes #n`.
+3. Body from `.github/pull_request_template.md`: Qué cambia / Por qué / Lógica de negocio afectada / Cómo probarlo / `Closes #n`.
 4. Labels: exactly one `type:` (`claude/` branches do not get it automatically: set it yourself), 1–2 `area:`, no `priority:`. Only labels from `.github/labels.yml`.
-5. If it changes a rule from an ADR, audit or plan: label `business-logic` and explain it in "Business logic affected".
+5. If it changes a rule from an ADR, audit or plan: label `business-logic` and explain it in "Lógica de negocio afectada".
 
 ```bash
 gh pr create --base <BASE_BRANCH> --title "fix(api): …" --body-file <file> --label "type:bug" --label "area:api"

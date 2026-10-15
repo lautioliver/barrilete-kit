@@ -28,7 +28,7 @@ Write, before fixing:
 > **Evidence:** … (the test, the log, the value that proves it)
 > **Why the tests did not catch it:** …
 
-If you have two hypotheses, find out which one is right with evidence; do not fix both "just in case". If the cause is in something sensitive (AGENTS.md, Autonomy), ask before going on.
+If you have two hypotheses, find out which one is right with evidence; do not fix both "just in case". If the cause is in something sensitive (AGENTS.md, "Autonomía" section), ask before going on.
 
 ## 4. Propose the fix
 

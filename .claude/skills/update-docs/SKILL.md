@@ -20,7 +20,7 @@ Underlying rule (`docs/README.md`): if a doc and the code do not match, **the co
 2. **Review each one** against the diff (`git diff <base>...HEAD`). The map suggests; you decide. A listed doc may need no changes (the change does not alter what it describes), and an unlisted doc may need them.
 3. **Besides the map**, always check:
    - Did a command or a convention change? → `AGENTS.md`.
-   - Did an ADR decision change? → do not rewrite it: amend with a date or a new ADR (`docs/decisions/README.md`). This requires asking (AGENTS.md, Autonomy).
+   - Did an ADR decision change? → do not rewrite it: amend with a date or a new ADR (`docs/decisions/README.md`). This requires asking (AGENTS.md, "Autonomía" section).
    - Did you add a document with content? → `docs/README.md` and `docs/llms.txt`.
    - A new domain term? → `docs/reference/glossary.md`.
 4. **Write.** Minimal, precise changes: describe what is there, not the history of the change (that goes in the PR). Do not duplicate canonical lists: if the list lives in another file, link to it.

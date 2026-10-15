@@ -39,7 +39,7 @@ It is not for:
 4. **Write the title.**
    - Imperative, no prefix or brackets, no final period, understandable months later: `Unify accounts by email`.
    - Bug: the symptom is accepted: `The QR does not validate offline`.
-   - Audit: `Audit <area>: <finding>`.
+   - Audit: the format `AGENTS.md` sets for audit titles (today `Auditoría <área>: <hallazgo>`).
 
 5. **Pick the rest of the labels** (only from `labels.yml`):
    - `area:` — 1 or 2, depending on which part of the product it touches. If you are not sure, none.
@@ -49,7 +49,7 @@ It is not for:
 
    **Assignee:** `python3 scripts/agents/team.py suggest --labels "<comma-separated labels>"` returns who to assign it to according to `.github/team.json` (by area and load). If it returns nothing, the team is empty: the issue stays unassigned (suggest `/add-member`). If the user asked for another person, the user wins.
 
-6. **Write the body** with the sections of the chosen template, as Markdown (`## What happens`, `## What should happen`…). Rules:
+6. **Write the body** with the sections of the chosen template, as Markdown (`## Qué pasa`, `## Qué debería pasar`…). Rules:
    - Links to files with a repo-relative path and, if useful, the line.
    - If it comes from an audit or ADR, the link to the document and the ID of the finding or rule.
    - Never secrets, tokens or real personal data.
@@ -77,7 +77,7 @@ It is not for:
 ## Audit → issues
 
 When the request is "turn audit X into issues":
-- One issue per finding, with `type:audit` and the title `Audit <area>: <finding>`.
+- One issue per finding, with `type:audit` and the audit title that `AGENTS.md` sets (`Auditoría <área>: <hallazgo>`).
 - The body links `docs/development/<audit>.md` and the finding ID (`AUD-07`).
 - If the document has no IDs, propose adding them before opening the issues.
 - After creating them, offer to note the issue number next to each finding in the document.

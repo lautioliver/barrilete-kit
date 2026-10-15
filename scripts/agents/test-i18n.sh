@@ -89,6 +89,38 @@ s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
 ! grep -q 'UNPAIRED' <<<"$s"; afirmar $? "agents_map.py no avisa si cambiaron los dos"
 grep -q 'UNPAIRED' "$RAIZ/.github/workflows/docs.yml"; afirmar $? "docs.yml convierte el aviso del mapa en un ::warning::"
 
+# Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).
+copia; parity true
+s=$(check)
+! grep -q 'implementer' <<<"$s"; afirmar $? "agentes: el par .claude/agents/X.md + .claude/i18n/agents/X.es.md no da errores de paridad"
+rm "$TMP/r/.claude/i18n/agents/reviewer.es.md"
+s=$(check)
+grep -q 'reviewer.md: missing its Spanish sibling .claude/i18n/agents/reviewer.es.md' <<<"$s"; afirmar $? "agentes: sin su hermano en .claude/i18n/agents/ falla con esa ruta"
+copia; parity true
+printf '\n## Extra\n' >>"$TMP/r/.claude/i18n/agents/reviewer.es.md"
+s=$(check)
+grep -q '.claude/i18n/agents/reviewer.es.md.*headings.*.claude/agents/reviewer.md' <<<"$s"; afirmar $? "agentes: encabezados distintos entre el agente y su hermano: falla con los dos archivos"
+copia
+cp "$TMP/r/.claude/i18n/agents/reviewer.es.md" "$TMP/r/.claude/agents/reviewer.es.md"
+s=$(check)
+grep -q '.claude/agents/reviewer.es.md.*second agent' <<<"$s"; afirmar $? "agentes: un .es.md dentro de .claude/agents/ falla (sería un segundo agente con el mismo name)"
+copia; parity true
+rm -rf "$TMP/r/.claude/i18n"
+s=$(check)
+grep -q '.claude/agents/implementer.md: missing its Spanish sibling .claude/i18n/agents/implementer.es.md' <<<"$s"; afirmar $? "agentes: sin .claude/i18n el check de paridad pide los hermanos"
+copia
+(cd "$TMP/r" && git checkout -qb feat && echo "More." >>.claude/agents/implementer.md && git commit -qam cambio)
+s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
+grep -q 'UNPAIRED' <<<"$s" && grep -q '.claude/i18n/agents/implementer.es.md' <<<"$s"; afirmar $? "agents_map.py avisa si cambia un agente sin su hermano de .claude/i18n/agents/"
+
+# Los tests que dependen del texto de las skills y de los agentes pasan también con --lang es (el init deja el español como X.md
+# y esos tests viajan al proyecto): se corren en una copia inicializada en español.
+copia
+(cd "$TMP/r" && ./scripts/init-template.sh Demo main --lang es >/dev/null 2>&1); afirmar $? "init --lang es sobre la copia termina bien"
+for t in scripts/agents/test-agents.sh .claude/skills/orchestrate/test-orchestrate.sh .claude/skills/improve-skills/test-retros.sh; do
+  (cd "$TMP/r" && bash "$t" >"$TMP/es-test.log" 2>&1); afirmar $? "con --lang es pasa $t"
+done
+
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
 echo "Todos los tests pasan."

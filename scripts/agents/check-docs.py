@@ -16,7 +16,7 @@ Checks:
 - Subagents (.claude/agents/*.md) without name, description or tools, with a model that is not
   opus, sonnet or haiku, or that do not point to the common contract (docs/agents/subagent-contract.md).
 - Language siblings (ADR-001), only with "parity": true in the map: every X.md has its X.es.md (and the
-  other way around) with the same number of headings and code blocks. "parity_ignore" in the map lists
+  other way around; the Spanish sibling of an agent lives in .claude/i18n/agents/) with the same number of headings and code blocks. "parity_ignore" in the map lists
   the exceptions (globs). The ignore_check paths do NOT exempt: profiles/ has siblings too.
 - Members of .github/team.json that are repeated or have areas that are not in labels.yml.
 The paths in "ignore_check" of the map (for example, historical logs) are not validated.
@@ -181,12 +181,13 @@ EXENTOS = [glob_a_regex(g) for g in MAPA.get("parity_ignore", [])] if MAPA else 
 pares = [a for a in md_files(aplicar_ignore=False)
          if a.endswith(".md") and not any(r.match(a) for r in EXENTOS)]
 if MAPA.get("parity"):
+    from agents_map import hermano_de_idioma  # noqa: E402
     for es in sorted(a for a in pares if a.endswith(".es.md")):
-        en = es[:-len(".es.md")] + ".md"
+        en = hermano_de_idioma(es)
         if not os.path.exists(en):
             errores.append(f"{es}: has no English sibling {en} (rename the file or add it).")
     for en in sorted(a for a in pares if not a.endswith(".es.md")):
-        es = en[:-len(".md")] + ".es.md"
+        es = hermano_de_idioma(en)
         if not os.path.exists(es):
             errores.append(f"{en}: missing its Spanish sibling {es}.")
             continue
@@ -316,6 +317,10 @@ if os.path.isdir(AGENTES):
         if not nombre.endswith(".md"):
             continue
         ruta = os.path.join(AGENTES, nombre)
+        if nombre.endswith(".es.md"):
+            errores.append(f"{ruta}: Claude Code would load it as a second agent with the same name; "
+                           f"the Spanish sibling of an agent lives in .claude/i18n/agents/ (ADR-001, R-1).")
+            continue
         texto = open(ruta, encoding="utf-8").read()
         m = re.match(r"---\n(.*?)\n---\n", texto, re.S)
         campos = {k: v.strip().strip("'\"") for k, v in re.findall(r"^(\w+): *(.*)$", m.group(1), re.M)} if m else {}

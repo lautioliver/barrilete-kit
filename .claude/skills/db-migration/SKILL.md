@@ -5,13 +5,13 @@ description: Plans and writes schema changes and database migrations safely (com
 
 # Database migration
 
-A schema change is among the hardest things to revert: data that is already migrated does not come back on its own. That is why it requires approval (AGENTS.md, Autonomy) and this plan **before** writing the migration.
+A schema change is among the hardest things to revert: data that is already migrated does not come back on its own. That is why it requires approval (AGENTS.md, "Autonomía" section) and this plan **before** writing the migration.
 
 The concrete commands (generate a migration, run it locally, tests) are in `AGENTS.md`. TODO: if the project has a migration tool (Drizzle, Prisma, Alembic, hand-written SQL…), document its particulars here.
 
 ## 1. Plan (show it and wait for approval)
 
-Touching the schema also requires the Autonomy approval: ask for both in the same message, with this table. Then the full table goes into the PR.
+Touching the schema also requires the approval that the "Autonomía" section of `AGENTS.md` asks for: ask for both in the same message, with this table. Then the full table goes into the PR.
 
 | Point | What to answer |
 |---|---|

@@ -17,7 +17,7 @@ Stop and return `result: escalate`, **without opening a PR**, if any of these ha
 
 1. What you touch falls on **sensitive paths**. After every change (`agents_map.py` also looks at what is not committed), and during the self-review, run `cd <worktree> && BASE=<base branch> python3 scripts/agents/agents_map.py`. If it flags sensitive paths, escalate. If `agents_map.py` does not run or exits with an error, escalate too: without that check you cannot know whether the issue is for you.
 2. The change touches an already defined rule (ADR, audit, plan, `AGENTS.md`): the PR would carry `business-logic` or `breaking-change`.
-3. The issue asks for something from "Must ask first" in `AGENTS.md` (schema, dependencies, public API, auth, infrastructure, CI).
+3. The issue asks for something from "Tiene que consultar antes" (must ask first) in `AGENTS.md` (schema, dependencies, public API, auth, infrastructure, CI).
 
 When escalating, commit what you have in the worktree (even if half done, with a message that says so), do not push, and explain in `reason` which of the three rules applied and where. Whoever continues will work in that same worktree.
 

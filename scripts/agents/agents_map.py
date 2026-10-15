@@ -101,11 +101,21 @@ def archivos_cambiados(args):
     return sorted(n for n in nombres if n)
 
 
+# Claude Code loads every .md in .claude/agents/ as an agent, so the Spanish sibling of an agent cannot live
+# next to it (two agents with the same name): it lives in .claude/i18n/agents/<name>.es.md (ADR-001, R-1).
+AGENTES_EN, AGENTES_ES = ".claude/agents/", ".claude/i18n/agents/"
+
+
 def hermano_de_idioma(ruta):
-    """X.md ↔ X.es.md (ADR-001), or None if it is not a prose file."""
+    """X.md ↔ X.es.md (ADR-001), or None if it is not a prose file. The agents are the exception:
+    .claude/agents/<name>.md ↔ .claude/i18n/agents/<name>.es.md."""
     if ruta.endswith(".es.md"):
+        if ruta.startswith(AGENTES_ES):
+            return AGENTES_EN + ruta[len(AGENTES_ES):-len(".es.md")] + ".md"
         return ruta[:-len(".es.md")] + ".md"
     if ruta.endswith(".md"):
+        if ruta.startswith(AGENTES_EN) and "/" not in ruta[len(AGENTES_EN):]:
+            return AGENTES_ES + ruta[len(AGENTES_EN):-len(".md")] + ".es.md"
         return ruta[:-len(".md")] + ".es.md"
     return None
 

@@ -136,6 +136,39 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
   python3 -c "import json,sys; sys.exit(0 if json.load(open('$p/.agent-kit.json')).get('language') == '$idioma' else 1)"
   afirmar $? "[$modo --lang $idioma] .agent-kit.json registra language: $idioma"
 done
+# Contenido real (#115), no pares de ejemplo. Los agentes: Claude Code carga todo .md de .claude/agents/, así que su
+# versión en español vive en .claude/i18n/agents/ y cada name: tiene que aparecer una sola vez en .claude/agents/.
+for idioma in en es; do
+  p="$TMP/real-completo-$idioma"
+  copiar "$p"
+  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" >/dev/null 2>&1); afirmar $? "[real completo --lang $idioma] el init termina bien"
+  nombres=$(grep -h '^name:' "$p"/.claude/agents/*.md); repetidos=$(sort <<<"$nombres" | uniq -d); sueltos=$(find "$p/.claude/agents" -name '*.es.md')
+  if [ -z "$repetidos" ] && [ "$(wc -l <<<"$nombres" | tr -d ' ')" = 3 ] && [ -z "$sueltos" ]; then r=0; else r=1; fi
+  afirmar $r "[real completo --lang $idioma] cada name: aparece una sola vez en .claude/agents/ (3 agentes, ningún .es.md)"
+  ! [ -e "$p/.claude/i18n" ]; afirmar $? "[real completo --lang $idioma] no queda .claude/i18n"
+  if [ "$idioma" = es ]; then
+    grep -q 'Sos el implementador' "$p/.claude/agents/implementer.md" && grep -q '^# Implementar issue' "$p/.claude/skills/implement-issue/SKILL.md"
+    afirmar $? "[real completo --lang es] el agente y la skill quedan en español"
+  else
+    grep -q 'You are the implementer' "$p/.claude/agents/implementer.md" && grep -q '^# Implement an issue' "$p/.claude/skills/implement-issue/SKILL.md"
+    afirmar $? "[real completo --lang en] el agente y la skill quedan en inglés"
+  fi
+done
+# --small gana al archivo completo en los dos idiomas: las skills chicas (63, 32 y 20 líneas), no las completas.
+for idioma in en es; do
+  p="$TMP/real-chico-$idioma"
+  copiar "$p"
+  (cd "$p" && ./scripts/init-template.sh Demo main --small --lang "$idioma" >/dev/null 2>&1); afirmar $? "[real chico --lang $idioma] el init termina bien"
+  for sk in implement-issue create-issue update-docs; do
+    # El init reemplaza los marcadores (<BASE_BRANCH>…): se comparan con esa sustitución.
+    cmp -s <(sed 's/<BASE_BRANCH>/main/g; s/<PROJECT>/Demo/g' "$RAIZ/profiles/small/.claude/skills/$sk/SKILL.md") "$p/.claude/skills/$sk/SKILL.md"
+    afirmar $? "[real chico --lang $idioma] $sk es la del perfil chico (contenido igual)"
+  done
+  largos=$(wc -l <"$p/.claude/skills/implement-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/create-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/update-docs/SKILL.md" | tr -d ' ')
+  if [ "$largos" = 63/32/20 ]; then r=0; else r=1; fi
+  afirmar $r "[real chico --lang $idioma] implement-issue, create-issue y update-docs tienen el largo del perfil (63, 32, 20)"
+  ! [ -e "$p/.claude/agents" ] && ! [ -e "$p/.claude/i18n" ]; afirmar $? "[real chico --lang $idioma] sin agentes ni .claude/i18n"
+done
 # El proyecto instalado tiene un solo idioma: un docs/*.es.md propio no activa la paridad (interruptor parity).
 p="$TMP/lang-propio"
 copiar "$p"

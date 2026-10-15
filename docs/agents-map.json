@@ -195,6 +195,10 @@
         "scripts/agents/check-docs.py",
         "scripts/agents/agents_map.py",
         "scripts/agents/test-i18n.sh",
+        "scripts/init-template.sh",
+        ".claude/agents/**",
+        "?.claude/i18n/**",
+        ".claude/skills/*/SKILL.md",
         ".github/workflows/docs.yml"
       ],
       "run": "bash scripts/agents/test-i18n.sh"
