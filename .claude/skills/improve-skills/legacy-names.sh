@@ -29,7 +29,7 @@ normalize_legacy_names() {
       for (i in k) { split(k[i], kv, ":"); K[kv[1]] = kv[2] }
       split("skill:orquestar=orchestrate skill:mejorar-skills=improve-skills " \
             "role:implementador-liviano=implementer-light role:implementador=implementer role:revisor=reviewer " \
-            "role:orquestador=orchestrator role:sesion=session model:desconocido=unknown agent_sha:desconocido=unknown " \
+            "role:orquestador=orchestrator role:sesion=session model:desconocido=unknown agent_sha:desconocido=unknown skill_sha:desconocido=unknown " \
             "pr:sin_PR=no_PR issue:sin_issue=no_issue area:ninguna=none", v, " ")
       for (i in v) { split(v[i], vv, "="); V[vv[1]] = vv[2] }
     }
@@ -37,6 +37,7 @@ normalize_legacy_names() {
     fm && $0 ~ /^---\r?$/ { fm = 0; print; next }
     fm && match($0, /^[a-z_]+:/) {
       key = substr($0, 1, RLENGTH - 1); val = trim(substr($0, RLENGTH + 1))
+      if (val ~ /^".*"$/ || val ~ /^\047.*\047$/) val = substr(val, 2, length(val) - 2)   # quoted value
       nk = (key in K) ? K[key] : key
       vk = val; gsub(/ /, "_", vk); vk = nk ":" vk
       nv = val

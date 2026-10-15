@@ -80,7 +80,7 @@ else
     echo "retro.sh: the retro must start with a frontmatter between two --- lines. Format:" >&2
     cat "$AQUI/retro-template.md" >&2; exit 1
   fi
-  fm=$({ echo ---; echo "$fm"; echo ---; } | normalize_legacy_names | sed '1d;$d')  # 0.9 keys and values (modelo:, orquestar, implementador…) become the new ones
+  fm=$({ echo ---; echo "$fm"; echo ---; } | normalize_legacy_names | sed '1d;$d' | awk '/^[a-z_]+:/ { k = $0; sub(/:.*/, "", k); if (seen[k]++) next } { print }')  # 0.9 keys and values (modelo:, orquestar…) become the new ones; a 0.9 key next to its new one: the first stays
   skill=$(campo skill "$fm"); issue=$(campo issue "$fm"); pr=$(campo pr "$fm"); run=$(campo run "$fm")
   issue="${issue#\#}"; pr="${pr#\#}"
   case "$skill" in implement-issue|review-pr|improve-skills|orchestrate) ;; *)

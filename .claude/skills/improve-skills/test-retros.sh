@@ -281,6 +281,13 @@ mkdir -p "$TMP/c/.git/retros-pendientes"; cp "$TMP/v1.md" "$TMP/c/.git/retros-pe
 (cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/c/.git/retros-pendientes/vieja-1.md" >/dev/null 2>&1)
 ! [ -e "$TMP/c/.git/retros-pendientes/vieja-1.md" ]; afirmar $? "una pendiente del directorio viejo retros-pendientes se guarda y se borra"
 
+# Revisión (code-review): skill_sha desconocido, valores entre comillas y claves viejas y nuevas juntas.
+printf -- '---\nskill: implement-issue\nissue: 41\nskill_sha: desconocido\nmodelo: "desconocido"\nrol: '"'"'sesion'"'"'\nfecha: 2026-01-01\ndate: 2026-02-02\n---\ndup\n' >"$TMP/v4.md"
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v4.md" >/dev/null 2>&1)
+r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'implement-issue-41' | tail -1)" 2>/dev/null)
+grep -q '^skill_sha: unknown$' <<<"$r" && grep -q '^model: unknown$' <<<"$r" && grep -q '^role: session$' <<<"$r"; afirmar $? "skill_sha desconocido y los valores entre comillas pasan a unknown y session"
+igual "$(grep -c '^date:' <<<"$r")" 1; afirmar $? "una clave vieja y su nueva juntas no dejan claves duplicadas"
+
 # Historial mixto: retros viejas en agentes/retros (claves y valores 0.9) y nuevas en agents/retros.
 git init -q "$TMP/s"; mkdir -p "$TMP/s/.claude/skills"; cp -R "$RAIZ/.claude/skills/improve-skills" "$TMP/s/.claude/skills/"
 SIG="$TMP/s/.claude/skills/improve-skills"
