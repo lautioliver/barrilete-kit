@@ -56,7 +56,9 @@ s=$(check)
 
 # Cercos de código: uno de cuatro backticks que envuelve uno de tres, y uno con ~~~, cuentan como un bloque cada uno.
 copia
+# shellcheck disable=SC2016  # los backticks son Markdown literal
 printf '# T\n\n````md\n```bash\nls\n```\n````\n\n~~~\n# not a heading\n~~~\n' >"$TMP/r/docs/fences.md"
+# shellcheck disable=SC2016
 printf '# T\n\n````md\n```bash\nls\n```\n````\n\n~~~\n# no es encabezado\n~~~\n' >"$TMP/r/docs/fences.es.md"
 s=$(check)
 ! grep -q 'fences' <<<"$s"; afirmar $? "cercos de cuatro backticks y de ~~~: el mismo contenido en los dos idiomas no da diferencias"
