@@ -200,7 +200,7 @@ With no members, issues stay unassigned. The team is changed with `/add-member` 
 | 🌿 | GitHub conventions | `docs/github-naming-convention.md`: branches, commits, PRs, issues, labels |
 | 🏷️ | Labels | `.github/labels.yml` (source), `.github/labeler.yml` (auto-labeling), `.github/workflows/labels.yml` (sync + labeler + checks) |
 | 📬 | Issues and PRs | `.github/ISSUE_TEMPLATE/` (forms with labels), `.github/pull_request_template.md`, `.github/workflows/unblock.yml` |
-| ✅ | Docs tested in CI | `.github/workflows/docs.yml` + `scripts/agents/check-docs.py`: broken links, paths and ADRs, map paths that no longer exist. In a repo with `.agent-kit.json` it only checks the kit's `.md` files, `docs/`, `AGENTS.md` and `llms.txt`, and runs shellcheck and the tests only on the kit's scripts (`check-docs.py --list <glob>`) |
+| ✅ | Docs tested in CI | `.github/workflows/docs.yml` + `scripts/agents/check-docs.py`: broken links, paths and ADRs, map paths that no longer exist. In a repo with `.agent-kit.json` it only checks the kit's `.md` files, `docs/`, `AGENTS.md` and `llms.txt` (if the kit was installed in an existing repo, not `docs/`: it is the project's), and runs shellcheck and the tests only on the kit's scripts (`check-docs.py --list <glob>`) |
 | 🧪 | Pre-PR verification | `scripts/agents/verify.py`: based on what changed, runs lint, typecheck, affected tests, migration drift… |
 | 👥 | Team | `.github/team.json` + `scripts/agents/team.py`: who receives issues, by area |
 | 🎨 | Brand | `.github/brand/`: Barrilete, the template's identity (init removes it) |

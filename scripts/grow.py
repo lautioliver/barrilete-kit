@@ -21,7 +21,7 @@ import sys
 import tempfile
 
 PLANTILLA = os.environ.get("AGENT_KIT_TEMPLATE", "https://github.com/lautioliver/barrilete-kit")
-NO_TRAER = {"README.md", "README.en.md", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
+NO_TRAER = {"README.md", "README.en.md", "LICENSE", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
 PENDIENTES = ".agent-kit/pending"
 
 
@@ -84,6 +84,10 @@ def main():
                     salir(f"the template at {plantilla} predates --lang, and the project was installed in {kit['language']}.")
             init += ["--lang", kit["language"]]  # grow keeps the language the project was installed in
         sh(*init, cwd=tmp)
+        for viejo, nuevo in kit.get("renames", {}).items():  # a workflow the installer put under another name
+            if os.path.isfile(os.path.join(tmp, viejo)):
+                os.makedirs(os.path.dirname(os.path.join(tmp, nuevo)), exist_ok=True)
+                os.replace(os.path.join(tmp, viejo), os.path.join(tmp, nuevo))
         version = json.load(open(os.path.join(tmp, ".agent-kit.json"), encoding="utf-8")).get("version")
 
         agregados, reemplazados, pendientes, iguales = [], [], [], 0

@@ -21,8 +21,9 @@ Checks:
 - Members of .github/team.json that are repeated or have areas that are not in labels.yml.
 The paths in "ignore_check" of the map (for example, historical logs) are not validated.
 
-If .agent-kit.json exists (the kit installed in a repo with its own code), the .md files are validated
-only if they belong to the kit (the ones listed in "files") or are in docs/, plus AGENTS.md and llms.txt.
+If .agent-kit.json exists, the .md files are validated only if they belong to the kit (the ones listed in
+"files") or are in docs/, plus AGENTS.md and llms.txt. If install.py put the kit in a repo that already had its
+own code (`"installed": true`), docs/ is not included: only the kit's .md files, AGENTS.md and llms.txt.
 Without it (the template), everything is checked. `--list <glob>` prints the kit files that match the glob
 (for example '*.sh'): docs.yml uses it so shellcheck and the tests run only on the kit.
 """
@@ -61,7 +62,17 @@ def archivos_del_kit():
     return set(archivos)
 
 
+def instalado():
+    """True if install.py put the kit in a repo that already had its own code (the registry says so)."""
+    try:
+        with open(".agent-kit.json", encoding="utf-8") as fh:
+            return bool(json.load(fh).get("installed"))
+    except (ValueError, OSError):
+        return False
+
+
 KIT = archivos_del_kit()
+INSTALADO = KIT is not None and instalado()
 if "--list" in sys.argv[1:]:
     if sys.argv[1:2] != ["--list"] or len(sys.argv) != 3:
         print("Usage: check-docs.py [--list <glob>]", file=sys.stderr)
@@ -88,8 +99,10 @@ if MAPA:
 
 
 def del_alcance(ruta):
-    """With .agent-kit.json, only the kit .md files, docs/, AGENTS.md and llms.txt."""
-    return KIT is None or ruta in KIT or ruta in ("AGENTS.md", "llms.txt") or ruta.startswith("docs/")
+    """With .agent-kit.json, only the kit .md files, AGENTS.md and llms.txt, and docs/ unless the kit was installed
+    in an existing repo (install.py): there docs/ also has the project's own guides, and their broken links are
+    not the kit's CI to fail. A project created from the template keeps docs/ checked: its docs/ is the kit's."""
+    return KIT is None or ruta in KIT or ruta in ("AGENTS.md", "llms.txt") or (ruta.startswith("docs/") and not INSTALADO)
 
 
 def md_files(aplicar_ignore=True):

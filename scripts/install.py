@@ -109,8 +109,8 @@ def origen_plantilla(pedida):
         return os.path.abspath(pedida) if os.path.exists(pedida) else pedida
     if os.environ.get("AGENT_KIT_TEMPLATE"):
         return os.environ["AGENT_KIT_TEMPLATE"]
-    este = globals().get("__file__")  # not defined when it is piped to `python3 -`
-    if este:
+    este = globals().get("__file__")  # with `python3 -` it is "<stdin>" (or missing)
+    if este and os.path.isfile(este):
         raiz = os.path.dirname(os.path.dirname(os.path.abspath(este)))
         if os.path.exists(os.path.join(raiz, ".git")) and os.path.exists(os.path.join(raiz, "scripts", "init-template.sh")):
             return raiz
@@ -266,9 +266,14 @@ def planear(nueva, labels_yml):
         kit = os.path.join(nueva, ruta)
         if ruta in NUNCA_TOCAR:
             plan.append(("skip", ruta, kit, None))
+        elif padre_ocupado(ruta):
+            plan.append(("pending", ruta, kit, labels_yml if ruta == ".github/labels.yml" else None))
         elif ruta == ".github/labels.yml":
             plan.append(("add" if not os.path.lexists(ruta) else "pending", ruta, kit, labels_yml))
-        elif padre_ocupado(ruta):
+        elif ruta == ".github/workflows/labels.yml" and os.path.lexists(".github/labels.yml"):
+            # The kit's sync deletes every label that is not in labels.yml: not against a file that is the project's.
+            plan.append(("pending", ruta, kit, None))
+        elif os.path.islink(ruta):  # never write through a link (CLAUDE.md -> AGENTS.md)
             plan.append(("pending", ruta, kit, None))
         elif not os.path.lexists(ruta) and not (es_workflow(ruta) and os.path.lexists(otra_extension(ruta))):
             plan.append(("add", ruta, kit, None))
@@ -348,6 +353,16 @@ def resumen(plan, propios, ref, draft):
             print(f"    {len(por_defecto)} are GitHub default labels ({', '.join(por_defecto)}): they stay as yours; "
                   "delete them from the own-labels section of labels.yml if you do not want them.")
     pend = de("pending")
+    for r, _ in pend:
+        if os.path.islink(r):
+            print(f"  - {r} is a symlink: I did not touch it (nor what it points to). "
+                  f"If it does not already load the rules, add `@AGENTS.md` where it points.")
+    if any(r == ".github/workflows/labels.yml" for r, _ in pend) and os.path.lexists(".github/labels.yml"):
+        print("  - The kit's Labels workflow is not installed: it deletes every label that is not in labels.yml, and "
+              "your .github/labels.yml is yours. Install it from "
+              f"{PENDIENTES}/.github/workflows/labels.yml once your labels.yml has the repo's labels.")
+    if any(r == ".claude/settings.json" for r, _ in pend):
+        print("  - The guardrails hook is NOT active until you integrate .claude/settings.json.")
     if any(r == ".github/labels.yml" for r, _ in pend):
         print("  - You already had .github/labels.yml: it is yours, and it does NOT have the repo's labels. "
               f"Merge {PENDIENTES}/.github/labels.yml into it before the first sync: the sync deletes every label "
@@ -364,7 +379,10 @@ def resumen(plan, propios, ref, draft):
     pasos += ["Fill in the TODO: markers of the kit files (grep -rn 'TODO:' AGENTS.md docs .github).",
               "Commit on a branch and open a PR. The kit CI only checks the kit's files; your own tests and lint "
               "need a workflow of yours.",
-              "After the merge, the Labels workflow syncs .github/labels.yml (it keeps the repo's labels)."]
+              "Just before merging, re-run `gh label list --limit 1000 --json name,color,description | python3 "
+              "scripts/agents/labels.py .github/labels.yml > /tmp/labels.yml && mv /tmp/labels.yml .github/labels.yml` "
+              "and commit it: the PR can take days and the first sync deletes any label created in the meantime "
+              "that is not in the file."]
     print("\nNext steps:")
     for i, paso in enumerate(pasos, 1):
         print(f"  {i}. {paso}")
@@ -407,8 +425,11 @@ def main():
                 registro, renombres = aplicar(plan)
             except OSError as e:
                 salir(f"could not write the files ({e}). The tree may be half installed: `git status` shows what was "
-                      "written; discard it with `git clean -fd` and `git checkout .`, then try again.")
+                      "written; discard it with `git checkout . && git clean -fd && rm -rf .agent-kit .agent-kit.json`, then try again.")
             registro_kit["files"] = dict(sorted(registro.items()))
+            registro_kit["installed"] = True  # check-docs.py: in an installed repo, docs/ is the project's
+            if ref == "HEAD":  # a commit with no tag: update.py cannot rebuild its base, so it must not guess one
+                registro_kit["version"] = None
             if renombres:
                 registro_kit["renames"] = renombres
             with open(".agent-kit.json", "w", encoding="utf-8") as f:
