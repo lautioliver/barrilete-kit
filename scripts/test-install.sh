@@ -3,8 +3,8 @@
 # CLAUDE.md, settings.json con hooks propios, docs.yml propio, labels propios con un `gh` falso,
 # .md con links rotos, .sh que no pasa shellcheck) y una plantilla local con dos versiones.
 # Uso: bash scripts/test-install.sh
-set -uo pipefail
 # shellcheck disable=SC2016  # los fixtures llevan $1 y backticks literales
+set -uo pipefail
 RAIZ=$(cd "$(dirname "$0")/.." && pwd)
 TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-install-XXXXXX")" && pwd -P)
 trap 'rm -rf "$TMP"' EXIT
