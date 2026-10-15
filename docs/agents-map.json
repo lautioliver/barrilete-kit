@@ -236,6 +236,17 @@
       "run": "bash scripts/test-update.sh"
     },
     {
+      "name": "install",
+      "when": [
+        "?scripts/install.py",
+        "?scripts/test-install.sh",
+        "?scripts/update.py",
+        "?scripts/agents/labels.py",
+        "?scripts/init-template.sh"
+      ],
+      "run": "bash scripts/test-install.sh"
+    },
+    {
       "name": "renames",
       "when": [
         "?scripts/test-renames.sh"

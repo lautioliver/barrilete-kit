@@ -51,7 +51,7 @@ repo() { # repo <dir>
   printf 'node_modules\n.env\n' >.gitignore
   printf '# Reglas de mi app\n\nusar tabs\n' >AGENTS.md
   printf '# Claude de mi app\n\nregla propia\n' >CLAUDE.md
-  mkdir -p .claude .github/workflows .github/ISSUE_TEMPLATE docs src
+  mkdir -p .claude .github/workflows .github/ISSUE_TEMPLATE docs notas src
   cat >.claude/settings.json <<'JSON'
 {
   "hooks": {
@@ -70,9 +70,9 @@ JSON
   printf 'mi plantilla de PR\n' >.github/pull_request_template.md
   printf 'blank_issues_enabled: true\n' >.github/ISSUE_TEMPLATE/config.yml
   printf '# Docs de mi app\n' >docs/README.md
-  printf '# Roto\n\n[no existe](nada.md)\n' >docs/roto.md
+  printf '# Roto\n\n[no existe](nada.md)\n' >notas/roto.md
   printf '# Notas\n\n[tampoco](../otra.md) y `src/falta.sh`\n' >NOTAS.md
-  printf '#!/bin/bash\nrm $1\n' >src/limpiar.sh
+  printf '#!/bin/bash\nrm $1\n' >src/borrar.sh
   printf '#!/bin/bash\necho "falla a propósito"; exit 1\n' >src/test-propio.sh
   git add -A && git commit -qm "repo existente"
 }
@@ -166,7 +166,7 @@ import json, sys
 u = sys.argv[1]
 k = json.load(open(u + "/.agent-kit.json"))
 f = k["files"]
-for propio in ("README.md", "LICENSE", "NOTAS.md", "docs/roto.md", "src/limpiar.sh", "src/test-propio.sh",
+for propio in ("README.md", "LICENSE", "NOTAS.md", "notas/roto.md", "src/borrar.sh", "src/test-propio.sh",
                "AGENTS.md", "CLAUDE.md", ".gitignore", ".claude/settings.json", ".github/workflows/docs.yml",
                ".github/workflows/ci.yml", "docs/README.md", ".github/pull_request_template.md",
                ".github/labels.yml"):
@@ -180,11 +180,14 @@ afirmar $? ".agent-kit.json tiene solo los archivos del kit, con los renombres"
 ! [ -e "$U/scripts/install.py" ] && ! [ -e "$U/scripts/test-install.sh" ] && ! [ -e "$U/scripts/init-template.sh" ]
 afirmar $? "no instala el instalador ni el init (son de la plantilla)"
 
-# El CI del kit pasa con el código del usuario.
+# El CI del kit pasa con el código del usuario (con lo instalado ya commiteado: los scripts miran `git ls-files`).
+(cd "$U" \
+  && git add -A && git commit -qm "instala barrilete") >/dev/null 2>&1
 s2=$(cd "$U" && python3 scripts/agents/check-docs.py 2>&1); c=$?
-# Con el mapa de ejemplo (TODO) el check falla a propósito; lo que no puede fallar son los .md del usuario.
-! grep -q 'roto.md\|NOTAS.md' <<<"$s2" && ! grep -q 'Traceback' <<<"$s2"
-afirmar $? "check-docs.py no revisa los .md del usuario fuera de docs/ (NOTAS.md) ni falla con un traceback"
+# Con el mapa de ejemplo (TODO) el check falla a propósito hasta que el proyecto lo completa: lo que no
+# puede fallar son los .md del usuario, ni las rutas del kit que acaba de instalar.
+! grep -q 'roto.md\|NOTAS.md' <<<"$s2" && ! grep -q 'Traceback\|matches no file\|broken link\|missing path' <<<"$s2"
+afirmar $? "check-docs.py no revisa los .md del usuario fuera de docs/ (NOTAS.md) y no marca rutas ni links rotos del kit"
 lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh')
 ! grep -q '^src/' <<<"$lista" && grep -q 'scripts/agents/test-base.sh' <<<"$lista"
 afirmar $? "la lista de scripts del CI no incluye los .sh del usuario"
@@ -194,7 +197,6 @@ lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*test-*.sh')
 afirmar $? "shellcheck pasa sobre los scripts del kit instalados"
 
 # Reinstalar: se frena (ya hay .agent-kit.json).
-(cd "$U" && git add -A && git commit -qm "instala barrilete") >/dev/null 2>&1
 s=$(instalar Demo main --template "$P"); c=$?
 [ "$c" -ne 0 ] && grep -q 'update.py' <<<"$s"; afirmar $? "en un repo ya instalado falla y apunta a update.py"
 

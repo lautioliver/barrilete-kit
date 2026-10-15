@@ -174,6 +174,14 @@ def planear(nueva, base, registradas):
     return plan
 
 
+def renombrar(raiz, renombres):
+    """Applies the project's renames (a workflow installed as barrilete-<name>.yml) to an initialized template."""
+    for viejo, nuevo in renombres.items():
+        if os.path.isfile(os.path.join(raiz, viejo)):
+            os.makedirs(os.path.dirname(os.path.join(raiz, nuevo)), exist_ok=True)
+            os.replace(os.path.join(raiz, viejo), os.path.join(raiz, nuevo))
+
+
 def aplicar(plan, nueva):
     """Applies the plan. An error in one file does not stop the rest: it is noted."""
     hechos, errores = {}, []
@@ -251,10 +259,12 @@ def main():
 
         nueva = os.path.join(tmp, "nueva")
         inicializar(clon, ref, nueva, kit)
+        renombrar(nueva, kit.get("renames", {}))
         base = None
         if actual and f"v{actual}" in disponibles:
             base = os.path.join(tmp, "base")
             inicializar(clon, f"v{actual}", base, kit)
+            renombrar(base, kit.get("renames", {}))
 
         registradas = kit.get("files", {})
         plan = planear(nueva, base, registradas)

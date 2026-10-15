@@ -238,10 +238,12 @@ La tabla vieja → nueva completa está en el `CHANGELOG.md` del kit.
 **Reglas:** minúsculas, kebab-case, sin tildes (evita problemas en filtros y URLs).
 
 ### Repos que ya tienen labels
-El sync de `labels.yml` borra los labels que no están en el archivo (`delete-other-labels: true`: es lo que limpia `bug`, `enhancement`… en un repo nuevo). Al instalar el kit en un repo existente, el instalador (#122, pendiente) va a llamar a la función de abajo para agregar al archivo los labels que ya tiene el repo (`gh label list`), con su color y descripción, en la sección `# ── project's own labels …`. Así el sync no va a borrar nada ni a quitarlos de los issues. Mientras el instalador no exista, hay que correr ese comando a mano antes del primer sync en un repo que ya tiene labels.
+El sync de `labels.yml` borra los labels que no están en el archivo (`delete-other-labels: true`: es lo que limpia `bug`, `enhancement`… en un repo nuevo). Al instalar el kit en un repo existente, el instalador (`install.py`) (#122) llama a la función de abajo y agrega al archivo los labels que ya tiene el repo (`gh label list`), con su color y descripción, en la sección `# ── project's own labels …`. Así el sync no borra nada ni los quita de los issues. Si `gh` no puede leer los labels, el instalador no instala: sin ellos, el primer sync los borraría. Si instalaste el kit a mano, corré el comando de abajo antes del primer sync.
 
 - Esos labels pueden no tener prefijo `grupo:valor`: el check de PRs solo cuenta los prefijos `type:`, `area:`, `priority:` y `status:`, y `check-docs.py` solo mira que las áreas de `team.json` existan: ambos aceptan cualquier otro nombre.
 - Si un label del repo tiene el mismo nombre que uno del kit (sin distinguir mayúsculas), queda una sola entrada: el color es el del repo y la descripción la del kit.
+- Los labels que GitHub crea en todo repo nuevo (`bug`, `enhancement`…) quedan como propios y no se limpian solos: si no los querés, borralos de esa sección. El instalador los nombra en su resumen.
+- La combinación se hace **solo al instalar**: volver a correrla después de una actualización dejaría el color viejo del repo sobre el nuevo del kit y devolvería como propios los labels que el kit quitó. `update.py` fusiona `labels.yml` contra la versión anterior del kit.
 - La combinación la hace `scripts/agents/labels.py` (`gh label list --limit 1000 --json name,color,description | python3 scripts/agents/labels.py .github/labels.yml`) y es idempotente.
 
 ---
