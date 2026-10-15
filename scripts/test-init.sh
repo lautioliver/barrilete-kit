@@ -43,7 +43,14 @@ for modo in completo chico; do
     s=$(cd "$p" && python3 scripts/agentes/verificar.py --listar 2>&1)
     ! grep -q '\.env\|__pycache__' <<<"$s"; afirmar $? "[$modo] verificar.py no lista .env ni __pycache__"
   fi
-  (cd "$p" && python3 scripts/agentes/check-docs.py >/dev/null 2>&1)
+  # Completo: el mapa trae TODO de ejemplo y check-docs falla a propósito hasta que el proyecto los completa;
+  # lo que no puede fallar son los links, rutas ni índices. Chico: no tiene mapa y tiene que pasar entero.
+  s=$(cd "$p" && python3 scripts/agentes/check-docs.py 2>&1); c=$?
+  if [ "$modo" = chico ]; then es "$c" -eq 0; else ! grep -q 'ruta inexistente\|link roto\|en el índice\|no existe' <<<"$s"; fi
+  afirmar $? "[$modo] check-docs.py del proyecto recién creado no marca links, rutas ni índices rotos"
+  [ -f "$p/docs/decisions/README.md" ] && ! ls "$p"/docs/decisions/ADR-001-* >/dev/null 2>&1 && ! grep -rq 'ADR-001-idioma-labels' "$p/docs" "$p/README.md"
+  afirmar $? "[$modo] el init no instala los ADRs del kit (Ámbito: kit) ni sus líneas en los índices"
+  grep -q 'TODO:.*ADR-001' "$p/docs/README.md"; afirmar $? "[$modo] docs/README.md conserva el TODO del primer ADR del proyecto"
   es -z "$(cd "$p" && git status --porcelain)"; afirmar $? "[$modo] después de correr los scripts, git status queda limpio"
   if [ "$modo" = chico ]; then
     ! [ -e "$p/docs/mapa-agentes.json" ]; afirmar $? "[$modo] el modo chico no tiene mapa (ni verificación init)"
