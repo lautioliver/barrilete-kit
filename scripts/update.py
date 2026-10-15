@@ -103,6 +103,10 @@ def inicializar(clon, ref, destino, kit):
         args.append("releases")
     if kit.get("mode") == "small":
         args.append("--small" if nuevo else "--chico")
+    # --lang arrived after the renames: an origin version without it installs in English only.
+    init = os.path.join(destino, "scripts", "init-template.sh")
+    if kit.get("language") and nuevo and "--lang" in open(init, encoding="utf-8").read():
+        args += ["--lang", kit["language"]]
     sh(*args, cwd=destino, env=dict(os.environ, **{"AGENT_KIT_DATE" if nuevo else "AGENT_KIT_FECHA": kit.get("date", "")}))
 
 

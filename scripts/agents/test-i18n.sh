@@ -20,6 +20,7 @@ copia() {
 }
 check() { (cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>&1); }
 # Un par con 2 encabezados y 1 bloque de código (el "# comentario" dentro del bloque no es un encabezado).
+# shellcheck disable=SC2016  # los backticks son Markdown literal
 par() { # par <ruta sin extensión> <encabezados extra en .es.md> <bloques extra en .es.md>
   local r="$TMP/r/$1"
   printf '# Title\n\n```bash\n# comment\nls\n```\n\n## Section\n' >"$r.md"

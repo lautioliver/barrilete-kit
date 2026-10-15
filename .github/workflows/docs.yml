@@ -1,7 +1,8 @@
 # .github/workflows/docs.yml — <PROJECT>
 # Documentation is infrastructure for agents: it is tested too.
 # Validates links, mentioned paths, ADRs and required documents (scripts/agents/check-docs.py),
-# runs shellcheck and the script tests, and on PRs warns which docs should be reviewed according to docs/agents-map.json.
+# runs shellcheck and the script tests, and on PRs warns which docs should be reviewed according to docs/agents-map.json
+# and which X.md / X.es.md pair changed on one side only.
 name: Docs
 
 on:
@@ -59,4 +60,7 @@ jobs:
           { echo "## Docs and sensitive paths"; echo; echo "$salida"; } >> "$GITHUB_STEP_SUMMARY"
           if echo "$salida" | grep -q "NOT MODIFIED"; then
             echo "::warning::There are docs that the map suggests reviewing and the PR does not modify. See the job summary."
+          fi
+          if echo "$salida" | grep -q "UNPAIRED"; then
+            echo "::warning::The PR changes a document in one language (X.md or X.es.md) without its sibling. See the job summary."
           fi

@@ -24,6 +24,7 @@ mkdir -p "$P"
   echo 0.1.0 >VERSION
   for f in viejo viejo2 borrado cambiado; do echo "$f v0.1" >".claude/skills/debug/$f.md"; done
   echo "echo modo" >.claude/skills/debug/modo.sh && chmod 644 .claude/skills/debug/modo.sh
+  echo "Hello v0.1" >.claude/skills/debug/lang.md && echo "Hola v0.1" >.claude/skills/debug/lang.es.md
   git add -A && git commit -qm v0.1.0 && git tag v0.1.0
   # Un commit después del tag, sin cambiar VERSION: así nace un proyecto creado desde main.
   echo "cambiado posterior" >.claude/skills/debug/cambiado.md
@@ -37,6 +38,7 @@ mkdir -p "$P"
   echo "borrado v0.2" >.claude/skills/debug/borrado.md
   git rm -q .claude/skills/debug/viejo.md .claude/skills/debug/viejo2.md
   echo "cambiado v0.2" >.claude/skills/debug/cambiado.md
+  echo "Hello v0.2" >.claude/skills/debug/lang.md && echo "Hola v0.2" >.claude/skills/debug/lang.es.md
   chmod 755 .claude/skills/debug/modo.sh
   git add -A && git commit -qm v0.2.0 && git tag v0.2.0
 ) >/dev/null 2>&1
@@ -51,10 +53,11 @@ mkdir -p "$P"
 
 # Proyecto iniciado con v0.1.0: <modo> en <dir>.
 proyecto() {
-  local dir=$1 modo=$2 ref=${3:-v0.1.0}
+  local dir=$1 modo=$2 ref=${3:-v0.1.0} idioma=${4:-}
   mkdir -p "$dir"
   git -C "$P" archive "$ref" | tar -xf - -C "$dir"
   local extra=(); [ "$modo" = chico ] && extra=(--small)
+  [ -n "$idioma" ] && extra+=(--lang "$idioma")
   (cd "$dir" && git init -q -b main && git add -A && git commit -qm plantilla \
     && ./scripts/init-template.sh Demo main ${extra[@]+"${extra[@]}"} && git add -A && git commit -qm init) >/dev/null 2>&1
 }
@@ -136,6 +139,24 @@ proyecto "$D" completo posterior
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
 grep -q "cambiado v0.2" "$D/.claude/skills/debug/cambiado.md" && ! [ -e "$D/.agent-kit/pending/.claude/skills/debug/cambiado.md" ]
 afirmar $? "un proyecto creado desde main después del tag: lo que no tocó se reemplaza, no va a pendientes"
+
+# --lang (#113): update.py y grow.py reproducen el init en el idioma registrado.
+for modo in completo chico; do
+  D="$TMP/es-$modo"
+  proyecto "$D" "$modo" v0.1.0 es
+  grep -qx "Hola v0.1" "$D/.claude/skills/debug/lang.md" && grep -q '"language": "es"' "$D/.agent-kit.json"
+  afirmar $? "[$modo --lang es] el init instala la versión .es.md y registra language: es"
+  s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
+  [ "$c" -eq 0 ] && grep -qx "Hola v0.2" "$D/.claude/skills/debug/lang.md" && ! [ -e "$D/.claude/skills/debug/lang.es.md" ] \
+    && grep -q '"language": "es"' "$D/.agent-kit.json"
+  afirmar $? "[$modo --lang es] update.py reinstala en español, sin traer los .es.md"
+done
+D="$TMP/crece-es"
+proyecto "$D" chico v0.1.0 es
+s=$(cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1); c=$?
+[ "$c" -eq 0 ] && grep -qx "Hola v0.2" "$D/.claude/skills/debug/lang.md" && ! [ -e "$D/.claude/skills/debug/lang.es.md" ] \
+  && grep -q '"language": "es"' "$D/.agent-kit.json"
+afirmar $? "grow.py mantiene el idioma del proyecto (es)"
 
 # Modo chico.
 D="$TMP/chico"

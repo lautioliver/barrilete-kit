@@ -77,6 +77,8 @@ def main():
         print(f"Cloning the template from {plantilla}…")
         sh("git", "clone", "-q", "--depth", "1", plantilla, tmp)
         init = ["./scripts/init-template.sh", kit["project"], kit["base_branch"]] + (["releases"] if releases else [])
+        if kit.get("language"):
+            init += ["--lang", kit["language"]]  # grow keeps the language the project was installed in
         sh(*init, cwd=tmp)
         version = json.load(open(os.path.join(tmp, ".agent-kit.json"), encoding="utf-8")).get("version")
 
