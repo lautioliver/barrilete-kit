@@ -109,12 +109,21 @@ What it touches:
 | README, LICENSE | Doesn't touch them |
 | `.gitignore` | Adds what is missing in a `# barrilete` block |
 | `CLAUDE.md` | If it doesn't import `@AGENTS.md`, adds the line |
-| `.claude/settings.json` | JSON merge: adds the guardrails hook to your hooks |
+| `.claude/settings.json` | JSON merge: adds the guardrails hook to your hooks. If the file is not valid JSON, has no `hooks` object or is a symlink, the kit's version goes to `.agent-kit/pending/` instead |
 | Workflow with the same name | The kit's is installed as `barrilete-<name>.yml` |
-| `.github/labels.yml` | The kit's labels plus the ones the repo already has (`gh label list`), so the sync deletes none |
+| `.github/labels.yml` | The kit's labels plus the ones the repo had at install time (`gh label list`), so the first sync deletes none of them |
 | Any other file you already have (for example `AGENTS.md`, `docs/README.md`, the PR template) | Keeps yours; the kit's version goes to `.agent-kit/pending/` |
 
-Review it before you commit anything. The installer doesn't commit: review `git status` and the diff. Then integrate what is worth keeping from `.agent-kit/pending/` into your files and delete that folder: `update.py` won't run while it has files. Until you integrate `.claude/settings.json`, the guardrails hook is not active. Before the first label sync, merge `.agent-kit/pending/.github/labels.yml` into yours if it is there.
+Review it before you commit anything. The installer doesn't commit: review `git status` and the diff. Then:
+
+1. Integrate what is worth keeping from `.agent-kit/pending/` into your files and delete that folder: `update.py` won't run while it has files. If `.agent-kit/pending/.github/labels.yml` is there, merge its labels into your `.github/labels.yml` before the first sync.
+2. If the project already had `.github/labels.yml`, the Labels workflow (`.github/workflows/labels.yml`) stays in `.agent-kit/pending/` and is withheld: `update.py` and `grow.py` won't bring it back. Once your `labels.yml` has the repo's labels, install it yourself by copying `.agent-kit/pending/.github/workflows/labels.yml` to `.github/workflows/labels.yml`. The next `update.py` run removes it from `withheld` in `.agent-kit.json`. Until then there is no label sync, so don't delete the folder before doing this.
+3. If `.claude/settings.json` is in `.agent-kit/pending/`, the guardrails hook is not active until you integrate it. Otherwise it is already active.
+4. Right before merging the PR, run the labels command the installer prints, and commit the result: the PR can take days, and the first sync deletes any label created in the meantime that is not in the file.
+
+```bash
+gh label list --limit 1000 --json name,color,description | python3 scripts/agents/labels.py .github/labels.yml > /tmp/labels.yml && mv /tmp/labels.yml .github/labels.yml
+```
 
 To have an agent do the integration in the same PR, ask it something like this:
 

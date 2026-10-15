@@ -106,12 +106,21 @@ Qué toca:
 | README, LICENSE | No los toca |
 | `.gitignore` | Agrega lo que falta en un bloque `# barrilete` |
 | `CLAUDE.md` | Si no importa `@AGENTS.md`, agrega la línea |
-| `.claude/settings.json` | Fusión JSON: agrega el hook de barandas a tus hooks |
+| `.claude/settings.json` | Fusión JSON: agrega el hook de barandas a tus hooks. Si el archivo no es JSON válido, no tiene objeto `hooks` o es un enlace simbólico, la versión del kit va a `.agent-kit/pending/` en su lugar |
 | Workflow con el mismo nombre | El del kit se instala como `barrilete-<nombre>.yml` |
-| `.github/labels.yml` | Los labels del kit más los que ya tiene el repo (`gh label list`), así el sync no borra ninguno |
+| `.github/labels.yml` | Los labels del kit más los que el repo tenía al instalar (`gh label list`), así el primer sync no borra ninguno de ellos |
 | Cualquier otro archivo que ya tengas (por ejemplo `AGENTS.md`, `docs/README.md`, el template de PR) | Deja el tuyo; la versión del kit va a `.agent-kit/pending/` |
 
-Revisalo antes de commitear nada. El instalador no commitea: mirá `git status` y el diff. Después integrá lo que valga la pena de `.agent-kit/pending/` en tus archivos y borrá esa carpeta: `update.py` no corre mientras tenga archivos. Hasta que integres `.claude/settings.json`, el hook de barandas no está activo. Antes del primer sync de labels, fusioná `.agent-kit/pending/.github/labels.yml` con el tuyo si está.
+Revisalo antes de commitear nada. El instalador no commitea: mirá `git status` y el diff. Después:
+
+1. Integrá lo que valga la pena de `.agent-kit/pending/` en tus archivos y borrá esa carpeta: `update.py` no corre mientras tenga archivos. Si está `.agent-kit/pending/.github/labels.yml`, fusioná sus labels con tu `.github/labels.yml` antes del primer sync.
+2. Si el proyecto ya tenía `.github/labels.yml`, el workflow de Labels (`.github/workflows/labels.yml`) queda en `.agent-kit/pending/` y retenido: `update.py` y `grow.py` no lo traen. Cuando tu `labels.yml` tenga los labels del repo, instalalo vos copiando `.agent-kit/pending/.github/workflows/labels.yml` a `.github/workflows/labels.yml`. La próxima corrida de `update.py` lo saca de `withheld` en `.agent-kit.json`. Hasta entonces no hay sync de labels, así que no borres la carpeta antes de hacerlo.
+3. Si `.claude/settings.json` está en `.agent-kit/pending/`, el hook de barandas no está activo hasta que lo integres. Si no, ya queda activo.
+4. Justo antes de mergear el PR, corré el comando de labels que imprime el instalador, y commiteá el resultado: el PR puede tardar días, y el primer sync borra los labels creados mientras tanto que no estén en el archivo.
+
+```bash
+gh label list --limit 1000 --json name,color,description | python3 scripts/agents/labels.py .github/labels.yml > /tmp/labels.yml && mv /tmp/labels.yml .github/labels.yml
+```
 
 Para que un agente haga la integración en el mismo PR, pedile algo así:
 
