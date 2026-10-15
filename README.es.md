@@ -324,6 +324,8 @@ Inicializa la versión nueva con los datos del proyecto y la compara archivo por
 - Lo que tocaron los dos lados se fusiona con `git merge-file`. Si hay conflicto, **no se pisa**: la fusión con marcas queda en `.agent-kit/pending/`.
 - Lo que el proyecto borró no vuelve.
 
+Un proyecto creado con 0.9 (nombres en español) se migra en la misma corrida a los nombres, claves y labels nuevos, conservando sus cambios; cómo correrlo y revisarlo está en el `CHANGELOG.md` (#116).
+
 Muestra qué cambió según el changelog y no commitea: revisás el diff y abrís un PR. Un proyecto creado antes de las versiones también se actualiza, pero sin fusionar: lo que modificó queda entero en `.agent-kit/pending/`.
 
 <a name="herramientas"></a>

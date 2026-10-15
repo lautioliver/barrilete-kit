@@ -37,12 +37,149 @@ def salir(msg):
     sys.exit(1)
 
 
-def verificar_claves(kit):
-    """.agent-kit.json de 0.9 (claves en español): error claro; la migración es el issue #116."""
-    if "archivos" in kit and "files" not in kit:
-        salir(".agent-kit.json uses the 0.9 keys (proyecto, rama_base, modo, fecha, archivos): this project "
-              "was created with a version before the English renames. Migrating it is not supported by "
-              "this version of the script yet (issue #116).")
+# Projects created with 0.9 (Spanish names). The old names live only here, in the CHANGELOG table and in ADR-001.
+# Kit files that exist in a 0.9 project, old path -> new path (the brand and profiles/ are deleted by the init).
+RENAMES_0_9 = {
+    ".claude/agents/implementador-liviano.md": ".claude/agents/implementer-light.md",
+    ".claude/agents/implementador.md": ".claude/agents/implementer.md",
+    ".claude/agents/revisor.md": ".claude/agents/reviewer.md",
+    ".claude/skills/crear-issue/SKILL.md": ".claude/skills/create-issue/SKILL.md",
+    ".claude/skills/estado/disponibles.sh": ".claude/skills/project-status/available.sh",
+    ".claude/skills/estado/estado.sh": ".claude/skills/project-status/status.sh",
+    ".claude/skills/estado/SKILL.md": ".claude/skills/project-status/SKILL.md",
+    ".claude/skills/implement-issue/preparar.sh": ".claude/skills/implement-issue/prepare.sh",
+    ".claude/skills/implement-issue/rojo.sh": ".claude/skills/implement-issue/red.sh",
+    ".claude/skills/implement-issue/test-preparar.sh": ".claude/skills/implement-issue/test-prepare.sh",
+    ".claude/skills/implement-issue/test-rojo.sh": ".claude/skills/implement-issue/test-red.sh",
+    ".claude/skills/mejorar-skills/plantilla-retro.md": ".claude/skills/improve-skills/retro-template.md",
+    ".claude/skills/mejorar-skills/retro.sh": ".claude/skills/improve-skills/retro.sh",
+    ".claude/skills/mejorar-skills/senales.sh": ".claude/skills/improve-skills/signals.sh",
+    ".claude/skills/mejorar-skills/SKILL.md": ".claude/skills/improve-skills/SKILL.md",
+    ".claude/skills/mejorar-skills/test-retros.sh": ".claude/skills/improve-skills/test-retros.sh",
+    ".claude/skills/orquestar/limpiar.sh": ".claude/skills/orchestrate/cleanup.sh",
+    ".claude/skills/orquestar/ruteo.py": ".claude/skills/orchestrate/routing.py",
+    ".claude/skills/orquestar/SKILL.md": ".claude/skills/orchestrate/SKILL.md",
+    ".claude/skills/orquestar/test-orquestar.sh": ".claude/skills/orchestrate/test-orchestrate.sh",
+    ".claude/skills/plan-feature/planificar.py": ".claude/skills/plan-feature/planner.py",
+    ".github/equipo.json": ".github/team.json",
+    ".github/hooks/barandas.json": ".github/hooks/guardrails.json",
+    ".github/ISSUE_TEMPLATE/4-auditoria.yml": ".github/ISSUE_TEMPLATE/4-audit.yml",
+    ".github/ISSUE_TEMPLATE/5-prueba.yml": ".github/ISSUE_TEMPLATE/5-trial.yml",
+    ".github/workflows/desbloquear.yml": ".github/workflows/unblock.yml",
+    "docs/agentes/contrato-subagentes.md": "docs/agents/subagent-contract.md",
+    "docs/agentes/lecciones.md": "docs/agents/lessons.md",
+    "docs/convencion-nombres-github.md": "docs/github-naming-convention.md",
+    "docs/decisions/ADR-000-plantilla.md": "docs/decisions/ADR-000-template.md",
+    "docs/mapa-agentes.json": "docs/agents-map.json",
+    "docs/probar-la-plantilla.md": "docs/try-the-template.md",
+    "scripts/actualizar.py": "scripts/update.py",
+    "scripts/agentes/barandas.py": "scripts/agents/guardrails.py",
+    "scripts/agentes/check-docs.py": "scripts/agents/check-docs.py",
+    "scripts/agentes/equipo.py": "scripts/agents/team.py",
+    "scripts/agentes/mapa.py": "scripts/agents/agents_map.py",
+    "scripts/agentes/test_barandas.py": "scripts/agents/test_guardrails.py",
+    "scripts/agentes/test_equipo.py": "scripts/agents/test_team.py",
+    "scripts/agentes/test-agentes.sh": "scripts/agents/test-agents.sh",
+    "scripts/agentes/test-base.sh": "scripts/agents/test-base.sh",
+    "scripts/agentes/verificar.py": "scripts/agents/verify.py",
+    "scripts/crecer.py": "scripts/grow.py",
+    "scripts/init-plantilla.sh": "scripts/init-template.sh",
+    "scripts/test-actualizar.sh": "scripts/test-update.sh",
+}
+# Old directory prefix -> new one, to rewrite paths inside the project's JSON (globs, commands).
+DIRS_0_9 = (("scripts/agentes/", "scripts/agents/"), ("docs/agentes/", "docs/agents/"),
+            ("perfiles/chico/", "profiles/small/"), ("perfiles/", "profiles/"))
+# JSON keys of agents-map.json and team.json; `name` and `type` also have values to translate.
+KEYS_0_9 = {"_ayuda": "_help", "cuando": "when", "revisar": "review", "motivo": "reason", "sensibles": "sensitive",
+            "tipo": "type", "rutas": "paths", "verificar": "verify", "nombre": "name", "siempre": "always",
+            "correr": "run", "obligatorios": "required", "ignorar_check": "ignore_check",
+            "integrantes": "members", "activo": "active"}
+VALUES_0_9 = {"name": {"preparar": "prepare", "agentes": "agents", "rojo": "red", "orquestar": "orchestrate",
+                       "barandas": "guardrails", "actualizar": "update", "migraciones": "migrations",
+                       "contrato-api": "api-contract"},
+              "type": {"dinero": "money", "dependencias": "dependencies", "api-publica": "public-api"}}
+KIT_KEYS_0_9 = {"proyecto": "project", "rama_base": "base_branch", "modo": "mode", "fecha": "date", "archivos": "files"}
+MODES_0_9 = {"chico": "small", "completo": "full"}
+JSON_0_9 = ("docs/agents-map.json", ".github/team.json")  # new paths; both are migrated in place
+HOOKS = (".claude/settings.json", ".codex/hooks.json", ".cursor/hooks.json", ".github/hooks/guardrails.json")
+
+
+def es_0_9(kit):
+    """.agent-kit.json of a 0.9 project: Spanish keys (proyecto, rama_base, modo, fecha, archivos)."""
+    return "archivos" in kit and "files" not in kit
+
+
+def migrar_kit(kit):
+    """The 0.9 .agent-kit.json with the new keys (same order). Without `language` it is `en`, as since #130."""
+    nuevo = {}
+    for k, v in kit.items():
+        k = KIT_KEYS_0_9.get(k, k)
+        nuevo[k] = MODES_0_9.get(v, v) if k == "mode" else v
+        if k == "date":
+            nuevo.setdefault("language", kit.get("language", "en"))
+    return nuevo
+
+
+def texto_nuevo(s):
+    """A string of the project's JSON with the old paths and the {archivos} placeholder replaced."""
+    for viejo, nuevo in sorted(RENAMES_0_9.items(), key=lambda p: -len(p[0])):
+        s = s.replace(viejo, nuevo)
+    for viejo, nuevo in DIRS_0_9:
+        s = s.replace(viejo, nuevo)
+    return s.replace("{archivos}", "{files}")
+
+
+def json_nuevo(o, clave=None):
+    if isinstance(o, dict):
+        return {KEYS_0_9.get(k, k): json_nuevo(v, KEYS_0_9.get(k, k)) for k, v in o.items()}
+    if isinstance(o, list):
+        return [json_nuevo(v, clave) for v in o]
+    if isinstance(o, str):
+        return VALUES_0_9.get(clave, {}).get(o, texto_nuevo(o))
+    return o
+
+
+def migrar_arbol(raiz, registradas=None):
+    """Moves the 0.9 kit files under `raiz` to their new names and migrates the keys of the JSON ones.
+    `registradas` (the project's registry) follows the moves. Returns (moved, blocked, warnings):
+    blocked are the files whose new path already exists, which are left where they are."""
+    movidos, bloqueados, avisos = [], [], []
+    for viejo, nuevo in sorted(RENAMES_0_9.items()):
+        v, n = os.path.join(raiz, viejo), os.path.join(raiz, nuevo)
+        if os.path.isfile(v):
+            if os.path.lexists(n):
+                bloqueados.append((viejo, nuevo))
+                continue
+            os.makedirs(os.path.dirname(n), exist_ok=True)
+            os.replace(v, n)
+            movidos.append((viejo, nuevo))
+            carpeta = os.path.dirname(v)
+            while carpeta != raiz and os.path.isdir(carpeta) and not os.listdir(carpeta):
+                os.rmdir(carpeta)
+                carpeta = os.path.dirname(carpeta)
+        if registradas is not None and viejo in registradas and (viejo, nuevo) not in bloqueados:
+            registradas[nuevo] = registradas.pop(viejo)  # also when the project had deleted it
+    for ruta in JSON_0_9:
+        f = os.path.join(raiz, ruta)
+        if not os.path.isfile(f):
+            continue
+        antes = huella(f)
+        try:
+            with open(f, encoding="utf-8") as fh:
+                datos = json.load(fh)
+            texto = json.dumps(json_nuevo(datos), ensure_ascii=False, indent=2) + "\n"
+        except (ValueError, OSError) as e:
+            avisos.append(f"{ruta}: could not migrate its keys ({e}). Rename them by hand (see the CHANGELOG table).")
+            continue
+        with open(f, "w", encoding="utf-8") as fh:
+            fh.write(texto)
+        if registradas is not None and ruta in registradas:
+            # Untouched stays untouched (new hash); a file the project edited loses its entry, as a modified one would.
+            if registradas[ruta] == antes:
+                registradas[ruta] = huella(f)
+            else:
+                del registradas[ruta]
+    return movidos, bloqueados, avisos
 
 
 def sh(*cmd, cwd=None, env=None):
@@ -227,7 +364,10 @@ def main():
         salir("cannot find .agent-kit.json: this repo was not created with the template (or predates that registry).")
     with open(".agent-kit.json", encoding="utf-8") as f:
         kit = json.load(f)
-    verificar_claves(kit)
+    migracion = es_0_9(kit)
+    sin_idioma = migracion and "language" not in kit
+    if migracion:
+        kit = migrar_kit(kit)
     if sh("git", "status", "--porcelain").stdout.strip():
         salir("there are uncommitted changes. Commit or stash them before updating.")
     if os.path.isdir(PENDIENTES) and any(archivos(PENDIENTES)):
@@ -282,6 +422,7 @@ def main():
         inicializar(clon, ref, nueva, kit)
         renombrar(nueva, kit.get("renames", {}))
         base = None
+        movidos, bloqueados, avisos = [], [], []
         if instalado:  # it exists: it was checked above
             base = os.path.join(tmp, "base")
             inicializar(clon, instalado, base, kit)
@@ -292,6 +433,11 @@ def main():
             renombrar(base, kit.get("renames", {}))
 
         registradas = kit.get("files", {})
+        if migracion:
+            # The origin version (v0.9.0) has the old names: it is put in the new ones so the 3-way merge lines up.
+            if base:
+                migrar_arbol(base)
+            movidos, bloqueados, avisos = migrar_arbol(".", registradas)
         plan = planear(nueva, base, registradas, set(kit.get("withheld", [])))
         hechos, errores = aplicar(plan, nueva)
     finally:
@@ -322,6 +468,28 @@ def main():
     print(f"\nDone: from {actual or 'an unnumbered version'} to {objetivo or ref}.")
     print(f"  {n['agregar']} added, {n['reemplazar'] + n['permisos']} replaced (you had not touched them), "
           f"{n['fusionar']} merged, {n['igual']} already equal, {n['borrar']} deleted.")
+    if migracion:
+        print(f"\nMigrated from 0.9: {len(movidos)} kit files moved to their new names (your changes in them are kept: "
+              "they were merged or are in the lists below), and the keys of .agent-kit.json, docs/agents-map.json "
+              "and .github/team.json migrated.")
+        if bloqueados:
+            print("Not moved, because the new path already exists (compare them by hand):")
+            for viejo, nuevo in bloqueados:
+                print(f"  - {viejo} (new: {nuevo})")
+        for a in avisos:
+            print(f"Warning: {a}")
+        if sin_idioma:
+            print("Language: .agent-kit.json had no `language` (projects before #130), so this project is treated as "
+                  "English, which is the default now: the kit's prose came in English and the files you had not touched "
+                  "were replaced by it. If your project is in Spanish, discard this update (git checkout . && git clean -fd), "
+                  'add "language": "es" to .agent-kit.json and run update.py again.')
+        if any(r in hechos.get("conflicto", []) + hechos.get("pendiente", []) for r in HOOKS):
+            print("Warning: a hook registration (.claude/settings.json, .codex/hooks.json, .cursor/hooks.json, "
+                  ".github/hooks/guardrails.json) is in .agent-kit/pending/: all four must point to "
+                  "scripts/agents/guardrails.py, or the hook finds no script and stops nothing.")
+        print("Labels: after the merge run the Labels workflow: labels.yml has the old names as `aliases`, so label-sync "
+              "renames tipo:x to type:x (and the rest) keeping the ones set on issues and PRs. The old retros branch "
+              "agentes/retros stays as it is; if you protect branches, allow pushes to agents/retros.")
     for titulo, accion in (("Merged (review the diff)", "fusionar"),
                            (f"With conflicts: I did not overwrite them, the merge with markers is in {PENDIENTES}/", "conflicto"),
                            ("Modified by you, with no origin version to merge: the new version is in "
