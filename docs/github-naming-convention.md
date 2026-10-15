@@ -1,7 +1,7 @@
-# Convención de nombres en GitHub — <PROYECTO>
+# Convención de nombres en GitHub — <PROJECT>
 
 > **Estado:** PROPUESTA — pendiente de decisión del equipo.
-> **Fecha:** <FECHA>
+> **Fecha:** <DATE>
 > **Alcance:** ramas, commits, pull requests, issues / ítems del Project, labels, campos del Project, milestones, tags y releases.
 > **Para agentes:** una vez aprobado, este documento es la fuente de verdad. Ningún agente debe crear ramas, commits, PRs o issues con otro formato. Si algo no está cubierto, preguntar antes de inventar un formato nuevo.
 
@@ -18,7 +18,7 @@ Cada sección muestra las **opciones** que usa la industria, sus pros y contras,
 | Commit | `<tipo>(<scope>): <descripcion>` (Conventional Commits 1.0) | `fix(checkout): evitar doble cobro al reintentar` |
 | Título de PR | Igual que un commit + `Closes #n` en el cuerpo | `feat(usuario): unificar cuentas por email` |
 | Título de issue | Imperativo, sin prefijo; el tipo va en *Issue Type* | `Unificar comprador, asistente y organizador bajo un mismo email` |
-| Labels | Con prefijo `grupo:valor` | `area:checkout`, `prioridad:alta` |
+| Labels | Con prefijo `grupo:valor` | `area:checkout`, `priority:high` |
 | Tag / release | SemVer con `v` | `v1.2.0` |
 | Milestone | Hito de negocio o versión | `MVP evento 14-11` / `v1.0.0` |
 
@@ -31,7 +31,7 @@ Ramas permanentes `main` + `develop`, y temporales `feature/*`, `release/*`, `ho
 - ✅ Muy conocido, separa claramente producción de desarrollo.
 - ❌ Pesado para un equipo de 2: hay que mantener `develop` sincronizada y hacer ramas de release.
 
-> ✅ **DECIDIDO (<FECHA>):** ramas cortas con prefijo (Conventional Branch 1.1). <REGLA_RAMAS>
+> ✅ **DECIDIDO (<DATE>):** ramas cortas con prefijo (Conventional Branch 1.1). <BRANCH_RULE>
 
 ### Opción B — GitHub Flow + Conventional Branch 1.1
 Una sola rama permanente (`main`) y ramas cortas con el formato `<tipo>/<descripcion>`.
@@ -72,7 +72,7 @@ Reglas de la spec:
 | `release/` | Preparar una versión | `release/v1.0.0` |
 | `claude/` | Rama creada por un agente de Claude | `claude/57-auditoria-flujo-pago` |
 
-**Excepción: `agentes/retros`.** Rama huérfana de larga vida donde los agentes guardan sus retros (un archivo por retro) con `.claude/skills/mejorar-skills/retro.sh`. Es una rama de datos: no lleva número de issue, no se mergea nunca y se escribe sin PR, siempre con ese script. Si el repo protege ramas con un patrón amplio (`*`), excluila, o las retros quedan pendientes en `.git/retros-pendientes/`.
+**Excepción: `agentes/retros`.** Rama huérfana de larga vida donde los agentes guardan sus retros (un archivo por retro) con `.claude/skills/improve-skills/retro.sh`. Es una rama de datos: no lleva número de issue, no se mergea nunca y se escribe sin PR, siempre con ese script. Si el repo protege ramas con un patrón amplio (`*`), excluila, o las retros quedan pendientes en `.git/retros-pendientes/`.
 
 > **Decisión a tomar:** ¿usamos los alias cortos (`feat/`, `fix/`) o los largos (`feature/`, `bugfix/`)? Recomendado: **cortos**, porque coinciden con los tipos de commit.
 
@@ -168,7 +168,7 @@ Closes #
 #### Opción B — Título en imperativo, tipo como metadato ⭐ recomendada
 `Unificar comprador, asistente y organizador bajo un mismo email`
 - El título describe **qué hay que lograr**, en imperativo, sin punto final, entendible para alguien que lo lea meses después.
-- El tipo se marca con **Issue Type** (si el repo está en una organización) o con un **label `tipo:`** (si es un repo personal).
+- El tipo se marca con **Issue Type** (si el repo está en una organización) o con un **label `type:`** (si es un repo personal).
 - ✅ Títulos limpios y filtrables.
 
 #### Opción C — Título con ID de módulo
@@ -185,7 +185,7 @@ GitHub tiene **Issue Types** nativos, disponibles en general desde abril de 2025
 | Situación | Qué usar |
 |---|---|
 | El repo está en una **organización** de GitHub | Issue Types: `Feature`, `Bug`, `Task` (+ opcional `Epic`, `Audit`) |
-| El repo es **personal** | Labels `tipo:feature`, `tipo:bug`, `tipo:task`, `tipo:audit` |
+| El repo es **personal** | Labels `type:feature`, `type:bug`, `type:task`, `type:audit` |
 
 > **Decisión a tomar:** ¿el repo está en una organización? Si no, conviene moverlo — Issue Types y varias funciones de Projects funcionan mejor así.
 
@@ -219,13 +219,17 @@ Propuesta popularizada como "Sane GitHub Labels": agrupar por prefijo y usar un 
 
 | Grupo | Valores | Color sugerido |
 |---|---|---|
-| `tipo:` | `feature`, `bug`, `task`, `audit`, `docs` (solo si no hay Issue Types) | Violeta |
+| `type:` | `feature`, `bug`, `task`, `audit`, `docs` (solo si no hay Issue Types) | Violeta |
 | `area:` | Las áreas del producto (TODO: ver `.github/labels.yml`) | Azul |
-| `prioridad:` | `critica`, `alta`, `media`, `baja` | Rojo → gris |
-| `estado:` | `bloqueado`, `necesita-info`, `a-triar` | Amarillo |
-| especiales | `breaking-change`, `logica-negocio` | Negro |
+| `priority:` | `critical`, `high`, `medium`, `low` | Rojo → gris |
+| `status:` | `blocked`, `needs-info`, `triage` | Amarillo |
+| especiales | `breaking-change`, `business-logic` | Negro |
 
-> `logica-negocio`: marca cualquier issue/PR que toque reglas ya definidas. Requiere revisión de todo el equipo.
+> `business-logic`: marca cualquier issue/PR que toque reglas ya definidas. Requiere revisión de todo el equipo.
+
+**Labels siempre en inglés** (`ADR-001` del kit, R-2): son identificadores, como los tipos de commit, y no cambian con el idioma de instalación. Los proyectos creados con 0.9 los migran con `aliases` de label-sync: `.github/labels.yml` declara el nombre viejo de cada label renombrado y el sync lo renombra sin perder los labels ya puestos en issues y PRs.
+
+La tabla vieja → nueva completa está en el `CHANGELOG.md` del kit.
 
 ### Opción C — Labels planos sin prefijo
 `alta`, `pagos`, `bloqueado`.
@@ -234,11 +238,11 @@ Propuesta popularizada como "Sane GitHub Labels": agrupar por prefijo y usar un 
 **Reglas:** minúsculas, kebab-case, sin tildes (evita problemas en filtros y URLs).
 
 ### Repos que ya tienen labels
-El sync de `labels.yml` borra los labels que no están en el archivo (`delete-other-labels: true`: es lo que limpia `bug`, `enhancement`… en un repo nuevo). Al instalar el kit en un repo existente, el instalador (#122, pendiente) va a llamar a la función de abajo para agregar al archivo los labels que ya tiene el repo (`gh label list`), con su color y descripción, en la sección `# ── propios del proyecto …`. Así el sync no va a borrar nada ni a quitarlos de los issues. Mientras el instalador no exista, hay que correr ese comando a mano antes del primer sync en un repo que ya tiene labels.
+El sync de `labels.yml` borra los labels que no están en el archivo (`delete-other-labels: true`: es lo que limpia `bug`, `enhancement`… en un repo nuevo). Al instalar el kit en un repo existente, el instalador (#122, pendiente) va a llamar a la función de abajo para agregar al archivo los labels que ya tiene el repo (`gh label list`), con su color y descripción, en la sección `# ── project's own labels …`. Así el sync no va a borrar nada ni a quitarlos de los issues. Mientras el instalador no exista, hay que correr ese comando a mano antes del primer sync en un repo que ya tiene labels.
 
-- Esos labels pueden no tener prefijo `grupo:valor`: el check de PRs solo cuenta los prefijos `tipo:`, `area:`, `prioridad:` y `estado:`, y `check-docs.py` solo mira que las áreas de `equipo.json` existan: ambos aceptan cualquier otro nombre.
+- Esos labels pueden no tener prefijo `grupo:valor`: el check de PRs solo cuenta los prefijos `type:`, `area:`, `priority:` y `status:`, y `check-docs.py` solo mira que las áreas de `team.json` existan: ambos aceptan cualquier otro nombre.
 - Si un label del repo tiene el mismo nombre que uno del kit (sin distinguir mayúsculas), queda una sola entrada: el color es el del repo y la descripción la del kit.
-- La combinación la hace `scripts/agentes/labels.py` (`gh label list --limit 1000 --json name,color,description | python3 scripts/agentes/labels.py .github/labels.yml`) y es idempotente.
+- La combinación la hace `scripts/agents/labels.py` (`gh label list --limit 1000 --json name,color,description | python3 scripts/agents/labels.py .github/labels.yml`) y es idempotente.
 
 ---
 
@@ -275,13 +279,13 @@ Preferir **campos del Project** antes que labels para lo que cambia seguido (est
 - Mientras el producto no sea estable: `v0.x.y`.
 - Con Conventional Commits el número se puede calcular automáticamente (`feat` → MINOR, `fix` → PATCH, `!` → MAJOR).
 
-<!-- releases:inicio -->
+<!-- releases:start -->
 ### Ramas de release
 
 Con usuarios activos, las versiones se preparan en ramas cortas `release/vX.Y.Z` cortadas desde `develop`. Se congelan (solo arreglos de esa versión), se prueban en staging y se mergean a `main` con su tag. Los arreglos vuelven a `develop`. Un hotfix sale de `main`, va a `main` y siempre vuelve a `develop` y a la `release/*` abierta. Paso a paso en `.claude/skills/git-workflow/SKILL.md`.
 
 Se eligió `release/*` corta en vez de una rama permanente `staging`: cada versión queda congelada y no hay una tercera rama troncal que se desincronice.
-<!-- releases:fin -->
+<!-- releases:end -->
 
 ---
 
@@ -307,11 +311,11 @@ Para incluir en `CLAUDE.md` / `AGENTS.md` del repo:
 - Tipos de rama: feat, fix, hotfix, chore, release, claude.
 - Commits y títulos de PR: Conventional Commits 1.0 → `<tipo>(<scope>): <descripcion>`.
 - Scopes válidos: los de §2.
-- <REGLA_RAMAS>
+- <BRANCH_RULE>
 - Nunca pushear directo a las ramas troncales. Todo entra por PR.
 - Excepción: `agentes/retros` (rama de datos de las retros), solo con `retro.sh`.
-- Si el cambio modifica lógica de negocio ya definida, agregar el label `logica-negocio` y explicarlo en el PR.
-- Ver docs/convencion-nombres-github.md para el detalle.
+- Si el cambio modifica lógica de negocio ya definida, agregar el label `business-logic` y explicarlo en el PR.
+- Ver docs/github-naming-convention.md para el detalle.
 ```
 
 ---
@@ -334,12 +338,12 @@ Marcar la opción elegida por el equipo y fecha:
 
 | # | Tema | Opción elegida | Fecha | Notas |
 |---|---|---|---|---|
-| 1 | Ramas | ✅ Conventional Branch 1.1 | <FECHA> | <REGLA_RAMAS> Excepción: `agentes/retros`, rama de datos de las retros (§1). |
+| 1 | Ramas | ✅ Conventional Branch 1.1 | <DATE> | <BRANCH_RULE> Excepción: `agentes/retros`, rama de datos de las retros (§1). |
 | 2 | Commits | | | ¿scopes confirmados? |
 | 3 | PRs | | | ¿squash merge? |
 | 4 | Títulos de issues | | | |
 | 4.2 | Tipo de issue | | | ¿repo en organización? |
-| 5 | Labels | ✅ B — prefijo `grupo:valor` | <FECHA> | Viene decidido en la plantilla; fuente en .github/labels.yml |
+| 5 | Labels | ✅ B — prefijo `grupo:valor`, en inglés | <DATE> | Viene decidido en la plantilla; fuente en .github/labels.yml (`ADR-001` del kit) |
 | 6 | Campos del Project | | | ¿prioridad en campo o label? |
 | 7 | Milestones | | | |
 | 8 | Versionado | | | |

@@ -63,6 +63,8 @@ Origen: épica #111 e issue #112. Decisiones D1–D6 aprobadas por @lautioliver 
 | `preparar.sh` | `prepare.sh` |
 | claves `cuando`, `revisar` | `when`, `review` |
 
+- Hecho en #114: la tabla completa (archivos, claves JSON, flags, labels y marcadores) quedó en `CHANGELOG.md`, sección [Sin publicar]; ahí se ve cómo se resolvió lo que este ADR dejó como ejemplo (`mapa.py` → `agents_map.py`, `perfiles/chico/` → `profiles/small/`, `--chico` → `--small`). Los datos de las retros (rama `agentes/retros`, claves del frontmatter) no se tocaron: su migración se decide aparte.
+
 - Hay que cambiar código, workflows y docs en los issues de la épica #111 (traducción, renombres, labels, init `--lang`, `actualizar.py`, check de paridad). Este ADR no renombra ni traduce nada.
 - `docs/convencion-nombres-github.md` pasa a nombrar los labels en inglés cuando se haga el issue de labels.
 - Cambiar R-2 o R-3 después de `v1.0.0` exigiría otra migración: se trata como ruptura y pide un ADR nuevo.

@@ -1,15 +1,86 @@
 # Changelog
 
-Cambios de la plantilla por versión. `scripts/actualizar.py` muestra las secciones nuevas al actualizar un proyecto. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones: [SemVer](https://semver.org/lang/es/). Este archivo es de la plantilla: el init lo borra.
+Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones nuevas al actualizar un proyecto. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones: [SemVer](https://semver.org/lang/es/). Este archivo es de la plantilla: el init lo borra.
 
 **Publicar una versión** (lo hace una persona): un PR que sube `VERSION` y agrega su sección acá; después del merge, `git tag vX.Y.Z` sobre ese commit y `git push origin vX.Y.Z`. Así `VERSION` en `main` coincide con el último tag.
 
 ## [Sin publicar]
 
+- **Ruptura: archivos, rutas, claves, flags y labels en inglés** (#114, ADR-001 R-2 a R-4). El comportamiento no cambia: las barandas frenan lo mismo y los checks validan lo mismo; cambian los nombres y los mensajes de los scripts, que salen solo en inglés. Los proyectos creados con 0.9 los migran con `scripts/update.py` en el issue #116; la tabla vieja → nueva de abajo es su fuente. La prosa de los docs y las skills se traduce en #115 y sigue en español por ahora.
 - CI de docs limitado a los archivos del kit (#120): con `.agent-kit.json`, `check-docs.py` valida solo los `.md` del kit, `docs/`, `AGENTS.md` y `llms.txt`, y `docs.yml` corre shellcheck y los `*test-*.sh` solo sobre los scripts del kit (`check-docs.py --listar <glob>`). El CI del kit ya no cubre los tests propios del proyecto, el shellcheck de sus `.sh` ni sus `.md` fuera de `docs/`: quien los necesite tiene que correrlos en un workflow propio. Un archivo del kit que se agregue después del init (por ejemplo, una skill nueva) queda fuera de `archivos` hasta que se actualice. `check-docs.py` y `docs.yml` se actualizan juntos: el workflow nuevo con un `check-docs.py` viejo no anda.
 - Barandas: `git push --repo <remoto> <rama troncal>` se frena (antes la rama se tomaba como remoto y el push pasaba) (#109).
 - `limpiar.sh` no saca el worktree de un issue cerrado si su PR sigue abierto: hay proyectos que cierran el issue al abrir el PR (#109).
 - El check de labels acepta "sin test" o "sin tests", con el motivo en la misma línea o en la siguiente (#109).
+
+### Tabla de renombres (0.9 → nuevo)
+
+Archivos y carpetas (lo que no está acá conserva su nombre):
+
+| 0.9 | Nuevo |
+|---|---|
+| `scripts/agentes/` | `scripts/agents/` |
+| `scripts/agentes/barandas.py`, `test_barandas.py` | `scripts/agents/guardrails.py`, `test_guardrails.py` |
+| `scripts/agentes/mapa.py` | `scripts/agents/agents_map.py` |
+| `scripts/agentes/verificar.py` | `scripts/agents/verify.py` |
+| `scripts/agentes/equipo.py`, `test_equipo.py` | `scripts/agents/team.py`, `test_team.py` |
+| `scripts/agentes/test-agentes.sh` | `scripts/agents/test-agents.sh` |
+| `scripts/actualizar.py`, `crecer.py` | `scripts/update.py`, `grow.py` |
+| `scripts/init-plantilla.sh`, `test-actualizar.sh` | `scripts/init-template.sh`, `test-update.sh` |
+| `docs/mapa-agentes.json` | `docs/agents-map.json` |
+| `docs/agentes/` (`contrato-subagentes.md`, `lecciones.md`) | `docs/agents/` (`subagent-contract.md`, `lessons.md`) |
+| `docs/convencion-nombres-github.md` | `docs/github-naming-convention.md` |
+| `docs/probar-la-plantilla.md` | `docs/try-the-template.md` |
+| `docs/decisions/ADR-000-plantilla.md` | `docs/decisions/ADR-000-template.md` |
+| `.github/equipo.json` | `.github/team.json` |
+| `.github/hooks/barandas.json` | `.github/hooks/guardrails.json` |
+| `.github/marca/` (`barrilete-oscuro.svg`, `dron-con-correa.svg`, `estados/{bloqueado,planificando,pr-listo,trabajando}.svg`) | `.github/brand/` (`barrilete-dark.svg`, `drone-on-leash.svg`, `states/{blocked,planning,pr-ready,working}.svg`) |
+| `.github/workflows/desbloquear.yml` | `.github/workflows/unblock.yml` |
+| `.github/ISSUE_TEMPLATE/4-auditoria.yml`, `5-prueba.yml` | `4-audit.yml`, `5-trial.yml` |
+| `.claude/agents/implementador.md`, `implementador-liviano.md`, `revisor.md` | `implementer.md`, `implementer-light.md`, `reviewer.md` (el valor de `rol:` en las retros cambia igual) |
+| `.claude/skills/crear-issue/` | `.claude/skills/create-issue/` |
+| `.claude/skills/estado/` (`estado.sh`, `disponibles.sh`) | `.claude/skills/status/` (`status.sh`, `available.sh`) |
+| `.claude/skills/mejorar-skills/` (`plantilla-retro.md`, `senales.sh`) | `.claude/skills/improve-skills/` (`retro-template.md`, `signals.sh`) |
+| `.claude/skills/orquestar/` (`limpiar.sh`, `ruteo.py`, `test-orquestar.sh`) | `.claude/skills/orchestrate/` (`cleanup.sh`, `routing.py`, `test-orchestrate.sh`) |
+| `.claude/skills/implement-issue/` (`preparar.sh`, `rojo.sh`, `test-preparar.sh`, `test-rojo.sh`) | `prepare.sh`, `red.sh`, `test-prepare.sh`, `test-red.sh` |
+| `.claude/skills/plan-feature/planificar.py` | `.claude/skills/plan-feature/planner.py` |
+| `perfiles/chico/` (`BORRAR`, `docs/convencion-nombres-github.md`, `.claude/skills/crear-issue/`) | `profiles/small/` (`DELETE`, `docs/github-naming-convention.md`, `.claude/skills/create-issue/`) |
+
+Hay un archivo nuevo del kit: `scripts/test-renames.sh` (el init lo borra). Los hooks (`.claude/settings.json`, `.codex/hooks.json`, `.cursor/hooks.json`, `.github/hooks/guardrails.json`) apuntan a `scripts/agents/guardrails.py`: si el hook de un proyecto sigue apuntando a `scripts/agentes/barandas.py`, no encuentra el script y no frena nada (sale con 0), así que hay que actualizar los cuatro juntos.
+
+Labels (con `aliases` en `.github/labels.yml`: el sync renombra sin perder los labels puestos en issues y PRs). Los valores de `type:` no cambian:
+
+| 0.9 | Nuevo |
+|---|---|
+| `tipo:feature`, `bug`, `task`, `audit`, `docs` | `type:feature`, `bug`, `task`, `audit`, `docs` |
+| `prioridad:critica`, `alta`, `media`, `baja` | `priority:critical`, `high`, `medium`, `low` |
+| `estado:a-triar`, `necesita-info`, `bloqueado` | `status:triage`, `needs-info`, `blocked` |
+| `logica-negocio` | `business-logic` |
+
+Claves JSON:
+
+| Archivo | 0.9 | Nuevo |
+|---|---|---|
+| `docs/agents-map.json` | `_ayuda`, `cuando`, `revisar`, `motivo`, `sensibles`, `tipo`, `rutas`, `verificar`, `nombre`, `siempre`, `correr`, `obligatorios`, `ignorar_check` | `_help`, `when`, `review`, `reason`, `sensitive`, `type`, `paths`, `verify`, `name`, `always`, `run`, `required`, `ignore_check` |
+| `docs/agents-map.json` (valores) | verificaciones `preparar`, `agentes`, `rojo`, `orquestar`, `barandas`, `actualizar`, `migraciones`, `contrato-api`; tipos `dinero`, `dependencias`, `api-publica`; placeholder `{archivos}` | `prepare`, `agents`, `red`, `orchestrate`, `guardrails`, `update`, `migrations`, `api-contract`; `money`, `dependencies`, `public-api`; `{files}` |
+| `.github/team.json` | `_ayuda`, `integrantes`, `nombre`, `activo` (`login` y `areas` no cambian) | `_help`, `members`, `name`, `active` |
+| `.agent-kit.json` | `proyecto`, `rama_base`, `modo` (`chico`, `completo`), `fecha`, `archivos` (`releases` y `version` no cambian) | `project`, `base_branch`, `mode` (`small`, `full`), `date`, `files` |
+| plan de `planner.py` | `epica`, `titulo`, `cuerpo`, `clave`, `bloqueado_por`, `motivo`, `asignado` (`issues` y `labels` no cambian) | `epic`, `title`, `body`, `key`, `blocked_by`, `reason`, `assignee` |
+
+Flags, subcomandos, variables y marcadores:
+
+| 0.9 | Nuevo |
+|---|---|
+| `init-plantilla.sh --chico`; `update.py` y `grow.py --plantilla` | `init-template.sh --small`; `--template` |
+| `check-docs.py --listar`; `preparar.sh --revisar`; `limpiar.sh --borrar`; `planificar.py --borrador`; `retro.sh --consolidado` | `--list`; `prepare.sh --review`; `cleanup.sh --delete`; `planner.py --draft`; `--consolidated` |
+| `equipo.py listar`, `agregar`, `quitar`, `pausar`, `activar`, `sugerir`; `--nombre`, `--forzar`, `--carga` | `team.py list`, `add`, `remove`, `pause`, `activate`, `suggest`; `--name`, `--force`, `--load` |
+| `AGENT_KIT_PLANTILLA`, `AGENT_KIT_FECHA` | `AGENT_KIT_TEMPLATE`, `AGENT_KIT_DATE` |
+| `<PROYECTO>`, `<RAMA_BASE>`, `<FECHA>`, `<REGLA_RAMAS>` | `<PROJECT>`, `<BASE_BRANCH>`, `<DATE>`, `<BRANCH_RULE>` |
+| `<!-- plantilla:inicio/fin -->`, `<!-- marca:inicio/fin -->`, `<!-- releases:inicio/fin -->` | `<!-- template:start/end -->`, `<!-- brand:start/end -->`, `<!-- releases:start/end -->` |
+| `# main: para la plantilla misma` (en `docs.yml` y `labels.yml`) | `# main: for the template itself` |
+| `.agent-kit/pendientes/` | `.agent-kit/pending/` |
+| skills `/orquestar`, `/crear-issue`, `/mejorar-skills`, `/estado` (y `skill:` en las retros) | `/orchestrate`, `/create-issue`, `/improve-skills`, `/status` |
+
+Para quien migre (#116): `inicializar()` de `update.py` corre el init de la versión de origen, que en un proyecto 0.9 todavía se llama `scripts/init-plantilla.sh` y escribe las claves viejas de `.agent-kit.json`. Sin cambios en este PR, a propósito: los datos de las retros (rama `agentes/retros`, claves del frontmatter, `consolidado.md`, `retros-pendientes/`), las claves y los valores del bloque de salida de los subagentes (`resultado:`, `pr:`…, y el `motivo:` de `routing.py`; solo cambió el valor de `rol:`) y los textos del cuerpo del PR que validan los checks (`Rojo antes de implementar`, `Closes #n`, `sin test`, `ADR sin cambios:`) siguen como estaban hasta que se decida su migración o #115 traduzca las plantillas.
 
 ## [0.9.0] - 2026-10-09
 

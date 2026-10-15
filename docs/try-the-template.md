@@ -2,7 +2,7 @@
 
 Gracias por probarla. Lo que más sirve es saber **dónde te trabaste**, no si te gustó.
 
-Leé esta guía [en el repo de la plantilla](https://github.com/lautioliver/barrilete-kit/blob/main/docs/probar-la-plantilla.md), no en tu copia: `init-plantilla.sh` la borra en el paso 2.
+Leé esta guía [en el repo de la plantilla](https://github.com/lautioliver/barrilete-kit/blob/main/docs/try-the-template.md), no en tu copia: `init-template.sh` la borra en el paso 2.
 
 **Tiempo:** de 1 a 2 horas. **Herramienta:** la que uses todos los días (Claude Code, Codex, Copilot, Cursor…). Si no es Claude Code, mejor: es lo que menos se probó.
 
@@ -26,7 +26,7 @@ Hacelos en orden y anotá qué pasó en cada uno. Si algo no anda, no lo arregle
 6. **Del issue al PR:** `/implement-issue <n>`. No lo mergees sin leerlo.
 7. **Revisión** (modo completo): `/review-pr <n>` desde **otra sesión**.
 8. **Merge:** lo hacés vos.
-9. **Si te queda tiempo:** `/orquestar` con dos o tres issues (modo completo, Claude Code), o repetí los pasos 5 a 7 en otra herramienta.
+9. **Si te queda tiempo:** `/orchestrate` con dos o tres issues (modo completo, Claude Code), o repetí los pasos 5 a 7 en otra herramienta.
 
 ## Qué anotar
 
@@ -39,4 +39,4 @@ Hacelos en orden y anotá qué pasó en cada uno. Si algo no anda, no lo arregle
 
 ## Cómo contarlo
 
-Abrí un issue con el formulario [**Reporte de prueba**](https://github.com/lautioliver/barrilete-kit/issues/new?template=5-prueba.yml) (`.github/ISSUE_TEMPLATE/5-prueba.yml`). Usá un reporte por prueba, aunque te hayas trabado en varios pasos. Pegá los errores textuales y **sacá los secretos y los datos personales** antes de pegar.
+Abrí un issue con el formulario [**Reporte de prueba**](https://github.com/lautioliver/barrilete-kit/issues/new?template=5-trial.yml) (`.github/ISSUE_TEMPLATE/5-trial.yml`). Usá un reporte por prueba, aunque te hayas trabado en varios pasos. Pegá los errores textuales y **sacá los secretos y los datos personales** antes de pegar.
