@@ -41,6 +41,14 @@ mkdir -p "$P"
   git add -A && git commit -qm v0.2.0 && git tag v0.2.0
 ) >/dev/null 2>&1
 
+# Un tag "viejo" que solo tiene el init con el nombre y los flags de 0.9 (init-plantilla.sh, --chico, AGENT_KIT_FECHA).
+(
+  cd "$P" && git checkout -q -b viejo v0.1.0 \
+    && git mv scripts/init-template.sh scripts/init-plantilla.sh \
+    && perl -pi -e 's/--small/--chico/g; s/AGENT_KIT_DATE/AGENT_KIT_FECHA/g; s/init-template\.sh/init-plantilla.sh/g' scripts/init-plantilla.sh \
+    && echo 0.0.5 >VERSION && git add -A && git commit -qm v0.0.5 && git tag v0.0.5 && git checkout -q main
+) >/dev/null 2>&1
+
 # Proyecto iniciado con v0.1.0: <modo> en <dir>.
 proyecto() {
   local dir=$1 modo=$2 ref=${3:-v0.1.0}
@@ -157,6 +165,15 @@ s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md" \
   && grep -q "Demo (editado)" "$D/AGENTS.md" && [ -f "$D/.agent-kit/pending/AGENTS.md" ]
 afirmar $? "[sin versión] reemplaza lo no tocado y deja lo modificado en pendientes, sin fusionar"
+
+# La versión de origen solo trae el init viejo: update.py usa el init que exista en ese tag.
+D="$TMP/origen-viejo"
+mkdir -p "$D"; git -C "$P" archive v0.0.5 | tar -xf - -C "$D"
+(cd "$D" && git init -q -b main && git add -A && git commit -qm plantilla && ./scripts/init-plantilla.sh Demo main && git add -A && git commit -qm init) >/dev/null 2>&1
+grep -q '"version": "0.0.5"' "$D/.agent-kit.json"; afirmar $? "[origen viejo] el proyecto parte de un tag que solo tiene init-plantilla.sh"
+s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
+[ "$c" -eq 0 ] && grep -q '"version": "0.2.0"' "$D/.agent-kit.json" && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md"
+afirmar $? "[origen viejo] actualiza usando el init que tiene el tag de origen"
 
 # Proyecto 0.9 con las claves viejas de .agent-kit.json: error claro (la migración es el issue #116), sin traceback
 # ni una actualización a medias que pierde el registro de archivos.

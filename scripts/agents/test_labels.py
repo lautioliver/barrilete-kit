@@ -88,5 +88,35 @@ class Cli(unittest.TestCase):
         self.assertIn('"zzz-propio"', r.stdout)
 
 
+KIT_ALIAS = KIT + '''- name: "type:docs"
+  color: "7B61FF"
+  description: "Docs"
+  aliases:
+    - "tipo:docs"
+    - "tipo:documentacion"
+'''
+
+
+class Aliases(unittest.TestCase):
+    def test_un_alias_del_kit_no_se_copia_como_propio(self):
+        r = combinar(KIT_ALIAS, [{"name": "tipo:docs", "color": "aaaaaa", "description": "x"},
+                                 {"name": "Tipo:Documentacion", "color": "bbbbbb", "description": "y"}])
+        self.assertNotIn('- name: "tipo:docs"', r)
+        self.assertNotIn('- name: "Tipo:Documentacion"', r)
+        self.assertNotIn("project's own", r)
+
+    def test_los_aliases_siguen_en_el_archivo(self):
+        r = combinar(KIT_ALIAS, [{"name": "tipo:docs", "color": "aaaaaa", "description": "x"}])
+        self.assertIn('    - "tipo:docs"', r)
+
+    def test_la_marca_vieja_de_0_9_no_se_duplica(self):
+        viejo = KIT + "\n# ── propios del proyecto (los que ya tenía el repo) ──────────────\n" \
+            '- name: "bug"\n  color: "D73A4A"\n  description: ""\n'
+        r = combinar(viejo, [{"name": "bug", "color": "d73a4a", "description": ""}])
+        self.assertNotIn("propios del proyecto", r)
+        self.assertEqual(nombres(r).count("bug"), 1)
+        self.assertEqual(r.count("project's own"), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

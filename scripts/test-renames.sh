@@ -79,18 +79,25 @@ while IFS='|' read -r old new; do
   if [ ! -e "$old" ] && [ -e "$new" ]; then ok "$old -> $new"; else fail "$old -> $new"; fi
 done <<<"$RENAMES"
 
-# Old names in the content of any file (except this test, the CHANGELOG and ADR-001).
-OLD_NAMES='scripts/agentes|docs/agentes|barandas\.py|test_barandas|hooks/barandas|mapa-agentes|mapa\.py|verificar\.py|equipo\.py|equipo\.json|preparar\.sh|rojo\.sh|limpiar\.sh|ruteo\.py|planificar\.py|disponibles\.sh|estado\.sh|senales\.sh|plantilla-retro|actualizar\.py|crecer\.py|init-plantilla|test-actualizar|test-orquestar|test-preparar|test-rojo|test-agentes|desbloquear\.yml|convencion-nombres-github|contrato-subagentes|lecciones\.md|probar-la-plantilla|perfiles/|\.github/marca|revisor\.md|skills/(crear-issue|estado|mejorar-skills|orquestar)|/(orquestar|crear-issue|mejorar-skills|estado)\b|usar estado\b|skills/status/|[ `(]/status([^.[:alnum:]_-]|$)|--chico|--listar|--revisar|BORRAR|implementador-liviano|agents/(implementador|revisor)|rol: (implementador|revisor)|name: (implementador|revisor)|AGENT_KIT_(PLANTILLA|FECHA)|<PROYECTO>|<RAMA_BASE>|<FECHA>|<REGLA_RAMAS>|(plantilla|marca):(inicio|fin)|agent-kit/pendientes'
-LABELS_OLD='tipo:|prioridad:|estado:|logica-negocio|a-triar|necesita-info|estado:bloqueado'
-hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*)$' \
+# Old names in the content of any file (except this test, the CHANGELOG, ADR-001 and the tests that
+# use old values on purpose: the 0.9 init, the label aliases and the old retro values).
+OLD_NAMES='scripts/agentes|docs/agentes|barandas\.py|test_barandas|hooks/barandas|mapa-agentes|mapa\.py|verificar\.py|equipo\.py|equipo\.json|preparar\.sh|rojo\.sh|limpiar\.sh|ruteo\.py|planificar\.py|disponibles\.sh|estado\.sh|senales\.sh|plantilla-retro|actualizar\.py|crecer\.py|init-plantilla|test-actualizar|test-orquestar|test-preparar|test-rojo|test-agentes|desbloquear\.yml|convencion-nombres-github|contrato-subagentes|lecciones\.md|probar-la-plantilla|perfiles/|\.github/marca|revisor\.md|skills/(crear-issue|estado|mejorar-skills|orquestar)|/(orquestar|crear-issue|mejorar-skills|estado)\b|usar estado\b|skills/status/|[ `(]/status([^.[:alnum:]_-]|$)|SIN MODIFICAR|--chico|--listar|--revisar|BORRAR|implementador-liviano|agents/(implementador|revisor)|rol: (implementador|revisor)|name: (implementador|revisor)|AGENT_KIT_(PLANTILLA|FECHA)|<PROYECTO>|<RAMA_BASE>|<FECHA>|<REGLA_RAMAS>|(plantilla|marca):(inicio|fin)|agent-kit/pendientes'
+# Anchored to the label syntax: Spanish prose ("el tipo: ...", .es.md files) must not trip it.
+LABELS_OLD='tipo:(feature|bug|task|audit|docs)|prioridad:(critica|alta|media|baja)|estado:(a-triar|necesita-info|bloqueado)|logica-negocio'
+hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|scripts/test-update\.sh|scripts/agents/test_labels\.py|.*/improve-skills/(test-retros|legacy-names)\.sh)$' \
   | while read -r f; do [ -f "$f" ] && grep -IHnE "$OLD_NAMES" "$f"; done | head -5 || true)
 if [ -z "$hits" ]; then ok "no file mentions an old file, path or flag name"
 else fail "no file mentions an old file, path or flag name (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi
 # labels.yml keeps the old names as `aliases` (label-sync renames them without losing the ones set on issues).
-hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|.*\.github/labels\.yml)$' \
+hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|scripts/test-update\.sh|scripts/agents/test_labels\.py|.*/improve-skills/(test-retros|legacy-names)\.sh|.*\.github/labels\.yml)$' \
   | while read -r f; do [ -f "$f" ] && grep -IHnE "$LABELS_OLD" "$f"; done | head -5 || true)
 if [ -z "$hits" ]; then ok "no file mentions an old label"
 else fail "no file mentions an old label (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi
+
+# The marker agents_map.py prints is the one the skills tell agents to look for.
+for f in .claude/skills/review-pr/SKILL.md .claude/skills/update-docs/SKILL.md; do
+  grep -q 'NOT MODIFIED' "$f"; check $? "$f quotes the NOT MODIFIED marker of agents_map.py"
+done
 
 # JSON keys of agents-map.json and team.json.
 python3 - <<'PY'

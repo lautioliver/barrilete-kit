@@ -253,6 +253,29 @@ C="$RAIZ/docs/agents/subagent-contract.md"
 grep -q 'git show origin/agentes/retros:' "$C" && grep -q "local only" "$C" && grep -Eq '^retro: .*pendiente: ' "$C"
 afirmar $? "el contrato dice cómo abrirla (origin/), qué hacer con el sufijo sin remoto y con una retro pendiente"
 
+# Valores viejos (0.9) de skill: y rol: en una retro pendiente: se normalizan a los nuevos y se conserva agente_sha.
+printf -- '---\nskill: orquestar\nissue: 33\nmodelo: haiku\nrol: implementador-liviano\nagente_sha: 1111111111111111111111111111111111111111\n---\nvieja\n' >"$TMP/v1.md"
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v1.md" >/dev/null 2>&1); c=$?
+afirmar "$c" "retro.sh acepta una retro con skill: orquestar (0.9)"
+archivos | grep -Eq 'retros/[0-9-]+-orchestrate-33(-[0-9]+)?\.md$'; afirmar $? "la retro vieja se guarda como orchestrate-<n>"
+r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'orchestrate-33' | tail -1)" 2>/dev/null)
+grep -q '^skill: orchestrate$' <<<"$r" && grep -q '^rol: implementer-light$' <<<"$r"; afirmar $? "normaliza skill: y rol: a los valores nuevos"
+grep -q '^agente_sha: 1111111111111111111111111111111111111111$' <<<"$r"; afirmar $? "conserva agente_sha al normalizar el rol"
+printf -- '---\nskill: mejorar-skills\npr: 7\nmodelo: opus\nrol: revisor\n---\nvieja2\n' >"$TMP/v2.md"
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v2.md" >/dev/null 2>&1)
+archivos | grep -q 'improve-skills-pr7'; afirmar $? "mejorar-skills se guarda como improve-skills"
+r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'improve-skills-pr7' | tail -1)" 2>/dev/null)
+grep -q '^rol: reviewer$' <<<"$r" && grep -q '^agente_sha: ' <<<"$r"; afirmar $? "revisor pasa a reviewer y registra agente_sha"
+
+# signals.sh agrupa con los valores nuevos aunque la retro se haya guardado con los viejos.
+git init -q "$TMP/s"; mkdir -p "$TMP/s/.claude/skills"; cp -R "$RAIZ/.claude/skills/improve-skills" "$TMP/s/.claude/skills/"
+(cd "$TMP/s" && git commit -q --allow-empty -m base \
+  && blob=$(printf -- '---\nskill: orquestar\nissue: 5\nmodelo: opus\nrol: implementador\n---\nhistorial\n' | git hash-object -w --stdin) \
+  && GIT_INDEX_FILE="$TMP/s.idx" git update-index --add --cacheinfo "100644,$blob,retros/2026-01-01-orquestar-5.md" \
+  && git update-ref "refs/heads/$RAMA" "$(git commit-tree "$(GIT_INDEX_FILE="$TMP/s.idx" git write-tree)" -m vieja)")
+s=$(cd "$TMP/s" && "$TMP/s/.claude/skills/improve-skills/signals.sh" 2>&1)
+grep -q '^skill: orchestrate$' <<<"$s" && grep -q '^rol: implementer$' <<<"$s" && ! grep -Eq '^(skill: orquestar|rol: implementador)$' <<<"$s"; afirmar $? "signals.sh normaliza skill: y rol: viejos al mostrar las retros"
+
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
 echo "Todos los tests pasan."
