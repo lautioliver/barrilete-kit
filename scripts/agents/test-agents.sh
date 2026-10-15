@@ -51,11 +51,11 @@ grep -q "retro.sh" "$RAIZ/$CONTRATO" 2>/dev/null; afirmar $? "el contrato dice q
 
 # 3. El liviano dice exactamente cuándo escalar.
 f="$RAIZ/$AGENTES/implementer-light.md"
-grep -q "agents_map.py" "$f" 2>/dev/null && grep -q "rutas sensibles" "$f" && grep -q "business-logic" "$f"
+grep -q "agents_map.py" "$f" 2>/dev/null && grep -Eq "rutas sensibles|sensitive paths" "$f" && grep -q "business-logic" "$f"
 afirmar $? "implementer-light: escala por rutas sensibles (agents_map.py) o lógica de negocio"
 f="$RAIZ/$AGENTES/implementer-light.md"
 grep -q "agents_map.py.*error\|error.*agents_map.py" "$f" 2>/dev/null; afirmar $? "implementer-light: escala si agents_map.py no corre o sale con error"
-grep -q "prioridad" "$f" 2>/dev/null; afirmar $? "implementer-light: dice qué tiene prioridad sobre consulta y soltado del contrato"
+grep -Eq "prioridad|take priority" "$f" 2>/dev/null; afirmar $? "implementer-light: dice qué tiene prioridad sobre consulta y soltado del contrato"
 grep -q "BASE" "$RAIZ/$CONTRATO" 2>/dev/null; afirmar $? "el contrato dice cómo pasar BASE a los scripts"
 f="$RAIZ/$AGENTES/reviewer.md"
 ! grep -q "FETCH_HEAD" "$f" 2>/dev/null && grep -q "headRefOid" "$f" 2>/dev/null; afirmar $? "revisor: trae el PR a una ref propia (no FETCH_HEAD) y comprueba headRefOid"

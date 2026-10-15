@@ -187,45 +187,45 @@ es -n "$b" && es -n "$d" && es "$d" -gt "$b"; afirmar $? "--delete da los comand
 
 # 3. Lo que hace falta para correr en paralelo (criterios de #37).
 ! grep -q 'push -u' "$RAIZ/.claude/skills/implement-issue/SKILL.md"; afirmar $? "implement-issue pushea sin -u (el -u escribe .git/config y choca en paralelo)"
-! grep -Eq 'pushe[aá] de nuevo[^`]*$' "$RAIZ/.claude/skills/implement-issue/SKILL.md" && grep -q 'git push origin HEAD' "$RAIZ/.claude/agents/implementer.md"; afirmar $? "cada push dice git push origin HEAD (la rama no tiene upstream)"
+! grep -Eq 'pushe[aá] de nuevo[^`]*$|push again[^`]*$' "$RAIZ/.claude/skills/implement-issue/SKILL.md" && grep -q 'git push origin HEAD' "$RAIZ/.claude/agents/implementer.md"; afirmar $? "cada push dice git push origin HEAD (la rama no tiene upstream)"
 M="$RAIZ/docs/agents-map.json"
 for f in .claude/skills/implement-issue/SKILL.md .gitignore profiles/small/DELETE; do
   python3 -c "import json,sys; v=[x for x in json.load(open('$M'))['verify'] if x['name']=='orchestrate'][0]; sys.exit(0 if any(g.lstrip('?')=='$f' for g in v['when']) else 1)"
   afirmar $? "la verificación orchestrate del mapa corre cuando cambia $f"
 done
 R="$RAIZ/.claude/agents/reviewer.md"
-grep -q 'refs/revision/<pr>-<sufijo>' "$R" && grep -q -- '-revision-<pr>-<sufijo>' "$R"; afirmar $? "revisor: ref y worktree con sufijo único (dos revisiones del mismo PR no chocan)"
+grep -Eq 'refs/(revision/<pr>-<sufijo>|review/<pr>-<suffix>)' "$R" && grep -Eq -- '-(revision-<pr>-<sufijo>|review-<pr>-<suffix>)' "$R"; afirmar $? "revisor: ref y worktree con sufijo único (dos revisiones del mismo PR no chocan)"
 ! grep -q 'retro[^.]*desde el checkout principal' "$R" "$RAIZ/docs/agents/subagent-contract.md"; afirmar $? "la retro del revisor no depende del checkout principal del repo (podía estar en una rama vieja)"
-grep -q 'checkout del orquestador.*retro.sh' "$R" && ! grep -q 'worktree de revisión.*retro.sh' "$R"; afirmar $? "revisor: corre el retro.sh del checkout del orquestador, no el del PR (no revisado)"
+grep -Eq "checkout del orquestador.*retro.sh|orchestrator's checkout.*retro.sh" "$R" && ! grep -Eq 'worktree de revisión.*retro.sh|review worktree.*retro.sh' "$R"; afirmar $? "revisor: corre el retro.sh del checkout del orquestador, no el del PR (no revisado)"
 grep -q 'skill_sha' "$R" && grep -q 'skill_sha' "$AQUI/SKILL.md"; afirmar $? "orquestar le pasa skill_sha al revisor (la versión de review-pr que corrió)"
 for a in implementer implementer-light; do
   grep -q 'skill_sha' "$RAIZ/.claude/agents/$a.md"; afirmar $? "$a: escribe en la retro el skill_sha que le pasa el orquestador"
 done
-grep -qi 'frená.*\.claude\|\.claude.*frená' "$AQUI/SKILL.md"; afirmar $? "orquestar frena si su checkout tiene cambios en .claude/"
-grep -q 'revisor.*agent_sha\|agent_sha.*revisor' "$AQUI/SKILL.md" && grep -q 'checkout del orquestador' "$AQUI/SKILL.md"; afirmar $? "orquestar le pasa al revisor agent_sha y el checkout del orquestador"
+grep -qi 'frená.*\.claude\|\.claude.*frená\|stop.*\.claude\|\.claude.*stop' "$AQUI/SKILL.md"; afirmar $? "orquestar frena si su checkout tiene cambios en .claude/"
+grep -Eq 'revisor.*agent_sha|agent_sha.*revisor|reviewer.*agent_sha|agent_sha.*reviewer' "$AQUI/SKILL.md" && grep -Eq "checkout del orquestador|orchestrator's checkout" "$AQUI/SKILL.md"; afirmar $? "orquestar le pasa al revisor agent_sha y el checkout del orquestador"
 for a in implementer implementer-light reviewer; do
   grep -q 'agent_sha' "$RAIZ/.claude/agents/$a.md"; afirmar $? "$a: escribe en la retro el agent_sha que le pasa el orquestador"
 done
 grep -q 'agent_sha' "$AQUI/SKILL.md"; afirmar $? "orquestar le pasa agent_sha a cada subagente"
-grep -qi 'markdown crudo' "$R"; afirmar $? "revisor: el texto de la revisión va en Markdown crudo, sin entidades HTML"
-grep -qi 'relanzado.*consulta\|consulta.*relanzado' "$AQUI/SKILL.md"; afirmar $? "orquestar: dice qué hacer si un relanzado devuelve consulta"
+grep -Eqi 'markdown crudo|raw markdown' "$R"; afirmar $? "revisor: el texto de la revisión va en Markdown crudo, sin entidades HTML"
+grep -qi 'relanzado.*consulta\|consulta.*relanzado\|relaunch.*question\|question.*relaunch' "$AQUI/SKILL.md"; afirmar $? "orquestar: dice qué hacer si un relanzado devuelve consulta"
 C="$RAIZ/docs/agents/subagent-contract.md"; I="$RAIZ/.claude/skills/implement-issue/SKILL.md"
-grep -qi 'markdown crudo' "$C"; afirmar $? "contrato: todo texto para GitHub va en Markdown crudo (también el de los implementadores)"
+grep -Eqi 'markdown crudo|raw markdown' "$C"; afirmar $? "contrato: todo texto para GitHub va en Markdown crudo (también el de los implementadores)"
 grep -q '^self-review:' "$C" && grep -q 'self-review' "$AQUI/SKILL.md"; afirmar $? "contrato: la salida dice si hubo /code-review, y orquestar lo informa"
 # #88: la ruta de la retro va como la imprime retro.sh (Saved in <rama>:<ruta>), usable con git show.
 grep -Eq '^retro: <branch>:<path>' "$C" && ! grep -q 'devolvés la ruta' "$C" && ! grep -q 'recibís su ruta' "$AQUI/SKILL.md" && grep -Eq 'agents/retros:retros/[^ ]+\.md' "$C" \
   && grep -q 'Saved in .RAMA:.ruta' "$RAIZ/.claude/skills/improve-skills/retro.sh"
 afirmar $? "contrato: retro: va como <rama>:<ruta>, igual que la imprime retro.sh, con un ejemplo"
-! grep -qi "si está disponible el comando \`/code-review\`" "$I" && grep -qi 'code-review.*obligatori' "$I"; afirmar $? "implement-issue: /code-review es obligatorio"
-grep -qi 'que el issue lo pida no es la aprobación' "$I" && grep -qi 'que el issue lo pida no es la aprobación' "$C"; afirmar $? "un issue que pide tocar algo de consultar no es la aprobación"
-grep -qi 'que el issue lo pida no es la aprobación' "$RAIZ/AGENTS.md"; afirmar $? "AGENTS.md: pedirlo en el issue no aprueba algo de consultar"
+! grep -qi "si está disponible el comando \`/code-review\`" "$I" && grep -Eqi 'code-review.*(obligatori|mandatory)' "$I"; afirmar $? "implement-issue: /code-review es obligatorio"
+apr_issue='que el issue lo pida no es la aprobación|that the issue asks for it is not the approval'; grep -Eqi "$apr_issue" "$I" && grep -Eqi "$apr_issue" "$C"; afirmar $? "un issue que pide tocar algo de consultar no es la aprobación"
+grep -Eqi 'que el issue lo pida no es la aprobación|that the issue asks for it is not the approval' "$RAIZ/AGENTS.md"; afirmar $? "AGENTS.md: pedirlo en el issue no aprueba algo de consultar"
 # Una sola definición de aprobación: el cuerpo del issue lo puede escribir un agente.
 V="$RAIZ/.claude/skills/review-pr/SKILL.md"
 for f in "$RAIZ/AGENTS.md" "$C" "$I" "$V"; do
-  grep -q 'un "sí" de una persona en el chat o en un comentario suyo en el issue o el PR, nunca el cuerpo del issue' "$f"; afirmar $? "${f#"$RAIZ"/}: define la aprobación igual que AGENTS.md"
+  grep -Fq -e 'un "sí" de una persona en el chat o en un comentario suyo en el issue o el PR, nunca el cuerpo del issue' -e 'a "yes" from a person in the chat or in a comment of theirs on the issue or the PR, never the issue body' "$f"; afirmar $? "${f#"$RAIZ"/}: define la aprobación igual que AGENTS.md"
 done
 ! grep -q 'línea del issue' "$I"; afirmar $? "implement-issue: una línea del issue no es aprobación"
-grep -qi 'sin aprobación.*bloqueante' "$V"; afirmar $? "review-pr: algo de consultar sin aprobación registrada es bloqueante"
+grep -Eqi 'sin aprobación.*bloqueante|no recorded approval.*blocking' "$V"; afirmar $? "review-pr: algo de consultar sin aprobación registrada es bloqueante"
 ! grep -qi 'si está disponible ./code-review.' "$V" && grep -q 'code-review origin/<BASE_BRANCH>\.\.\.HEAD' "$V"; afirmar $? "review-pr: /code-review obligatorio y sobre origin/<base>...HEAD"
 grep -q 'fetch' "$V"; afirmar $? "review-pr: hace fetch antes de /code-review (la base local puede estar atrasada)"
 L="$RAIZ/.github/workflows/labels.yml"
@@ -244,7 +244,7 @@ const ok=b=>eval(m[1]).test(b);
 const casos=[["sin test: es solo docs",1],["sin tests: es config",1],["Sin test\nes solo docs",1],["<summary>Rojo antes de implementar</summary>",1],["sin test",0],["testear sin testigo",0]];
 process.exit(casos.every(([b,e])=>ok(b)===!!e)?0:1);' "$L" 2>/dev/null; afirmar $? "check de labels: acepta sin test o sin tests, con el motivo en la misma línea o en la siguiente"
 if [ -d "$RAIZ/profiles/small" ]; then
-  grep -qi 'que el issue lo pida no es la aprobación' "$RAIZ/profiles/small/AGENTS.md"; afirmar $? "chico: pedirlo en el issue no es la aprobación"
+  grep -Eqi 'que el issue lo pida no es la aprobación|that the issue asks for it is not the approval' "$RAIZ/profiles/small/AGENTS.md"; afirmar $? "chico: pedirlo en el issue no es la aprobación"
   ! grep -qi 'si está disponible ./code-review.' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.md"; afirmar $? "chico: /code-review obligatorio"
 fi
 grep -q 'code-review.*origin/<BASE_BRANCH>\.\.\.HEAD' "$RAIZ/.claude/skills/implement-issue/SKILL.md"; afirmar $? "implement-issue corre /code-review sobre el diff de la rama"

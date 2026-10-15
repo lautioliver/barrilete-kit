@@ -1,65 +1,65 @@
 ---
 name: review-pr
-description: Revisa un PR como lo haría un segundo par de ojos del equipo, con el foco en lo que una revisión genérica no mira - reglas de negocio, ADRs, docs desactualizados, autonomía del agente, tests faltantes y rutas sensibles. Usar con "/review-pr <n>", "revisá el PR #n". Idealmente desde una sesión distinta de la que implementó.
+description: Reviews a PR as a second pair of eyes on the team would, focused on what a generic review does not look at - business rules, ADRs, outdated docs, agent autonomy, missing tests and sensitive paths. Use with "/review-pr <n>", "review PR #n". Ideally from a different session than the one that implemented it.
 ---
 
-# Revisar un PR
+# Review a PR
 
-Un agente que genera código necesita a otro que lo cuestione. Esta revisión la hace **una sesión distinta** de la que implementó, si se puede: quien escribió el código tiende a leer lo que quiso escribir.
+An agent that generates code needs another one to question it. This review is done by **a different session** from the one that implemented, if possible: whoever wrote the code tends to read what they meant to write.
 
-**No aprueba ni mergea.** Su salida es una lista de hallazgos para la persona que va a decidir el merge.
+**It does not approve or merge.** Its output is a list of findings for the person who will decide the merge.
 
-## 1. Contexto
+## 1. Context
 
 ```bash
-gh pr view <n>                       # título, cuerpo, labels, issue que cierra
+gh pr view <n>                       # title, body, labels, issue it closes
 gh pr diff <n>
 gh pr checks <n>
 python3 scripts/agents/agents_map.py --pr <n>
 ```
 
-Leé el issue que cierra (y su épica, si tiene): la revisión es contra lo que se pidió, no contra lo que el PR dice que hace.
+Read the issue it closes (and its epic, if it has one): the review is against what was asked, not against what the PR says it does.
 
-## 2. Revisión de código
+## 2. Code review
 
-`/code-review` es obligatorio, para bugs, regresiones y casos borde. Antes, `git fetch origin` (la base local puede estar atrasada y meter en la revisión archivos que no son del PR), y corrélo sobre el diff del PR: `/code-review origin/<BASE_BRANCH>...HEAD`. Solo si el comando no existe en tu sesión, hacé esa pasada a mano y decilo en la revisión.
+`/code-review` is mandatory, for bugs, regressions and edge cases. Before it, `git fetch origin` (the local base may be behind and bring files into the review that are not the PR's), and run it on the PR's diff: `/code-review origin/<BASE_BRANCH>...HEAD`. Only if the command does not exist in your session, do that pass by hand and say so in the review.
 
-## 3. Lo propio del proyecto
+## 3. What is specific to the project
 
-| Pregunta | Dónde mirar |
+| Question | Where to look |
 |---|---|
-| ¿Hace lo que pide el issue, y solo eso? | Issue vs diff. Criterios de aceptación cumplidos. |
-| ¿Cambia una regla de negocio? ¿Está declarado? | ADRs y auditorías vs diff. Si cambia algo definido y no tiene `business-logic` ni lo explica, es hallazgo **bloqueante**. |
-| ¿Respeta las invariantes de los ADRs que toca? | Para cada ADR relacionado, qué no puede pasar nunca (dos ingresos, doble cobro, una ventana que se estira…) y si el diff abre un camino para que pase. Es hallazgo **bloqueante** aunque `/security-review` no encuentre nada: las invariantes de negocio no son categorías de seguridad genéricas. |
-| ¿Respeta la autonomía del agente? | AGENTS.md, Autonomía. Schema, dependencias, API pública, auth, infra, CI: ¿hubo aprobación? Que el issue lo pida no es la aprobación: cuenta un "sí" de una persona en el chat o en un comentario suyo en el issue o el PR, nunca el cuerpo del issue. Si toca algo de "consultar antes" sin aprobación registrada, es hallazgo **bloqueante**. |
-| ¿Toca rutas sensibles? | `agents_map.py --pr <n>` → si sí, correr `/security-review` (o revisar a mano auth, inputs, permisos, secretos, exposición de datos). |
-| ¿Hay migración? | Plan de `db-migration` en el PR, con rollback. |
-| ¿Tests (TDD)? | ¿Salen de los criterios de aceptación? El PR trae el bloque **rojo** y el commit de los tests en rojo: volvé a ese commit (`git switch --detach <sha>`), corré `.claude/skills/implement-issue/red.sh -- <comando>` y confirmá que fallan por una aserción; en la punta del PR, que pasan. Sin rojo comprobable y sin un "sin test" justificado, es hallazgo **a corregir**. |
-| ¿Docs al día? | `agents_map.py` marca docs **NOT MODIFIED**: ¿hacía falta tocarlos? ¿Lo nuevo contradice `architecture.md`? |
-| ¿Convenciones? | Título, labels, cuerpo del PR, `Closes #n`, convenciones de código de AGENTS.md. |
+| Does it do what the issue asks, and only that? | Issue vs diff. Acceptance criteria met. |
+| Does it change a business rule? Is it declared? | ADRs and audits vs diff. If it changes something defined and has no `business-logic` nor explains it, it is a **blocking** finding. |
+| Does it respect the invariants of the ADRs it touches? | For each related ADR, what can never happen (two entries, a double charge, a window that stretches…) and whether the diff opens a path for it to happen. It is a **blocking** finding even if `/security-review` finds nothing: business invariants are not generic security categories. |
+| Does it respect the agent's autonomy? | AGENTS.md, Autonomy. Schema, dependencies, public API, auth, infra, CI: was there approval? That the issue asks for it is not the approval: only a "yes" from a person in the chat or in a comment of theirs on the issue or the PR, never the issue body, counts. If it touches something from "must ask first" with no recorded approval, it is a **blocking** finding. |
+| Does it touch sensitive paths? | `agents_map.py --pr <n>` → if so, run `/security-review` (or review by hand auth, inputs, permissions, secrets, data exposure). |
+| Is there a migration? | `db-migration` plan in the PR, with rollback. |
+| Tests (TDD)? | Do they come from the acceptance criteria? The PR brings the **red** block and the commit of the red tests: go back to that commit (`git switch --detach <sha>`), run `.claude/skills/implement-issue/red.sh -- <command>` and confirm they fail on an assertion; at the PR's tip, that they pass. Without a verifiable red and without a justified "no test", it is a **to fix** finding. |
+| Docs up to date? | `agents_map.py` flags docs **NOT MODIFIED**: did they need touching? Does the new thing contradict `architecture.md`? |
+| Conventions? | Title, labels, PR body, `Closes #n`, code conventions from AGENTS.md. |
 
-## 4. Hallazgos
+## 4. Findings
 
-Cada hallazgo con: **archivo:línea**, qué está mal, por qué importa (qué falla y cuándo), y sugerencia. Clasificalos:
+Each finding with: **file:line**, what is wrong, why it matters (what fails and when), and a suggestion. Classify them:
 
-- **Bloqueante** — bug, regresión, regla de negocio cambiada sin declarar, seguridad, migración sin rollback, tests que faltan para lo central.
-- **A corregir** — no rompe, pero no debería entrar así.
-- **Sugerencia** — opcional.
+- **Blocking** — bug, regression, business rule changed without declaring it, security, migration without rollback, missing tests for the core.
+- **To fix** — it does not break, but it should not go in like this.
+- **Suggestion** — optional.
 
-No infles la lista: si no hay hallazgos de una categoría, decilo. Un PR sin hallazgos es un resultado válido.
+Do not pad the list: if there are no findings in a category, say so. A PR with no findings is a valid result.
 
-## 5. Publicar
+## 5. Publish
 
-Mostrale los hallazgos al usuario. Publicarlos en el PR es un comentario visible para el equipo: **pedí confirmación** y después:
+Show the findings to the user. Publishing them on the PR is a comment visible to the team: **ask for confirmation** and then:
 
 ```bash
-gh pr review <n> --comment --body-file <archivo>
+gh pr review <n> --comment --body-file <file>
 ```
 
-Si te lanzó otro agente y no podés preguntarle al usuario, no publiques: devolvé los hallazgos y el borrador a quien te lanzó, que es quien le pide la confirmación.
+If another agent launched you and you cannot ask the user, do not publish: return the findings and the draft to whoever launched you, who is the one who asks for confirmation.
 
-Nunca `--approve`: aprobar es decisión de una persona. Si sos la sesión que implementó y te piden corregir, corregí en la misma rama y volvé a correr esta revisión.
+Never `--approve`: approving is a person's decision. If you are the session that implemented and you are asked to fix, fix on the same branch and run this review again.
 
 ## Retro
 
-Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md` (o `retro.sh` sin argumentos), con el frontmatter completo, y después `.claude/skills/improve-skills/retro.sh <archivo.md>` (la guarda en la rama `agents/retros`; no toca tu rama). Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.
+When done, save a short retro: format in `.claude/skills/improve-skills/retro-template.md` (or `retro.sh` with no arguments), with the full frontmatter, and then `.claude/skills/improve-skills/retro.sh <file.md>` (it saves it on the `agents/retros` branch; it does not touch your branch). Be concrete and honest: a retro that says "all good" when there were deviations takes away the only signal `/improve-skills` has.

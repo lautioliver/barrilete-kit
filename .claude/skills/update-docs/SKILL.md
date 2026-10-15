@@ -1,45 +1,45 @@
 ---
 name: update-docs
-description: Detecta qué documentación quedó desactualizada por un cambio y la corrige. Usar antes de abrir un PR (implement-issue la llama), con "/update-docs", "actualizá los docs", "¿qué docs quedaron viejos?" o para corregir desfases entre docs y código.
+description: Detects which documentation became outdated because of a change and fixes it. Use before opening a PR (implement-issue calls it), with "/update-docs", "update the docs", "which docs went stale?" or to fix gaps between docs and code.
 ---
 
-# Actualizar docs
+# Update docs
 
-Los agentes trabajan con lo que dicen los docs. Si un doc dice algo que el código ya no hace, el próximo agente va a construir sobre algo falso. Esta skill mantiene los docs al día con el código.
+Agents work with what the docs say. If a doc says something the code no longer does, the next agent will build on something false. This skill keeps the docs in step with the code.
 
-Regla de fondo (`docs/README.md`): si un doc y el código no coinciden, **gana el código** y se corrige el doc. Excepción: si el doc es un ADR, el código puede estar mal; ahí se consulta.
+Underlying rule (`docs/README.md`): if a doc and the code do not match, **the code wins** and the doc is fixed. Exception: if the doc is an ADR, the code may be wrong; in that case, ask.
 
-## Modo 1: después de un cambio (lo normal)
+## Mode 1: after a change (the usual one)
 
-1. **Qué tocar:**
+1. **What to touch:**
    ```bash
-   python3 scripts/agents/agents_map.py            # rama actual contra la base
-   python3 scripts/agents/agents_map.py --pr <n>   # o un PR
+   python3 scripts/agents/agents_map.py            # current branch against the base
+   python3 scripts/agents/agents_map.py --pr <n>   # or a PR
    ```
-   Lista los docs que el mapa (`docs/agents-map.json`) asocia a los archivos cambiados, marcando los que siguen **NOT MODIFIED**.
-2. **Revisar cada uno** contra el diff (`git diff <base>...HEAD`). El mapa sugiere; vos decidís. Un doc listado puede no necesitar cambios (el cambio no altera lo que describe), y un doc no listado puede necesitarlos.
-3. **Además del mapa**, revisá siempre:
-   - ¿Cambió un comando o una convención? → `AGENTS.md`.
-   - ¿Cambió una decisión de un ADR? → no lo reescribas: enmienda con fecha o ADR nuevo (`docs/decisions/README.md`). Esto requiere consultar (AGENTS.md, Autonomía).
-   - ¿Agregaste un documento con contenido? → `docs/README.md` y `docs/llms.txt`.
-   - ¿Un término nuevo del dominio? → `docs/reference/glossary.md`.
-4. **Escribir.** Cambios mínimos y precisos: describí lo que hay, no la historia del cambio (eso va en el PR). No dupliques listas canónicas: si la lista vive en otro archivo, enlazala.
-5. **Validar:**
+   It lists the docs that the map (`docs/agents-map.json`) associates with the changed files, marking those that are still **NOT MODIFIED**.
+2. **Review each one** against the diff (`git diff <base>...HEAD`). The map suggests; you decide. A listed doc may need no changes (the change does not alter what it describes), and an unlisted doc may need them.
+3. **Besides the map**, always check:
+   - Did a command or a convention change? → `AGENTS.md`.
+   - Did an ADR decision change? → do not rewrite it: amend with a date or a new ADR (`docs/decisions/README.md`). This requires asking (AGENTS.md, Autonomy).
+   - Did you add a document with content? → `docs/README.md` and `docs/llms.txt`.
+   - A new domain term? → `docs/reference/glossary.md`.
+4. **Write.** Minimal, precise changes: describe what is there, not the history of the change (that goes in the PR). Do not duplicate canonical lists: if the list lives in another file, link to it.
+5. **Validate:**
    ```bash
    python3 scripts/agents/check-docs.py
    ```
-6. **Reportar** qué docs cambiaste y cuáles del mapa decidiste no tocar y por qué. Esto va en el PR.
+6. **Report** which docs you changed and which ones from the map you decided not to touch and why. This goes in the PR.
 
-## Modo 2: auditar desfases viejos
+## Mode 2: audit old gaps
 
-Con "¿qué docs quedaron viejos?" o "revisá que architecture.md esté al día":
+With "which docs went stale?" or "check that architecture.md is up to date":
 
-1. Corré `check-docs.py` (links y rutas rotas son el síntoma más barato).
-2. Por cada doc de `docs/reference/` y `docs/development/architecture.md`, compará lo que afirma con el código: endpoints, tablas, módulos, comandos. Priorizá lo que un agente usaría para decidir.
-3. Listá los desfases encontrados con archivo y línea. Los chicos, corregilos en un PR `docs(docs): …`; los grandes, como issues (`create-issue`, `type:docs`).
+1. Run `check-docs.py` (broken links and paths are the cheapest symptom).
+2. For each doc in `docs/reference/` and `docs/development/architecture.md`, compare what it claims with the code: endpoints, tables, modules, commands. Prioritize what an agent would use to decide.
+3. List the gaps found with file and line. Fix the small ones in a `docs(docs): …` PR; the big ones, as issues (`create-issue`, `type:docs`).
 
-## No hacer
+## Do not
 
-- No inventar comportamiento que no está en el código ni en el diff.
-- No mover contenido de `horizon.md` o `roadmap.md` a `architecture.md` si no está implementado.
-- No reescribir ADRs aceptados.
+- Do not invent behavior that is not in the code or in the diff.
+- Do not move content from `horizon.md` or `roadmap.md` into `architecture.md` if it is not implemented.
+- Do not rewrite accepted ADRs.

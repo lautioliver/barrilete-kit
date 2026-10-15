@@ -1,44 +1,44 @@
 ---
 name: db-migration
-description: Planifica y escribe cambios de schema y migraciones de base de datos de forma segura (compatibilidad, backfill, rollback, validación). Usar siempre que un cambio toque el schema o las migraciones, con "/db-migration", "agregá una columna", "cambiá la tabla X" o similar.
+description: Plans and writes schema changes and database migrations safely (compatibility, backfill, rollback, validation). Use whenever a change touches the schema or migrations, with "/db-migration", "add a column", "change table X" or similar.
 ---
 
-# Migración de base de datos
+# Database migration
 
-Un cambio de schema es de lo más difícil de revertir: los datos ya migrados no vuelven solos. Por eso requiere aprobación (AGENTS.md, Autonomía) y este plan **antes** de escribir la migración.
+A schema change is among the hardest things to revert: data that is already migrated does not come back on its own. That is why it requires approval (AGENTS.md, Autonomy) and this plan **before** writing the migration.
 
-Los comandos concretos (generar migración, correrla local, tests) están en `AGENTS.md`. TODO: si el proyecto tiene herramienta de migraciones (Drizzle, Prisma, Alembic, SQL a mano…), documentá acá sus particularidades.
+The concrete commands (generate a migration, run it locally, tests) are in `AGENTS.md`. TODO: if the project has a migration tool (Drizzle, Prisma, Alembic, hand-written SQL…), document its particulars here.
 
-## 1. Plan (mostrarlo y esperar aprobación)
+## 1. Plan (show it and wait for approval)
 
-Tocar el schema también requiere la aprobación de Autonomía: pedí las dos en el mismo mensaje, con esta tabla. Después la tabla va completa al PR.
+Touching the schema also requires the Autonomy approval: ask for both in the same message, with this table. Then the full table goes into the PR.
 
-| Punto | Qué responder |
+| Point | What to answer |
 |---|---|
-| Schema actual | Tablas/columnas/índices/constraints involucrados, tal como están hoy (leelo del código del schema, no de memoria). |
-| Schema deseado | El cambio exacto. |
-| Compatibilidad | ¿El código desplegado hoy sigue funcionando con el schema nuevo? (durante el deploy conviven versiones). ¿Hay lectores externos (reportes, otros servicios)? |
-| Migración | Pasos SQL. ¿Bloquea la tabla? ¿Cuánto tarda con el volumen de producción? |
-| Backfill | ¿Hay que completar datos existentes? ¿Cómo, en lotes, idempotente? |
-| Rollback | Cómo se vuelve atrás. Si no se puede sin perder datos, decirlo explícitamente. |
-| Validación | Cómo se comprueba después que quedó bien (consultas, conteos, tests). |
+| Current schema | Tables/columns/indexes/constraints involved, as they are today (read it from the schema code, not from memory). |
+| Desired schema | The exact change. |
+| Compatibility | Does the code deployed today keep working with the new schema? (versions coexist during the deploy). Are there external readers (reports, other services)? |
+| Migration | SQL steps. Does it lock the table? How long does it take with the production volume? |
+| Backfill | Does existing data need to be filled in? How, in batches, idempotent? |
+| Rollback | How to go back. If it cannot be done without losing data, say so explicitly. |
+| Validation | How to check afterwards that it came out right (queries, counts, tests). |
 
-## 2. Reglas
+## 2. Rules
 
-- **Cambios destructivos en dos pasos** (expand / contract): primero agregar lo nuevo y hacer que el código use ambas cosas; en un PR posterior, cuando nada usa lo viejo, borrarlo. Nunca renombrar ni borrar una columna en uso en un solo deploy.
-- Columna nueva `NOT NULL` en tabla con datos: agregar nullable o con default → backfill → recién ahí `NOT NULL`.
-- Índices sobre tablas grandes: de forma concurrente si el motor lo permite.
-- Invariantes en la base (constraints, `CHECK`, `UNIQUE`) cuando la regla tiene que valer siempre; no solo en el código.
-- Las migraciones son inmutables una vez mergeadas: si hay que corregir, migración nueva.
-- **Nunca** correr migraciones contra entornos compartidos o producción. Solo local o la base de tests.
+- **Destructive changes in two steps** (expand / contract): first add the new thing and make the code use both; in a later PR, when nothing uses the old one, delete it. Never rename or drop a column in use in a single deploy.
+- New `NOT NULL` column on a table with data: add it nullable or with a default → backfill → only then `NOT NULL`.
+- Indexes on large tables: concurrently if the engine allows it.
+- Invariants in the database (constraints, `CHECK`, `UNIQUE`) when the rule has to hold always; not only in the code.
+- Migrations are immutable once merged: if something has to be fixed, a new migration.
+- **Never** run migrations against shared environments or production. Only local or the test database.
 
-## 3. Implementar
+## 3. Implement
 
-1. Cambiar el schema y generar la migración con la herramienta del proyecto. Revisar el SQL generado línea por línea.
-2. Correrla en local / tests desde cero y sobre datos existentes.
-3. Tests: el comportamiento nuevo, y que los datos viejos sigan siendo válidos.
-4. Docs: `docs/reference/domain.md` (y lo que diga `agents_map.py`). Si es una decisión de modelo de datos difícil de revertir, ADR.
+1. Change the schema and generate the migration with the project's tool. Review the generated SQL line by line.
+2. Run it locally / in tests from scratch and over existing data.
+3. Tests: the new behavior, and that the old data is still valid.
+4. Docs: `docs/reference/domain.md` (and whatever `agents_map.py` says). If it is a data-model decision that is hard to revert, an ADR.
 
 ## 4. PR
 
-En el cuerpo del PR, la tabla del paso 1 completa, incluido el rollback. Si es un cambio en dos pasos, decir en qué paso está y abrir el issue del siguiente (`create-issue`, bloqueado por este).
+In the PR body, the full table from step 1, rollback included. If it is a two-step change, say which step it is in and open the issue for the next one (`create-issue`, blocked by this one).

@@ -1,64 +1,64 @@
 ---
 name: improve-skills
-description: Consolida las retros del flujo con agentes y las señales objetivas (fallas de CI en ramas de agentes, reverts) y propone ajustes a las skills en un PR que revisa una persona. Nunca edita las skills sin PR ni afloja controles. Usar con "/improve-skills", "¿qué aprendimos de las últimas corridas?", "ajustá las skills con el uso" o en la corrida semanal programada.
+description: Consolidates the retros of the agent flow and the objective signals (CI failures on agent branches, reverts) and proposes adjustments to the skills in a PR that a person reviews. It never edits the skills without a PR or loosens controls. Use with "/improve-skills", "what did we learn from the last runs?", "tune the skills with use" or in the scheduled weekly run.
 ---
 
-# Mejorar las skills con el uso
+# Improve the skills with use
 
-Las skills aprenden de su uso, pero **no se reescriben solas**: esta skill propone, una persona decide. Un ajuste sin control se ajusta a un solo caso, alarga las skills y, sobre todo, tiende a sacar los controles que frenan al agente, que son justo lo más valioso.
+Skills learn from their use, but **they do not rewrite themselves**: this skill proposes, a person decides. An unchecked adjustment fits a single case, makes the skills longer and, above all, tends to remove the controls that stop the agent, which are precisely the most valuable thing.
 
-## 1. Juntar las señales
+## 1. Gather the signals
 
 ```bash
-.claude/skills/improve-skills/signals.sh [días]
+.claude/skills/improve-skills/signals.sh [days]
 ```
 
-Trae las retros nuevas de la rama `agents/retros` (desde `consolidated.md`; un archivo por retro, con `skill_sha` para saber con qué versión de la skill se hizo, y `model` y `role` para saber quién la hizo) y las de la rama vieja `agentes/retros` (0.9), que no se reescribe: las claves y valores viejos se muestran con los nuevos, así cuentan como el mismo grupo. También trae las señales objetivas: fallas de CI en ramas `claude/` agrupadas por workflow, y reverts. Las señales objetivas pesan más que las retros: el agente no ve sus propios puntos ciegos.
+It brings the new retros from the `agents/retros` branch (since `consolidated.md`; one file per retro, with `skill_sha` to know which version of the skill it was done with, and `model` and `role` to know who did it) and those of the old `agentes/retros` branch (0.9), which is not rewritten: the old keys and values are shown with the new ones, so they count as the same group. It also brings the objective signals: CI failures on `claude/` branches grouped by workflow, and reverts. The objective signals weigh more than the retros: the agent does not see its own blind spots.
 
-Si no hay nada nuevo, decilo y terminá.
+If there is nothing new, say so and finish.
 
-## 2. Agrupar por patrón
+## 2. Group by pattern
 
-Para cada patrón: qué pasó, en qué casos (links), y qué skill o script lo habría evitado. Un patrón es algo que se repite o que fue grave; una anécdota no es un patrón.
+For each pattern: what happened, in which cases (links), and which skill or script would have prevented it. A pattern is something that repeats or was serious; an anecdote is not a pattern.
 
-Agrupá los desvíos y hallazgos por `model` y por `role`. Si un mismo modelo falla repetido en un tipo de issue (`type:` o `area:`), es un caso para la regla de ruteo de `orchestrate` (qué issues van a Haiku y cuáles a Sonnet): se propone en el PR, sin aflojar el escalado de `agents_map.py` ni el revisor. Las retros con `model: unknown` o `role: session` no entran en esa comparación.
+Group the deviations and findings by `model` and by `role`. If the same model fails repeatedly on a type of issue (`type:` or `area:`), it is a case for the routing rule of `orchestrate` (which issues go to Haiku and which to Sonnet): it is proposed in the PR, without loosening the escalation of `agents_map.py` or the reviewer. Retros with `model: unknown` or `role: session` do not enter that comparison.
 
-## 3. Decidir qué proponer
+## 3. Decide what to propose
 
-Reglas, en este orden:
+Rules, in this order:
 
-1. **Al menos dos casos, o uno grave.** Grave: un bug que llegó a la revisión o a producción, una regla de negocio rota, datos o dinero en riesgo.
-2. **Nunca quitar ni aflojar** reglas de Autonomía (`AGENTS.md`), aprobaciones, verificaciones ni el "no mergea / no aprueba". Si un control frena seguido sin motivo, se plantea como **pregunta para el equipo** en el PR, no como cambio.
-3. **Script antes que texto.** Si se puede verificar mecánicamente (un check de CI, un control en `verify.py` o `prepare.sh`), eso; una instrucción más en Markdown es el último recurso. Las instrucciones son lo que el agente se saltea.
-4. **Largo máximo:** ninguna `SKILL.md` pasa de 120 líneas. Si un ajuste no entra, hay que sacar o pasar a script otra cosa.
-5. **Un cambio por patrón**, con su motivo y los casos que lo justifican.
-6. **Lecciones:** lo que sirve pero no alcanza para cambiar una skill (un caso, o algo que no se puede verificar con un script) va a `docs/agents/lessons.md`, en el mismo PR. Es lo único de las retros que leen los demás agentes: nunca leen retros crudas. Máximo 40 líneas (lo controla `check-docs.py`): si no entra, sacá la lección más vieja o la que ya pasó a una skill.
+1. **At least two cases, or one serious one.** Serious: a bug that reached review or production, a broken business rule, data or money at risk.
+2. **Never remove or loosen** Autonomy rules (`AGENTS.md`), approvals, verifications or the "does not merge / does not approve". If a control stops things often for no reason, it is raised as a **question for the team** in the PR, not as a change.
+3. **Script before text.** If it can be verified mechanically (a CI check, a control in `verify.py` or `prepare.sh`), do that; one more instruction in Markdown is the last resort. Instructions are what the agent skips.
+4. **Maximum length:** no `SKILL.md` goes over 120 lines. If an adjustment does not fit, something else has to be removed or moved to a script.
+5. **One change per pattern**, with its reason and the cases that justify it.
+6. **Lessons:** what is useful but not enough to change a skill (one case, or something that cannot be verified with a script) goes to `docs/agents/lessons.md`, in the same PR. It is the only thing from the retros that the other agents read: they never read raw retros. Maximum 40 lines (checked by `check-docs.py`): if it does not fit, remove the oldest lesson or the one that already moved to a skill.
 
-## 4. Proponer en un PR
+## 4. Propose in a PR
 
-Rama `claude/<n>-improve-skills-<fecha>` (con un issue `type:task`), base la rama troncal de trabajo. El cuerpo del PR:
+Branch `claude/<n>-improve-skills-<date>` (with a `type:task` issue), based on the working trunk branch. The PR body:
 
 ```markdown
-## Patrones encontrados
-| Patrón | Casos | Ajuste propuesto |
-## Preguntas para el equipo
-(controles que frenan seguido; nada de esto se cambia en este PR)
-## Descartado
-(anécdotas o casos que no alcanzan las reglas)
+## Patterns found
+| Pattern | Cases | Proposed adjustment |
+## Questions for the team
+(controls that stop things often; none of this is changed in this PR)
+## Discarded
+(anecdotes or cases that do not meet the rules)
 ```
 
-Mostrá el borrador del PR antes de abrirlo y esperá un "sí".
+Show the PR draft before opening it and wait for a "yes".
 
-## 5. Marcar lo consolidado
+## 5. Mark what is consolidated
 
-Abierto el PR, marcá hasta dónde consolidaste con el commit que imprimió `signals.sh` ("consolidate up to"):
+With the PR open, mark how far you consolidated with the commit that `signals.sh` printed ("consolidate up to"):
 
 ```bash
-.claude/skills/improve-skills/retro.sh --consolidated <commit> <link al PR>
+.claude/skills/improve-skills/retro.sh --consolidated <commit> <link to the PR>
 ```
 
-`signals.sh` imprime un commit por cada rama (la nueva y la 0.9): marcá cada uno. Escribe `consolidated.md` en la rama `agents/retros` (el punto de la rama 0.9 va ahí también: esa rama no se toca); la próxima corrida empieza desde ahí. Usá ese commit y no la punta actual: así no se saltean retros que llegaron mientras armabas el PR.
+`signals.sh` prints one commit per branch (the new one and the 0.9 one): mark each. It writes `consolidated.md` on the `agents/retros` branch (the 0.9 branch's point goes there too: that branch is not touched); the next run starts from there. Use that commit and not the current tip: that way you do not skip retros that arrived while you were putting the PR together.
 
-## Programarla
+## Scheduling it
 
-Para que corra sola (por ejemplo, los lunes), usá una tarea programada que ejecute `/improve-skills`. Igual termina en un PR para revisar: programarla no le da permiso para mergear.
+To have it run on its own (for example, on Mondays), use a scheduled task that runs `/improve-skills`. It still ends in a PR to review: scheduling it does not give it permission to merge.

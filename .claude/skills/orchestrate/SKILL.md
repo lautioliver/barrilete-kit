@@ -1,87 +1,87 @@
 ---
 name: orchestrate
-description: Reparte los issues disponibles entre subagentes que trabajan en paralelo (Haiku o Sonnet implementan según el riesgo, Opus revisa), cada uno en su worktree, y junta todo en un solo mensaje con los PRs, las consultas y lo escalado. No mergea ni publica sin confirmación. Usar con "/orchestrate", "orquestá los issues disponibles", "repartí la cola entre agentes" o similar.
+description: Distributes the available issues among subagents working in parallel (Haiku or Sonnet implement depending on risk, Opus reviews), each in its own worktree, and gathers everything in a single message with the PRs, the questions and what was escalated. It does not merge or publish without confirmation. Use with "/orchestrate", "orchestrate the available issues", "spread the queue among agents" or similar.
 ---
 
-# Orquestar
+# Orchestrate
 
-Sos la sesión principal: repartís, coordinás y le hablás a la persona. Los subagentes (`.claude/agents/`) implementan y revisan siguiendo `docs/agents/subagent-contract.md`; no pueden lanzar otros subagentes ni hablar con la persona, así que todo pasa por vos.
+You are the main session: you distribute, coordinate and talk to the person. The subagents (`.claude/agents/`) implement and review following `docs/agents/subagent-contract.md`; they cannot launch other subagents or talk to the person, so everything goes through you.
 
-**Nunca** mergeás, aprobás ni publicás nada en un PR sin un "sí" explícito de la persona. `AGENTS.md` vale entero.
+**Never** merge, approve or publish anything on a PR without an explicit "yes" from the person. `AGENTS.md` applies in full.
 
-## 1. Preparar
+## 1. Prepare
 
-- Esta sesión tiene que correr en Opus. Si no lo está, pedile a la persona `/model opus` y esperá.
-- La rama base de los PRs (`<base>`) es la de la regla de ramas de `AGENTS.md`; se la pasás a cada subagente como `BASE=<base>`.
-- Anotá la corrida (`date +%Y%m%d-%H%M`, es el `run` de tu retro), y la ruta de tu checkout, el **checkout del orquestador** (`git rev-parse --show-toplevel`): todos los comandos de git van con `git -C <ruta>`. Si `git status --porcelain .claude` muestra cambios, frená y pedí commitearlos: los `agent_sha` y `skill_sha` que pasás salen de los commits, y tienen que ser las definiciones que corren. No cambies de rama ni hagas `pull` durante la corrida.
-- Corré `.claude/skills/project-status/available.sh`. Solo se lanzan issues de **"Can be started now"**: un issue bloqueado, ya asignado o con un PR abierto no se lanza nunca, aunque la persona lo nombre (decíselo).
+- This session has to run on Opus. If it is not, ask the person for `/model opus` and wait.
+- The base branch of the PRs (`<base>`) is the one from the branch rule in `AGENTS.md`; you pass it to each subagent as `BASE=<base>`.
+- Note the run (`date +%Y%m%d-%H%M`, it is the `run` of your retro), and the path of your checkout, the **orchestrator's checkout** (`git rev-parse --show-toplevel`): every git command goes with `git -C <path>`. If `git status --porcelain .claude` shows changes, stop and ask for them to be committed: the `agent_sha` and `skill_sha` you pass come from commits, and they have to be the definitions that run. Do not switch branches or `pull` during the run.
+- Run `.claude/skills/project-status/available.sh`. Only issues from **"Can be started now"** are launched: a blocked issue, one already assigned or with an open PR is never launched, even if the person names it (tell them so).
 
-## 2. Proponer y esperar confirmación
+## 2. Propose and wait for confirmation
 
-Elegí hasta **3** issues de "Can be started now", en el orden en que aparecen (prioridad). Para cada uno corré:
+Pick up to **3** issues from "Can be started now", in the order they appear (priority). For each one run:
 
 ```bash
 .claude/skills/orchestrate/routing.py <n>
 ```
 
-Imprime el modelo y el `reason`. Es la regla de la épica #33, decisión 2: **Haiku solo si el issue es `type:docs` o `type:task`, sin `business-logic` ni `breaking-change` y sin rutas sensibles nombradas en el texto. Lo demás, Sonnet.** Si en la autorevisión `agents_map.py` marca rutas sensibles, Haiku frena y devuelve `escalate`, y lo relanzás con Sonnet en el mismo worktree. `routing.py` se equivoca a propósito hacia Sonnet: una palabra como "infra" o "middleware" en prosa ya cuenta como ruta sensible. No cambies la regla a ojo: si un caso no encaja, proponé el cambio a `routing.py` en un issue.
+It prints the model and the `reason`. It is the rule of epic #33, decision 2: **Haiku only if the issue is `type:docs` or `type:task`, without `business-logic` or `breaking-change` and without sensitive paths named in the text. Everything else, Sonnet.** If in the self-review `agents_map.py` flags sensitive paths, Haiku stops and returns `escalate`, and you relaunch it with Sonnet in the same worktree. `routing.py` errs on purpose toward Sonnet: a word like "infra" or "middleware" in prose already counts as a sensitive path. Do not change the rule by eye: if a case does not fit, propose the change to `routing.py` in an issue.
 
-Mostrale a la persona una tabla (issue, título, modelo, `reason`) y esperá el "sí". Puede sacar issues o cambiar el modelo de uno a Sonnet; a Haiku solo si `routing.py` lo permite.
+Show the person a table (issue, title, model, `reason`) and wait for the "yes". They can drop issues or switch one's model to Sonnet; to Haiku only if `routing.py` allows it.
 
-## 3. Lanzar
+## 3. Launch
 
 ```bash
-git -C <raíz> fetch -q origin        # una sola vez, antes de lanzar: fetch en paralelo choca en .git/*.lock
-.claude/skills/implement-issue/prepare.sh <n> --worktree   # uno por issue, de a uno
+git -C <root> fetch -q origin        # only once, before launching: parallel fetches clash on .git/*.lock
+.claude/skills/implement-issue/prepare.sh <n> --worktree   # one per issue, one at a time
 ```
 
-`prepare.sh` valida, asigna, crea el worktree en `../<repo>-wt/<n>` e imprime `Worktree: <ruta>`. Si falla para un issue, no lo lances y anotalo para el mensaje final.
+`prepare.sh` validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. If it fails for an issue, do not launch it and note it for the final message.
 
-Lanzá los subagentes en paralelo, en un solo mensaje, con la herramienta Agent: `subagent_type` `implementer-light` (Haiku) o `implementer` (Sonnet). Sin `isolation`: el worktree ya existe. En el prompt: número de issue, ruta del worktree, rama base (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` en tu checkout: es la versión que corre, aunque el worktree tenga otra), `skill_sha` (lo mismo con `.claude/skills/implement-issue/SKILL.md`) y que siga su definición. Al revisor: número de PR, la ruta del checkout del orquestador, `agent_sha` de `reviewer.md` y `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`). **Nunca más de 3 implementando a la vez**, contando los relanzados.
+Launch the subagents in parallel, in a single message, with the Agent tool: `subagent_type` `implementer-light` (Haiku) or `implementer` (Sonnet). Without `isolation`: the worktree already exists. In the prompt: issue number, worktree path, base branch (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` in your checkout: it is the version that runs, even if the worktree has another), `skill_sha` (the same with `.claude/skills/implement-issue/SKILL.md`) and that it follows its definition. To the reviewer: PR number, the orchestrator's checkout path, `agent_sha` of `reviewer.md` and `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`). **Never more than 3 implementing at once**, counting the relaunched ones.
 
-## 4. Con cada resultado
+## 4. With each result
 
-Cada subagente devuelve el bloque del contrato. Leé solo eso: nunca diffs ni retros.
+Each subagent returns the contract block. Read only that: never diffs or retros.
 
-| `result` | Qué hacés |
+| `result` | What you do |
 |---|---|
-| `pr` (implementador) | Lanzás un `reviewer` con lo que dice el paso 3 (PR, checkout del orquestador, `agent_sha`, `skill_sha`). **Una sola revisión por PR a la vez.** |
-| `escalate` | Relanzás `implementer` (Sonnet) en el **mismo worktree**, con el `reason`. Cuenta para el máximo de 3. |
-| `question` / `dropped` | Lo anotás para el mensaje final. Ya está comentado en el issue. Un issue que pide tocar CI, infra u otra cosa de "consultar" termina en `question` aunque el pedido esté en el issue: no lo relances diciendo que está aprobado salvo que la persona te lo haya dicho. Vale igual para un relanzado: si Sonnet, relanzado tras un `escalate`, devuelve `question` (por ejemplo, el issue toca CI y eso pide consulta a cualquier modelo), no hay otro relanzado. |
-| `pr` (revisor) | Lo anotás con su `review:` para el mensaje final. |
-| `blockers` (revisor) | Decidís vos, con el criterio de abajo. |
+| `pr` (implementer) | Launch a `reviewer` with what step 3 says (PR, orchestrator's checkout, `agent_sha`, `skill_sha`). **Only one review per PR at a time.** |
+| `escalate` | Relaunch `implementer` (Sonnet) in the **same worktree**, with the `reason`. It counts toward the maximum of 3. |
+| `question` / `dropped` | Note it for the final message. It is already commented on the issue. An issue that asks to touch CI, infra or anything else under "ask first" ends in `question` even if the request is in the issue: do not relaunch it saying it is approved unless the person told you so. The same goes for a relaunch: if Sonnet, relaunched after an `escalate`, returns `question` (for example, the issue touches CI and that requires asking for any model), there is no other relaunch. |
+| `pr` (reviewer) | Note it with its `review:` for the final message. |
+| `blockers` (reviewer) | You decide, with the criteria below. |
 
-### Bloqueantes de la revisión
+### Review blockers
 
-Máximo **una ronda extra** por PR. Elegí una y explicala en el mensaje final:
+At most **one extra round** per PR. Pick one and explain it in the final message:
 
-1. **Otra ronda con el mismo implementador** (relanzado en su worktree, con los bloqueantes): si son concretos y están dentro del alcance del issue (un caso borde, un test que falta, un doc).
-2. **Relanzar con `implementer` (Sonnet)**: si lo hizo Haiku y el bloqueante muestra que el issue no era para él (lógica de negocio, ruta sensible, diseño).
-3. **Pasarlo a la persona**: si el bloqueante es una decisión (contradice un ADR, cambia una regla, el issue es ambiguo), o si ya hubo una ronda extra.
+1. **Another round with the same implementer** (relaunched in its worktree, with the blockers): if they are concrete and within the issue's scope (an edge case, a missing test, a doc).
+2. **Relaunch with `implementer` (Sonnet)**: if Haiku did it and the blocker shows the issue was not for it (business logic, sensitive path, design).
+3. **Hand it to the person**: if the blocker is a decision (contradicts an ADR, changes a rule, the issue is ambiguous), or if there was already an extra round.
 
-Después de la ronda extra, el PR vuelve al revisor. Si vuelve con bloqueantes, va a la persona: no hay segunda ronda.
+After the extra round, the PR goes back to the reviewer. If it comes back with blockers, it goes to the person: there is no second round.
 
-## 5. Mensaje final
+## 5. Final message
 
-Uno solo, cuando terminaron todos:
+Only one, when they have all finished:
 
-- **PRs**: link, modelo que lo hizo, estado del CI (`gh pr checks <pr>`), `self-review` del implementador (si no corrió `/code-review`, destacalo), veredicto del revisor y hallazgos en una línea cada uno.
-- **Consultas pendientes**: todas juntas, con su issue, para responder de una vez.
-- **Escalados y relanzados**: qué issue, de qué modelo a cuál y por qué.
-- **Decisiones en bloqueantes**: qué elegiste y por qué.
-- **No lanzados**: los que `prepare.sh` rechazó.
+- **PRs**: link, model that did it, CI status (`gh pr checks <pr>`), the implementer's `self-review` (if `/code-review` did not run, highlight it), the reviewer's verdict and findings in one line each.
+- **Pending questions**: all together, with their issue, to answer in one go.
+- **Escalated and relaunched**: which issue, from which model to which and why.
+- **Decisions on blockers**: what you chose and why.
+- **Not launched**: those `prepare.sh` rejected.
 
-Ofrecé publicar las revisiones (`gh pr review <pr> --comment --body-file <archivo>`), todas o algunas. Publicá solo lo que la persona confirme. El merge lo hace ella.
+Offer to publish the reviews (`gh pr review <pr> --comment --body-file <file>`), all or some. Publish only what the person confirms. They do the merge.
 
 ## 6. Retro
 
-Las retros de los subagentes ya están guardadas: recibís dónde quedaron (`retro:`, ver el contrato), pero no las abras (solo los lee `/improve-skills`). Guardá la tuya con `.claude/skills/improve-skills/retro.sh <archivo>` y este frontmatter: `skill: orchestrate`, `issue: <épica>` (si los issues son de una) o `run: <YYYYMMDD-HHMM>`, `model: opus`, `role: orchestrator`, `area`, `paths`. En el cuerpo: issues lanzados con su modelo, escalados, rondas extra y cuánto tardó cada uno. Escribí el archivo fuera del repo.
+The subagents' retros are already saved: you receive where they ended up (`retro:`, see the contract), but do not open them (only `/improve-skills` reads them). Save yours with `.claude/skills/improve-skills/retro.sh <file>` and this frontmatter: `skill: orchestrate`, `issue: <epic>` (if the issues belong to one) or `run: <YYYYMMDD-HHMM>`, `model: opus`, `role: orchestrator`, `area`, `paths`. In the body: issues launched with their model, escalated ones, extra rounds and how long each took. Write the file outside the repo.
 
-## 7. Limpiar
+## 7. Clean up
 
 ```bash
-.claude/skills/orchestrate/cleanup.sh            # lista los worktrees de issues cerrados
-.claude/skills/orchestrate/cleanup.sh --delete   # los borra, si la persona dice que sí
+.claude/skills/orchestrate/cleanup.sh            # lists the worktrees of closed issues
+.claude/skills/orchestrate/cleanup.sh --delete   # deletes them, if the person says yes
 ```
 
-También lista las ramas `claude/<n>-…` cuyo PR se cerró sin mergear, con el comando para borrar cada una (al final, después de sacar los worktrees: `git branch -D` falla mientras la rama esté en uno) (`git push origin --delete`; `gh pr close --delete-branch` falla desde un detached HEAD). No las borra: ofrecéselo a la persona, rama por rama, y avisale si alguna tiene commits sin pushear. No borra un worktree con cambios sin commitear, ni ninguno si quedan retros en `pending-retros/` (la corrida no está cerrada hasta guardarlas): en ese caso, reintentá cada retro con `retro.sh <archivo>` y volvé a correrlo.
+It also lists the `claude/<n>-…` branches whose PR was closed without merging, with the command to delete each one (at the end, after removing the worktrees: `git branch -D` fails while the branch is in one) (`git push origin --delete`; `gh pr close --delete-branch` fails from a detached HEAD). It does not delete them: offer it to the person, branch by branch, and warn them if any has unpushed commits. It does not delete a worktree with uncommitted changes, nor any at all if retros remain in `pending-retros/` (the run is not closed until they are saved): in that case, retry each retro with `retro.sh <file>` and run it again.
