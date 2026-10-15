@@ -77,6 +77,9 @@ def main():
     try:
         print(f"Cloning the template from {plantilla}…")
         sh("git", "clone", "-q", "--depth", "1", plantilla, tmp)
+        clonado = sh("git", "rev-parse", "HEAD", cwd=tmp).strip()  # the commit the files come from
+        etiquetas = [t for t in sh("git", "tag", "--points-at", "HEAD", cwd=tmp).split() if re.fullmatch(r"v\d+\.\d+\.\d+", t)]
+        etiqueta = max(etiquetas, key=lambda t: tuple(int(x) for x in t[1:].split("."))).lstrip("v") if etiquetas else None
         init = ["./scripts/init-template.sh", kit["project"], kit["base_branch"]] + (["releases"] if releases else [])
         if kit.get("language"):
             with open(os.path.join(tmp, "scripts", "init-template.sh"), encoding="utf-8") as fh:
@@ -136,9 +139,13 @@ def main():
     if movido:
         registradas.pop("docs/architecture.md", None)
     kit.update({"mode": "full", "releases": releases, "files": dict(sorted(registradas.items()))})
-    if version and not kit.get("ref"):
-        # grow brings the version of the template it cloned. Not in an installed repo: its registry says which
-        # commit it came from (ref), and the default branch's VERSION may not match any tag.
+    if kit.get("ref"):
+        # Installed repo: the files now come from the commit grow cloned, so that is the origin. Keeping the
+        # install's ref would let update.py go to a tag older than these files and downgrade them. The default
+        # branch's VERSION may not match any tag, so the version is only the one of a tag on that commit.
+        kit["ref"] = clonado
+        kit["version"] = etiqueta
+    elif version:
         kit["version"] = version
     json.dump(kit, open(".agent-kit.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     os.remove("scripts/grow.py")
