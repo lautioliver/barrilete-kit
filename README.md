@@ -210,7 +210,7 @@ Sin integrantes, los issues quedan sin asignar. El equipo se cambia con `/add-me
 | 🏷️ | Labels | `.github/labels.yml` (fuente), `.github/labeler.yml` (auto-etiquetado), `.github/workflows/labels.yml` (sync + labeler + checks) |
 | 📬 | Issues y PRs | `.github/ISSUE_TEMPLATE/` (formularios con labels), `.github/pull_request_template.md`, `.github/workflows/desbloquear.yml` |
 | 🤖 | Subagentes por modelo | `.claude/agents/` (implementador, implementador liviano, revisor) + `docs/agentes/contrato-subagentes.md` |
-| ✅ | Docs y scripts testeados en CI | `.github/workflows/docs.yml` + `scripts/agentes/check-docs.py`: links, rutas y ADRs rotos, rutas del mapa que ya no existen, lo que `AGENTS.md` dice ignorado y no lo está; shellcheck y los `test-*.sh`, aislados de la config de git |
+| ✅ | Docs y scripts testeados en CI | `.github/workflows/docs.yml` + `scripts/agentes/check-docs.py`: links, rutas y ADRs rotos, rutas del mapa que ya no existen, lo que `AGENTS.md` dice ignorado y no lo está; shellcheck y los `test-*.sh`, aislados de la config de git. En un repo con `.agent-kit.json` solo mira los `.md` del kit, `docs/`, `AGENTS.md` y `llms.txt`, y shellcheck y los tests solo los scripts del kit (`check-docs.py --listar <glob>`) |
 | 🔒 | Secretos fuera del repo | `.gitignore`: `.env*` (salvo `.env.example`) y lo que generan los scripts de agentes |
 | 🧪 | Verificación antes del PR | `scripts/agentes/verificar.py`: según lo que cambió, corre lint, typecheck, tests afectados, drift de migraciones… |
 | 👥 | Equipo | `.github/equipo.json` + `scripts/agentes/equipo.py`: quién recibe los issues según sus áreas |

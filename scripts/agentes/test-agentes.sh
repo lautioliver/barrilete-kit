@@ -92,7 +92,7 @@ salida=$(check); grep -q "docs/ajeno-en-docs.md.*link roto" <<<"$salida"; afirma
 rm "$TMP/r/docs/ajeno-en-docs.md"
 printf '\n[roto](no-existe.md)\n' >>"$TMP/r/README.md"
 salida=$(check); grep -q "README.md.*link roto" <<<"$salida"; afirmar $? "con .agent-kit.json, un link roto en un archivo del kit sigue fallando"
-rm "$TMP/r/.agent-kit.json"
+rm "$TMP/r/.agent-kit.json"; git -C "$TMP/r" add -A  # sin manifiesto, el kit es lo que git rastrea
 salida=$(check); grep -q "ajeno/README.md.*link roto" <<<"$salida"; afirmar $? "sin .agent-kit.json (la plantilla), se revisa todo"
 listar '*.sh' | grep -qx "ajeno/malo.sh"; afirmar $? "sin .agent-kit.json, --listar devuelve todos los archivos del repo"
 
