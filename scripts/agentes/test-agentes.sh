@@ -80,7 +80,7 @@ json.dump({"archivos": {a: "x" for a in archivos}}, open(r + "/.agent-kit.json",
 PY
 mkdir -p "$TMP/r/ajeno"
 printf '# Ajeno\n\n[roto](no-existe.md)\n' >"$TMP/r/ajeno/README.md"
-printf '#!/bin/sh\necho $x\n' >"$TMP/r/ajeno/malo.sh"
+printf '#!/bin/sh\necho [ -z a ]\n' >"$TMP/r/ajeno/malo.sh"
 printf '#!/bin/sh\nexit 1\n' >"$TMP/r/ajeno/test-propio.sh"
 listar() { (cd "$TMP/r" && python3 scripts/agentes/check-docs.py --listar "$1" 2>/dev/null); }
 check >/dev/null; afirmar $? "con .agent-kit.json, un .md ajeno con link roto no falla el check"
@@ -88,9 +88,11 @@ lista=$(listar '*.sh'); grep -qx "scripts/agentes/test-agentes.sh" <<<"$lista"; 
 ! grep -q "^ajeno/" <<<"$lista"; afirmar $? "con .agent-kit.json, --listar '*.sh' no devuelve los .sh ajenos"
 lista=$(listar '*test-*.sh'); grep -qx "scripts/agentes/test-agentes.sh" <<<"$lista" && ! grep -q "^ajeno/" <<<"$lista"
 afirmar $? "con .agent-kit.json, --listar '*test-*.sh' no devuelve los tests propios del proyecto"
-(cd "$TMP/r" && python3 scripts/agentes/check-docs.py --listar >/dev/null 2>&1); [ $? -eq 2 ]; afirmar $? "--listar sin glob es un error de uso (no corre el check completo)"
+(cd "$TMP/r" && python3 scripts/agentes/check-docs.py --listar >/dev/null 2>&1); codigo=$?
+if [ "$codigo" -eq 2 ]; then ok "--listar sin glob es un error de uso (no corre el check completo)"; else falla "--listar sin glob es un error de uso (no corre el check completo)"; fi
 cp "$TMP/r/.agent-kit.json" "$TMP/kit.bak"; echo '{roto' >"$TMP/r/.agent-kit.json"
-(cd "$TMP/r" && python3 scripts/agentes/check-docs.py --listar '*.sh' >/dev/null 2>&1); [ $? -ne 0 ]; afirmar $? "un .agent-kit.json inválido hace fallar --listar (no devuelve una lista vacía)"
+(cd "$TMP/r" && python3 scripts/agentes/check-docs.py --listar '*.sh' >/dev/null 2>&1); codigo=$?
+if [ "$codigo" -ne 0 ]; then ok "un .agent-kit.json inválido hace fallar --listar (no devuelve una lista vacía)"; else falla "un .agent-kit.json inválido hace fallar --listar (no devuelve una lista vacía)"; fi
 salida=$(check); grep -q "\.agent-kit.json" <<<"$salida" && ! grep -q Traceback <<<"$salida"; afirmar $? "un .agent-kit.json inválido es un error claro del check, sin traceback"
 cp "$TMP/kit.bak" "$TMP/r/.agent-kit.json"
 printf '# Doc\n\n[roto](no-existe.md)\n' >"$TMP/r/docs/ajeno-en-docs.md"
