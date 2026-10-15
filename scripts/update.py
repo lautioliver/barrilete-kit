@@ -259,11 +259,17 @@ def main():
         instalado = kit.get("ref")  # the commit install.py installed from (a repo that had its own code)
         destino = sh("git", "rev-parse", f"{ref}^{{commit}}", cwd=clon).stdout.strip()
         if instalado:
-            es_ancestro = subprocess.run(["git", "merge-base", "--is-ancestor", instalado, destino], cwd=clon).returncode
             if destino == instalado:
                 print(f"The project is already at the template commit {instalado[:9]}. Nothing to update.")
                 return
-            if es_ancestro == 1:
+            if subprocess.run(["git", "cat-file", "-e", f"{instalado}^{{commit}}"], cwd=clon,
+                              capture_output=True).returncode != 0:
+                salir(f"the template at {plantilla} does not have the commit this project was installed from "
+                      f"({instalado[:9]}): it is another template or a fork with another history. Updating from it "
+                      "could downgrade the kit. Use the template the project came from (--template).")
+            es_ancestro = subprocess.run(["git", "merge-base", "--is-ancestor", instalado, destino], cwd=clon,
+                                         capture_output=True).returncode
+            if es_ancestro != 0:
                 salir(f"{ref} does not contain the commit this project was installed from ({instalado[:9]}): going to "
                       f"it would downgrade the kit. Wait for a release that includes it, or use a newer --version "
                       f"(versions: {', '.join(disponibles) or 'none'}).")
@@ -273,7 +279,7 @@ def main():
         inicializar(clon, ref, nueva, kit)
         renombrar(nueva, kit.get("renames", {}))
         base = None
-        if instalado and subprocess.run(["git", "cat-file", "-e", f"{instalado}^{{commit}}"], cwd=clon).returncode == 0:
+        if instalado:  # it exists: it was checked above
             base = os.path.join(tmp, "base")
             inicializar(clon, instalado, base, kit)
             renombrar(base, kit.get("renames", {}))

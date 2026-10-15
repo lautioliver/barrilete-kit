@@ -344,13 +344,13 @@ afirmar $? "update.py no instala el workflow de labels que el instalador dejó a
 s=$(cd "$U10" && python3 scripts/grow.py --template "$P5" 2>&1); c=$?
 es "$c" -eq 0 && ! [ -e "$U10/.github/workflows/labels.yml" ]
 afirmar $? "grow.py no instala el workflow de labels que el instalador dejó afuera"
-python3 - "$U10" "$SHA2" <<'PY'
+python3 - "$U10" "$SHA3" <<'PY'
 import json, sys
 k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
 assert k["ref"] == sys.argv[2] and k["version"] is None, k
 assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
 PY
-afirmar $? "grow.py conserva ref, withheld y version null del registro (no escribe la VERSION de la rama por defecto)"
+afirmar $? "grow.py registra el commit clonado como ref, y conserva withheld y version null (no escribe la VERSION de la rama por defecto)"
 
 # grow.py trae los archivos del HEAD de la plantilla (C), que va por delante del último tag (B): el registro
 # tiene que quedar en C, no en el commit de la instalación (A). Si no, update.py baja lo que trajo grow.py a B.
