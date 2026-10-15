@@ -9,7 +9,7 @@ Lleva un issue a un PR listo para que lo revise una persona. Cada paso deja algo
 
 **Límite:** el agente llega hasta el PR con el CI en verde. **Nunca mergea**, ni a `<BASE_BRANCH>` ni a `main`. El merge es el punto donde una persona del equipo mira el cambio entero.
 
-Si no te dieron un número ("tomá el siguiente"), corré `.claude/skills/status/available.sh`, proponé el primero de "Can be started now" y esperá confirmación.
+Si no te dieron un número ("tomá el siguiente"), corré `.claude/skills/project-status/available.sh`, proponé el primero de "Can be started now" y esperá confirmación.
 
 ## 1. Tomar el issue
 

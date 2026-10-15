@@ -133,7 +133,7 @@ Durante `/implement-issue` se usan, según haga falta, `debug`, `db-migration` y
 | 🔗 *la migración de pagos depende de que se cierre el issue 25* | Registra el bloqueo nativo de GitHub ("Blocked by") y pone `status:blocked`. El workflow `unblock.yml` lo saca cuando se cierran los bloqueantes. |
 | 🗺️ *planificá la migración de cuentas* | `plan-feature` investiga el código y arma una épica con sub-issues y bloqueos, en el orden en que se pueden hacer. |
 | 🔎 *pasá esta auditoría a issues* | Un issue por hallazgo, con el link al documento. |
-| 📊 *¿qué puedo hacer ahora?* | `status` lista lo que está libre por prioridad, lo bloqueado con su motivo y el avance de cada épica. |
+| 📊 *¿qué puedo hacer ahora?* | `project-status` lista lo que está libre por prioridad, lo bloqueado con su motivo y el avance de cada épica. |
 | 👥 *sumá a @ana al equipo, cubre pagos* | `/add-member` valida el usuario y las áreas y lo agrega a `.github/team.json`. Desde ahí, los issues de esa área nacen asignados a quien tenga menos carga. |
 
 <a name="skills"></a>
@@ -151,7 +151,7 @@ Viven en `.claude/skills/`.
 | 🗄️ | `db-migration` | Plan con compatibilidad, backfill y rollback antes de tocar el schema. |
 | 📚 | `update-docs` | Qué docs quedaron viejos por un cambio (según el mapa) y corregirlos en el mismo PR. |
 | 👀 | `/review-pr <n>` | Revisión con foco en lo propio del proyecto: reglas de negocio, ADRs, autonomía, docs, tests y rutas sensibles. No aprueba. |
-| 📊 | `/status` | Resumen generado en el momento (versión, trabajo, épicas, PRs, deuda, decisiones, migraciones) y "¿qué puedo hacer ahora?". |
+| 📊 | `/project-status` | Resumen generado en el momento (versión, trabajo, épicas, PRs, deuda, decisiones, migraciones) y "¿qué puedo hacer ahora?". |
 | 🎛️ | `/orchestrate` | Reparte hasta 3 issues disponibles entre subagentes en paralelo (Haiku o Sonnet según `routing.py`, Opus revisa), cada uno en su worktree, y junta PRs, consultas y escalados en un solo mensaje. No mergea ni publica sin confirmación. |
 | 🔁 | `/improve-skills` | Junta las retros y las señales objetivas (fallas de CI en ramas de agentes, reverts) y propone ajustes a las skills en un PR. Nunca afloja controles. |
 | 🌿 | `git-workflow` | Ramas, commits y PRs. |
@@ -242,7 +242,7 @@ Para proyectos de una o dos personas, agregá `--small`: `./scripts/init-templat
 | Docs | hub con `reference/`, `development/`, `guides/` | un archivo de arquitectura y los ADRs |
 | Convención de GitHub | documento con opciones y decisiones | una página con las reglas |
 | Autonomía y rutas sensibles | `AGENTS.md` + `docs/agents-map.json` | todo en `AGENTS.md`, con la checklist de migraciones |
-| No trae | | épicas y `plan-feature`, `review-pr`, `status`, bloqueos, labeler, formularios de issue, modo releases, subagentes y `orchestrate` |
+| No trae | | épicas y `plan-feature`, `review-pr`, `project-status`, bloqueos, labeler, formularios de issue, modo releases, subagentes y `orchestrate` |
 
 <details>
 <summary><b>📈 Si el proyecto chico crece</b></summary>

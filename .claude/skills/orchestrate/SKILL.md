@@ -14,7 +14,7 @@ Sos la sesión principal: repartís, coordinás y le hablás a la persona. Los s
 - Esta sesión tiene que correr en Opus. Si no lo está, pedile a la persona `/model opus` y esperá.
 - La rama base de los PRs (`<base>`) es la de la regla de ramas de `AGENTS.md`; se la pasás a cada subagente como `BASE=<base>`.
 - Anotá la corrida (`date +%Y%m%d-%H%M`) para tu retro, y la ruta de tu checkout, el **checkout del orquestador** (`git rev-parse --show-toplevel`): todos los comandos de git van con `git -C <ruta>`. Si `git status --porcelain .claude` muestra cambios, frená y pedí commitearlos: los `agente_sha` y `skill_sha` que pasás salen de los commits, y tienen que ser las definiciones que corren. No cambies de rama ni hagas `pull` durante la corrida.
-- Corré `.claude/skills/status/available.sh`. Solo se lanzan issues de **"Can be started now"**: un issue bloqueado, ya asignado o con un PR abierto no se lanza nunca, aunque la persona lo nombre (decíselo).
+- Corré `.claude/skills/project-status/available.sh`. Solo se lanzan issues de **"Can be started now"**: un issue bloqueado, ya asignado o con un PR abierto no se lanza nunca, aunque la persona lo nombre (decíselo).
 
 ## 2. Proponer y esperar confirmación
 

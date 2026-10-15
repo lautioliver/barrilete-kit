@@ -136,7 +136,7 @@ During `/implement-issue`, `debug`, `db-migration` and `update-docs` come in as 
 | 🔗 *the payments migration depends on issue 25 being closed* | Records GitHub's native dependency ("Blocked by") and adds `status:blocked`. The `unblock.yml` workflow removes it once every blocker is closed. |
 | 🗺️ *plan the accounts migration* | `plan-feature` researches the code and builds an epic with sub-issues and blockers, in the order they can be done. |
 | 🔎 *turn this audit into issues* | One issue per finding, linking back to the document. |
-| 📊 *what can I work on now?* | `status` lists what's free by priority, what's blocked and why, and the progress of each epic. |
+| 📊 *what can I work on now?* | `project-status` lists what's free by priority, what's blocked and why, and the progress of each epic. |
 | 👥 *add @ana to the team, she covers payments* | `/add-member` checks the user and the areas and adds them to `.github/team.json`. From then on, issues in that area are born assigned to whoever has the least load. |
 
 <a name="skills"></a>
@@ -154,7 +154,7 @@ They live in `.claude/skills/`.
 | 🗄️ | `db-migration` | A plan with compatibility, backfill and rollback before touching the schema. |
 | 📚 | `update-docs` | Finds docs a change made stale (using the map) and fixes them in the same PR. |
 | 👀 | `/review-pr <n>` | A review focused on what's specific to the project: business rules, ADRs, autonomy, docs, tests and sensitive paths. Never approves. |
-| 📊 | `/status` | An on-the-spot summary (version, work, epics, PRs, debt, decisions, migrations) and "what can I work on now?". |
+| 📊 | `/project-status` | An on-the-spot summary (version, work, epics, PRs, debt, decisions, migrations) and "what can I work on now?". |
 | 🎛️ | `/orchestrate` | Splits up to 3 available issues among subagents working in parallel (Haiku or Sonnet per `routing.py`, Opus reviews), each in its own worktree, and gathers PRs, questions and escalations in a single message. Never merges or posts without confirmation. |
 | 🔁 | `/improve-skills` | Gathers retros and objective signals (CI failures on agent branches, reverts) and proposes skill changes in a PR. Never loosens controls. |
 | 🌿 | `git-workflow` | Branches, commits and PRs. |
@@ -231,7 +231,7 @@ For one- or two-person projects, add `--small`: `./scripts/init-template.sh "X" 
 | Docs | hub with `reference/`, `development/`, `guides/` | one architecture file plus the ADRs |
 | GitHub conventions | document with options and decisions | a single page with the rules |
 | Autonomy and sensitive paths | `AGENTS.md` + `docs/agents-map.json` | all in `AGENTS.md`, with the migrations checklist |
-| Left out | | epics and `plan-feature`, `review-pr`, `status`, blockers, labeler, issue forms, releases mode, subagents and `orchestrate` |
+| Left out | | epics and `plan-feature`, `review-pr`, `project-status`, blockers, labeler, issue forms, releases mode, subagents and `orchestrate` |
 
 The small mode keeps only the Spanish README.
 

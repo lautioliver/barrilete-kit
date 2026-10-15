@@ -1,6 +1,6 @@
 ---
 name: create-issue
-description: Abre issues sueltos de GitHub a partir de un pedido en el chat, siguiendo la convención del proyecto (título, labels, cuerpo), pasa auditorías a issues y marca bloqueos entre issues existentes ("bloqueado por"). Usar con "abrí un issue", "creá un ticket", "anotá esto como bug", "pasá esta auditoría a issues", "esto depende de #12", "bloqueá #30 hasta que se cierre #25". Para planificar una feature con varios issues, usar plan-feature; para "¿qué puedo hacer ahora?", usar estado.
+description: Abre issues sueltos de GitHub a partir de un pedido en el chat, siguiendo la convención del proyecto (título, labels, cuerpo), pasa auditorías a issues y marca bloqueos entre issues existentes ("bloqueado por"). Usar con "abrí un issue", "creá un ticket", "anotá esto como bug", "pasá esta auditoría a issues", "esto depende de #12", "bloqueá #30 hasta que se cierre #25". Para planificar una feature con varios issues, usar plan-feature; para "¿qué puedo hacer ahora?", usar project-status.
 ---
 
 # Crear issue
@@ -9,7 +9,7 @@ Convierte un pedido en lenguaje natural en uno o varios issues que cumplen `docs
 
 No es para:
 - Planificar una feature en varios issues (épica, sub-issues, orden) → skill `plan-feature`.
-- "¿Qué puedo hacer ahora?" → skill `status` (`available.sh`).
+- "¿Qué puedo hacer ahora?" → skill `project-status` (`available.sh`).
 
 ## Requisitos
 

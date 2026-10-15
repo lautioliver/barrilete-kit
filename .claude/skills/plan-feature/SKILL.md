@@ -13,7 +13,7 @@ Antes de proponer nada, leé:
 - `docs/development/architecture.md`, `docs/reference/` (dominio, módulos, superficies) y los ADRs relacionados.
 - El código de los módulos que se van a tocar: cómo está hecho hoy, no cómo debería estar.
 - `docs/development/roadmap.md` y `horizon.md`: ¿ya estaba pensado? ¿choca con algo?
-- Issues abiertos relacionados (`gh issue list --search …`) y `.claude/skills/status/available.sh`.
+- Issues abiertos relacionados (`gh issue list --search …`) y `.claude/skills/project-status/available.sh`.
 
 Si la idea es vaga en algo que cambia el diseño (quién la usa, qué pasa en los casos límite), preguntá ahora, antes de escribir el plan.
 
@@ -91,4 +91,4 @@ El **plan técnico completo va en el cuerpo de la épica**: así queda junto a l
 
 ## 5. Entregar
 
-Link a la épica, los issues en orden y qué se puede empezar ya (`.claude/skills/status/available.sh`). El siguiente paso es `/implement-issue <n>` sobre el primero disponible.
+Link a la épica, los issues en orden y qué se puede empezar ya (`.claude/skills/project-status/available.sh`). El siguiente paso es `/implement-issue <n>` sobre el primero disponible.

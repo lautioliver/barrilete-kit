@@ -56,7 +56,7 @@ error() { echo "CANNOT TAKE #$N: $*" >&2; exit 1; }
 [ "$(jq -r .state <<<"$issue")" = "open" ] || error "it is closed."
 if [ "$(jq -r '(.sub_issues_summary.total // 0) > (.sub_issues_summary.completed // 0)' <<<"$issue")" = "true" ]; then
   ver=""
-  [ -f .claude/skills/status/available.sh ] && ver=" (see .claude/skills/status/available.sh)"
+  [ -f .claude/skills/project-status/available.sh ] && ver=" (see .claude/skills/project-status/available.sh)"
   error "it is an epic with open sub-issues. Implement its sub-issues$ver."
 fi
 # Issue dependencies are a new GitHub feature: if the repo does not have it (404), it continues without blockers.

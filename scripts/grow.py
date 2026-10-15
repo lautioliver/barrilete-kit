@@ -29,6 +29,14 @@ def salir(msg):
     sys.exit(1)
 
 
+def verificar_claves(kit):
+    """.agent-kit.json de 0.9 (claves en español): error claro; la migración es el issue #116."""
+    if "archivos" in kit and "files" not in kit:
+        salir(".agent-kit.json uses the 0.9 keys (proyecto, rama_base, modo, fecha, archivos): this project "
+              "was created with a version before the English renames. Migrating it is not supported by "
+              "this version of the script yet (issue #116).")
+
+
 def sh(*cmd, cwd=None):
     r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if r.returncode != 0:
@@ -55,6 +63,7 @@ def main():
     if not os.path.exists(".agent-kit.json"):
         salir("cannot find .agent-kit.json: this repo was not created with the template (or predates grow.py).")
     kit = json.load(open(".agent-kit.json", encoding="utf-8"))
+    verificar_claves(kit)
     if kit.get("mode") != "small":
         salir(f"the project is already in {kit.get('mode')} mode.")
     if sh("git", "status", "--porcelain").strip():

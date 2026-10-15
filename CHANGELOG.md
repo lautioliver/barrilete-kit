@@ -38,7 +38,7 @@ Archivos y carpetas (lo que no está acá conserva su nombre):
 | `.github/ISSUE_TEMPLATE/4-auditoria.yml`, `5-prueba.yml` | `4-audit.yml`, `5-trial.yml` |
 | `.claude/agents/implementador.md`, `implementador-liviano.md`, `revisor.md` | `implementer.md`, `implementer-light.md`, `reviewer.md` (el valor de `rol:` en las retros cambia igual) |
 | `.claude/skills/crear-issue/` | `.claude/skills/create-issue/` |
-| `.claude/skills/estado/` (`estado.sh`, `disponibles.sh`) | `.claude/skills/status/` (`status.sh`, `available.sh`) |
+| `.claude/skills/estado/` (`estado.sh`, `disponibles.sh`) | `.claude/skills/project-status/` (`status.sh`, `available.sh`; no se llamó `status` para no chocar con el `/status` de Claude Code) |
 | `.claude/skills/mejorar-skills/` (`plantilla-retro.md`, `senales.sh`) | `.claude/skills/improve-skills/` (`retro-template.md`, `signals.sh`) |
 | `.claude/skills/orquestar/` (`limpiar.sh`, `ruteo.py`, `test-orquestar.sh`) | `.claude/skills/orchestrate/` (`cleanup.sh`, `routing.py`, `test-orchestrate.sh`) |
 | `.claude/skills/implement-issue/` (`preparar.sh`, `rojo.sh`, `test-preparar.sh`, `test-rojo.sh`) | `prepare.sh`, `red.sh`, `test-prepare.sh`, `test-red.sh` |
@@ -78,7 +78,7 @@ Flags, subcomandos, variables y marcadores:
 | `<!-- plantilla:inicio/fin -->`, `<!-- marca:inicio/fin -->`, `<!-- releases:inicio/fin -->` | `<!-- template:start/end -->`, `<!-- brand:start/end -->`, `<!-- releases:start/end -->` |
 | `# main: para la plantilla misma` (en `docs.yml` y `labels.yml`) | `# main: for the template itself` |
 | `.agent-kit/pendientes/` | `.agent-kit/pending/` |
-| skills `/orquestar`, `/crear-issue`, `/mejorar-skills`, `/estado` (y `skill:` en las retros) | `/orchestrate`, `/create-issue`, `/improve-skills`, `/status` |
+| skills `/orquestar`, `/crear-issue`, `/mejorar-skills`, `/estado` (y `skill:` en las retros) | `/orchestrate`, `/create-issue`, `/improve-skills`, `/project-status` |
 
 Para quien migre (#116): `inicializar()` de `update.py` corre el init de la versión de origen, que en un proyecto 0.9 todavía se llama `scripts/init-plantilla.sh` y escribe las claves viejas de `.agent-kit.json`. Sin cambios en este PR, a propósito: los datos de las retros (rama `agentes/retros`, claves del frontmatter, `consolidado.md`, `retros-pendientes/`), las claves y los valores del bloque de salida de los subagentes (`resultado:`, `pr:`…, y el `motivo:` de `routing.py`; solo cambió el valor de `rol:`) y los textos del cuerpo del PR que validan los checks (`Rojo antes de implementar`, `Closes #n`, `sin test`, `ADR sin cambios:`) siguen como estaban hasta que se decida su migración o #115 traduzca las plantillas.
 

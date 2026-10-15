@@ -1,12 +1,12 @@
 ---
-name: status
-description: Resume el estado actual del proyecto (versión, flujo de ramas, trabajo en curso, épicas, PRs, deuda, decisiones recientes, migraciones pendientes) y responde qué se puede empezar ya, generado en el momento desde git, GitHub y los docs. Usar con "/status", "¿en qué estado está el proyecto?", "poneme al día", "¿qué puedo hacer ahora?", "¿qué sigue?", "¿qué está bloqueado?" o al empezar una sesión nueva.
+name: project-status
+description: Resume el estado actual del proyecto (versión, flujo de ramas, trabajo en curso, épicas, PRs, deuda, decisiones recientes, migraciones pendientes) y responde qué se puede empezar ya, generado en el momento desde git, GitHub y los docs. Usar con "/project-status", "¿en qué estado está el proyecto?", "poneme al día", "¿qué puedo hacer ahora?", "¿qué sigue?", "¿qué está bloqueado?" o al empezar una sesión nueva.
 ---
 
 # Estado del proyecto
 
 ```bash
-.claude/skills/status/status.sh
+.claude/skills/project-status/status.sh
 ```
 
 Genera el resumen en el momento desde las fuentes (git, issues, PRs, ADRs, `docs/agents-map.json`). **No se guarda en un archivo a propósito**: un resumen commiteado envejece apenas nadie lo regenera y pasa a decir algo falso con aspecto oficial.
@@ -20,7 +20,7 @@ Al responder:
 Para "¿qué puedo hacer ahora?", "¿qué sigue?", "¿qué está bloqueado?":
 
 ```bash
-.claude/skills/status/available.sh
+.claude/skills/project-status/available.sh
 ```
 
 Devuelve cuatro listas: **se pueden empezar ya** (sin bloqueantes abiertos ni asignados, por prioridad), **en curso** (asignados o con un PR abierto que los cierra, con quién y qué PR), **bloqueados** (con lo que los bloquea) y **épicas en curso** (con avance de sub-issues). Las épicas no aparecen como disponibles: se trabajan por sus sub-issues. Los tomados tampoco: `/implement-issue` asigna el issue al tomarlo, y un PR abierto que lo cierra (por `Closes #n` en el cuerpo o por el número en la rama) también cuenta. Así dos sesiones no eligen el mismo.
