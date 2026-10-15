@@ -70,6 +70,32 @@ sin_errores_agentes; afirmar $? "check-docs acepta un subagente con fin de líne
 printf -- '---\nname: "x"\ndescription: d\ntools: Read\nmodel: "haiku"\n---\nVer %s.\n' "$CONTRATO" >"$TMP/r/$AGENTES/x.md"
 sin_errores_agentes; afirmar $? "check-docs acepta valores entre comillas"
 
+# 6. En un repo con .agent-kit.json, check-docs y los listados solo miran los archivos del kit.
+copia
+python3 - "$TMP/r" <<'PY'
+import json, subprocess, sys
+r = sys.argv[1]
+archivos = subprocess.run(["git", "-C", r, "ls-files"], capture_output=True, text=True).stdout.split()
+json.dump({"archivos": {a: "x" for a in archivos}}, open(r + "/.agent-kit.json", "w"))
+PY
+mkdir -p "$TMP/r/ajeno"
+printf '# Ajeno\n\n[roto](no-existe.md)\n' >"$TMP/r/ajeno/README.md"
+printf '#!/bin/sh\necho $x\n' >"$TMP/r/ajeno/malo.sh"
+printf '#!/bin/sh\nexit 1\n' >"$TMP/r/ajeno/test-propio.sh"
+listar() { (cd "$TMP/r" && python3 scripts/agentes/check-docs.py --listar "$1" 2>&1); }
+check >/dev/null; afirmar $? "con .agent-kit.json, un .md ajeno con link roto no falla el check"
+listar '*.sh' | grep -qx "scripts/agentes/test-agentes.sh" && ! listar '*.sh' | grep -q "^ajeno/"
+afirmar $? "con .agent-kit.json, --listar '*.sh' devuelve los del kit y no los ajenos"
+! listar '*test-*.sh' | grep -q "^ajeno/"; afirmar $? "con .agent-kit.json, --listar '*test-*.sh' no devuelve los tests propios del proyecto"
+printf '# Doc\n\n[roto](no-existe.md)\n' >"$TMP/r/docs/ajeno-en-docs.md"
+salida=$(check); grep -q "docs/ajeno-en-docs.md.*link roto" <<<"$salida"; afirmar $? "con .agent-kit.json, un link roto en docs/ sigue fallando"
+rm "$TMP/r/docs/ajeno-en-docs.md"
+printf '\n[roto](no-existe.md)\n' >>"$TMP/r/README.md"
+salida=$(check); grep -q "README.md.*link roto" <<<"$salida"; afirmar $? "con .agent-kit.json, un link roto en un archivo del kit sigue fallando"
+rm "$TMP/r/.agent-kit.json"
+salida=$(check); grep -q "ajeno/README.md.*link roto" <<<"$salida"; afirmar $? "sin .agent-kit.json (la plantilla), se revisa todo"
+listar '*.sh' | grep -qx "ajeno/malo.sh"; afirmar $? "sin .agent-kit.json, --listar devuelve todos los archivos del repo"
+
 # 5. El modo chico no deja los subagentes (solo en la plantilla: el init borra perfiles/).
 if [ -f "$RAIZ/perfiles/chico/BORRAR" ]; then
   grep -qx "$AGENTES" "$RAIZ/perfiles/chico/BORRAR"; afirmar $? "el modo chico borra $AGENTES"
