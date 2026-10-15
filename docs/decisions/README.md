@@ -17,6 +17,7 @@ No hace falta ADR para cosas que se revierten con un PR sin costo.
 - Partir de [`ADR-000-plantilla.md`](ADR-000-plantilla.md).
 - Estado: `Propuesto` → `Aceptado (AAAA-MM-DD)` → opcionalmente `Reemplazado por ADR-NNN`.
 - Un ADR aceptado no se reescribe. Si cambia, se agrega una sección `## Enmienda AAAA-MM-DD` o se escribe un ADR nuevo que lo reemplace.
+- ADRs del kit (los que explican cómo es el kit, no el producto): línea `Ámbito: kit` debajo de `## Estado`. El init no los instala. Los ADRs de un proyecto no la llevan.
 - Reglas numeradas (`R-1`, `R-2`…) cuando el código o los tests las van a citar.
 
 ## Al aceptar un ADR

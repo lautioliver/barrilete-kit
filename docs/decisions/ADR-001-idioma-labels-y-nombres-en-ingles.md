@@ -6,6 +6,8 @@ Aceptado (2026-10-15)
 
 Ámbito: kit (ver R-7).
 
+Aplicación: la decisión rige desde hoy, pero `AGENTS.md`, `docs/convencion-nombres-github.md` y los labels se alinean issue por issue en la épica #111. Mientras tanto, el código y esos documentos mandan sobre lo que ya cumplen.
+
 Origen: épica #111 e issue #112. Decisiones D1–D6 aprobadas por @lautioliver en el chat el 2026-10-15.
 
 ## Contexto
@@ -24,7 +26,7 @@ Origen: épica #111 e issue #112. Decisiones D1–D6 aprobadas por @lautioliver 
 4. **R-4 (D4). Los mensajes de los scripts salen solo en inglés.** No se traducen ni se parametrizan por idioma.
 5. **R-5 (D5). Los cambios con ruptura (R-2, R-3) entran antes del tag `v1.0.0`.** En 0.x se puede romper compatibilidad. El issue #91 queda bloqueado por la épica #111.
 6. **R-6 (D6). La descripción de commits y los títulos de PR van en el idioma de instalación.** Los tipos y scopes de Conventional Commits siguen en inglés. Hoy `AGENTS.md` fija español; pasa a depender de `--lang`.
-7. **R-7. Los ADRs del kit no son los del proyecto.** Un ADR con `Ámbito: kit` explica por qué el kit es como es y vive solo en este repo. `init-plantilla.sh` no instala los ADRs con `Ámbito: kit`: instala `docs/decisions/README.md` y `ADR-000-plantilla.md`, y el proyecto numera sus ADRs desde `ADR-001` en su propio repo. Los ADRs de `perfiles/` y de proyectos instalados no llevan ese ámbito.
+7. **R-7. Los ADRs del kit no son los del proyecto.** Un ADR con `Ámbito: kit` explica por qué el kit es como es y vive solo en este repo. `init-plantilla.sh` no instala los ADRs con `Ámbito: kit`: instala `docs/decisions/README.md` y `ADR-000-plantilla.md`, y el proyecto numera sus ADRs desde `ADR-001` en su propio repo. Los ADRs de `perfiles/` y de proyectos instalados no llevan ese ámbito. La línea es exactamente `Ámbito: kit`, justo debajo de `## Estado`; se documenta en `decisions/README.md`. Hasta que `init-plantilla.sh` la filtre (issue de la épica #111), el init sigue copiando este ADR y sus links: el issue del init tiene que quitar también las entradas del kit de `docs/README.md` y `docs/llms.txt`.
 
 ## Alternativas descartadas
 
