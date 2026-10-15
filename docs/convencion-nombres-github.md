@@ -233,6 +233,13 @@ Propuesta popularizada como "Sane GitHub Labels": agrupar por prefijo y usar un 
 
 **Reglas:** minúsculas, kebab-case, sin tildes (evita problemas en filtros y URLs).
 
+### Repos que ya tienen labels
+El sync de `labels.yml` borra los labels que no están en el archivo (`delete-other-labels: true`: es lo que limpia `bug`, `enhancement`… en un repo nuevo). Al instalar el kit en un repo existente, el instalador agrega al archivo los labels que ya tiene (`gh label list`), con su color y descripción, en la sección `# ── propios del proyecto …`. Así el sync no borra nada ni los quita de los issues.
+
+- Esos labels pueden no tener prefijo `grupo:valor`: el check de PRs solo cuenta los prefijos `tipo:`, `area:`, `prioridad:` y `estado:`, y `check-docs.py` solo mira que las áreas de `equipo.json` existan: ambos aceptan cualquier otro nombre.
+- Si un label del repo tiene el mismo nombre que uno del kit (sin distinguir mayúsculas), queda una sola entrada: el color es el del repo y la descripción la del kit.
+- La combinación la hace `scripts/agentes/labels.py` (`gh label list --json name,color,description | python3 scripts/agentes/labels.py .github/labels.yml`) y es idempotente.
+
 ---
 
 ## 6. Campos del GitHub Project
