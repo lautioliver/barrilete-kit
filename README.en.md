@@ -223,7 +223,7 @@ The init's second argument sets where PRs go:
 
 For one- or two-person projects, add `--small`: `./scripts/init-template.sh "X" main --small`.
 
-The prose language is chosen with `--lang en|es` (default `en`; it combines with `--small` and `releases`): with `es`, each `X.md` is replaced by its `X.es.md` sibling; either way the leftover `.es.md` files are deleted, and `language` is recorded in `.agent-kit.json` so `update.py` and `grow.py` reproduce the install. Once a document has its `.es.md` version, `check-docs.py` requires both to have the same headings and code blocks.
+The prose language is chosen with `--lang en|es` (default `en`; it combines with `--small` and `releases`): with `es`, each `X.md` is replaced by its `X.es.md` sibling; either way the leftover `.es.md` files are deleted, and `language` is recorded in `.agent-kit.json` so `update.py` and `grow.py` reproduce the install. In the template, with `"parity": true` in `docs/agents-map.json` (the init leaves it `false` in projects), `check-docs.py` requires every `X.md` to have its `X.es.md` with the same headings and code blocks.
 
 | | 🦅 Full | 🐣 `--small` |
 |---|---|---|

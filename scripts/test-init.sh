@@ -125,8 +125,11 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
   grep -qx "$esperado" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma] AGENTS.md es $esperado (el perfil pisa al archivo completo, cada uno en su idioma)"
   if [ "$modo" = chico ]; then ! [ -e "$p/DELETED.md" ]; afirmar $? "[$modo --lang $idioma] lo que borra el perfil chico no vuelve desde su hermano .es.md"; fi
   if [ "$modo" = chico ]; then
-    ! grep -q 'el PR lleva el label `business-logic`' "$p/docs/decisions/README.md" \
-      && ! grep -q 'agregá el label `business-logic`' "$p/.github/pull_request_template.md"
+    # shellcheck disable=SC2016  # backticks de Markdown literales
+    viejo1='el PR lleva el label `business-logic`'
+    # shellcheck disable=SC2016
+    viejo2='agregá el label `business-logic`'
+    ! grep -qF "$viejo1" "$p/docs/decisions/README.md" && ! grep -qF "$viejo2" "$p/.github/pull_request_template.md"
     afirmar $? "[$modo --lang $idioma] los ajustes del perfil chico (label business-logic) valen también con el hermano .es.md"
   fi
   ! [ -e "$p/docs/try-the-template.md" ]; afirmar $? "[$modo --lang $idioma] el init sigue borrando la guía de prueba, también su versión .es.md"

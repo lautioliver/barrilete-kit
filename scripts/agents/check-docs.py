@@ -15,7 +15,7 @@ Checks:
 - Skills (.claude/skills/*/SKILL.md) over 120 lines, and docs/agents/lessons.md over 40.
 - Subagents (.claude/agents/*.md) without name, description or tools, with a model that is not
   opus, sonnet or haiku, or that do not point to the common contract (docs/agents/subagent-contract.md).
-- Language siblings (ADR-001): once any X.es.md exists, every X.md of the kit has its X.es.md (and the
+- Language siblings (ADR-001), only with "parity": true in the map: every X.md has its X.es.md (and the
   other way around) with the same number of headings and code blocks. "parity_ignore" in the map lists
   the exceptions (globs). The ignore_check paths do NOT exempt: profiles/ has siblings too.
 - Members of .github/team.json that are repeated or have areas that are not in labels.yml.
@@ -160,12 +160,12 @@ def estructura(ruta):
     return encabezados, bloques
 
 
-# Language siblings (ADR-001): X.md in English and X.es.md in Spanish. The check starts to demand them with
-# the first X.es.md (until the content is translated, #115, a template with no sibling at all has nothing to compare).
+# Language siblings (ADR-001): X.md in English and X.es.md in Spanish. Only with "parity": true in the map:
+# the template turns it on when its content is translated (#115); the init turns it off in the projects.
 EXENTOS = [glob_a_regex(g) for g in MAPA.get("parity_ignore", [])] if MAPA else []
 pares = [a for a in md_files(aplicar_ignore=False)
          if a.endswith(".md") and not any(r.match(a) for r in EXENTOS)]
-if any(a.endswith(".es.md") for a in pares):
+if MAPA.get("parity"):
     for es in sorted(a for a in pares if a.endswith(".es.md")):
         en = es[:-len(".es.md")] + ".md"
         if not os.path.exists(en):

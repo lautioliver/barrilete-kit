@@ -14,6 +14,7 @@ It does not commit: the changes stay in the working tree to review them and open
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -78,6 +79,9 @@ def main():
         sh("git", "clone", "-q", "--depth", "1", plantilla, tmp)
         init = ["./scripts/init-template.sh", kit["project"], kit["base_branch"]] + (["releases"] if releases else [])
         if kit.get("language"):
+            with open(os.path.join(tmp, "scripts", "init-template.sh"), encoding="utf-8") as fh:
+                if not re.search(r"^\s*--lang\)", fh.read(), re.M):
+                    salir(f"the template at {plantilla} predates --lang, and the project was installed in {kit['language']}.")
             init += ["--lang", kit["language"]]  # grow keeps the language the project was installed in
         sh(*init, cwd=tmp)
         version = json.load(open(os.path.join(tmp, ".agent-kit.json"), encoding="utf-8")).get("version")

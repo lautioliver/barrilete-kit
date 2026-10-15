@@ -234,7 +234,7 @@ El segundo argumento del init define a dónde van los PRs:
 
 Para proyectos de una o dos personas, agregá `--small`: `./scripts/init-template.sh "X" main --small`.
 
-El idioma de la prosa se elige con `--lang en|es` (por defecto `en`, combina con `--small` y con `releases`): con `es`, cada `X.md` se reemplaza por su `X.es.md`; en los dos casos se borran los `.es.md` que sobran, y `language` queda en `.agent-kit.json` para que `update.py` y `grow.py` reproduzcan la instalación. Cuando un documento tiene su versión `.es.md`, `check-docs.py` exige que las dos tengan los mismos encabezados y bloques de código.
+El idioma de la prosa se elige con `--lang en|es` (por defecto `en`, combina con `--small` y con `releases`): con `es`, cada `X.md` se reemplaza por su `X.es.md`; en los dos casos se borran los `.es.md` que sobran, y `language` queda en `.agent-kit.json` para que `update.py` y `grow.py` reproduzcan la instalación. En la plantilla, con `"parity": true` en `docs/agents-map.json` (el init lo deja en `false` en los proyectos), `check-docs.py` exige que cada `X.md` tenga su `X.es.md` con los mismos encabezados y bloques de código.
 
 | | 🦅 Completo | 🐣 `--small` |
 |---|---|---|

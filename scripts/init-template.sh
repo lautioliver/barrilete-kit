@@ -53,6 +53,14 @@ else
   export R="Los PRs de trabajo van a \`$B\`. \`main\` es producción y solo recibe PRs de release desde \`$B\`."
 fi
 cd "$(git rev-parse --show-toplevel)"
+# Language (ADR-001): X.md and X.es.md are siblings. With es, the Spanish one replaces the English one;
+# in both cases no .es.md is left. It goes before the edits and deletions that follow, so they apply to
+# the file that stays (the DELETE list of --small already took the siblings of its own entries).
+apply_language() {
+  { find . -name '*.es.md' -not -path './.git/*' -not -path './profiles/*' || true; } | while read -r f; do
+    if [ "$LANG_KIT" = es ]; then mv -f -- "$f" "${f%.es.md}.md"; else rm -f -- "$f"; fi
+  done
+}
 if [ -n "$CHICO" ]; then
   # The short files overwrite the full ones; then what does not apply is deleted.
   (cd profiles/small && find . -type f ! -name DELETE) | while read -r f; do
@@ -65,17 +73,13 @@ if [ -n "$CHICO" ]; then
     rm -rf -- "$r"
     case "$r" in *.md) rm -f -- "${r%.md}.es.md" ;; esac
   done
+  apply_language
   # Without the business-logic label: it is edited in place (not copied) so it does not get outdated.
   perl -pi -e 's/el PR lleva el label `business-logic`\./el PR lo dice en "Lógica de negocio afectada"./' docs/decisions/README.md
   perl -pi -e 's/ Si sí: cuál, y agregá el label `business-logic`\./ Si sí: cuál, y por qué cambia./' .github/pull_request_template.md
 fi
+apply_language
 rm -rf profiles
-# Language (ADR-001): X.md and X.es.md are siblings. With es, the Spanish one replaces the English one
-# (this goes before the deletions below, so a sibling of a deleted file does not outlive it;
-# the DELETE list of --small already took the siblings of its own entries).
-{ find . -name '*.es.md' -not -path './.git/*' || true; } | while read -r f; do
-  if [ "$LANG_KIT" = es ]; then mv -f -- "$f" "${f%.es.md}.md"; else rm -f -- "$f"; fi
-done
 # The kit ADRs ("Ámbito: kit" line, see docs/decisions/README.md) explain how the template is,
 # not the project: the project numbers its own from ADR-001. Their index lines go in template: blocks.
 { grep -lx 'Ámbito: kit' docs/decisions/ADR-*.md 2>/dev/null || true; } | while read -r f; do rm -f -- "$f"; done
@@ -127,6 +131,7 @@ mapa = json.load(open(ruta, encoding="utf-8"))
 mapa["verify"] = [v for v in mapa.get("verify", []) if v.get("name") not in ("init", "update", "renames", "i18n")]
 # CHANGELOG.md and the kit ADRs are deleted above: their ignore entries would hide the project's own ADR-001.
 mapa["ignore_check"] = [g for g in mapa.get("ignore_check", []) if g not in ("CHANGELOG.md", "docs/decisions/ADR-001-*")]
+mapa["parity"] = False  # a project has one language: the siblings check is the template's
 mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("CHANGELOG.md", "docs/decisions/ADR-001-*")]
 open(ruta, "w", encoding="utf-8").write(json.dumps(mapa, ensure_ascii=False, indent=2) + "\n")
 PY

@@ -1,5 +1,5 @@
 {
-  "_help": "Mapa para agentes y CI. 'docs': qué documento revisar cuando cambian ciertos archivos (lo usan update-docs, implement-issue y review-pr). 'sensitive': rutas que exigen consultar antes de cambiarlas y correr /security-review (ver AGENTS.md, Autonomía). 'verify': qué correr antes del PR según lo que cambió (scripts/agents/verify.py). 'required': documentos que tienen que existir (lo valida scripts/agents/check-docs.py). 'ignore_check': rutas que check-docs.py no valida, como bitácoras históricas que citan archivos que ya no existen. Globs estilo git: ** cualquier profundidad, * un nivel. Una ruta que empieza con ? es opcional: check-docs no falla si no coincide con ningún archivo (sirve para alternativas de stack, como package.json o *.lock). 'parity_ignore': archivos .md que no tienen versión .es.md (el check de paridad de idiomas; ignore_check no los exime). Las rutas propias del proyecto van sin ?: si dejan de existir, el check falla. TODO: completar con las rutas del proyecto.",
+  "_help": "Mapa para agentes y CI. 'docs': qué documento revisar cuando cambian ciertos archivos (lo usan update-docs, implement-issue y review-pr). 'sensitive': rutas que exigen consultar antes de cambiarlas y correr /security-review (ver AGENTS.md, Autonomía). 'verify': qué correr antes del PR según lo que cambió (scripts/agents/verify.py). 'required': documentos que tienen que existir (lo valida scripts/agents/check-docs.py). 'ignore_check': rutas que check-docs.py no valida, como bitácoras históricas que citan archivos que ya no existen. Globs estilo git: ** cualquier profundidad, * un nivel. Una ruta que empieza con ? es opcional: check-docs no falla si no coincide con ningún archivo (sirve para alternativas de stack, como package.json o *.lock). 'parity': true|false, interruptor del check de paridad de idiomas (cada X.md con su X.es.md): la plantilla lo prende cuando su contenido está traducido y el init lo apaga en los proyectos, que tienen un solo idioma. 'parity_ignore': archivos .md que no tienen versión .es.md (el check de paridad de idiomas; ignore_check no los exime). Las rutas propias del proyecto van sin ?: si dejan de existir, el check falla. TODO: completar con las rutas del proyecto.",
   "docs": [
     {
       "when": [
@@ -286,6 +286,7 @@
     "CHANGELOG.md",
     "docs/decisions/ADR-001-*"
   ],
+  "parity": false,
   "parity_ignore": [
     "CHANGELOG.md",
     "docs/decisions/ADR-001-*"
