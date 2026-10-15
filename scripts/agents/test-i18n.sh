@@ -19,6 +19,13 @@ copia() {
   (cd "$TMP/r" && git init -q -b main && git add -A && git commit -qm base)
 }
 check() { (cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>&1); }
+# El interruptor "parity" del mapa: la plantilla lo trae apagado; los tests lo prenden en la copia.
+parity() { python3 - "$TMP/r/docs/agents-map.json" "$1" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1], encoding="utf-8")); m["parity"] = sys.argv[2] == "true"
+open(sys.argv[1], "w", encoding="utf-8").write(json.dumps(m, ensure_ascii=False, indent=2) + "\n")
+PY
+}
 # Un par con 2 encabezados y 1 bloque de código (el "# comentario" dentro del bloque no es un encabezado).
 # shellcheck disable=SC2016  # los backticks son Markdown literal
 par() { # par <ruta sin extensión> <encabezados extra en .es.md> <bloques extra en .es.md>
@@ -30,32 +37,37 @@ par() { # par <ruta sin extensión> <encabezados extra en .es.md> <bloques extra
   return 0
 }
 
-copia
-check | grep -q '^Docs OK' ; afirmar $? "el repo sin pares .es.md pasa el check (la paridad se exige desde el primer par)"
-
-copia; par docs/sample
+grep -q '"parity": false' "$RAIZ/docs/agents-map.json"; afirmar $? "la plantilla trae el interruptor parity apagado en el mapa (#115 lo prende)"
+copia; par docs/sample 1 0
+s=$(check)
+! grep -q 'sibling\|headings' <<<"$s"; afirmar $? "con parity apagado, un par distinto y todos los demás X.md sin hermano no dan errores"
+copia; parity true; par docs/sample
 s=$(check)
 ! grep -q 'sample' <<<"$s" ; afirmar $? "un par con la misma estructura no da errores"
-grep -q 'docs/guides/.*\.es\.md.*missing\|missing.*docs/guides/' <<<"$s"; afirmar $? "con un par presente, un X.md sin su X.es.md falla con el archivo en el mensaje"
+grep -q 'docs/guides/.*\.es\.md.*missing\|missing.*docs/guides/' <<<"$s"; afirmar $? "con parity prendido, un X.md sin su X.es.md falla con el archivo en el mensaje"
+copia; parity true
+s=$(check)
+grep -q 'missing its Spanish sibling' <<<"$s"; afirmar $? "con parity prendido, falla aunque no exista ningún .es.md"
 
-copia; par docs/sample 1 0
+copia; parity true; par docs/sample 1 0
 s=$(check)
 grep -q 'docs/sample.es.md.*3 headings.*docs/sample.md.*2' <<<"$s"; afirmar $? "encabezados distintos: falla con ambos archivos y los conteos"
 
-copia; par docs/sample 0 1
+copia; parity true; par docs/sample 0 1
 s=$(check)
 grep -q 'docs/sample.es.md.*2 code blocks.*docs/sample.md.*1' <<<"$s"; afirmar $? "bloques de código distintos: falla con ambos archivos y los conteos"
 
-copia; par docs/sample; rm "$TMP/r/docs/sample.md"
+copia; parity true; par docs/sample; rm "$TMP/r/docs/sample.md"
 s=$(check)
 grep -q 'docs/sample.es.md.*docs/sample.md' <<<"$s"; afirmar $? "un X.es.md sin su X.md falla"
 
-copia; par docs/sample
+copia; parity true; par docs/sample
 s=$(check)
 ! grep -q Traceback <<<"$s"; afirmar $? "el check de paridad no deja un Traceback"
 
 # Cercos de código: uno de cuatro backticks que envuelve uno de tres, y uno con ~~~, cuentan como un bloque cada uno.
 copia
+parity true
 # shellcheck disable=SC2016  # los backticks son Markdown literal
 printf '# T\n\n````md\n```bash\nls\n```\n````\n\n~~~\n# not a heading\n~~~\n' >"$TMP/r/docs/fences.md"
 # shellcheck disable=SC2016

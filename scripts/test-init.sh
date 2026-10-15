@@ -99,6 +99,9 @@ con_pares() { # con_pares <copia>: pares de ejemplo en el repo, en el perfil chi
   echo "FULL-EN" >"$p/AGENTS.md"; echo "FULL-ES" >"$p/AGENTS.es.md"
   echo "SMALL-EN" >"$p/profiles/small/AGENTS.md"; echo "SMALL-ES" >"$p/profiles/small/AGENTS.es.md"
   echo "TRIAL-ES" >"$p/docs/try-the-template.es.md"
+  # Textos que el perfil chico edita con perl: su hermano .es.md (copia del actual) no puede pisar la edición.
+  cp "$p/docs/decisions/README.md" "$p/docs/decisions/README.es.md"
+  cp "$p/.github/pull_request_template.md" "$p/.github/pull_request_template.es.md"
   # Un archivo que el perfil chico borra (DELETE) y su hermano: el hermano no puede volver como X.md con --lang es.
   echo "DEL-EN" >"$p/DELETED.md"; echo "DEL-ES" >"$p/DELETED.es.md"; echo "DELETED.md" >>"$p/profiles/small/DELETE"
   (cd "$p" && git add -A && git commit -qm pares)
@@ -121,10 +124,23 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
   fi
   grep -qx "$esperado" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma] AGENTS.md es $esperado (el perfil pisa al archivo completo, cada uno en su idioma)"
   if [ "$modo" = chico ]; then ! [ -e "$p/DELETED.md" ]; afirmar $? "[$modo --lang $idioma] lo que borra el perfil chico no vuelve desde su hermano .es.md"; fi
+  if [ "$modo" = chico ]; then
+    ! grep -q 'el PR lleva el label `business-logic`' "$p/docs/decisions/README.md" \
+      && ! grep -q 'agregá el label `business-logic`' "$p/.github/pull_request_template.md"
+    afirmar $? "[$modo --lang $idioma] los ajustes del perfil chico (label business-logic) valen también con el hermano .es.md"
+  fi
   ! [ -e "$p/docs/try-the-template.md" ]; afirmar $? "[$modo --lang $idioma] el init sigue borrando la guía de prueba, también su versión .es.md"
   python3 -c "import json,sys; sys.exit(0 if json.load(open('$p/.agent-kit.json')).get('language') == '$idioma' else 1)"
   afirmar $? "[$modo --lang $idioma] .agent-kit.json registra language: $idioma"
 done
+# El proyecto instalado tiene un solo idioma: un docs/*.es.md propio no activa la paridad (interruptor parity).
+p="$TMP/lang-propio"
+copiar "$p"
+(cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1 && git add -A && git commit -qm init)
+grep -q '"parity": false' "$p/docs/agents-map.json"; afirmar $? "[completo] el init deja parity apagado en el mapa del proyecto"
+printf '# Guía\n' >"$p/docs/manual.es.md"
+s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
+! grep -q 'sibling\|headings\|code blocks' <<<"$s"; afirmar $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"
 p="$TMP/lang-default"
 copiar "$p"; con_pares "$p"
 (cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1); afirmar $? "[sin --lang] el init termina bien"
