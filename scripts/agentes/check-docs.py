@@ -47,13 +47,28 @@ def archivos_del_kit():
     """Rutas del kit según .agent-kit.json, o None si no existe (la plantilla: todo es del kit)."""
     if not os.path.exists(".agent-kit.json"):
         return None
-    return set(json.load(open(".agent-kit.json", encoding="utf-8")).get("archivos", {}))
+    try:
+        with open(".agent-kit.json", encoding="utf-8") as fh:
+            archivos = json.load(fh)["archivos"]
+        if not isinstance(archivos, dict):
+            raise ValueError("'archivos' tiene que ser un objeto ruta → huella")
+    except (ValueError, KeyError, OSError) as e:
+        # Sin salir con error, un listado vacío dejaría shellcheck y los tests sin correr, en verde.
+        print(f".agent-kit.json: no se puede leer la lista de archivos del kit ({e!r}).", file=sys.stderr)
+        sys.exit(1)
+    return set(archivos)
 
 
 KIT = archivos_del_kit()
-if len(sys.argv) == 3 and sys.argv[1] == "--listar":
+if "--listar" in sys.argv[1:]:
+    if sys.argv[1:2] != ["--listar"] or len(sys.argv) != 3:
+        print("Uso: check-docs.py [--listar <glob>]", file=sys.stderr)
+        sys.exit(2)
     if KIT is None:
         r = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"git ls-files falló: {r.stderr.strip()}", file=sys.stderr)
+            sys.exit(1)
         todos = r.stdout.splitlines()
     else:
         todos = sorted(a for a in KIT if os.path.isfile(a))

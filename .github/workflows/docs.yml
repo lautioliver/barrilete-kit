@@ -35,15 +35,19 @@ jobs:
           shellcheck --version
       - name: Shellcheck de los scripts
         # Solo los del kit: en un repo con .agent-kit.json, los .sh del proyecto no se revisan.
-        run: python3 scripts/agentes/check-docs.py --listar '*.sh' | xargs -r shellcheck
+        run: |
+          # Primero la lista: si falla, el paso falla (en un pipe, xargs sin entrada pasaría en verde).
+          lista=$(python3 scripts/agentes/check-docs.py --listar '*.sh')
+          echo "$lista" | xargs -r shellcheck
       - name: Tests de los scripts
         # Aislados de la config de git del runner: no pueden depender de init.defaultBranch ni de otra config.
         env:
           GIT_CONFIG_GLOBAL: /dev/null
           GIT_CONFIG_NOSYSTEM: "1"
         run: |
+          lista=$(python3 scripts/agentes/check-docs.py --listar '*test-*.sh')
           fallas=0
-          while read -r t; do echo "▶ $t"; bash "$t" || fallas=1; done < <(python3 scripts/agentes/check-docs.py --listar '*test-*.sh')
+          while read -r t; do [ -n "$t" ] || continue; echo "▶ $t"; bash "$t" || fallas=1; done <<<"$lista"
           exit $fallas
       - name: Docs a revisar según el mapa (aviso, no bloquea)
         if: github.event_name == 'pull_request'
