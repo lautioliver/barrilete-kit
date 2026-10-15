@@ -20,7 +20,7 @@ Origen: épica #111 e issue #112. Decisiones D1–D6 aprobadas por @lautioliver 
 
 1. **R-1 (D1). La prosa se publica en dos idiomas como archivos hermanos.** `X.md` en inglés y `X.es.md` en español (por ejemplo `SKILL.md` y `SKILL.es.md`). Aplica a lo que se lee (README, guías, landing) y a lo que se instala (`AGENTS.md`, skills, `docs/`, plantillas de issue y PR). `init-plantilla.sh --lang es` reemplaza cada `X.md` por su `X.es.md` y borra los hermanos; con `en` (default) borra los `.es.md`. Combina con `--chico` sin perfiles nuevos: `perfiles/chico/` también tiene hermanos. Un check de `check-docs.py` avisa si una versión quedó atrás (mismo número de encabezados y de bloques de código).
 2. **R-2 (D2). Los labels son siempre en inglés, en los dos idiomas.** `type:`, `area:`, `priority:`, `status:`, `business-logic`, `breaking-change`. Son identificadores, como los tipos de commit. Los proyectos en 0.9 migran con `aliases` de label-sync, que conserva los labels ya puestos en los issues.
-3. **R-3 (D3). Archivos, rutas y claves JSON van en inglés.** Por ejemplo `scripts/agents/guardrails.py`, `docs/agents-map.json`, claves `when` y `review`. Solo se traduce la prosa. `actualizar.py` lleva una tabla de renombres para proyectos en 0.9.
+3. **R-3 (D3). Archivos, rutas y claves JSON van en inglés.** Por ejemplo scripts/agents/guardrails.py (a crear), docs/agents-map.json (a crear), claves `when` y `review`. Solo se traduce la prosa. `actualizar.py` lleva una tabla de renombres para proyectos en 0.9.
 4. **R-4 (D4). Los mensajes de los scripts salen solo en inglés.** No se traducen ni se parametrizan por idioma.
 5. **R-5 (D5). Los cambios con ruptura (R-2, R-3) entran antes del tag `v1.0.0`.** En 0.x se puede romper compatibilidad. El issue #91 queda bloqueado por la épica #111.
 6. **R-6 (D6). La descripción de commits y los títulos de PR van en el idioma de instalación.** Los tipos y scopes de Conventional Commits siguen en inglés. Hoy `AGENTS.md` fija español; pasa a depender de `--lang`.
@@ -56,8 +56,8 @@ Origen: épica #111 e issue #112. Decisiones D1–D6 aprobadas por @lautioliver 
 | 0.9 | Nuevo |
 |---|---|
 | `scripts/agentes/` | `scripts/agents/` |
-| `scripts/agentes/barandas.py` | `scripts/agents/guardrails.py` |
-| `docs/mapa-agentes.json` | `docs/agents-map.json` |
+| `scripts/agentes/barandas.py` | scripts/agents/guardrails.py (a crear) |
+| `docs/mapa-agentes.json` | docs/agents-map.json (a crear) |
 | `preparar.sh` | `prepare.sh` |
 | claves `cuando`, `revisar` | `when`, `review` |
 
