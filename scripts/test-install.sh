@@ -70,6 +70,7 @@ JSON
   printf 'mi plantilla de PR\n' >.github/pull_request_template.md
   printf 'blank_issues_enabled: true\n' >.github/ISSUE_TEMPLATE/config.yml
   printf '# Docs de mi app\n' >docs/README.md
+  printf '# Guía\n\n[roto](nada.md)\n' >docs/guia.md
   printf '# Roto\n\n[no existe](nada.md)\n' >notas/roto.md
   printf '# Notas\n\n[tampoco](../otra.md) y `src/falta.sh`\n' >NOTAS.md
   printf '#!/bin/bash\nrm $1\n' >src/borrar.sh
@@ -120,6 +121,9 @@ grep -q 'blank_issues_enabled: true' "$U/.github/ISSUE_TEMPLATE/config.yml" && g
 afirmar $? "la plantilla de PR y config.yml del proyecto siguen siendo las suyas"
 grep -q 'AGENTS.md' <<<"$s" && grep -q '.agent-kit/pending' <<<"$s"
 afirmar $? "el resumen dice qué quedó pendiente de integrar"
+
+grep -qi 'just before merging' <<<"$s" && grep -q 'labels.py' <<<"$s"
+afirmar $? "el resumen dice que hay que volver a correr labels.py justo antes de mergear (los labels creados en el medio)"
 
 # .gitignore y CLAUDE.md.
 es "$(grep -cxF '.env' "$U/.gitignore")" = 1 && grep -qxF 'node_modules' "$U/.gitignore" \
@@ -186,8 +190,8 @@ afirmar $? "no instala el instalador ni el init (son de la plantilla)"
 s2=$(cd "$U" && python3 scripts/agents/check-docs.py 2>&1); c=$?
 # Con el mapa de ejemplo (TODO) el check falla a propósito hasta que el proyecto lo completa: lo que no
 # puede fallar son los .md del usuario, ni las rutas del kit que acaba de instalar.
-! grep -q 'roto.md\|NOTAS.md' <<<"$s2" && ! grep -q 'Traceback\|matches no file\|broken link\|missing path' <<<"$s2"
-afirmar $? "check-docs.py no revisa los .md del usuario fuera de docs/ (NOTAS.md) y no marca rutas ni links rotos del kit"
+! grep -q 'roto.md\|NOTAS.md\|guia.md' <<<"$s2" && ! grep -q 'Traceback\|matches no file\|broken link\|missing path' <<<"$s2"
+afirmar $? "en un repo instalado check-docs.py no revisa los .md del usuario (NOTAS.md, docs/guia.md) y no marca rutas ni links rotos del kit"
 lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh')
 ! grep -q '^src/' <<<"$lista" && grep -q 'scripts/agents/test-base.sh' <<<"$lista"
 afirmar $? "la lista de scripts del CI no incluye los .sh del usuario"
@@ -215,11 +219,21 @@ grep -q 'Línea nueva v0.2.' "$U/.claude/skills/debug/SKILL.md" && es "$(head -1
 afirmar $? "update.py trae lo nuevo del kit y deja el AGENTS.md del usuario"
 
 # Opciones para el init, después de --: se las pasa sin conocerlas (--small, y --lang cuando se mergee #113).
+# Una plantilla sin tags (el instalador usa la rama por defecto): no hay base para update.py, así que no registra versión.
+P2="$TMP/plantilla-sin-tags"
+git clone -q --no-tags "$P" "$P2" >/dev/null 2>&1
 U2="$TMP/usuario-chico"
 (repo "$U2") >/dev/null 2>&1
-s=$(cd "$U2" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" -- --small 2>&1); c=$?
+s=$(cd "$U2" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P2" -- --small 2>&1); c=$?
 es "$c" -eq 0 && grep -q '"mode": "small"' "$U2/.agent-kit.json"
 afirmar $? "lo que va después de -- llega al init (--small deja mode small)"
+grep -q '"version": null' "$U2/.agent-kit.json"
+afirmar $? "instalado desde la rama por defecto (sin tag) no registra una versión que no es la suya"
+# grow.py también aplica los renombres: no deja el docs.yml del kit en pending ni toca el del usuario.
+(cd "$U2" && rm -rf .agent-kit/pending && git add -A && git commit -qm "instala barrilete chico") >/dev/null 2>&1
+s=$(cd "$U2" && python3 scripts/grow.py --template "$P2" 2>&1); c=$?
+es "$c" -eq 0 && ! [ -e "$U2/.agent-kit/pending/.github/workflows/docs.yml" ] && grep -q 'CI propio' "$U2/.github/workflows/docs.yml"
+afirmar $? "grow.py respeta los renombres del instalador (el docs.yml del kit no va a pending)"
 s=$(cd "$U2" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" -- --nada 2>&1); c=$?
 es "$c" -ne 0; afirmar $? "una opción que el init rechaza hace fallar la instalación"
 
@@ -231,7 +245,7 @@ U3="$TMP/usuario-borde"
   cat >.claude/settings.json <<'JSON'
 {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 scripts/agents/guardrails.py", "timeout": 5}]}]}}
 JSON
-  printf 'name: Labels propio\non: push\njobs: {}\n' >.github/workflows/labels.yaml
+  printf 'name: Labels propio\non: push\njobs: {}\n' >.github/workflows/unblock.yaml
   mkdir -p .github && printf -- '- name: "solo-mio"\n  color: "ABCDEF"\n  description: ""\n' >.github/labels.yml
   git add -A && git commit -qm borde
 ) >/dev/null 2>&1
@@ -239,13 +253,37 @@ s=$(cd "$U3" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo ma
 es "$c" -eq 0 && es -f "$U3/.agent-kit.json"; afirmar $? "[borde] un archivo donde el kit espera una carpeta no deja la instalación a medias (salida: $(tail -1 <<<"$s"))"
 es "$(cat "$U3/scripts")" = "no soy una carpeta" && es -f "$U3/.agent-kit/pending/scripts/update.py"
 afirmar $? "[borde] lo que no cabe queda en .agent-kit/pending/ y el archivo del proyecto no se toca"
-es -f "$U3/.github/workflows/barrilete-labels.yml" && es -f "$U3/.github/workflows/labels.yaml" && ! [ -e "$U3/.github/workflows/labels.yml" ]
+es -f "$U3/.github/workflows/barrilete-unblock.yml" && es -f "$U3/.github/workflows/unblock.yaml" && ! [ -e "$U3/.github/workflows/unblock.yml" ]
 afirmar $? "[borde] un workflow con la otra extensión (.yaml) cuenta como el mismo nombre"
 es "$(grep -c 'solo-mio' "$U3/.github/labels.yml")" = 1 && grep -q 'mi-label' "$U3/.agent-kit/pending/.github/labels.yml" \
   && grep -q 'labels.yml' <<<"$s" && grep -qi 'before the first sync' <<<"$s"
 afirmar $? "[borde] con un labels.yml propio, el combinado queda en pending y el resumen avisa que hay que integrarlo antes del primer sync"
 es "$(grep -c 'guardrails.py' "$U3/.claude/settings.json")" = 1
 afirmar $? "[borde] el hook de barandas que ya estaba (con otro comando) no se duplica"
+! [ -e "$U3/.github/workflows/labels.yml" ] && ! [ -e "$U3/.github/workflows/barrilete-labels.yml" ] \
+  && es -f "$U3/.agent-kit/pending/.github/workflows/labels.yml" && grep -qi 'not installed' <<<"$s"
+afirmar $? "[borde] con un labels.yml propio el workflow de sync (delete-other-labels) no se instala activo: va a pending y el resumen lo explica"
+# LICENSE: un proyecto sin LICENSE no recibe la del kit en el siguiente update.
+U5="$TMP/usuario-sin-licencia"
+(repo "$U5" && git rm -q LICENSE && git commit -qm "sin licencia") >/dev/null 2>&1
+s=$(cd "$U5" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
+(cd "$U5" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
+(cd "$P" && echo 0.3.0 >VERSION && echo "# v0.3" >>.claude/skills/debug/SKILL.md && git add -A && git commit -qm v0.3.0 && git tag v0.3.0) >/dev/null 2>&1
+s=$(cd "$U5" && python3 scripts/update.py --template "$P" 2>&1); c2=$?
+es "$c" -eq 0 && es "$c2" -eq 0 && ! [ -e "$U5/LICENSE" ]
+afirmar $? "update.py no agrega el LICENSE del kit a un proyecto instalado que no lo tenía"
+# CLAUDE.md como symlink a AGENTS.md: no se escribe a través del link.
+U6="$TMP/usuario-symlink"
+(repo "$U6" && rm CLAUDE.md && ln -s AGENTS.md CLAUDE.md && git add -A && git commit -qm link) >/dev/null 2>&1
+s=$(cd "$U6" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
+es "$c" -eq 0 && [ -L "$U6/CLAUDE.md" ] && ! grep -q '@AGENTS.md' "$U6/AGENTS.md" && grep -qi 'symlink' <<<"$s"
+afirmar $? "CLAUDE.md symlink: no se escribe a través del link y el resumen lo avisa"
+# .github es un archivo: la instalación no queda a medias (también para labels.yml).
+U7="$TMP/usuario-github-archivo"
+(mkdir -p "$U7" && cd "$U7" && git init -q -b main && echo x >.github && echo hi >a.txt && git add -A && git commit -qm x) >/dev/null 2>&1
+s=$(cd "$U7" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
+es "$c" -eq 0 && es -f "$U7/.agent-kit.json" && es "$(cat "$U7/.github")" = x
+afirmar $? "[borde] .github como archivo no deja la instalación a medias (salida: $(tail -1 <<<"$s"))"
 U4="$TMP/usuario-base"
 (repo "$U4") >/dev/null 2>&1
 s=$(cd "$U4" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo releases --template "$P" 2>&1); c=$?
