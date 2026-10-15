@@ -187,6 +187,7 @@ es -n "$b" && es -n "$d" && es "$d" -gt "$b"; afirmar $? "--delete da los comand
 
 # 3. Lo que hace falta para correr en paralelo (criterios de #37).
 ! grep -q 'push -u' "$RAIZ/.claude/skills/implement-issue/SKILL.md"; afirmar $? "implement-issue pushea sin -u (el -u escribe .git/config y choca en paralelo)"
+# shellcheck disable=SC2016  # the backtick and the $ are regex, not expansions
 ! grep -Eq 'pushe[aá] de nuevo[^`]*$|push again[^`]*$' "$RAIZ/.claude/skills/implement-issue/SKILL.md" && grep -q 'git push origin HEAD' "$RAIZ/.claude/agents/implementer.md"; afirmar $? "cada push dice git push origin HEAD (la rama no tiene upstream)"
 M="$RAIZ/docs/agents-map.json"
 for f in .claude/skills/implement-issue/SKILL.md .gitignore profiles/small/DELETE; do
