@@ -83,7 +83,8 @@ printf '# Ajeno\n\n[roto](no-existe.md)\n' >"$TMP/r/ajeno/README.md"
 printf '#!/bin/sh\necho [ -z a ]\n' >"$TMP/r/ajeno/malo.sh"
 printf '#!/bin/sh\nexit 1\n' >"$TMP/r/ajeno/test-propio.sh"
 listar() { (cd "$TMP/r" && python3 scripts/agentes/check-docs.py --listar "$1" 2>/dev/null); }
-check >/dev/null; afirmar $? "con .agent-kit.json, un .md ajeno con link roto no falla el check"
+# En un proyecto recién inicializado el check falla por los TODO del mapa: se mira solo lo ajeno.
+salida=$(check); ! grep -q "ajeno/README.md" <<<"$salida"; afirmar $? "con .agent-kit.json, un .md ajeno con link roto no falla el check"
 lista=$(listar '*.sh'); grep -qx "scripts/agentes/test-agentes.sh" <<<"$lista"; afirmar $? "con .agent-kit.json, --listar '*.sh' devuelve los scripts del kit"
 ! grep -q "^ajeno/" <<<"$lista"; afirmar $? "con .agent-kit.json, --listar '*.sh' no devuelve los .sh ajenos"
 lista=$(listar '*test-*.sh'); grep -qx "scripts/agentes/test-agentes.sh" <<<"$lista" && ! grep -q "^ajeno/" <<<"$lista"
