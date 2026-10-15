@@ -7,7 +7,7 @@
 #   detached HEAD). Deleting a branch can lose work, so the person decides. It is decided
 #   by the state of the PR on GitHub, not by ancestry (works with squash and rebase).
 # Without --delete it only lists; --delete only removes worktrees. It never removes one with uncommitted changes,
-# nor any if unsaved retros remain in <common .git>/retros-pendientes/: the run is not
+# nor any if unsaved retros remain in <common .git>/pending-retros/ (or in retros-pendientes/, the 0.9 name): the run is not
 # considered closed until they are saved with retro.sh.
 # Usage: cleanup.sh [--delete]
 set -euo pipefail
@@ -18,7 +18,8 @@ case "${1:-}" in
   *) echo "Usage: $0 [--delete]" >&2; exit 64 ;;
 esac
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-PENDIENTES="$(git rev-parse --path-format=absolute --git-common-dir)/retros-pendientes"
+PENDIENTES="$(git rev-parse --path-format=absolute --git-common-dir)/pending-retros"
+PENDIENTES_VIEJO="$(git rev-parse --path-format=absolute --git-common-dir)/retros-pendientes"  # 0.9
 errores=0
 
 # Is the issue closed? If it cannot be read, it says so and counts it as an error (and it is not touched).
@@ -112,11 +113,13 @@ if [ -z "$DELETE" ]; then
   exit "$errores"
 fi
 
-if ls "$PENDIENTES"/*.md >/dev/null 2>&1; then
-  echo "Not deleting anything: there are unsaved retros in $PENDIENTES. Retry each one with" >&2
-  echo ".claude/skills/improve-skills/retro.sh <file> and run this again." >&2
-  exit 1
-fi
+for dir in "$PENDIENTES" "$PENDIENTES_VIEJO"; do
+  if ls "$dir"/*.md >/dev/null 2>&1; then
+    echo "Not deleting anything: there are unsaved retros in $dir. Retry each one with" >&2
+    echo ".claude/skills/improve-skills/retro.sh <file> and run this again." >&2
+    exit 1
+  fi
+done
 for r in ${cerrados[@]+"${cerrados[@]}"}; do
   if git worktree remove "$r" 2>/dev/null; then echo "Removed: $r"
   else echo "cleanup.sh: could not remove $r (locked with git worktree lock?)." >&2; errores=1; fi

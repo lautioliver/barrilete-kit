@@ -13,7 +13,7 @@ Las skills aprenden de su uso, pero **no se reescriben solas**: esta skill propo
 .claude/skills/improve-skills/signals.sh [días]
 ```
 
-Trae las retros nuevas de la rama `agentes/retros` (desde `consolidado.md`; un archivo por retro, con `skill_sha` para saber con qué versión de la skill se hizo, y `modelo` y `rol` para saber quién la hizo) y las señales objetivas: fallas de CI en ramas `claude/` agrupadas por workflow, y reverts. Las señales objetivas pesan más que las retros: el agente no ve sus propios puntos ciegos.
+Trae las retros nuevas de la rama `agents/retros` (desde `consolidated.md`; un archivo por retro, con `skill_sha` para saber con qué versión de la skill se hizo, y `model` y `role` para saber quién la hizo) y las de la rama vieja `agentes/retros` (0.9), que no se reescribe: las claves y valores viejos se muestran con los nuevos, así cuentan como el mismo grupo y las señales objetivas: fallas de CI en ramas `claude/` agrupadas por workflow, y reverts. Las señales objetivas pesan más que las retros: el agente no ve sus propios puntos ciegos.
 
 Si no hay nada nuevo, decilo y terminá.
 
@@ -21,7 +21,7 @@ Si no hay nada nuevo, decilo y terminá.
 
 Para cada patrón: qué pasó, en qué casos (links), y qué skill o script lo habría evitado. Un patrón es algo que se repite o que fue grave; una anécdota no es un patrón.
 
-Agrupá los desvíos y hallazgos por `modelo` y por `rol`. Si un mismo modelo falla repetido en un tipo de issue (`type:` o `area:`), es un caso para la regla de ruteo de `orchestrate` (qué issues van a Haiku y cuáles a Sonnet): se propone en el PR, sin aflojar el escalado de `agents_map.py` ni el revisor. Las retros con `modelo: desconocido` o `rol: sesion` no entran en esa comparación.
+Agrupá los desvíos y hallazgos por `model` y por `role`. Si un mismo modelo falla repetido en un tipo de issue (`type:` o `area:`), es un caso para la regla de ruteo de `orchestrate` (qué issues van a Haiku y cuáles a Sonnet): se propone en el PR, sin aflojar el escalado de `agents_map.py` ni el revisor. Las retros con `model: unknown` o `role: session` no entran en esa comparación.
 
 ## 3. Decidir qué proponer
 
@@ -57,7 +57,7 @@ Abierto el PR, marcá hasta dónde consolidaste con el commit que imprimió `sig
 .claude/skills/improve-skills/retro.sh --consolidated <commit> <link al PR>
 ```
 
-Escribe `consolidado.md` en la rama `agentes/retros`; la próxima corrida empieza desde ahí. Usá ese commit y no la punta actual: así no se saltean retros que llegaron mientras armabas el PR.
+`signals.sh` imprime un commit por cada rama (la nueva y la 0.9): marcá cada uno. Escribe `consolidated.md` en la rama `agents/retros` (el punto de la rama 0.9 va ahí también: esa rama no se toca); la próxima corrida empieza desde ahí. Usá ese commit y no la punta actual: así no se saltean retros que llegaron mientras armabas el PR.
 
 ## Programarla
 

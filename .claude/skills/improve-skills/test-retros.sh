@@ -240,7 +240,7 @@ grep -q "^agent_sha: $revsha$" <<<"$c"; afirmar $? "rol con espacio al final gua
 
 # La skill de improve-skills describe el agrupado por modelo y rol y el ruteo de orquestar.
 S="$RAIZ/.claude/skills/improve-skills/SKILL.md"
-grep -Eiq 'agrup[^.]*modelo' "$S" && grep -Eiq 'agrup[^.]*rol' "$S"; afirmar $? "improve-skills describe cómo agrupa por modelo y rol"
+grep -Eiq 'agrup[^.]*model' "$S" && grep -Eiq 'agrup[^.]*role' "$S"; afirmar $? "improve-skills describe cómo agrupa por modelo y rol"
 grep -Eiq 'ruteo[^.]*orchestrate|orchestrate[^.]*ruteo' "$S"; afirmar $? "improve-skills propone cambios en la regla de ruteo de orchestrate"
 es "$(wc -l <"$S")" -le 120; afirmar $? "improve-skills/SKILL.md tiene como máximo 120 líneas"
 

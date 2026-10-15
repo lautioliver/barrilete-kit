@@ -62,19 +62,19 @@ def main():
 
     tipo = sorted(l for l in labels if l.startswith("type:"))
     if not tipo or not set(tipo) <= LIVIANOS:
-        return print("sonnet", f"motivo: {', '.join(tipo) or 'no type:'} is not only type:docs or type:task", sep="\n")
+        return print("sonnet", f"reason: {', '.join(tipo) or 'no type:'} is not only type:docs or type:task", sep="\n")
     riesgo = sorted(RIESGO & labels)
     if riesgo:
-        return print("sonnet", f"motivo: it carries {', '.join(riesgo)}", sep="\n")
+        return print("sonnet", f"reason: it carries {', '.join(riesgo)}", sep="\n")
     ruta_mapa = os.path.join(RAIZ, "docs", "agents-map.json")
     if not os.path.exists(ruta_mapa):
-        return print("sonnet", "motivo: there is no docs/agents-map.json to rule out sensitive paths", sep="\n")
+        return print("sonnet", "reason: there is no docs/agents-map.json to rule out sensitive paths", sep="\n")
     with open(ruta_mapa, encoding="utf-8") as f:
         mapa = json.load(f)
     nombradas = sensibles_nombradas(f"{issue.get('title', '')}\n{issue.get('body') or ''}", mapa)
     if nombradas:
-        return print("sonnet", f"motivo: names sensitive paths: {', '.join(nombradas)}", sep="\n")
-    print("haiku", f"motivo: {', '.join(tipo)} without business-logic, breaking-change or named sensitive paths", sep="\n")
+        return print("sonnet", f"reason: names sensitive paths: {', '.join(nombradas)}", sep="\n")
+    print("haiku", f"reason: {', '.join(tipo)} without business-logic, breaking-change or named sensitive paths", sep="\n")
 
 
 if __name__ == "__main__":
