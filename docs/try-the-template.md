@@ -1,42 +1,42 @@
-# Probar la plantilla
+# Try the template
 
-Gracias por probarla. Lo que más sirve es saber **dónde te trabaste**, no si te gustó.
+Thanks for trying it. What helps most is knowing **where you got stuck**, not whether you liked it.
 
-Leé esta guía [en el repo de la plantilla](https://github.com/lautioliver/barrilete-kit/blob/main/docs/try-the-template.md), no en tu copia: `init-template.sh` la borra en el paso 2.
+Read this guide [in the template repo](https://github.com/lautioliver/barrilete-kit/blob/main/docs/try-the-template.md), not in your copy: `init-template.sh` deletes it in step 2.
 
-**Tiempo:** de 1 a 2 horas. **Herramienta:** la que uses todos los días (Claude Code, Codex, Copilot, Cursor…). Si no es Claude Code, mejor: es lo que menos se probó.
+**Time:** 1 to 2 hours. **Tool:** the one you use every day (Claude Code, Codex, Copilot, Cursor…). If it isn't Claude Code, even better: that's what has been tested the least.
 
-Los pasos usan los comandos de Claude Code (`/implement-issue 3`). En otra herramienta, si no reconoce el comando, pedíselo por nombre: "seguí la skill implement-issue (`.claude/skills/implement-issue/SKILL.md`) para el issue 3". Anotá si tuviste que hacerlo: también es un dato.
+The steps use the Claude Code commands (`/implement-issue 3`). In another tool, if it doesn't recognize the command, ask for it by name: "follow the implement-issue skill (`.claude/skills/implement-issue/SKILL.md`) for issue 3". Note whether you had to do that: it's also data.
 
-## Antes de empezar
+## Before you start
 
-- Un repo tuyo donde puedas romper cosas: uno chico real o uno nuevo de prueba.
-- `gh` autenticado (`gh auth status`), `jq` y `python3`.
-- Una nota abierta para ir anotando. Anotá en el momento: después se olvida dónde dudaste.
+- A repo of yours where you can break things: a small real one or a new test one.
+- `gh` authenticated (`gh auth status`), `jq` and `python3`.
+- An open note to jot things down. Write it down as it happens: later you forget where you hesitated.
 
-## Pasos
+## Steps
 
-Hacelos en orden y anotá qué pasó en cada uno. Si algo no anda, no lo arregles en silencio: anotalo y seguí como puedas.
+Do them in order and note what happened in each one. If something doesn't work, don't fix it in silence: note it and keep going as best you can.
 
-1. **Crear el repo:** en GitHub, **Use this template → Create a new repository**, y clonalo.
-2. **Inicializar:** seguí el [README](../README.md#empezar). Elegí el modo que te corresponda: chico si son una o dos personas.
-3. **Completar lo mínimo:** los `TODO:` que el README marca como mínimos. Anotá cuánto tardaste y qué no entendiste.
-4. **Labels y equipo:** corré el workflow Labels y, en modo completo, sumá a tu equipo con `/add-member`.
-5. **Un issue desde el chat:** pedile al agente algo real y chico ("abrí un issue para …").
-6. **Del issue al PR:** `/implement-issue <n>`. No lo mergees sin leerlo.
-7. **Revisión** (modo completo): `/review-pr <n>` desde **otra sesión**.
-8. **Merge:** lo hacés vos.
-9. **Si te queda tiempo:** `/orchestrate` con dos o tres issues (modo completo, Claude Code), o repetí los pasos 5 a 7 en otra herramienta.
+1. **Create the repo:** on GitHub, **Use this template → Create a new repository**, and clone it.
+2. **Initialize:** follow the [README](../README.md#get-started). Pick the mode that fits you: small if you are one or two people.
+3. **Fill in the minimum:** the `TODO:` markers that the README marks as minimum. Note how long it took and what you didn't understand.
+4. **Labels and team:** run the Labels workflow and, in full mode, add your team with `/add-member`.
+5. **An issue from the chat:** ask the agent for something real and small ("open an issue for …").
+6. **From issue to PR:** `/implement-issue <n>`. Don't merge it without reading it.
+7. **Review** (full mode): `/review-pr <n>` from **another session**.
+8. **Merge:** you do it.
+9. **If you have time left:** `/orchestrate` with two or three issues (full mode, Claude Code), or repeat steps 5 to 7 in another tool.
 
-## Qué anotar
+## What to note
 
-- **Dónde te trabaste:** el paso, qué hiciste y el error textual.
-- **Qué leíste dos veces** sin entenderlo.
-- **Qué hiciste a mano** cuando esperabas que lo hiciera el agente, o al revés.
-- **Qué hizo el agente que no esperabas:** se frenó, preguntó de más, se salteó algo, tocó lo que no debía.
-- **Cuánto tardaste** en llegar al primer PR.
-- **Si la volverías a usar** y qué cambiarías primero.
+- **Where you got stuck:** the step, what you did and the exact error.
+- **What you read twice** without understanding it.
+- **What you did by hand** when you expected the agent to do it, or the other way around.
+- **What the agent did that you didn't expect:** it stopped, asked too much, skipped something, touched what it shouldn't have.
+- **How long it took** to get to the first PR.
+- **Whether you would use it again** and what you would change first.
 
-## Cómo contarlo
+## How to report it
 
-Abrí un issue con el formulario [**Reporte de prueba**](https://github.com/lautioliver/barrilete-kit/issues/new?template=5-trial.yml) (`.github/ISSUE_TEMPLATE/5-trial.yml`). Usá un reporte por prueba, aunque te hayas trabado en varios pasos. Pegá los errores textuales y **sacá los secretos y los datos personales** antes de pegar.
+Open an issue with the [**Reporte de prueba**](https://github.com/lautioliver/barrilete-kit/issues/new?template=5-trial.yml) form (`.github/ISSUE_TEMPLATE/5-trial.yml`; its name and text are in Spanish for now). Use one report per trial, even if you got stuck in several steps. Paste the exact errors and **remove secrets and personal data** before pasting.

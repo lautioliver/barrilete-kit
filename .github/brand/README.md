@@ -1,60 +1,60 @@
-# Marca de agent-kit-template
+# Brand of agent-kit-template
 
-Identidad de la plantilla, no de los proyectos que salen de ella: `init-template.sh` borra esta carpeta y el bloque de marca del README.
+Identity of the template, not of the projects that come out of it: `init-template.sh` deletes this folder and the brand block of the README.
 
 ## Idea
 
-**Barrilete** es un dron atado a una correa con dos nudos. Vuela y explora solo, pero el mango, y la última palabra, quedan en tu mano.
+**Barrilete** is a drone tied to a leash with two knots. It flies and explores on its own, but the handle, and the last word, stay in your hand.
 
-- **Lema:** "Los agentes vuelan. Vos tenés la rienda." En la terminal: `>_ los agentes vuelan, vos tenés la rienda`.
-- **Los dos nudos** son los dos puntos de control que quedan siempre en manos de personas: aprobar el plan y mergear (plan ● — implement · review — ● merge).
-- **Sello:** `SALTA DEV`, blanco sobre rojo con borde inferior en tinta.
+- **Tagline:** "Los agentes vuelan. Vos tenés la rienda." (the artwork keeps the Spanish text; in English: "Agents fly. You hold the leash."). In the terminal: `>_ los agentes vuelan, vos tenés la rienda`.
+- **The two knots** are the two control points that always stay in people's hands: approving the plan and merging (plan ● — implement · review — ● merge).
+- **Stamp:** `SALTA DEV`, white on red with a bottom border in ink.
 
-![Barrilete, el dron con correa](drone-on-leash.svg)
+![Barrilete, the drone on a leash](drone-on-leash.svg)
 
-## Ícono
+## Icon
 
-| 128 px | 64 px | 32 px | Fondo oscuro |
+| 128 px | 64 px | 32 px | Dark background |
 |---|---|---|---|
 | ![](barrilete.svg) | ![](barrilete-64.svg) | ![](barrilete-32.svg) | ![](barrilete-dark.svg) |
 
-Cada tamaño tiene su propio dibujo: a 64 px se engrosan hélices y ojos, a 32 px desaparece la cara clara y quedan ojos y boca grandes sobre la silueta en tinta. No escalar el de 128 a 32.
+Each size has its own drawing: at 64 px the propellers and eyes are thickened, and at 32 px the light face disappears and only the eyes and a large mouth remain over the ink silhouette. Don't scale the 128 one down to 32.
 
-## Estados
+## States
 
-Para issues, PRs y el README.
+For issues, PRs and the README.
 
-| Estado | Cuándo | Archivo |
+| State | When | File |
 |---|---|---|
-| ![](states/working.svg) trabajando | `/implement-issue` en curso | [`states/working.svg`](states/working.svg) |
-| ![](states/planning.svg) planificando | `/plan-feature` en curso | [`states/planning.svg`](states/planning.svg) |
-| ![](states/blocked.svg) bloqueado | label `status:blocked` | [`states/blocked.svg`](states/blocked.svg) |
-| ![](states/pr-ready.svg) PR listo | esperando tu merge (la boca pasa a ámbar) | [`states/pr-ready.svg`](states/pr-ready.svg) |
+| ![](states/working.svg) working | `/implement-issue` in progress | [`states/working.svg`](states/working.svg) |
+| ![](states/planning.svg) planning | `/plan-feature` in progress | [`states/planning.svg`](states/planning.svg) |
+| ![](states/blocked.svg) blocked | label `status:blocked` | [`states/blocked.svg`](states/blocked.svg) |
+| ![](states/pr-ready.svg) PR ready | waiting for your merge (the mouth turns amber) | [`states/pr-ready.svg`](states/pr-ready.svg) |
 
-## Paleta
+## Palette
 
-| Rol | Color |
+| Role | Color |
 |---|---|
-| Tinta (texto, hélices, visor) | `#14161A` |
-| Gris (texto secundario) | `#5A6270` |
-| Fondo | `#F6F7F9` |
-| Superficie (cuerpo, paneles) | `#E9ECF1` |
-| Blanco | `#FFFFFF` |
-| Rojo (correa, boca, sello) | `#B4122B` |
-| Ámbar (nudos, PR listo) | `#FFB020` |
-| Ojos | `#8FB0FF` |
-| Azul (prompt `>_`) | `#2B59FF` |
-| Bloqueado (ojos en cruz) | `#FF8A96` |
+| Ink (text, propellers, visor) | `#14161A` |
+| Grey (secondary text) | `#5A6270` |
+| Background | `#F6F7F9` |
+| Surface (body, panels) | `#E9ECF1` |
+| White | `#FFFFFF` |
+| Red (leash, mouth, stamp) | `#B4122B` |
+| Amber (knots, PR ready) | `#FFB020` |
+| Eyes | `#8FB0FF` |
+| Blue (`>_` prompt) | `#2B59FF` |
+| Blocked (eyes crossed) | `#FF8A96` |
 
-## Tipografía
+## Typography
 
-- **Bricolage Grotesque** 800 para títulos y 600 para el lema.
-- **JetBrains Mono** 400 y 500 para todo lo demás (texto, etiquetas, sello).
+- **Bricolage Grotesque** 800 for titles and 600 for the tagline.
+- **JetBrains Mono** 400 and 500 for everything else (text, labels, stamp).
 
-Las dos son de Google Fonts (licencia OFL).
+Both are from Google Fonts (OFL license).
 
 ## Social preview
 
 ![Social preview](social-preview.png)
 
-[`social-preview.png`](social-preview.png) (1280×640) se sube a mano en GitHub: **Settings → General → Social preview**. La fuente es [`social-preview.html`](social-preview.html); si cambia el texto, regenerá el PNG con el comando que tiene en el encabezado.
+[`social-preview.png`](social-preview.png) (1280×640) is uploaded by hand on GitHub: **Settings → General → Social preview**. The source is [`social-preview.html`](social-preview.html); if the text changes, regenerate the PNG with the command in its header.
