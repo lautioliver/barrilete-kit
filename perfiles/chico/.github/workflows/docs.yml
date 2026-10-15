@@ -29,13 +29,18 @@ jobs:
           tar -xJf /tmp/sc.tar.xz -C /tmp && sudo install /tmp/shellcheck-v$v/shellcheck /usr/local/bin/shellcheck
           shellcheck --version
       - name: Shellcheck de los scripts
-        run: git ls-files '*.sh' | xargs -r shellcheck
+        # Solo los del kit: en un repo con .agent-kit.json, los .sh del proyecto no se revisan.
+        run: |
+          # Primero la lista: si falla, el paso falla (en un pipe, xargs sin entrada pasaría en verde).
+          lista=$(python3 scripts/agentes/check-docs.py --listar '*.sh')
+          echo "$lista" | xargs -r shellcheck
       - name: Tests de los scripts
         # Aislados de la config de git del runner: no pueden depender de init.defaultBranch ni de otra config.
         env:
           GIT_CONFIG_GLOBAL: /dev/null
           GIT_CONFIG_NOSYSTEM: "1"
         run: |
+          lista=$(python3 scripts/agentes/check-docs.py --listar '*test-*.sh')
           fallas=0
-          while read -r t; do echo "▶ $t"; bash "$t" || fallas=1; done < <(git ls-files '*test-*.sh')
+          while read -r t; do [ -n "$t" ] || continue; echo "▶ $t"; bash "$t" || fallas=1; done <<<"$lista"
           exit $fallas

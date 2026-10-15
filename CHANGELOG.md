@@ -6,6 +6,7 @@ Cambios de la plantilla por versión. `scripts/actualizar.py` muestra las seccio
 
 ## [Sin publicar]
 
+- CI de docs limitado a los archivos del kit (#120): con `.agent-kit.json`, `check-docs.py` valida solo los `.md` del kit, `docs/`, `AGENTS.md` y `llms.txt`, y `docs.yml` corre shellcheck y los `*test-*.sh` solo sobre los scripts del kit (`check-docs.py --listar <glob>`). El CI del kit ya no cubre los tests propios del proyecto, el shellcheck de sus `.sh` ni sus `.md` fuera de `docs/`: quien los necesite tiene que correrlos en un workflow propio. Un archivo del kit que se agregue después del init (por ejemplo, una skill nueva) queda fuera de `archivos` hasta que se actualice. `check-docs.py` y `docs.yml` se actualizan juntos: el workflow nuevo con un `check-docs.py` viejo no anda.
 - Barandas: `git push --repo <remoto> <rama troncal>` se frena (antes la rama se tomaba como remoto y el push pasaba) (#109).
 - `limpiar.sh` no saca el worktree de un issue cerrado si su PR sigue abierto: hay proyectos que cierran el issue al abrir el PR (#109).
 - El check de labels acepta "sin test" o "sin tests", con el motivo en la misma línea o en la siguiente (#109).

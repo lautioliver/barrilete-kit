@@ -18,7 +18,13 @@ Revisa:
   sonnet ni haiku, o que no remiten al contrato común (docs/agentes/contrato-subagentes.md).
 - Integrantes de .github/equipo.json repetidos o con áreas que no están en labels.yml.
 Las rutas de "ignorar_check" del mapa (por ejemplo, bitácoras históricas) no se validan.
+
+Si existe .agent-kit.json (el kit instalado en un repo con código propio), los .md se validan solo
+si son del kit (los listados en "archivos") o están en docs/, más AGENTS.md y llms.txt. Sin él (la
+plantilla), se revisa todo. `--listar <glob>` imprime los archivos del kit que coinciden con el glob
+(por ejemplo '*.sh'): lo usa docs.yml para que shellcheck y los tests corran solo sobre el kit.
 """
+import fnmatch
 import json
 import os
 import re
@@ -36,6 +42,39 @@ IGNORAR_DIRS = {".git", "node_modules", ".turbo", ".next", "dist", "build", ".pn
 
 errores = []
 
+
+def archivos_del_kit():
+    """Rutas del kit según .agent-kit.json, o None si no existe (la plantilla: todo es del kit)."""
+    if not os.path.exists(".agent-kit.json"):
+        return None
+    try:
+        with open(".agent-kit.json", encoding="utf-8") as fh:
+            archivos = json.load(fh)["archivos"]
+        if not isinstance(archivos, dict):
+            raise ValueError("'archivos' tiene que ser un objeto ruta → huella")
+    except (ValueError, KeyError, OSError) as e:
+        # Sin salir con error, un listado vacío dejaría shellcheck y los tests sin correr, en verde.
+        print(f".agent-kit.json: no se puede leer la lista de archivos del kit ({e!r}).", file=sys.stderr)
+        sys.exit(1)
+    return set(archivos)
+
+
+KIT = archivos_del_kit()
+if "--listar" in sys.argv[1:]:
+    if sys.argv[1:2] != ["--listar"] or len(sys.argv) != 3:
+        print("Uso: check-docs.py [--listar <glob>]", file=sys.stderr)
+        sys.exit(2)
+    if KIT is None:
+        r = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"git ls-files falló: {r.stderr.strip()}", file=sys.stderr)
+            sys.exit(1)
+        todos = r.stdout.splitlines()
+    else:
+        todos = sorted(a for a in KIT if os.path.isfile(a))
+    print("\n".join(a for a in todos if fnmatch.fnmatch(a, sys.argv[2])))
+    sys.exit(0)
+
 MAPA = json.load(open("docs/mapa-agentes.json", encoding="utf-8")) if os.path.exists("docs/mapa-agentes.json") else {}
 IGNORAR = []
 avisos = []
@@ -46,6 +85,11 @@ if MAPA:
     IGNORAR = [glob_a_regex(g) for g in MAPA.get("ignorar_check", [])]
 
 
+def del_alcance(ruta):
+    """Con .agent-kit.json, solo los .md del kit, docs/, AGENTS.md y llms.txt."""
+    return KIT is None or ruta in KIT or ruta in ("AGENTS.md", "llms.txt") or ruta.startswith("docs/")
+
+
 def md_files():
     for base, dirs, files in os.walk("."):
         dirs[:] = [d for d in dirs if d not in IGNORAR_DIRS and not d.startswith(".claude/worktrees")]
@@ -54,7 +98,7 @@ def md_files():
         for f in files:
             if f.endswith(".md") or f == "llms.txt":
                 ruta = os.path.normpath(os.path.join(base, f))
-                if not any(r.match(ruta) for r in IGNORAR):
+                if not any(r.match(ruta) for r in IGNORAR) and del_alcance(ruta):
                     yield ruta
 
 
