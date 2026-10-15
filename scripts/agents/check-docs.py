@@ -145,14 +145,17 @@ for indice in ("docs/README.md", "docs/llms.txt"):
 def estructura(ruta):
     """(number of headings, number of code blocks) outside the ``` blocks: a "# comment" inside one is not a heading."""
     encabezados = bloques = 0
-    dentro = False
+    cerco = None  # (character, length) of the open fence; it closes with the same character and at least as long
     with open(ruta, encoding="utf-8") as fh:
         for linea in fh:
-            if re.match(r"\s*```", linea):
-                if not dentro:
-                    bloques += 1
-                dentro = not dentro
-            elif not dentro and re.match(r"#{1,6}\s", linea):
+            m = re.match(r" {0,3}(`{3,}|~{3,})", linea)
+            if cerco is None and m:
+                cerco = (m.group(1)[0], len(m.group(1)))
+                bloques += 1
+            elif cerco is not None:
+                if m and m.group(1)[0] == cerco[0] and len(m.group(1)) >= cerco[1] and not linea.strip(cerco[0] + " \n"):
+                    cerco = None
+            elif re.match(r"#{1,6}\s", linea):
                 encabezados += 1
     return encabezados, bloques
 

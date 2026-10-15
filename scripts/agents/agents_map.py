@@ -113,12 +113,10 @@ def hermano_de_idioma(ruta):
 def pares_sin_actualizar(cambiados):
     """(changed, sibling) for each X.md / X.es.md that exists and changed without its sibling:
     one language went ahead of the other (check-docs.py only compares the structure)."""
-    vistos, pares = set(), []
+    pares = []
     for a in cambiados:
         h = hermano_de_idioma(a)
-        if h and h not in cambiados and os.path.exists(os.path.join(RAIZ, a)) \
-                and os.path.exists(os.path.join(RAIZ, h)) and a not in vistos:
-            vistos.add(a)
+        if h and h not in cambiados and os.path.exists(os.path.join(RAIZ, a)) and os.path.exists(os.path.join(RAIZ, h)):
             pares.append((a, h))
     return pares
 

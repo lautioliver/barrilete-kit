@@ -59,14 +59,20 @@ if [ -n "$CHICO" ]; then
     mkdir -p "$(dirname "$f")"
     cp "profiles/small/$f" "$f"
   done
-  grep -v '^#' profiles/small/DELETE | while read -r r; do [ -n "$r" ] && rm -rf -- "$r"; done
+  # A .md entry also takes its Spanish sibling (ADR-001), or --lang es would bring the file back as X.md.
+  grep -v '^#' profiles/small/DELETE | while read -r r; do
+    [ -n "$r" ] || continue
+    rm -rf -- "$r"
+    case "$r" in *.md) rm -f -- "${r%.md}.es.md" ;; esac
+  done
   # Without the business-logic label: it is edited in place (not copied) so it does not get outdated.
   perl -pi -e 's/el PR lleva el label `business-logic`\./el PR lo dice en "Lógica de negocio afectada"./' docs/decisions/README.md
   perl -pi -e 's/ Si sí: cuál, y agregá el label `business-logic`\./ Si sí: cuál, y por qué cambia./' .github/pull_request_template.md
 fi
 rm -rf profiles
 # Language (ADR-001): X.md and X.es.md are siblings. With es, the Spanish one replaces the English one
-# (this goes before the deletions below, so a sibling of a deleted file does not outlive it).
+# (this goes before the deletions below, so a sibling of a deleted file does not outlive it;
+# the DELETE list of --small already took the siblings of its own entries).
 { find . -name '*.es.md' -not -path './.git/*' || true; } | while read -r f; do
   if [ "$LANG_KIT" = es ]; then mv -f -- "$f" "${f%.es.md}.md"; else rm -f -- "$f"; fi
 done
