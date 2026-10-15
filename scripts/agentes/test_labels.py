@@ -1,6 +1,7 @@
 """Tests de la combinación de labels: instalar en un repo existente no borra sus labels (#121)."""
 import os
 import re
+import subprocess
 import sys
 import unittest
 
@@ -67,6 +68,24 @@ class Combinar(unittest.TestCase):
 
     def test_sin_labels_existentes_deja_el_kit(self):
         self.assertEqual(combinar(KIT, []), KIT)
+
+
+class Cli(unittest.TestCase):
+    def correr(self, entrada):
+        return subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "labels.py"),
+                               os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".github", "labels.yml")],
+                              input=entrada, capture_output=True, text=True)
+
+    def test_stdin_vacio_falla_con_mensaje_y_sin_salida(self):
+        r = self.correr("")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(r.stdout, "")
+        self.assertNotIn("Traceback", r.stderr)
+
+    def test_json_valido_combina(self):
+        r = self.correr('[{"name": "zzz-propio", "color": "aabbcc", "description": ""}]')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn('"zzz-propio"', r.stdout)
 
 
 if __name__ == "__main__":

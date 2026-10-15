@@ -7,7 +7,9 @@ archivo, en una sección marcada como propia del proyecto, para que el sync no b
 
 Uso (lo llama el instalador):
   gh label list --limit 1000 --json name,color,description | python3 scripts/agentes/labels.py .github/labels.yml
-Escribe el resultado en la salida estándar.
+Escribe el resultado en la salida estándar solo si la entrada es válida; no redirigir sobre el
+mismo archivo que se lee (guardar en un temporal y mover). Todo lo que haya debajo de la marca
+se considera de este script y se regenera: lo propio del proyecto va arriba de ella.
 """
 import json
 import re
@@ -56,4 +58,10 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit("uso: gh label list --json name,color,description | labels.py <labels.yml>")
     with open(sys.argv[1], encoding="utf-8") as f:
-        sys.stdout.write(combinar(f.read(), json.load(sys.stdin)))
+        base = f.read()
+    try:
+        existentes = json.load(sys.stdin)
+        resultado = combinar(base, existentes)
+    except (ValueError, KeyError, TypeError) as e:
+        sys.exit(f"labels.py: la entrada no es la salida de `gh label list --json name,color,description` ({e}). No escribí nada.")
+    sys.stdout.write(resultado)
