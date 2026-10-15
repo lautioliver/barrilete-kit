@@ -9,7 +9,7 @@
   <a href="#empezar"><img src="https://img.shields.io/badge/🚀_empezar-B4122B?style=for-the-badge" alt="Empezar"></a>
   <a href="#el-flujo"><img src="https://img.shields.io/badge/🪁_el_flujo-FFB020?style=for-the-badge" alt="El flujo"></a>
   <a href="#skills"><img src="https://img.shields.io/badge/🧰_skills-2B59FF?style=for-the-badge" alt="Skills"></a>
-  <a href=".github/brand/README.md"><img src="https://img.shields.io/badge/🎨_marca-14161A?style=for-the-badge" alt="Marca"></a>
+  <a href=".github/brand/README.es.md"><img src="https://img.shields.io/badge/🎨_marca-14161A?style=for-the-badge" alt="Marca"></a>
 </p>
 <!-- brand:end -->
 
@@ -57,7 +57,7 @@ Plantilla de repo para trabajar con agentes de código **sin perder el control**
 
 <!-- template:start -->
 > [!NOTE]
-> ¿La probás por primera vez para contar cómo te fue? Seguí la [guía de prueba](docs/try-the-template.md): pasos, qué anotar y el formulario para reportarlo.
+> ¿La probás por primera vez para contar cómo te fue? Seguí la [guía de prueba](docs/try-the-template.es.md): pasos, qué anotar y el formulario para reportarlo.
 <!-- template:end -->
 
 > [!TIP]
@@ -82,6 +82,40 @@ Plantilla de repo para trabajar con agentes de código **sin perder el control**
 
 > [!IMPORTANT]
 > El check de docs falla a propósito mientras queden rutas `TODO/` en `docs/agents-map.json`: con rutas de ejemplo, un agente nunca detectaría que tocó algo sensible. Las rutas con `?` adelante son alternativas de stack opcionales; las propias van sin `?`, así el check falla si dejan de existir.
+
+### 📥 Sumar a un proyecto existente
+
+¿Ya tenés un repo? El instalador suma el kit sin pisar tus archivos. Corrilo desde la raíz del proyecto, con el working tree limpio:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lautioliver/barrilete-kit/main/scripts/install.py | python3 - "Proyecto" main [--lang es] [--small] [--draft]
+```
+
+O cloná la plantilla y correlo desde el clon, para leerlo antes de correrlo:
+
+```bash
+python3 <clon de la plantilla>/scripts/install.py "Proyecto" main
+```
+
+`main` es la rama base (o `develop`), y `releases` funciona igual que en el init. `--draft` imprime el plan y no escribe nada. `--template <url o ruta>` y `--version vX.Y.Z` eligen de dónde sale el kit. Lo que va después de `--` se pasa tal cual a `init-template.sh` (por ejemplo `-- --lang es`).
+
+Qué toca:
+
+| Archivo | Qué hace el instalador |
+|---|---|
+| README, LICENSE | No los toca |
+| `.gitignore` | Agrega lo que falta en un bloque `# barrilete` |
+| `CLAUDE.md` | Si no importa `@AGENTS.md`, agrega la línea |
+| `.claude/settings.json` | Fusión JSON: agrega el hook de barandas a tus hooks |
+| Workflow con el mismo nombre | El del kit se instala como `barrilete-<nombre>.yml` |
+| `.github/labels.yml` | Los labels del kit más los que ya tiene el repo (`gh label list`), así el sync no borra ninguno |
+| Cualquier otro archivo que ya tengas (por ejemplo `AGENTS.md`, `docs/README.md`, el template de PR) | Deja el tuyo; la versión del kit va a `.agent-kit/pending/` |
+
+Revisalo antes de commitear nada. El instalador no commitea: mirá `git status` y el diff. Después integrá lo que valga la pena de `.agent-kit/pending/` en tus archivos y borrá esa carpeta: `update.py` no corre mientras tenga archivos. Hasta que integres `.claude/settings.json`, el hook de barandas no está activo. Antes del primer sync de labels, fusioná `.agent-kit/pending/.github/labels.yml` con el tuyo si está.
+
+Para que un agente haga la integración en el mismo PR, pedile algo así:
+
+> Integrá lo que valga la pena de `.agent-kit/pending/` en mis archivos (AGENTS.md, docs, template de PR), dejá activo el hook de barandas en `.claude/settings.json`, borrá la carpeta, y hacelo en este PR.
 
 <a name="el-flujo"></a>
 
@@ -248,6 +282,8 @@ El idioma de la prosa se elige con `--lang en|es` (por defecto `en`, combina con
 | Autonomía y rutas sensibles | `AGENTS.md` + `docs/agents-map.json` | todo en `AGENTS.md`, con la checklist de migraciones |
 | No trae | | épicas y `plan-feature`, `review-pr`, `project-status`, bloqueos, labeler, formularios de issue, modo releases, subagentes y `orchestrate` |
 
+El modo chico deja solo el README en el idioma elegido (en inglés por defecto; `--lang es` deja el español).
+
 <details>
 <summary><b>📈 Si el proyecto chico crece</b></summary>
 
@@ -325,6 +361,6 @@ Las skills no tienen nada propio de Claude Code: son Markdown con scripts en bas
 
 <p align="center">
   <img src=".github/brand/barrilete-32.svg" width="32" alt=""><br>
-  <sub>Hecho en Salta 🇦🇷 · <a href=".github/brand/README.md">Barrilete</a> cuida que la correa no se suelte.</sub>
+  <sub>Hecho en Salta 🇦🇷 · <a href=".github/brand/README.es.md">Barrilete</a> cuida que la correa no se suelte.</sub>
 </p>
 <!-- brand:end -->

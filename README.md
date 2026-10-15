@@ -86,6 +86,40 @@ A repo template for working with coding agents **without losing control**: clear
 > [!IMPORTANT]
 > The docs check fails on purpose while `docs/agents-map.json` still has `TODO/` paths: with example paths, an agent would never notice it touched something sensitive. Paths starting with `?` are optional stack alternatives; your own paths go without `?`, so the check fails if they stop existing.
 
+### 📥 Add to an existing project
+
+Already have a repo? The installer adds the kit without overwriting your files. Run it from the root of the project, with a clean working tree:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lautioliver/barrilete-kit/main/scripts/install.py | python3 - "Project" main [--lang es] [--small] [--draft]
+```
+
+Or clone the template and run it from the clone, to read it before running it:
+
+```bash
+python3 <clone of the template>/scripts/install.py "Project" main
+```
+
+`main` is the base branch (or `develop`), and `releases` works as in the init. `--draft` prints the plan and writes nothing. `--template <url or path>` and `--version vX.Y.Z` pick where the kit comes from. Anything after `--` goes to `init-template.sh` as is (for example `-- --lang es`).
+
+What it touches:
+
+| File | What the installer does |
+|---|---|
+| README, LICENSE | Doesn't touch them |
+| `.gitignore` | Adds what is missing in a `# barrilete` block |
+| `CLAUDE.md` | If it doesn't import `@AGENTS.md`, adds the line |
+| `.claude/settings.json` | JSON merge: adds the guardrails hook to your hooks |
+| Workflow with the same name | The kit's is installed as `barrilete-<name>.yml` |
+| `.github/labels.yml` | The kit's labels plus the ones the repo already has (`gh label list`), so the sync deletes none |
+| Any other file you already have (for example `AGENTS.md`, `docs/README.md`, the PR template) | Keeps yours; the kit's version goes to `.agent-kit/pending/` |
+
+Review it before you commit anything. The installer doesn't commit: review `git status` and the diff. Then integrate what is worth keeping from `.agent-kit/pending/` into your files and delete that folder: `update.py` won't run while it has files. Until you integrate `.claude/settings.json`, the guardrails hook is not active. Before the first label sync, merge `.agent-kit/pending/.github/labels.yml` into yours if it is there.
+
+To have an agent do the integration in the same PR, ask it something like this:
+
+> Integrate what is worth keeping from `.agent-kit/pending/` into my files (AGENTS.md, docs, PR template), keep the guardrails hook active in `.claude/settings.json`, delete the folder, and do it in this PR.
+
 <a name="the-flow"></a>
 
 ## 🪁 The flow
@@ -214,7 +248,9 @@ With no members, issues stay unassigned. The team is changed with `/add-member` 
 | 🌿 | GitHub conventions | `docs/github-naming-convention.md`: branches, commits, PRs, issues, labels |
 | 🏷️ | Labels | `.github/labels.yml` (source), `.github/labeler.yml` (auto-labeling), `.github/workflows/labels.yml` (sync + labeler + checks) |
 | 📬 | Issues and PRs | `.github/ISSUE_TEMPLATE/` (forms with labels), `.github/pull_request_template.md`, `.github/workflows/unblock.yml` |
-| ✅ | Docs tested in CI | `.github/workflows/docs.yml` + `scripts/agents/check-docs.py`: broken links, paths and ADRs, map paths that no longer exist. In a repo with `.agent-kit.json` it only checks the kit's `.md` files, `docs/`, `AGENTS.md` and `llms.txt` (if the kit was installed in an existing repo, not `docs/`: it is the project's), and runs shellcheck and the tests only on the kit's scripts (`check-docs.py --list <glob>`) |
+| 🤖 | Subagents by model | `.claude/agents/` (implementer, light implementer, reviewer) + `docs/agents/subagent-contract.md` |
+| ✅ | Docs and scripts tested in CI | `.github/workflows/docs.yml` + `scripts/agents/check-docs.py`: broken links, paths and ADRs, map paths that no longer exist, what `AGENTS.md` says is ignored and isn't; shellcheck and the `test-*.sh`, isolated from git config. In a repo with `.agent-kit.json` it only checks the kit's `.md` files, `docs/`, `AGENTS.md` and `llms.txt` (if the kit was installed in an existing repo, without `docs/`: those are the project's), and shellcheck and the tests only the kit's scripts (`check-docs.py --list <glob>`) |
+| 🔒 | Secrets out of the repo | `.gitignore`: `.env*` (except `.env.example`) and what the agent scripts generate |
 | 🧪 | Pre-PR verification | `scripts/agents/verify.py`: based on what changed, runs lint, typecheck, affected tests, migration drift… |
 | 👥 | Team | `.github/team.json` + `scripts/agents/team.py`: who receives issues, by area |
 | 🎨 | Brand | `.github/brand/`: Barrilete, the template's identity (init removes it) |
