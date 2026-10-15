@@ -377,6 +377,11 @@ afirmar $? "grow.py registra el commit desde el que trajo los archivos (C) como 
 s=$(cd "$U12" && python3 scripts/update.py --template "$P6" 2>&1); c=$?
 grep -q '# C' "$U12/.claude/skills/debug/SKILL.md" && es -f "$U12/scripts/nuevo-c.sh" && es -z "$(git -C "$U12" status --porcelain)" && es "$c" -ne 0
 afirmar $? "grow.py + update.py: el tag B no contiene C, así que update.py no degrada ni borra lo que trajo grow.py"
+(cd "$P6" && echo 1.1.0 >VERSION && git add -A && git commit -qm v1.1.0 && git tag v1.1.0) >/dev/null 2>&1
+s=$(cd "$U12" && python3 scripts/update.py --template "$P6" 2>&1); c=$?
+es "$c" -eq 0 && grep -q '# C' "$U12/.claude/skills/debug/SKILL.md" && es -f "$U12/scripts/nuevo-c.sh" \
+  && grep -q '"version": "1.1.0"' "$U12/.agent-kit.json"
+afirmar $? "grow.py + update.py: con un tag que sí contiene C, update.py vuelve a andar (salida: $(tail -1 <<<"$s"))"
 
 # Un ref que no está en la plantilla clonada (otro --template, un fork con otra historia): update.py frena sin tocar nada.
 U13="$TMP/usuario-ref-ajeno"; (repo "$U13") >/dev/null 2>&1
