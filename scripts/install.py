@@ -166,6 +166,8 @@ def leer_labels():
 def combinar_labels(nueva, existentes):
     """(text of labels.yml, names of the repo's own labels)."""
     ruta = os.path.join(nueva, "scripts", "agents", "labels.py")
+    if not os.path.exists(ruta):
+        salir("this version of the template has no scripts/agents/labels.py (it predates the installer). Use a newer --version.")
     spec = importlib.util.spec_from_file_location("labels_kit", ruta)
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
@@ -193,6 +195,14 @@ def fusionar_claude(texto, kit):
     return texto + ("" if texto.endswith("\n") or not texto else "\n") + "\n@AGENTS.md\n"
 
 
+def mismo_hook(propio, kit):
+    """The same hook, or the same script with another command line (the guardrails hook is installed once)."""
+    if propio == kit:
+        return True
+    guion = re.search(r"scripts/agents/[\w.-]+\.py", str(kit.get("command", "")))
+    return bool(guion and isinstance(propio, dict) and guion.group(0) in str(propio.get("command", "")))
+
+
 def fusionar_settings(texto, kit):
     """JSON merge: the kit's hooks into the project's. None if there is nothing to add; ValueError if it cannot."""
     try:
@@ -209,7 +219,7 @@ def fusionar_settings(texto, kit):
             raise ValueError(f"hooks.{evento} is not a list")
         for grupo in grupos:
             for hook in grupo.get("hooks", []):
-                if any(h == hook for g in propios if isinstance(g, dict) for h in g.get("hooks", [])):
+                if any(mismo_hook(h, hook) for g in propios if isinstance(g, dict) for h in g.get("hooks", [])):
                     continue
                 destino = next((g for g in propios if isinstance(g, dict) and g.get("matcher") == grupo.get("matcher")
                                 and isinstance(g.get("hooks"), list)), None)
@@ -224,7 +234,29 @@ def fusionar_settings(texto, kit):
 FUSIONES = {".gitignore": fusionar_gitignore, "CLAUDE.md": fusionar_claude, ".claude/settings.json": fusionar_settings}
 
 
-def planear(nueva, existentes):
+def es_workflow(ruta):
+    return bool(re.fullmatch(r"\.github/workflows/[^/]+\.ya?ml", ruta))
+
+
+def otra_extension(ruta):
+    base, ext = os.path.splitext(ruta)
+    return base + (".yaml" if ext == ".yml" else ".yml")
+
+
+def rename_o_pending(ruta, kit):
+    nuevo = os.path.join(os.path.dirname(ruta), "barrilete-" + os.path.basename(ruta))
+    ocupado = os.path.lexists(nuevo) or os.path.lexists(otra_extension(nuevo))
+    return ("pending" if ocupado else "rename", ruta, kit, nuevo)
+
+
+def padre_ocupado(ruta):
+    """True if a folder of the path is a file (or a link) in the project: the kit file cannot go there."""
+    partes = ruta.split("/")[:-1]
+    return any(os.path.lexists("/".join(partes[:i + 1])) and not os.path.isdir("/".join(partes[:i + 1]))
+               or os.path.islink("/".join(partes[:i + 1])) for i in range(len(partes)))
+
+
+def planear(nueva, labels_yml):
     """What to do with each kit file, without touching anything: list of (action, project path, kit path, data).
 
     Actions: add, same (registered), merge, rename (registered under the new name), pending, skip.
@@ -235,10 +267,13 @@ def planear(nueva, existentes):
         if ruta in NUNCA_TOCAR:
             plan.append(("skip", ruta, kit, None))
         elif ruta == ".github/labels.yml":
-            texto, _ = combinar_labels(nueva, existentes)
-            plan.append(("add" if not os.path.lexists(ruta) else "pending", ruta, kit, texto))
-        elif not os.path.lexists(ruta):
+            plan.append(("add" if not os.path.lexists(ruta) else "pending", ruta, kit, labels_yml))
+        elif padre_ocupado(ruta):
+            plan.append(("pending", ruta, kit, None))
+        elif not os.path.lexists(ruta) and not (es_workflow(ruta) and os.path.lexists(otra_extension(ruta))):
             plan.append(("add", ruta, kit, None))
+        elif not os.path.lexists(ruta):  # the same workflow with the other extension (.yaml / .yml)
+            plan.append(rename_o_pending(ruta, kit))
         elif not os.path.isfile(ruta):
             plan.append(("pending", ruta, kit, None))
         elif huella(ruta) == huella(kit):
@@ -250,9 +285,8 @@ def planear(nueva, existentes):
                 plan.append(("pending", ruta, kit, None))
                 continue
             plan.append(("merge" if texto is not None else "same-merged", ruta, kit, texto))
-        elif re.fullmatch(r"\.github/workflows/[^/]+\.ya?ml", ruta):
-            nuevo = os.path.join(os.path.dirname(ruta), "barrilete-" + os.path.basename(ruta))
-            plan.append(("pending" if os.path.lexists(nuevo) else "rename", ruta, kit, nuevo))
+        elif es_workflow(ruta):
+            plan.append(rename_o_pending(ruta, kit))
         else:
             plan.append(("pending", ruta, kit, None))
     return plan
@@ -314,24 +348,33 @@ def resumen(plan, propios, ref, draft):
             print(f"    {len(por_defecto)} are GitHub default labels ({', '.join(por_defecto)}): they stay as yours; "
                   "delete them from the own-labels section of labels.yml if you do not want them.")
     pend = de("pending")
+    if any(r == ".github/labels.yml" for r, _ in pend):
+        print("  - You already had .github/labels.yml: it is yours, and it does NOT have the repo's labels. "
+              f"Merge {PENDIENTES}/.github/labels.yml into it before the first sync: the sync deletes every label "
+              "that is not in the file.")
     if pend:
         print(f"\nYou already had these files, so I left yours and put the kit's version in {PENDIENTES}/:")
         for r, _ in pend:
             print(f"  - {r}")
         print("An agent (or you) integrates what is worth keeping into yours in the same PR, then deletes that folder. "
               "update.py will not run while it has files.")
+    pasos = ["Review `git status` and the diff (nothing is committed)."]
+    if pend:
+        pasos.append(f"Integrate what is in {PENDIENTES}/ and delete the folder.")
+    pasos += ["Fill in the TODO: markers of the kit files (grep -rn 'TODO:' AGENTS.md docs .github).",
+              "Commit on a branch and open a PR. The kit CI only checks the kit's files; your own tests and lint "
+              "need a workflow of yours.",
+              "After the merge, the Labels workflow syncs .github/labels.yml (it keeps the repo's labels)."]
     print("\nNext steps:")
-    print("  1. Review `git status` and the diff (nothing is committed).")
-    print(f"  2. Integrate what is in {PENDIENTES}/ and delete the folder.")
-    print("  3. Fill in the TODO: markers of the kit files (grep -rn 'TODO:' AGENTS.md docs .github).")
-    print("  4. Commit on a branch and open a PR. The kit CI only checks the kit's files; your own tests and lint "
-          "need a workflow of yours.")
-    print("  5. After the merge, the Labels workflow syncs .github/labels.yml (it keeps the repo's labels).")
+    for i, paso in enumerate(pasos, 1):
+        print(f"  {i}. {paso}")
 
 
 def main():
     pos, op, extra = parsear(sys.argv[1:])
     proyecto, base = pos[0], (pos[1] if len(pos) > 1 else "main")
+    if base not in ("main", "develop"):
+        salir(f"the base branch must be main or develop (got {base}).\n{USO}")
     args_init = [proyecto, base] + pos[2:] + (["--small"] if op["small"] else []) + extra
 
     r = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
@@ -351,16 +394,20 @@ def main():
         plantilla = origen_plantilla(op["template"])
         clon = os.path.join(tmp, "clon")
         print(f"Cloning the template from {plantilla}…")
-        sh("git", "clone", "-q", plantilla, clon)
+        sh("git", "clone", "-q", "--", plantilla, clon)
         ref = elegir_ref(clon, op["version"])
         nueva = os.path.join(tmp, "nueva")
         inicializar(clon, ref, nueva, args_init)
         with open(os.path.join(nueva, ".agent-kit.json"), encoding="utf-8") as f:
             registro_kit = json.load(f)
-        _, propios = combinar_labels(nueva, existentes)
-        plan = planear(nueva, existentes)
+        labels_yml, propios = combinar_labels(nueva, existentes)
+        plan = planear(nueva, labels_yml)
         if not op["draft"]:
-            registro, renombres = aplicar(plan)
+            try:
+                registro, renombres = aplicar(plan)
+            except OSError as e:
+                salir(f"could not write the files ({e}). The tree may be half installed: `git status` shows what was "
+                      "written; discard it with `git clean -fd` and `git checkout .`, then try again.")
             registro_kit["files"] = dict(sorted(registro.items()))
             if renombres:
                 registro_kit["renames"] = renombres
