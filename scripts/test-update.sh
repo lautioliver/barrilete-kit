@@ -158,6 +158,19 @@ s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
   && grep -q "Demo (editado)" "$D/AGENTS.md" && [ -f "$D/.agent-kit/pending/AGENTS.md" ]
 afirmar $? "[sin versión] reemplaza lo no tocado y deja lo modificado en pendientes, sin fusionar"
 
+# Proyecto 0.9 con las claves viejas de .agent-kit.json: error claro (la migración es el issue #116), sin traceback
+# ni una actualización a medias que pierde el registro de archivos.
+D="$TMP/claves-viejas"
+proyecto "$D" completo
+(cd "$D" && python3 -c "import json; k=json.load(open('.agent-kit.json')); json.dump({'proyecto': 'Demo', 'rama_base': 'main', 'modo': 'completo', 'fecha': k['date'], 'archivos': k['files']}, open('.agent-kit.json', 'w'))" && git commit -qam claves) >/dev/null 2>&1
+s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
+[ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && ! grep -q Traceback <<<"$s"; afirmar $? "update.py con las claves viejas de .agent-kit.json explica que es de 0.9 y sale con error, sin traceback"
+D="$TMP/claves-viejas-chico"
+proyecto "$D" chico
+(cd "$D" && python3 -c "import json; k=json.load(open('.agent-kit.json')); json.dump({'proyecto': 'Demo', 'rama_base': 'main', 'modo': 'chico', 'fecha': k['date'], 'archivos': k['files']}, open('.agent-kit.json', 'w'))" && git commit -qam claves) >/dev/null 2>&1
+s=$(cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1); c=$?
+[ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && ! grep -q Traceback <<<"$s"; afirmar $? "grow.py con las claves viejas de .agent-kit.json explica que es de 0.9 y sale con error, sin traceback"
+
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
 echo "Todos los tests pasan."

@@ -17,9 +17,9 @@ RENAMES='
 .claude/agents/implementador.md|.claude/agents/implementer.md
 .claude/agents/revisor.md|.claude/agents/reviewer.md
 .claude/skills/crear-issue/SKILL.md|.claude/skills/create-issue/SKILL.md
-.claude/skills/estado/SKILL.md|.claude/skills/status/SKILL.md
-.claude/skills/estado/disponibles.sh|.claude/skills/status/available.sh
-.claude/skills/estado/estado.sh|.claude/skills/status/status.sh
+.claude/skills/estado/SKILL.md|.claude/skills/project-status/SKILL.md
+.claude/skills/estado/disponibles.sh|.claude/skills/project-status/available.sh
+.claude/skills/estado/estado.sh|.claude/skills/project-status/status.sh
 .claude/skills/implement-issue/preparar.sh|.claude/skills/implement-issue/prepare.sh
 .claude/skills/implement-issue/test-preparar.sh|.claude/skills/implement-issue/test-prepare.sh
 .claude/skills/implement-issue/rojo.sh|.claude/skills/implement-issue/red.sh
@@ -80,7 +80,7 @@ while IFS='|' read -r old new; do
 done <<<"$RENAMES"
 
 # Old names in the content of any file (except this test, the CHANGELOG and ADR-001).
-OLD_NAMES='scripts/agentes|docs/agentes|barandas\.py|test_barandas|hooks/barandas|mapa-agentes|mapa\.py|verificar\.py|equipo\.py|equipo\.json|preparar\.sh|rojo\.sh|limpiar\.sh|ruteo\.py|planificar\.py|disponibles\.sh|estado\.sh|senales\.sh|plantilla-retro|actualizar\.py|crecer\.py|init-plantilla|test-actualizar|test-orquestar|test-preparar|test-rojo|test-agentes|desbloquear\.yml|convencion-nombres-github|contrato-subagentes|lecciones\.md|probar-la-plantilla|perfiles/|\.github/marca|revisor\.md|skills/(crear-issue|estado|mejorar-skills|orquestar)|/(orquestar|crear-issue|mejorar-skills|estado)\b|--chico|--listar|--revisar|BORRAR|implementador-liviano|agents/(implementador|revisor)|rol: (implementador|revisor)|name: (implementador|revisor)|AGENT_KIT_(PLANTILLA|FECHA)|<PROYECTO>|<RAMA_BASE>|<FECHA>|<REGLA_RAMAS>|(plantilla|marca):(inicio|fin)|agent-kit/pendientes'
+OLD_NAMES='scripts/agentes|docs/agentes|barandas\.py|test_barandas|hooks/barandas|mapa-agentes|mapa\.py|verificar\.py|equipo\.py|equipo\.json|preparar\.sh|rojo\.sh|limpiar\.sh|ruteo\.py|planificar\.py|disponibles\.sh|estado\.sh|senales\.sh|plantilla-retro|actualizar\.py|crecer\.py|init-plantilla|test-actualizar|test-orquestar|test-preparar|test-rojo|test-agentes|desbloquear\.yml|convencion-nombres-github|contrato-subagentes|lecciones\.md|probar-la-plantilla|perfiles/|\.github/marca|revisor\.md|skills/(crear-issue|estado|mejorar-skills|orquestar)|/(orquestar|crear-issue|mejorar-skills|estado)\b|usar estado\b|skills/status\b|/status\b|--chico|--listar|--revisar|BORRAR|implementador-liviano|agents/(implementador|revisor)|rol: (implementador|revisor)|name: (implementador|revisor)|AGENT_KIT_(PLANTILLA|FECHA)|<PROYECTO>|<RAMA_BASE>|<FECHA>|<REGLA_RAMAS>|(plantilla|marca):(inicio|fin)|agent-kit/pendientes'
 LABELS_OLD='tipo:|prioridad:|estado:|logica-negocio|a-triar|necesita-info|estado:bloqueado'
 hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*)$' \
   | while read -r f; do [ -f "$f" ] && grep -IHnE "$OLD_NAMES" "$f"; done | head -5 || true)
