@@ -71,6 +71,7 @@ JSON
   printf 'blank_issues_enabled: true\n' >.github/ISSUE_TEMPLATE/config.yml
   printf '# Docs de mi app\n' >docs/README.md
   printf '# Guía\n\n[roto](nada.md)\n' >docs/guia.md
+  mkdir -p docs/decisions && printf '# ADR-001 propio\n' >docs/decisions/ADR-001-mio.md
   printf '# Roto\n\n[no existe](nada.md)\n' >notas/roto.md
   printf '# Notas\n\n[tampoco](../otra.md) y `src/falta.sh`\n' >NOTAS.md
   printf '#!/bin/bash\nrm $1\n' >src/borrar.sh
@@ -190,7 +191,7 @@ afirmar $? "no instala el instalador ni el init (son de la plantilla)"
 s2=$(cd "$U" && python3 scripts/agents/check-docs.py 2>&1); c=$?
 # Con el mapa de ejemplo (TODO) el check falla a propósito hasta que el proyecto lo completa: lo que no
 # puede fallar son los .md del usuario, ni las rutas del kit que acaba de instalar.
-! grep -q 'roto.md\|NOTAS.md\|guia.md' <<<"$s2" && ! grep -q 'Traceback\|matches no file\|broken link\|missing path' <<<"$s2"
+! grep -q 'roto.md\|NOTAS.md\|guia.md\|ADR-001-mio' <<<"$s2" && ! grep -q 'Traceback\|matches no file\|broken link\|missing path' <<<"$s2"
 afirmar $? "en un repo instalado check-docs.py no revisa los .md del usuario (NOTAS.md, docs/guia.md) y no marca rutas ni links rotos del kit"
 lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh')
 ! grep -q '^src/' <<<"$lista" && grep -q 'scripts/agents/test-base.sh' <<<"$lista"
@@ -291,6 +292,65 @@ es "$c" -ne 0 && grep -qi "base branch" <<<"$s" && es -z "$(git -C "$U4" status 
 afirmar $? "[borde] una rama base que no es main ni develop falla antes de tocar nada"
 s=$(cd "$U4" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "--upload-pack=touch $TMP/inyectado" 2>&1); c=$?
 es "$c" -ne 0 && ! [ -e "$TMP/inyectado" ]; afirmar $? "[borde] un --template que empieza con - no se toma como opción de git"
+
+# .gitignore con una negación del proyecto: el bloque no la anula.
+U8="$TMP/usuario-gitignore"
+(mkdir -p "$U8" && cd "$U8" && git init -q -b main && printf '.env*\n!.env.example\n' >.gitignore && echo hi >a.txt && git add -A && git commit -qm x) >/dev/null 2>&1
+s=$(cd "$U8" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
+es "$c" -eq 0 && ! (cd "$U8" && git check-ignore -q .env.example) && (cd "$U8" && git check-ignore -q .env)
+afirmar $? ".gitignore: el bloque # barrilete no anula el !.env.example del proyecto (y .env sigue ignorado)"
+
+# Lo que el instalador deja afuera a propósito no vuelve con update.py ni grow.py, y desde qué commit se instaló
+# manda: no se baja a un tag más viejo. Plantilla con un tag viejo (sin instalador) y HEAD más nuevo.
+P5="$TMP/plantilla-vieja"
+mkdir -p "$P5"
+(cd "$P" && git archive v0.1.0 | tar -xf - -C "$P5") >/dev/null 2>&1
+(
+  cd "$P5" && rm -f scripts/install.py scripts/test-install.sh && git init -q -b main && echo 0.9.9 >VERSION \
+    && git add -A && git commit -qm viejo && git tag v0.9.9 \
+    && (cd "$P" && git archive v0.2.0 | tar -xf - -C "$P5") && echo 0.9.9 >VERSION && git add -A && git commit -qm "con instalador"
+) >/dev/null 2>&1
+SHA2=$(git -C "$P5" rev-parse HEAD)
+conlabels() { # conlabels <dir>: repo existente con un labels.yml propio
+  (repo "$1" && printf -- '- name: "solo-mio"\n  color: "ABCDEF"\n  description: ""\n' >.github/labels.yml && git add -A && git commit -qm labels) >/dev/null 2>&1
+}
+U9="$TMP/usuario-ref"; conlabels "$U9"
+U10="$TMP/usuario-ref-chico"; conlabels "$U10"
+s=$(cd "$U9" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" 2>&1); c=$?
+es "$c" -eq 0 && python3 - "$U9" "$SHA2" <<'PY'
+import json, sys
+k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
+assert k["ref"] == sys.argv[2] and k["version"] is None, k
+assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
+PY
+afirmar $? "el instalador registra el commit (ref) y lo que dejó afuera a propósito (withheld)"
+grep -q 'withheld\|not installed' <<<"$s"; afirmar $? "el resumen nombra lo que dejó afuera a propósito"
+(cd "$U9" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
+s=$(cd "$U9" && python3 scripts/update.py --template "$P5" 2>&1); c=$?
+es "$c" -ne 0 && grep -qi 'does not contain' <<<"$s" && es -z "$(git -C "$U9" status --porcelain)"
+afirmar $? "update.py no baja a un tag más viejo que el commit instalado (mensaje claro, no toca nada)"
+(
+  cd "$P5" && echo 1.0.0 >VERSION && echo "# v1" >>.claude/skills/debug/SKILL.md && git add -A && git commit -qm v1 && git tag v1.0.0
+) >/dev/null 2>&1
+SHA3=$(git -C "$P5" rev-parse HEAD)
+s=$(cd "$U9" && python3 scripts/update.py --template "$P5" 2>&1); c=$?
+es "$c" -eq 0 && grep -q '# v1' "$U9/.claude/skills/debug/SKILL.md" && es -f "$U9/scripts/agents/labels.py" \
+  && grep -q "\"ref\": \"$SHA3\"" "$U9/.agent-kit.json"
+afirmar $? "update.py desde un tag que contiene el commit instalado actualiza sin borrar nada y registra el commit nuevo (salida: $(tail -1 <<<"$s"))"
+! [ -e "$U9/.github/workflows/labels.yml" ] && grep -q 'workflows/labels.yml' <<<"$s"
+afirmar $? "update.py no instala el workflow de labels que el instalador dejó afuera, y lo nombra"
+s=$(cd "$U10" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" -- --small 2>&1)
+(cd "$U10" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
+s=$(cd "$U10" && python3 scripts/grow.py --template "$P5" 2>&1); c=$?
+es "$c" -eq 0 && ! [ -e "$U10/.github/workflows/labels.yml" ]
+afirmar $? "grow.py no instala el workflow de labels que el instalador dejó afuera"
+python3 - "$U10" "$SHA2" <<'PY'
+import json, sys
+k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
+assert k["ref"] == sys.argv[2] and k["version"] is None, k
+assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
+PY
+afirmar $? "grow.py conserva ref, withheld y version null del registro (no escribe la VERSION de la rama por defecto)"
 
 # Fuera de un repo git, o dentro de la plantilla: error claro.
 mkdir -p "$TMP/vacio"
