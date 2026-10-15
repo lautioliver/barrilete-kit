@@ -183,9 +183,12 @@ def combinar_labels(nueva, existentes):
 
 def fusionar_gitignore(texto, kit):
     hay = {l.strip() for l in texto.splitlines()}
-    faltan = [l.strip() for l in kit.splitlines() if l.strip() and not l.strip().startswith("#") and l.strip() not in hay]
-    if not faltan:
+    patrones = [l.strip() for l in kit.splitlines() if l.strip() and not l.strip().startswith("#")]
+    if not [l for l in patrones if l not in hay]:
         return None
+    # The last rule wins: the kit's negations (`!.env.example`) go at the end even if the project has them,
+    # so the patterns added above cannot ignore what the project had un-ignored.
+    faltan = [l for l in patrones if l not in hay or l.startswith("!")]
     return texto + ("" if texto.endswith("\n") or not texto else "\n") + "\n# barrilete\n" + "\n".join(faltan) + "\n"
 
 
@@ -368,7 +371,8 @@ def resumen(plan, propios, ref, draft):
               f"Merge {PENDIENTES}/.github/labels.yml into it before the first sync: the sync deletes every label "
               "that is not in the file.")
     if pend:
-        print(f"\nYou already had these files, so I left yours and put the kit's version in {PENDIENTES}/:")
+        print(f"\n(Registered as withheld in .agent-kit.json: update.py and grow.py will not bring back the ones you do not have.)")
+        print(f"You already had these files, so I left yours and put the kit's version in {PENDIENTES}/:")
         for r, _ in pend:
             print(f"  - {r}")
         print("An agent (or you) integrates what is worth keeping into yours in the same PR, then deletes that folder. "
@@ -427,6 +431,11 @@ def main():
                 salir(f"could not write the files ({e}). The tree may be half installed: `git status` shows what was "
                       "written; discard it with `git checkout . && git clean -fd && rm -rf .agent-kit .agent-kit.json`, then try again.")
             registro_kit["files"] = dict(sorted(registro.items()))
+            registro_kit["ref"] = sh("git", "rev-parse", f"{ref}^{{commit}}", cwd=clon).stdout.strip()
+            # What the installer left out on purpose: update.py and grow.py must not bring it back.
+            retenidos = sorted(r for a, r, _, _ in plan if a == "pending")
+            if retenidos:
+                registro_kit["withheld"] = retenidos
             registro_kit["installed"] = True  # check-docs.py: in an installed repo, docs/ is the project's
             if ref == "HEAD":  # a commit with no tag: update.py cannot rebuild its base, so it must not guess one
                 registro_kit["version"] = None

@@ -133,7 +133,7 @@ def fusionar(proyecto, base, nueva):
     return r.stdout, r.returncode != 0
 
 
-def planear(nueva, base, registradas):
+def planear(nueva, base, registradas, retenidos=()):
     """What to do with each file, without touching anything yet: list of (action, path, data)."""
     en_nueva = set(archivos(nueva)) - NO_TRAER
 
@@ -151,7 +151,8 @@ def planear(nueva, base, registradas):
         origen = os.path.join(base, ruta) if base else None
         if not os.path.lexists(ruta):
             # The project had it (registry) and no longer does: it deleted it on purpose.
-            plan.append(("saltar" if ruta in registradas else "agregar", ruta, None))
+            # `retenidos`: the installer left it out on purpose (and the project still does not have it).
+            plan.append(("retener" if ruta in retenidos else "saltar" if ruta in registradas else "agregar", ruta, None))
         elif not os.path.isfile(ruta):
             plan.append(("conflicto", ruta, None))  # in the project it is a directory or something else
         elif huella(ruta) == huella(nuevo):
@@ -255,19 +256,34 @@ def main():
             if objetivo == actual and ref != "HEAD":
                 print(f"The project is already at template version {actual}. Nothing to update.")
                 return
-        notas = changelog(clon, ref, numero(actual))
+        instalado = kit.get("ref")  # the commit install.py installed from (a repo that had its own code)
+        destino = sh("git", "rev-parse", f"{ref}^{{commit}}", cwd=clon).stdout.strip()
+        if instalado:
+            es_ancestro = subprocess.run(["git", "merge-base", "--is-ancestor", instalado, destino], cwd=clon).returncode
+            if destino == instalado:
+                print(f"The project is already at the template commit {instalado[:9]}. Nothing to update.")
+                return
+            if es_ancestro == 1:
+                salir(f"{ref} does not contain the commit this project was installed from ({instalado[:9]}): going to "
+                      f"it would downgrade the kit. Wait for a release that includes it, or use a newer --version "
+                      f"(versions: {', '.join(disponibles) or 'none'}).")
+        notas = changelog(clon, ref, numero(actual)) if actual or not instalado else ""
 
         nueva = os.path.join(tmp, "nueva")
         inicializar(clon, ref, nueva, kit)
         renombrar(nueva, kit.get("renames", {}))
         base = None
-        if actual and f"v{actual}" in disponibles:
+        if instalado and subprocess.run(["git", "cat-file", "-e", f"{instalado}^{{commit}}"], cwd=clon).returncode == 0:
+            base = os.path.join(tmp, "base")
+            inicializar(clon, instalado, base, kit)
+            renombrar(base, kit.get("renames", {}))
+        elif actual and f"v{actual}" in disponibles:
             base = os.path.join(tmp, "base")
             inicializar(clon, f"v{actual}", base, kit)
             renombrar(base, kit.get("renames", {}))
 
         registradas = kit.get("files", {})
-        plan = planear(nueva, base, registradas)
+        plan = planear(nueva, base, registradas, set(kit.get("withheld", [])))
         hechos, errores = aplicar(plan, nueva)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -278,8 +294,17 @@ def main():
     for ruta in hechos.get("borrar", []):
         registradas.pop(ruta, None)
     kit["files"] = dict(sorted(registradas.items()))
-    if objetivo:
+    if instalado:
+        # The commit is the source of truth; a version only if the target is a tag (the default branch's VERSION
+        # may not match any).
+        kit["ref"] = destino
+        kit["version"] = objetivo if ref != "HEAD" else None
+    elif objetivo:
         kit["version"] = objetivo
+    if kit.get("withheld"):
+        kit["withheld"] = [r for r in kit["withheld"] if not os.path.lexists(r)]
+        if not kit["withheld"]:
+            del kit["withheld"]
     with open(".agent-kit.json", "w", encoding="utf-8") as f:
         json.dump(kit, f, ensure_ascii=False, indent=2)
         f.write("\n")
@@ -293,7 +318,9 @@ def main():
                            ("Modified by you, with no origin version to merge: the new version is in "
                             f"{PENDIENTES}/", "pendiente"),
                            ("The template removed them, but you modified them: decide whether to delete them", "conservar"),
-                           ("You had deleted them and the template changed them: I did not bring them", "saltar")):
+                           ("You had deleted them and the template changed them: I did not bring them", "saltar"),
+                           ("Left out on purpose by the installer (you do not have them, so I did not bring them; "
+                            f"the kit's version is in {PENDIENTES}/ only if you had a file of your own)", "retener")):
         if hechos.get(accion):
             print(f"\n{titulo}:")
             for ruta in hechos[accion]:

@@ -148,8 +148,10 @@ for archivo in md_files():
             if num != "000" and num not in adrs:
                 errores.append(f"{archivo}:{n}: ADR-{num} does not exist in docs/decisions/")
 
+# In an installed repo every ADR is the project's (the kit's own are not installed) and its indices are the
+# project's too: the kit does not require them to list its ADRs.
 for indice in ("docs/README.md", "docs/llms.txt"):
-    if os.path.exists(indice):
+    if os.path.exists(indice) and not INSTALADO:
         contenido = open(indice, encoding="utf-8").read()
         for num, f in adrs.items():
             if num != "000" and f not in contenido:

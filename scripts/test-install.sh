@@ -326,6 +326,8 @@ PY
 afirmar $? "el instalador registra el commit (ref) y lo que dejó afuera a propósito (withheld)"
 grep -q 'withheld\|not installed' <<<"$s"; afirmar $? "el resumen nombra lo que dejó afuera a propósito"
 (cd "$U9" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
+s=$(cd "$U10" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" -- --small 2>&1)
+(cd "$U10" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 s=$(cd "$U9" && python3 scripts/update.py --template "$P5" 2>&1); c=$?
 es "$c" -ne 0 && grep -qi 'does not contain' <<<"$s" && es -z "$(git -C "$U9" status --porcelain)"
 afirmar $? "update.py no baja a un tag más viejo que el commit instalado (mensaje claro, no toca nada)"
@@ -339,8 +341,6 @@ es "$c" -eq 0 && grep -q '# v1' "$U9/.claude/skills/debug/SKILL.md" && es -f "$U
 afirmar $? "update.py desde un tag que contiene el commit instalado actualiza sin borrar nada y registra el commit nuevo (salida: $(tail -1 <<<"$s"))"
 ! [ -e "$U9/.github/workflows/labels.yml" ] && grep -q 'workflows/labels.yml' <<<"$s"
 afirmar $? "update.py no instala el workflow de labels que el instalador dejó afuera, y lo nombra"
-s=$(cd "$U10" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" -- --small 2>&1)
-(cd "$U10" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 s=$(cd "$U10" && python3 scripts/grow.py --template "$P5" 2>&1); c=$?
 es "$c" -eq 0 && ! [ -e "$U10/.github/workflows/labels.yml" ]
 afirmar $? "grow.py no instala el workflow de labels que el instalador dejó afuera"
