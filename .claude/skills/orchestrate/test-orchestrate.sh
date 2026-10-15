@@ -56,6 +56,7 @@ s=$(ruteo 2); es "$(head -1 <<<"$s")" = haiku; afirmar $? "type:task sin riesgo 
 issue 3 open "type:bug" "Arreglar el contador."
 s=$(ruteo 3); es "$(head -1 <<<"$s")" = sonnet; afirmar $? "type:bug → sonnet"
 grep -q "type:bug" <<<"$s"; afirmar $? "el motivo nombra el tipo"
+grep -q "^reason: " <<<"$s" && ! grep -q "^motivo: " <<<"$s"; afirmar $? "la salida de routing.py usa la clave reason:"
 issue 4 open "type:feature" "Algo nuevo."
 s=$(ruteo 4); es "$(head -1 <<<"$s")" = sonnet; afirmar $? "type:feature → sonnet"
 issue 5 open "type:docs,business-logic" "Aclarar la regla de reembolsos."
@@ -113,9 +114,14 @@ grep -q "$WT/12.*uncommitted" <<<"$s"; afirmar $? "avisa que el de #12 tiene cam
 es -d "$WT/10"; afirmar $? "sin --delete no borra nada"
 
 # Con una retro pendiente no borra ninguno.
+mkdir -p "$P/.git/pending-retros"; echo r >"$P/.git/pending-retros/x.md"
+s=$(cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1); c=$?
+! es "$c" -eq 0 && es -d "$WT/10" && grep -q "pending-retros" <<<"$s"; afirmar $? "con retros pendientes no borra y dice por qué"
+rm -rf "$P/.git/pending-retros"
+# Las pendientes del directorio viejo (0.9, retros-pendientes) también cuentan.
 mkdir -p "$P/.git/retros-pendientes"; echo r >"$P/.git/retros-pendientes/x.md"
 s=$(cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1); c=$?
-! es "$c" -eq 0 && es -d "$WT/10" && grep -q "retros-pendientes" <<<"$s"; afirmar $? "con retros pendientes no borra y dice por qué"
+! es "$c" -eq 0 && es -d "$WT/10"; afirmar $? "con retros pendientes en el directorio viejo tampoco borra"
 rm -rf "$P/.git/retros-pendientes"
 
 # Si no puede leer un issue, no lo da por "nada que limpiar": lo dice y sale con error.
@@ -196,18 +202,18 @@ for a in implementer implementer-light; do
   grep -q 'skill_sha' "$RAIZ/.claude/agents/$a.md"; afirmar $? "$a: escribe en la retro el skill_sha que le pasa el orquestador"
 done
 grep -qi 'frená.*\.claude\|\.claude.*frená' "$AQUI/SKILL.md"; afirmar $? "orquestar frena si su checkout tiene cambios en .claude/"
-grep -q 'revisor.*agente_sha\|agente_sha.*revisor' "$AQUI/SKILL.md" && grep -q 'checkout del orquestador' "$AQUI/SKILL.md"; afirmar $? "orquestar le pasa al revisor agente_sha y el checkout del orquestador"
+grep -q 'revisor.*agent_sha\|agent_sha.*revisor' "$AQUI/SKILL.md" && grep -q 'checkout del orquestador' "$AQUI/SKILL.md"; afirmar $? "orquestar le pasa al revisor agent_sha y el checkout del orquestador"
 for a in implementer implementer-light reviewer; do
-  grep -q 'agente_sha' "$RAIZ/.claude/agents/$a.md"; afirmar $? "$a: escribe en la retro el agente_sha que le pasa el orquestador"
+  grep -q 'agent_sha' "$RAIZ/.claude/agents/$a.md"; afirmar $? "$a: escribe en la retro el agent_sha que le pasa el orquestador"
 done
-grep -q 'agente_sha' "$AQUI/SKILL.md"; afirmar $? "orquestar le pasa agente_sha a cada subagente"
+grep -q 'agent_sha' "$AQUI/SKILL.md"; afirmar $? "orquestar le pasa agent_sha a cada subagente"
 grep -qi 'markdown crudo' "$R"; afirmar $? "revisor: el texto de la revisión va en Markdown crudo, sin entidades HTML"
 grep -qi 'relanzado.*consulta\|consulta.*relanzado' "$AQUI/SKILL.md"; afirmar $? "orquestar: dice qué hacer si un relanzado devuelve consulta"
 C="$RAIZ/docs/agents/subagent-contract.md"; I="$RAIZ/.claude/skills/implement-issue/SKILL.md"
 grep -qi 'markdown crudo' "$C"; afirmar $? "contrato: todo texto para GitHub va en Markdown crudo (también el de los implementadores)"
-grep -q '^autorevision:' "$C" && grep -q 'autorevision' "$AQUI/SKILL.md"; afirmar $? "contrato: la salida dice si hubo /code-review, y orquestar lo informa"
+grep -q '^self-review:' "$C" && grep -q 'self-review' "$AQUI/SKILL.md"; afirmar $? "contrato: la salida dice si hubo /code-review, y orquestar lo informa"
 # #88: la ruta de la retro va como la imprime retro.sh (Saved in <rama>:<ruta>), usable con git show.
-grep -Eq '^retro: <rama>:<ruta>' "$C" && ! grep -q 'devolvés la ruta' "$C" && ! grep -q 'recibís su ruta' "$AQUI/SKILL.md" && grep -Eq 'agentes/retros:retros/[^ ]+\.md' "$C" \
+grep -Eq '^retro: <branch>:<path>' "$C" && ! grep -q 'devolvés la ruta' "$C" && ! grep -q 'recibís su ruta' "$AQUI/SKILL.md" && grep -Eq 'agents/retros:retros/[^ ]+\.md' "$C" \
   && grep -q 'Saved in .RAMA:.ruta' "$RAIZ/.claude/skills/improve-skills/retro.sh"
 afirmar $? "contrato: retro: va como <rama>:<ruta>, igual que la imprime retro.sh, con un ejemplo"
 ! grep -qi "si está disponible el comando \`/code-review\`" "$I" && grep -qi 'code-review.*obligatori' "$I"; afirmar $? "implement-issue: /code-review es obligatorio"

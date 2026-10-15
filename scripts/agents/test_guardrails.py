@@ -162,7 +162,7 @@ class Permite(unittest.TestCase):
         for c in ("git status", "git push origin HEAD", "git push -u origin HEAD", "git push",
                   "git push origin claude/92-x", "git push --force-with-lease origin claude/1-x",
                   "git push origin --delete claude/15-x", "git branch -D claude/15-x && git push origin --delete claude/15-x",
-                  "git push -q origin abc123:refs/heads/agentes/retros", "git fetch origin main", "git merge origin/main",
+                  "git push -q origin abc123:refs/heads/agents/retros", "git push -q origin abc123:refs/heads/agentes/retros", "git fetch origin main", "git merge origin/main",
                   "git commit -m 'no usar gh pr merge'", "gh pr view 12", "gh pr create --base main --body-file b.md",
                   "gh pr checks 12 --watch", "gh pr review 12 --comment -b ok", "gh pr review 12 --request-changes -b x",
                   "gh api repos/a/b/pulls/12/merge", "gh api repos/a/b/branches/main/protection",
