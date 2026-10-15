@@ -105,8 +105,8 @@ HOOKS = (".claude/settings.json", ".codex/hooks.json", ".cursor/hooks.json", ".g
 
 
 def es_0_9(kit):
-    """.agent-kit.json of a 0.9 project: Spanish keys (proyecto, rama_base, modo, fecha, archivos)."""
-    return "archivos" in kit and "files" not in kit
+    """.agent-kit.json of a 0.9 project: any Spanish key (proyecto, rama_base, modo, fecha, archivos)."""
+    return any(k in kit for k in KIT_KEYS_0_9)
 
 
 def migrar_kit(kit):
@@ -115,8 +115,10 @@ def migrar_kit(kit):
     for k, v in kit.items():
         k = KIT_KEYS_0_9.get(k, k)
         nuevo[k] = MODES_0_9.get(v, v) if k == "mode" else v
-        if k == "date":
-            nuevo.setdefault("language", kit.get("language", "en"))
+    if "language" not in nuevo:  # placed after the date when there is one, as the init writes it
+        items = list(nuevo.items())
+        i = next((n + 1 for n, (k, _) in enumerate(items) if k == "date"), len(items))
+        nuevo = dict(items[:i] + [("language", "en")] + items[i:])
     return nuevo
 
 
@@ -129,13 +131,14 @@ def texto_nuevo(s):
     return s.replace("{archivos}", "{files}")
 
 
-def json_nuevo(o, clave=None):
+def json_nuevo(o, mapa, clave=None):
+    """Keys of both files; the values and paths of the map only (team.json has people's names)."""
     if isinstance(o, dict):
-        return {KEYS_0_9.get(k, k): json_nuevo(v, KEYS_0_9.get(k, k)) for k, v in o.items()}
+        return {KEYS_0_9.get(k, k): json_nuevo(v, mapa, KEYS_0_9.get(k, k)) for k, v in o.items()}
     if isinstance(o, list):
-        return [json_nuevo(v, clave) for v in o]
-    if isinstance(o, str):
-        return VALUES_0_9.get(clave, {}).get(o, texto_nuevo(o))
+        return [json_nuevo(v, mapa, clave) for v in o]
+    if isinstance(o, str) and (mapa or clave == "_help"):
+        return VALUES_0_9.get(clave, {}).get(o, texto_nuevo(o)) if mapa else texto_nuevo(o)
     return o
 
 
@@ -149,16 +152,27 @@ def migrar_arbol(raiz, registradas=None):
         if os.path.isfile(v):
             if os.path.lexists(n):
                 bloqueados.append((viejo, nuevo))
-                continue
-            os.makedirs(os.path.dirname(n), exist_ok=True)
-            os.replace(v, n)
-            movidos.append((viejo, nuevo))
-            carpeta = os.path.dirname(v)
-            while carpeta != raiz and os.path.isdir(carpeta) and not os.listdir(carpeta):
-                os.rmdir(carpeta)
-                carpeta = os.path.dirname(carpeta)
-        if registradas is not None and viejo in registradas and (viejo, nuevo) not in bloqueados:
-            registradas[nuevo] = registradas.pop(viejo)  # also when the project had deleted it
+            else:
+                try:
+                    os.makedirs(os.path.dirname(n), exist_ok=True)
+                    os.replace(v, n)
+                except OSError as e:
+                    avisos.append(f"{viejo}: could not move it to {nuevo} ({e}). Move it by hand.")
+                    bloqueados.append((viejo, nuevo))
+                else:
+                    movidos.append((viejo, nuevo))
+                    carpeta = os.path.dirname(v)
+                    while carpeta != raiz and os.path.isdir(carpeta) and not os.listdir(carpeta):
+                        os.rmdir(carpeta)
+                        carpeta = os.path.dirname(carpeta)
+        if registradas is not None and viejo in registradas:
+            h = registradas.pop(viejo)  # the file stays where it is if it was blocked: it is not the kit's anymore
+            if (viejo, nuevo) not in bloqueados:
+                registradas[nuevo] = h  # also when the project had deleted it
+    for viejo, nuevo in DIRS_0_9[:2]:
+        if os.path.isdir(os.path.join(raiz, viejo)) and any(archivos(os.path.join(raiz, viejo))):
+            avisos.append(f"{viejo} still has your own files (not the kit's): they stay there. Move them to {nuevo} "
+                          "by hand if you want, and fix the paths that docs/agents-map.json now points to.")
     for ruta in JSON_0_9:
         f = os.path.join(raiz, ruta)
         if not os.path.isfile(f):
@@ -167,7 +181,7 @@ def migrar_arbol(raiz, registradas=None):
         try:
             with open(f, encoding="utf-8") as fh:
                 datos = json.load(fh)
-            texto = json.dumps(json_nuevo(datos), ensure_ascii=False, indent=2) + "\n"
+            texto = json.dumps(json_nuevo(datos, ruta == "docs/agents-map.json"), ensure_ascii=False, indent=2) + "\n"
         except (ValueError, OSError) as e:
             avisos.append(f"{ruta}: could not migrate its keys ({e}). Rename them by hand (see the CHANGELOG table).")
             continue
@@ -368,6 +382,9 @@ def main():
     sin_idioma = migracion and "language" not in kit
     if migracion:
         kit = migrar_kit(kit)
+        print("Project from 0.9: it will be migrated to the new names, keys and labels."
+              + (" It has no `language`, so it is treated as English (the default now): to keep it in Spanish, stop "
+                 'now (Ctrl-C), add "language": "es" to .agent-kit.json and run again.' if sin_idioma else ""))
     if sh("git", "status", "--porcelain").stdout.strip():
         salir("there are uncommitted changes. Commit or stash them before updating.")
     if os.path.isdir(PENDIENTES) and any(archivos(PENDIENTES)):
@@ -481,8 +498,8 @@ def main():
         if sin_idioma:
             print("Language: .agent-kit.json had no `language` (projects before #130), so this project is treated as "
                   "English, which is the default now: the kit's prose came in English and the files you had not touched "
-                  "were replaced by it. If your project is in Spanish, discard this update (git checkout . && git clean -fd), "
-                  'add "language": "es" to .agent-kit.json and run update.py again.')
+                  "were replaced by it. If your project is in Spanish, discard this run's changes (git stash push -u, then "
+                  'git stash drop), add "language": "es" to .agent-kit.json and run update.py again.')
         if any(r in hechos.get("conflicto", []) + hechos.get("pendiente", []) for r in HOOKS):
             print("Warning: a hook registration (.claude/settings.json, .codex/hooks.json, .cursor/hooks.json, "
                   ".github/hooks/guardrails.json) is in .agent-kit/pending/: all four must point to "

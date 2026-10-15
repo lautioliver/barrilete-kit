@@ -34,8 +34,10 @@ def verificar_claves(kit):
     """.agent-kit.json of 0.9 (Spanish keys): update.py migrates it; grow.py does not."""
     if "archivos" in kit and "files" not in kit:
         salir(".agent-kit.json uses the 0.9 keys (proyecto, rama_base, modo, fecha, archivos): this project "
-              "was created before the English renames. Run python3 scripts/update.py first: it migrates the names, "
-              "the keys and the labels (see the CHANGELOG), and then grow.py works.")
+              "was created before the English renames. update.py migrates it (names, keys and labels; see the CHANGELOG): "
+              "download scripts/update.py from the new template version outside the repo (for example to /tmp/update.py, "
+              "from raw.githubusercontent.com/lautioliver/barrilete-kit/<tag>/scripts/update.py) and run "
+              "python3 /tmp/update.py from the project root. After that, grow.py works.")
 
 
 def sh(*cmd, cwd=None):
