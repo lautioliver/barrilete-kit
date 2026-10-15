@@ -4,9 +4,9 @@
 
 Aceptado (2026-10-15)
 
-Ámbito: kit (ver R-7).
+Ámbito: kit
 
-Aplicación: la decisión rige desde hoy, pero `AGENTS.md`, `docs/convencion-nombres-github.md` y los labels se alinean issue por issue en la épica #111. Mientras tanto, el código y esos documentos mandan sobre lo que ya cumplen.
+Aplicación: hasta que se mergee cada issue de la épica #111, rigen los nombres, labels e idioma actuales (`tipo:`, `logica-negocio`, descripciones de commit en español). Nadie usa los nombres nuevos antes de que su issue los introduzca; `AGENTS.md`, `docs/convencion-nombres-github.md` y `labels.yml` se alinean issue por issue.
 
 Origen: épica #111 e issue #112. Decisiones D1–D6 aprobadas por @lautioliver en el chat el 2026-10-15.
 
@@ -20,13 +20,13 @@ Origen: épica #111 e issue #112. Decisiones D1–D6 aprobadas por @lautioliver 
 
 ## Decisión
 
-1. **R-1 (D1). La prosa se publica en dos idiomas como archivos hermanos.** `X.md` en inglés y `X.es.md` en español (por ejemplo `SKILL.md` y `SKILL.es.md`). Aplica a lo que se lee (README, guías, landing) y a lo que se instala (`AGENTS.md`, skills, `docs/`, plantillas de issue y PR). `init-plantilla.sh --lang es` reemplaza cada `X.md` por su `X.es.md` y borra los hermanos; con `en` (default) borra los `.es.md`. Combina con `--chico` sin perfiles nuevos: `perfiles/chico/` también tiene hermanos. Un check de `check-docs.py` avisa si una versión quedó atrás (mismo número de encabezados y de bloques de código).
+1. **R-1 (D1). La prosa se publica en dos idiomas como archivos hermanos.** `X.md` en inglés y `X.es.md` en español (por ejemplo `SKILL.md` y `SKILL.es.md`). Aplica a lo que se lee (README, guías, landing) y a lo que se instala (`AGENTS.md`, skills, `docs/`, plantillas de issue y PR). `init-plantilla.sh --lang es` reemplaza cada `X.md` por su `X.es.md` y borra los hermanos; con `en` (default) borra los `.es.md`. Combina con `--chico` sin perfiles nuevos: `perfiles/chico/` también tiene hermanos. Un check de `check-docs.py` falla si una versión quedó atrás (mismo número de encabezados y de bloques de código, como mínimo; el detalle lo define #113).
 2. **R-2 (D2). Los labels son siempre en inglés, en los dos idiomas.** `type:`, `area:`, `priority:`, `status:`, `business-logic`, `breaking-change`. Son identificadores, como los tipos de commit. Los proyectos en 0.9 migran con `aliases` de label-sync, que conserva los labels ya puestos en los issues.
 3. **R-3 (D3). Archivos, rutas y claves JSON van en inglés.** Por ejemplo scripts/agents/guardrails.py (a crear), docs/agents-map.json (a crear), claves `when` y `review`. Solo se traduce la prosa. `actualizar.py` lleva una tabla de renombres para proyectos en 0.9.
 4. **R-4 (D4). Los mensajes de los scripts salen solo en inglés.** No se traducen ni se parametrizan por idioma.
 5. **R-5 (D5). Los cambios con ruptura (R-2, R-3) entran antes del tag `v1.0.0`.** En 0.x se puede romper compatibilidad. El issue #91 queda bloqueado por la épica #111.
 6. **R-6 (D6). La descripción de commits y los títulos de PR van en el idioma de instalación.** Los tipos y scopes de Conventional Commits siguen en inglés. Hoy `AGENTS.md` fija español; pasa a depender de `--lang`.
-7. **R-7. Los ADRs del kit no son los del proyecto.** Un ADR con `Ámbito: kit` explica por qué el kit es como es y vive solo en este repo. `init-plantilla.sh` no instala los ADRs con `Ámbito: kit`: instala `docs/decisions/README.md` y `ADR-000-plantilla.md`, y el proyecto numera sus ADRs desde `ADR-001` en su propio repo. Los ADRs de `perfiles/` y de proyectos instalados no llevan ese ámbito. La línea es exactamente `Ámbito: kit`, justo debajo de `## Estado`; se documenta en `decisions/README.md`. Hasta que `init-plantilla.sh` la filtre (issue de la épica #111), el init sigue copiando este ADR y sus links: el issue del init tiene que quitar también las entradas del kit de `docs/README.md` y `docs/llms.txt`.
+7. **R-7. Los ADRs del kit no son los del proyecto.** Un ADR con la línea exacta `Ámbito: kit` (debajo de `## Estado`, ver `decisions/README.md`) explica por qué el kit es como es y vive solo en este repo. `init-plantilla.sh` (modo completo y `--chico`) borra esos ADRs y las líneas que los listan en `docs/README.md` y `docs/llms.txt`, que van entre marcadores `<!-- plantilla:inicio -->` y `<!-- plantilla:fin -->`; el proyecto numera los suyos desde `ADR-001` y conserva el TODO de su primer ADR. `actualizar.py` y `crecer.py` inicializan con el mismo init, así que el filtro les llega: un proyecto en 0.9 con su propio `ADR-001` no recibe el del kit. Esto ya está implementado y probado en `scripts/test-init.sh`. Los ADRs de proyectos instalados no llevan el ámbito.
 
 ## Alternativas descartadas
 
@@ -46,10 +46,10 @@ Origen: épica #111 e issue #112. Decisiones D1–D6 aprobadas por @lautioliver 
 
 | 0.9 | Nuevo |
 |---|---|
-| `tipo:*` | `type:*` |
+| `tipo:*` | `type:*` (los valores de tipo, `bug`, `docs`… se revisan en #114: los que ya son inglés quedan igual) |
 | `area:*` | `area:*` (sin cambio) |
-| `prioridad:*` | `priority:*` |
-| `estado:*` | `status:*` |
+| `prioridad:critica`, `alta`, `media`, `baja` | `priority:critical`, `high`, `medium`, `low` |
+| `estado:a-triar`, `necesita-info`, `bloqueado` | `status:triage`, `needs-info`, `blocked` |
 | `logica-negocio` | `business-logic` |
 | `breaking-change` | `breaking-change` (sin cambio) |
 

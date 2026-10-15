@@ -60,7 +60,10 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 ### Decisiones
 
 - [Cómo se escribe un ADR](decisions/README.md)
-- [ADR-001](decisions/ADR-001-idioma-labels-y-nombres-en-ingles.md) — idioma del kit: prosa en dos idiomas, labels y nombres en inglés (ADR del kit, no se instala)
+<!-- plantilla:inicio -->
+- [ADR-001 (kit)](decisions/ADR-001-idioma-labels-y-nombres-en-ingles.md) — idioma del kit: prosa en dos idiomas, labels y nombres en inglés (ADR del kit: el init no lo instala)
+<!-- plantilla:fin -->
+- TODO: `- [ADR-001](decisions/ADR-001-....md) — resumen en una línea`
 
 ### Guías
 

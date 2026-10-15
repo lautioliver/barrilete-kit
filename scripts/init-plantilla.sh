@@ -51,10 +51,13 @@ if [ -n "$CHICO" ]; then
   perl -pi -e 's/ Si sí: cuál, y agregá el label `logica-negocio`\./ Si sí: cuál, y por qué cambia./' .github/pull_request_template.md
 fi
 rm -rf perfiles
+# Los ADRs del kit (línea "Ámbito: kit", ver docs/decisions/README.md) explican cómo es la plantilla,
+# no el proyecto: el proyecto numera los suyos desde ADR-001. Sus líneas de los índices van en bloques plantilla:.
+{ grep -rlx 'Ámbito: kit' docs/decisions 2>/dev/null || true; } | while read -r f; do rm -f -- "$f"; done
 # La marca (Barrilete) y la guía de prueba son de la plantilla, no del proyecto nuevo.
 rm -rf .github/marca
 rm -f docs/probar-la-plantilla.md .github/ISSUE_TEMPLATE/5-prueba.yml
-for f in README.md README.en.md; do
+for f in README.md README.en.md docs/README.md docs/llms.txt; do
   [ -f "$f" ] || continue
   # marca: lo de Barrilete. plantilla: lo que solo sirve en el repo de la plantilla (la guía de prueba).
   perl -0pi -e 's/<!-- (marca|plantilla):inicio -->.*?<!-- \1:fin -->\n\n?//gs' "$f"
