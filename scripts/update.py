@@ -96,12 +96,14 @@ def inicializar(clon, ref, destino, kit):
         salir(f"cannot find {ref} in the template: {tar.stderr.decode().strip()}")
     subprocess.run(["tar", "-xf", "-"], cwd=destino, input=tar.stdout, check=True)
     sh("git", "init", "-q", cwd=destino)
-    args = ["./scripts/init-template.sh", kit["project"], kit["base_branch"]]
+    # The origin version may predate the renames: it has init-plantilla.sh, --chico and AGENT_KIT_FECHA.
+    nuevo = os.path.exists(os.path.join(destino, "scripts", "init-template.sh"))
+    args = ["./scripts/init-template.sh" if nuevo else "./scripts/init-plantilla.sh", kit["project"], kit["base_branch"]]
     if kit.get("releases"):
         args.append("releases")
     if kit.get("mode") == "small":
-        args.append("--small")
-    sh(*args, cwd=destino, env=dict(os.environ, AGENT_KIT_DATE=kit.get("date", "")))
+        args.append("--small" if nuevo else "--chico")
+    sh(*args, cwd=destino, env=dict(os.environ, **{"AGENT_KIT_DATE" if nuevo else "AGENT_KIT_FECHA": kit.get("date", "")}))
 
 
 def changelog(clon, ref, desde):

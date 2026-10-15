@@ -16,7 +16,7 @@ Regla de fondo (`docs/README.md`): si un doc y el código no coinciden, **gana e
    python3 scripts/agents/agents_map.py            # rama actual contra la base
    python3 scripts/agents/agents_map.py --pr <n>   # o un PR
    ```
-   Lista los docs que el mapa (`docs/agents-map.json`) asocia a los archivos cambiados, marcando los que siguen **SIN MODIFICAR**.
+   Lista los docs que el mapa (`docs/agents-map.json`) asocia a los archivos cambiados, marcando los que siguen **NOT MODIFIED**.
 2. **Revisar cada uno** contra el diff (`git diff <base>...HEAD`). El mapa sugiere; vos decidís. Un doc listado puede no necesitar cambios (el cambio no altera lo que describe), y un doc no listado puede necesitarlos.
 3. **Además del mapa**, revisá siempre:
    - ¿Cambió un comando o una convención? → `AGENTS.md`.

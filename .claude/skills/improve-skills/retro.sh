@@ -9,6 +9,8 @@
 #        retro.sh --consolidated <commit> <PR link>  marks what is consolidated (used by /improve-skills)
 set -euo pipefail
 AQUI=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=/dev/null
+. "$AQUI/legacy-names.sh"
 if [ $# -eq 0 ]; then
   echo "Usage: $0 <file.md>. Retro format:"; echo
   cat "$AQUI/retro-template.md"; exit 0
@@ -74,6 +76,7 @@ else
     echo "retro.sh: the retro must start with a frontmatter between two --- lines. Format:" >&2
     cat "$AQUI/retro-template.md" >&2; exit 1
   fi
+  fm=$(normalize_legacy_names <<<"$fm")  # 0.9 values (orquestar, implementador…) become the new ones
   skill=$(campo skill "$fm"); issue=$(campo issue "$fm"); pr=$(campo pr "$fm"); corrida=$(campo corrida "$fm")
   issue="${issue#\#}"; pr="${pr#\#}"
   case "$skill" in implement-issue|review-pr|improve-skills|orchestrate) ;; *)

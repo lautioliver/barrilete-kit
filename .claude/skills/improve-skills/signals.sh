@@ -6,6 +6,9 @@
 set -euo pipefail
 DIAS="${1:-30}"
 RAMA=agentes/retros
+AQUI=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=/dev/null
+. "$AQUI/legacy-names.sh"
 cd "$(git rev-parse --show-toplevel)" || exit 1
 desde=$(date -u -v-"${DIAS}"d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "$DIAS days ago" +%Y-%m-%dT%H:%M:%SZ)
 
@@ -32,7 +35,7 @@ else
     echo "_None since the last consolidation._"
   else
     while IFS= read -r f; do
-      echo "### $f"; git show "$punta:$f"; echo
+      echo "### $f"; git show "$punta:$f" | normalize_legacy_names; echo
     done <<<"$nuevas"
   fi
   echo "To mark this as consolidated, consolidate up to: $punta"

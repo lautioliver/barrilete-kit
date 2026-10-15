@@ -16,6 +16,9 @@ import re
 import sys
 
 MARCA = "# ── project's own labels (the ones the repo already had) ─────────"
+# The 0.9 text of the marker: a labels.yml from 0.9 has its own section under it.
+MARCA_0_9 = "# ── propios del proyecto (los que ya tenía el repo) ──────────────"
+_ALIAS = re.compile(r'^\s+-\s*["\']?(.*?)["\']?\s*$')
 _NOMBRE = re.compile(r'^- name:\s*["\']?(.*?)["\']?\s*$')
 _COLOR = re.compile(r'^(\s+color:\s*)["\']?[0-9A-Fa-f]{3,6}["\']?\s*$')
 
@@ -29,18 +32,26 @@ def _bloque(nombre, color, descripcion):
 def combinar(base, existentes):
     """Returns `base` plus the labels of `existentes` ([{name, color, description}]).
 
-    No repeated names (GitHub ignores case). If the name is already in the kit,
+    No repeated names (GitHub ignores case). If the name is already in the kit (or is an alias of a kit label),
     the repo color and the kit description are kept. It is idempotent.
     """
-    kit = base.split(MARCA)[0].rstrip("\n") + "\n"  # without the own section of a previous run
+    kit = base.split(MARCA_0_9)[0].split(MARCA)[0].rstrip("\n") + "\n"  # without the own section of a previous run
     por_nombre = {e["name"].lower(): e for e in existentes}
 
-    salida, actual, kit_nombres = [], None, set()
+    salida, actual, kit_nombres, en_aliases = [], None, set(), False
     for linea in kit.splitlines():
         m = _NOMBRE.match(linea)
         if m:
             actual = m.group(1).lower()
             kit_nombres.add(actual)
+            en_aliases = False
+        elif re.match(r"^\s+aliases:\s*$", linea):
+            en_aliases = True
+        elif en_aliases and _ALIAS.match(linea):
+            # An alias is a kit label (label-sync renames it): it is not the project's own.
+            kit_nombres.add(_ALIAS.match(linea).group(1).lower())
+        else:
+            en_aliases = False
         c = _COLOR.match(linea)
         if c and actual in por_nombre:
             linea = f'{c.group(1)}"{por_nombre[actual]["color"].lstrip("#").upper()}"'

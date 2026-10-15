@@ -258,7 +258,8 @@ printf -- '---\nskill: orquestar\nissue: 33\nmodelo: haiku\nrol: implementador-l
 (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v1.md" >/dev/null 2>&1); c=$?
 afirmar "$c" "retro.sh acepta una retro con skill: orquestar (0.9)"
 archivos | grep -Eq 'retros/[0-9-]+-orchestrate-33(-[0-9]+)?\.md$'; afirmar $? "la retro vieja se guarda como orchestrate-<n>"
-r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'orchestrate-33' | tail -1)" 2>/dev/null)
+r=$(for f in $(archivos | grep -E 'orchestrate-33'); do git --git-dir="$TMP/remoto.git" show "$RAMA:$f"; done)
+r=$(grep -B8 -A1 '^agente_sha: 1111' <<<"$r")
 grep -q '^skill: orchestrate$' <<<"$r" && grep -q '^rol: implementer-light$' <<<"$r"; afirmar $? "normaliza skill: y rol: a los valores nuevos"
 grep -q '^agente_sha: 1111111111111111111111111111111111111111$' <<<"$r"; afirmar $? "conserva agente_sha al normalizar el rol"
 printf -- '---\nskill: mejorar-skills\npr: 7\nmodelo: opus\nrol: revisor\n---\nvieja2\n' >"$TMP/v2.md"
