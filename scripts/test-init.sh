@@ -34,6 +34,7 @@ for modo in completo chico; do
   ! [ -e "$p/docs/try-the-template.md" ] && ! [ -e "$p/.github/ISSUE_TEMPLATE/5-trial.yml" ]
   afirmar $? "[$modo] el init borra la guía y el formulario de prueba (son de la plantilla, no del proyecto)"
   ! grep -rq 'try-the-template' "$p"/README*.md; afirmar $? "[$modo] el README del proyecto no enlaza la guía de prueba borrada"
+  ! grep -q 'README.es.md\|lang:start' "$p/README.md"; afirmar $? "[$modo] el README del proyecto no tiene el selector de idioma (lo borra el init)"
   n=$(cd "$p" && git check-ignore .env .env.local scripts/agents/__pycache__ | wc -l | tr -d ' ')
   es "$n" = 3; afirmar $? "[$modo] .env, .env.local y __pycache__ están ignorados"
   ! (cd "$p" && git check-ignore -q .env.example); afirmar $? "[$modo] .env.example no está ignorado"
@@ -71,7 +72,8 @@ import re, sys
 raiz = sys.argv[1]
 guia = re.findall(r"^(\d+)\. \*\*([^*:]+):?\*\*", open(f"{raiz}/docs/try-the-template.es.md", encoding="utf-8").read(), re.M)  # el formulario está en español: se compara con la guía en español (si el formulario se traduce, pasar a la guía inglesa)
 form = re.findall(r"^ +- \"?(\d+)\. ([^\"\n]+)\"?$", open(f"{raiz}/.github/ISSUE_TEMPLATE/5-trial.yml", encoding="utf-8").read(), re.M)
-sys.exit(0 if guia and [(n, t.strip()) for n, t in guia] == [(n, t.strip()) for n, t in form] else 1)
+en = re.findall(r"^(\d+)\. \*\*([^*:]+):?\*\*", open(f"{raiz}/docs/try-the-template.md", encoding="utf-8").read(), re.M)
+sys.exit(0 if guia and [(n, t.strip()) for n, t in guia] == [(n, t.strip()) for n, t in form] and [n for n, _ in en] == [n for n, _ in guia] else 1)
 PY
 afirmar $? "los pasos del formulario de prueba coinciden con los de la guía"
 

@@ -1,4 +1,6 @@
+<!-- lang:start -->
 <p align="right"><a href="README.md">🇬🇧 English</a> · <b>🇦🇷 Español</b></p>
+<!-- lang:end -->
 
 <!-- brand:start -->
 <p align="center"><img src=".github/brand/drone-on-leash.svg" width="240" alt="Barrilete, un dron atado a una correa con dos nudos"></p>

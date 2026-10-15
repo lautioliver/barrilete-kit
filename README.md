@@ -1,4 +1,6 @@
+<!-- lang:start -->
 <p align="right"><b>🇬🇧 English</b> · <a href="README.es.md">🇦🇷 Español</a></p>
+<!-- lang:end -->
 
 <!-- brand:start -->
 <p align="center"><img src=".github/brand/drone-on-leash.svg" width="240" alt="Barrilete, a drone tied to a leash with two knots"></p>
