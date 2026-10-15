@@ -18,5 +18,4 @@ scripts/agents/verify.py
 docs/agents
 .claude/agents
 scripts/agents/test-agents.sh
-README.en.md
 .claude/skills/orchestrate

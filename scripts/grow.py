@@ -21,7 +21,7 @@ import sys
 import tempfile
 
 PLANTILLA = os.environ.get("AGENT_KIT_TEMPLATE", "https://github.com/lautioliver/barrilete-kit")
-NO_TRAER = {"README.md", "README.en.md", "LICENSE", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
+NO_TRAER = {"README.md", "README.es.md", "LICENSE", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
 PENDIENTES = ".agent-kit/pending"
 
 

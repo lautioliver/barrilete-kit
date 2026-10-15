@@ -69,7 +69,7 @@ afirmar $? "la plantilla trae la guía de prueba, enlazada desde el README, y la
 python3 - "$RAIZ" <<'PY'
 import re, sys
 raiz = sys.argv[1]
-guia = re.findall(r"^(\d+)\. \*\*([^*:]+):?\*\*", open(f"{raiz}/docs/try-the-template.md", encoding="utf-8").read(), re.M)
+guia = re.findall(r"^(\d+)\. \*\*([^*:]+):?\*\*", open(f"{raiz}/docs/try-the-template.es.md", encoding="utf-8").read(), re.M)  # el formulario está en español: se compara con la guía en español (si el formulario se traduce, pasar a la guía inglesa)
 form = re.findall(r"^ +- \"?(\d+)\. ([^\"\n]+)\"?$", open(f"{raiz}/.github/ISSUE_TEMPLATE/5-trial.yml", encoding="utf-8").read(), re.M)
 sys.exit(0 if guia and [(n, t.strip()) for n, t in guia] == [(n, t.strip()) for n, t in form] else 1)
 PY

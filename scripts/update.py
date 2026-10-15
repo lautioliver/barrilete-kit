@@ -27,7 +27,7 @@ import tempfile
 
 PLANTILLA = os.environ.get("AGENT_KIT_TEMPLATE", "https://github.com/lautioliver/barrilete-kit")
 # The project's, even if the template has them too: the template README explains the template itself.
-NO_TRAER = {"README.md", "README.en.md", "LICENSE", ".agent-kit.json", ".github/team.json"}
+NO_TRAER = {"README.md", "README.es.md", "LICENSE", ".agent-kit.json", ".github/team.json"}
 PENDIENTES = ".agent-kit/pending"
 USO = "Usage: python3 scripts/update.py [--version vX.Y.Z] [--template <url or path>]"
 
