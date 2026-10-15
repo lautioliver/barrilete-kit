@@ -13,7 +13,7 @@ Las skills aprenden de su uso, pero **no se reescriben solas**: esta skill propo
 .claude/skills/improve-skills/signals.sh [días]
 ```
 
-Trae las retros nuevas de la rama `agents/retros` (desde `consolidated.md`; un archivo por retro, con `skill_sha` para saber con qué versión de la skill se hizo, y `model` y `role` para saber quién la hizo) y las de la rama vieja `agentes/retros` (0.9), que no se reescribe: las claves y valores viejos se muestran con los nuevos, así cuentan como el mismo grupo y las señales objetivas: fallas de CI en ramas `claude/` agrupadas por workflow, y reverts. Las señales objetivas pesan más que las retros: el agente no ve sus propios puntos ciegos.
+Trae las retros nuevas de la rama `agents/retros` (desde `consolidated.md`; un archivo por retro, con `skill_sha` para saber con qué versión de la skill se hizo, y `model` y `role` para saber quién la hizo) y las de la rama vieja `agentes/retros` (0.9), que no se reescribe: las claves y valores viejos se muestran con los nuevos, así cuentan como el mismo grupo. También trae las señales objetivas: fallas de CI en ramas `claude/` agrupadas por workflow, y reverts. Las señales objetivas pesan más que las retros: el agente no ve sus propios puntos ciegos.
 
 Si no hay nada nuevo, decilo y terminá.
 

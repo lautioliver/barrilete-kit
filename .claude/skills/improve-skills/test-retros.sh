@@ -288,6 +288,12 @@ r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'implement-
 grep -q '^skill_sha: unknown$' <<<"$r" && grep -q '^model: unknown$' <<<"$r" && grep -q '^role: session$' <<<"$r"; afirmar $? "skill_sha desconocido y los valores entre comillas pasan a unknown y session"
 igual "$(grep -c '^date:' <<<"$r")" 1; afirmar $? "una clave vieja y su nueva juntas no dejan claves duplicadas"
 
+# Revisión de #129: area con y sin prefijo es el mismo grupo.
+printf -- '---\nskill: implement-issue\nissue: 42\narea: area:docs\n---\narea\n' >"$TMP/v5.md"
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v5.md" >/dev/null 2>&1)
+r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'implement-issue-42' | tail -1)" 2>/dev/null)
+grep -q '^area: docs$' <<<"$r"; afirmar $? "area: area:docs se guarda como area: docs"
+
 # Historial mixto: retros viejas en agentes/retros (claves y valores 0.9) y nuevas en agents/retros.
 git init -q "$TMP/s"; mkdir -p "$TMP/s/.claude/skills"; cp -R "$RAIZ/.claude/skills/improve-skills" "$TMP/s/.claude/skills/"
 SIG="$TMP/s/.claude/skills/improve-skills"
@@ -331,6 +337,9 @@ marca=$(git -C "$TMP/s2" rev-parse "refs/heads/$RAMA_VIEJA")
   && crear_rama "$RAMA_VIEJA" retros/2026-01-03-implement-issue-2.md '---\nskill: implement-issue\nissue: 2\n---\nposterior\n')
 s=$(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/signals.sh" 2>&1)
 grep -q posterior <<<"$s" && ! grep -q anterior <<<"$s"; afirmar $? "signals.sh respeta el consolidado.md viejo de agentes/retros"
+(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/retro.sh" --consolidated "$(git rev-parse "refs/heads/$RAMA_VIEJA")" https://example.test/pull/9 >/dev/null 2>&1)
+s=$(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/signals.sh" 2>&1)
+! grep -q 'consolidate up to: ' <<<"$s"; afirmar $? "signals.sh no ofrece consolidar ramas sin retros nuevas"
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi

@@ -13,7 +13,7 @@ Sos la sesión principal: repartís, coordinás y le hablás a la persona. Los s
 
 - Esta sesión tiene que correr en Opus. Si no lo está, pedile a la persona `/model opus` y esperá.
 - La rama base de los PRs (`<base>`) es la de la regla de ramas de `AGENTS.md`; se la pasás a cada subagente como `BASE=<base>`.
-- Anotá la corrida (el `run` de tu retro, `date +%Y%m%d-%H%M`) para tu retro, y la ruta de tu checkout, el **checkout del orquestador** (`git rev-parse --show-toplevel`): todos los comandos de git van con `git -C <ruta>`. Si `git status --porcelain .claude` muestra cambios, frená y pedí commitearlos: los `agent_sha` y `skill_sha` que pasás salen de los commits, y tienen que ser las definiciones que corren. No cambies de rama ni hagas `pull` durante la corrida.
+- Anotá la corrida (`date +%Y%m%d-%H%M`, es el `run` de tu retro), y la ruta de tu checkout, el **checkout del orquestador** (`git rev-parse --show-toplevel`): todos los comandos de git van con `git -C <ruta>`. Si `git status --porcelain .claude` muestra cambios, frená y pedí commitearlos: los `agent_sha` y `skill_sha` que pasás salen de los commits, y tienen que ser las definiciones que corren. No cambies de rama ni hagas `pull` durante la corrida.
 - Corré `.claude/skills/project-status/available.sh`. Solo se lanzan issues de **"Can be started now"**: un issue bloqueado, ya asignado o con un PR abierto no se lanza nunca, aunque la persona lo nombre (decíselo).
 
 ## 2. Proponer y esperar confirmación
@@ -26,7 +26,7 @@ Elegí hasta **3** issues de "Can be started now", en el orden en que aparecen (
 
 Imprime el modelo y el `reason`. Es la regla de la épica #33, decisión 2: **Haiku solo si el issue es `type:docs` o `type:task`, sin `business-logic` ni `breaking-change` y sin rutas sensibles nombradas en el texto. Lo demás, Sonnet.** Si en la autorevisión `agents_map.py` marca rutas sensibles, Haiku frena y devuelve `escalate`, y lo relanzás con Sonnet en el mismo worktree. `routing.py` se equivoca a propósito hacia Sonnet: una palabra como "infra" o "middleware" en prosa ya cuenta como ruta sensible. No cambies la regla a ojo: si un caso no encaja, proponé el cambio a `routing.py` en un issue.
 
-Mostrale a la persona una tabla (issue, título, modelo, reason) y esperá el "sí". Puede sacar issues o cambiar el modelo de uno a Sonnet; a Haiku solo si `routing.py` lo permite.
+Mostrale a la persona una tabla (issue, título, modelo, `reason`) y esperá el "sí". Puede sacar issues o cambiar el modelo de uno a Sonnet; a Haiku solo si `routing.py` lo permite.
 
 ## 3. Lanzar
 

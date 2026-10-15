@@ -65,7 +65,7 @@ Un hook (`scripts/agents/guardrails.py`, registrado en `.claude/settings.json`) 
 
 Las skills mejoran con el uso: `implement-issue` y `review-pr` terminan con una retro en la rama `agents/retros` (`retro.sh`) y `/improve-skills` propone ajustes **siempre en un PR**; nunca quita ni afloja estas reglas. Lo que no llega a skill queda en `docs/agents/lessons.md`: es lo único de las retros que leen los agentes. Un PR con `business-logic` tiene que enmendar el ADR de la regla o decir "ADR sin cambios: <motivo>" (lo controla el check de labels).
 
-**Subagentes** (`.claude/agents/`, los lanza `/orchestrate`: `implementer` en Sonnet, `implementer-light` en Haiku, `reviewer` en Opus): las mismas reglas, más `docs/agents/subagent-contract.md`. Trabajan solo en su worktree, no pueden consultar a la persona (comentan en el issue y devuelven `consulta`), nunca publican reviews ni comentarios en PRs, y el liviano escala a Sonnet si el issue toca rutas sensibles o lógica de negocio.
+**Subagentes** (`.claude/agents/`, los lanza `/orchestrate`: `implementer` en Sonnet, `implementer-light` en Haiku, `reviewer` en Opus): las mismas reglas, más `docs/agents/subagent-contract.md`. Trabajan solo en su worktree, no pueden consultar a la persona (comentan en el issue y devuelven `question`), nunca publican reviews ni comentarios en PRs, y el liviano escala a Sonnet si el issue toca rutas sensibles o lógica de negocio.
 
 Las rutas de cada categoría están en `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` dice si un cambio las toca, y `scripts/agents/verify.py` corre, antes del PR, las verificaciones que corresponden a lo que cambió (sección `verify` del mapa).
 

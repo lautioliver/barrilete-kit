@@ -13,9 +13,11 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 desde=$(date -u -v-"${DIAS}"d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "$DIAS days ago" +%Y-%m-%dT%H:%M:%SZ)
 
 # Shows the retros of a branch added after <hasta> (all if empty) and the commit to consolidate up to.
+# Sets hay=1 if there was something new (the commit to consolidate is only offered then).
 # mostrar <punta> <branch> <hasta> <label to add to each file ("" for the new branch)>
 mostrar() {
   local punta=$1 rama=$2 hasta=$3 sufijo=$4 nuevas f
+  hay=""
   if [ -n "$hasta" ] && git merge-base --is-ancestor "$hasta" "$punta" 2>/dev/null; then
     nuevas=$(git diff --name-only --diff-filter=A "$hasta" "$punta" -- retros/)
   else
@@ -25,6 +27,7 @@ mostrar() {
   if [ -z "$nuevas" ]; then
     echo "_None in $rama since the last consolidation._"
   else
+    hay=1
     while IFS= read -r f; do
       echo "### $f$sufijo"; git show "$punta:$f" | normalize_legacy_names; echo
     done <<<"$nuevas"
@@ -43,7 +46,7 @@ else
   if [ -n "$punta" ]; then
     hasta=$(sed -n 's/^consolidated-until: *//p' <<<"$marcas" | head -1 || true)
     mostrar "$punta" "$RETROS_BRANCH" "$hasta" ""
-    echo "To mark this as consolidated, consolidate up to: $punta"
+    [ -z "$hay" ] || echo "To mark this as consolidated, consolidate up to: $punta"
   fi
   if [ -n "$punta_vieja" ]; then
     # The marker of the 0.9 branch lives in consolidated.md of the new one; before that, in its own consolidado.md.
@@ -52,7 +55,7 @@ else
     echo
     echo "### 0.9 branch ($RETROS_LEGACY_BRANCH)"
     mostrar "$punta_vieja" "$RETROS_LEGACY_BRANCH" "$hasta" " ($RETROS_LEGACY_BRANCH)"
-    echo "To mark the 0.9 branch ($RETROS_LEGACY_BRANCH) as consolidated, consolidate up to: $punta_vieja"
+    [ -z "$hay" ] || echo "To mark the 0.9 branch ($RETROS_LEGACY_BRANCH) as consolidated, consolidate up to: $punta_vieja"
   fi
 fi
 

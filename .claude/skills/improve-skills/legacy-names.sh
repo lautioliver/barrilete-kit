@@ -41,6 +41,7 @@ normalize_legacy_names() {
       nk = (key in K) ? K[key] : key
       vk = val; gsub(/ /, "_", vk); vk = nk ":" vk
       nv = val
+      if (nk == "area" && nv ~ /^area:/) nv = trim(substr(nv, 6))   # `area: area:docs` and `area: docs` are the same group
       if (vk in V) { nv = V[vk]; gsub(/_/, " ", nv) }
       if (nk != key || nv != val) { print nk ":" (nv == "" ? "" : " " nv); next }
     }
