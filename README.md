@@ -174,7 +174,7 @@ Los lanza `/orchestrate` desde la sesión principal. Comparten las reglas y el f
 > [!NOTE]
 > Las skills mejoran con el uso, pero **no se reescriben solas**.
 
-1. Cada `implement-issue` y `review-pr` deja una retro en la rama `agentes/retros`. Es solo git: no ensucia los PRs ni depende de GitHub.
+1. Cada `implement-issue` y `review-pr` deja una retro en la rama `agents/retros`. Es solo git: no ensucia los PRs ni depende de GitHub.
 2. `/improve-skills` busca patrones (al menos dos casos, o uno grave) y prefiere convertirlos en scripts o checks antes que en más texto. Siempre propone en un PR, y se puede programar para que corra una vez por semana.
 3. Lo que sirve pero no alcanza para cambiar una skill va a `docs/agents/lessons.md`, que `implement-issue` lee antes de empezar. Los agentes aprenden de lo consolidado y revisado, nunca de retros crudas.
 
@@ -310,7 +310,7 @@ Las skills no tienen nada propio de Claude Code: son Markdown con scripts en bas
 
 - `gh` autenticado, `jq` y `python3` en la máquina donde corre el agente.
 - **Sub-issues y dependencias de issues** ("Blocked by" / "Blocking") habilitados en GitHub. Sin ellos, las skills avisan con el error (404/422) y dejan el bloqueo escrito en el cuerpo del issue, pero `planner.py`, `available.sh`, `prepare.sh` y `unblock.yml` pierden la parte automática.
-- Que los agentes puedan pushear a la rama `agentes/retros`. Si protegés ramas con un patrón amplio (`*`), excluila. Si no pueden, `retro.sh` deja las retros en `.git/retros-pendientes/`.
+- Que los agentes puedan pushear a la rama `agents/retros`. Si protegés ramas con un patrón amplio (`*`), excluila. Si no pueden, `retro.sh` deja las retros en `.git/pending-retros/`.
 
 ## 📄 Licencia
 

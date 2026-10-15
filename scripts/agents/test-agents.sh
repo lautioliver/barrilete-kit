@@ -39,9 +39,14 @@ done
 ! grep -q "Edit" <<<"$(frontmatter "$RAIZ/$AGENTES/reviewer.md" 2>/dev/null | grep '^tools:')"; afirmar $? "revisor: no puede editar código (Write solo para la revisión y la retro)"
 
 # 2. El contrato de salida está en un solo lugar, con todos los resultados.
-for r in pr consulta escalar soltado bloqueantes; do
+for r in pr question escalate dropped blockers; do
   grep -q "\`$r\`" "$RAIZ/$CONTRATO" 2>/dev/null; afirmar $? "el contrato define el resultado $r"
 done
+for k in result issue pr model role ci self-review summary "for the reviewer" questions reason retro; do
+  grep -q "^$k: " "$RAIZ/$CONTRATO" 2>/dev/null; afirmar $? "el bloque de salida del contrato tiene la clave $k"
+done
+grep -q 'agrega al final .review:.' "$RAIZ/$CONTRATO" 2>/dev/null; afirmar $? "el contrato dice que el revisor agrega review:"
+! grep -Eq '^(resultado|modelo|rol|autorevision|resumen|para el revisor|consultas|motivo|revision):' "$RAIZ/$CONTRATO" 2>/dev/null; afirmar $? "el contrato no conserva claves de salida en español"
 grep -q "retro.sh" "$RAIZ/$CONTRATO" 2>/dev/null; afirmar $? "el contrato dice que cada subagente guarda su retro con retro.sh"
 
 # 3. El liviano dice exactamente cuándo escalar.

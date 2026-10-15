@@ -165,7 +165,7 @@ They live in `.claude/skills/`.
 > [!NOTE]
 > Skills get better with use, but **they never rewrite themselves**.
 
-1. Every `implement-issue` and `review-pr` run leaves a retro on the `agentes/retros` branch. It's plain git: it doesn't clutter PRs or depend on GitHub.
+1. Every `implement-issue` and `review-pr` run leaves a retro on the `agents/retros` branch. It's plain git: it doesn't clutter PRs or depend on GitHub.
 2. `/improve-skills` looks for patterns (at least two cases, or one serious one) and prefers turning them into scripts or checks over adding more text. It always proposes through a PR, and can be scheduled to run weekly.
 3. Whatever is useful but not enough to change a skill goes to `docs/agents/lessons.md`, which `implement-issue` reads before starting. Agents learn from consolidated, reviewed lessons, never from raw retros.
 
@@ -301,7 +301,7 @@ Skills have nothing specific to Claude Code: they are Markdown with bash and Pyt
 
 - An authenticated `gh`, `jq` and `python3` on the machine where the agent runs.
 - **Sub-issues and issue dependencies** ("Blocked by" / "Blocking") enabled on GitHub. Without them, skills report the error (404/422) and write the blocker into the issue body, but `planner.py`, `available.sh`, `prepare.sh` and `unblock.yml` lose the automatic part.
-- Agents must be able to push to the `agentes/retros` branch. If you protect branches with a broad pattern (`*`), exclude it. If they can't push, `retro.sh` keeps retros in `.git/retros-pendientes/`.
+- Agents must be able to push to the `agents/retros` branch. If you protect branches with a broad pattern (`*`), exclude it. If they can't push, `retro.sh` keeps retros in `.git/pending-retros/`.
 
 ## 📄 License
 

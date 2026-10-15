@@ -76,7 +76,7 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 - [`github-naming-convention.md`](github-naming-convention.md) — ramas, commits, PRs, issues y labels ([`.github/labels.yml`](../.github/labels.yml))
 - [`agents-map.json`](agents-map.json) — qué docs revisar según lo que cambia, rutas sensibles y docs obligatorios
 - [`agents/subagent-contract.md`](agents/subagent-contract.md) — reglas y formato de salida de los subagentes de `.claude/agents/` (implementador, implementador liviano, revisor)
-- [`agents/lessons.md`](agents/lessons.md) — lo aprendido de las retros de los agentes, revisado en un PR (las retros crudas viven en la rama `agentes/retros`)
+- [`agents/lessons.md`](agents/lessons.md) — lo aprendido de las retros de los agentes, revisado en un PR (las retros crudas viven en la rama `agents/retros`)
 - Skills en [`../.claude/skills/`](../.claude/skills/): `plan-feature`, `create-issue`, `implement-issue`, `debug`, `db-migration`, `update-docs`, `review-pr`, `project-status`, `git-workflow`, `improve-skills`, `orchestrate`
 - Los docs se validan en CI: [`../scripts/agents/check-docs.py`](../scripts/agents/check-docs.py)
 

@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Saves a retro of the agent flow as a file on the orphan branch
-# agentes/retros (retros/YYYY-MM-DD-<skill>-<n>.md; <n> is the issue, the orchestrate
+# agents/retros (retros/YYYY-MM-DD-<skill>-<n>.md; <n> is the issue, the orchestrate
 # run or the PR). It does not use GitHub: only git.
 # It writes with plumbing (temporary index), so it changes neither the current branch nor the
 # index, and retries if someone else wrote first. If it cannot save it, it leaves it in
-# <common .git>/retros-pendientes/ to retry with the same command.
+# <common .git>/pending-retros/ to retry with the same command.
+# The 0.9 branch agentes/retros is only read (--consolidated accepts its commits), never written.
+# Retros with 0.9 keys and values (modelo:, rol:...) are accepted and saved with the new ones.
 # Usage: retro.sh <file.md>                          publishes a retro
 #        retro.sh --consolidated <commit> <PR link>  marks what is consolidated (used by /improve-skills)
 set -euo pipefail
@@ -19,12 +21,13 @@ fi
 if [ "$1" != "--consolidated" ] && [ -f "$1" ]; then
   set -- "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 fi
-RAMA=agentes/retros
+RAMA=$RETROS_BRANCH
 cd "$(git rev-parse --show-toplevel)"
 REMOTO=""
 git remote get-url origin >/dev/null 2>&1 && REMOTO=origin
 # The common .git (not the worktree one, which is deleted with git worktree remove).
-PENDIENTES="$(git rev-parse --path-format=absolute --git-common-dir)/retros-pendientes"
+PENDIENTES="$(git rev-parse --path-format=absolute --git-common-dir)/pending-retros"
+PENDIENTES_VIEJO="$(git rev-parse --path-format=absolute --git-common-dir)/retros-pendientes"  # 0.9
 hoy=$(date -u +%Y-%m-%d)
 contenido=$(mktemp); idx=$(mktemp -d)
 modo=""; guardado=0
@@ -44,13 +47,7 @@ trap al_salir EXIT
 
 # The tip of the retros branch: the remote one if it exists; otherwise the local one
 # (retros saved before having a remote).
-punta() {
-  if [ -n "$REMOTO" ]; then
-    git fetch -q "$REMOTO" "+refs/heads/$RAMA:refs/remotes/$REMOTO/$RAMA" 2>/dev/null || true
-    git rev-parse -q --verify "refs/remotes/$REMOTO/$RAMA" && return
-  fi
-  git rev-parse -q --verify "refs/heads/$RAMA" || true
-}
+punta() { retros_tip "$RAMA"; }
 
 # Normalized frontmatter: no CRLF and no quotes around the values.
 # Fails if there is no closed frontmatter at the start.
@@ -61,14 +58,21 @@ frontmatter() {
 campo() { sed -n "s/^$1: *//p" <<<"$2" | head -1 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//'; }
 
 if [ "$1" = "--consolidated" ]; then
-  # Only a commit of the retros branch: with another one, signals.sh would show everything again.
-  p=$(punta)
-  if [ $# -ne 3 ] || ! hasta=$(git rev-parse -q --verify "$2^{commit}") || [ -z "$p" ] \
-    || ! git merge-base --is-ancestor "$hasta" "$p"; then
-    echo "Usage: $0 --consolidated <commit of $RAMA printed by signals.sh> <PR link>" >&2; exit 64
+  # Only a commit of a retros branch (the new one or the 0.9 one): with another one, signals.sh would show everything again.
+  p=$(punta); pv=$(retros_tip "$RETROS_LEGACY_BRANCH")
+  uso="Usage: $0 --consolidated <commit of $RAMA or $RETROS_LEGACY_BRANCH printed by signals.sh> <PR link>"
+  if [ $# -ne 3 ] || ! hasta=$(git rev-parse -q --verify "$2^{commit}"); then echo "$uso" >&2; exit 64; fi
+  if [ -n "$p" ] && git merge-base --is-ancestor "$hasta" "$p"; then clave=consolidated-until; otro=legacy-consolidated-until
+  elif [ -n "$pv" ] && git merge-base --is-ancestor "$hasta" "$pv"; then clave=legacy-consolidated-until; otro=consolidated-until
+  else echo "$uso" >&2; exit 64
   fi
-  printf 'consolidado-hasta: %s\npr: %s\nfecha: %s\n' "$hasta" "$3" "$hoy" >"$contenido"
-  base=consolidado; mensaje="improve-skills: consolidated up to $hasta"
+  # One marker per branch, both in consolidated.md of the new branch (the 0.9 one is never written): the other one is kept.
+  previo=""
+  [ -z "$p" ] || previo=$(git show "$p:consolidated.md" 2>/dev/null | sed -n "s/^$otro: *//p" | head -1 || true)
+  { printf '%s: %s\n' "$clave" "$hasta"
+    [ -z "$previo" ] || printf '%s: %s\n' "$otro" "$previo"
+    printf 'pr: %s\ndate: %s\n' "$3" "$hoy"; } >"$contenido"
+  base=consolidated; mensaje="improve-skills: consolidated up to $hasta"
 else
   ARCHIVO="$1"
   [ -s "$ARCHIVO" ] || { echo "retro.sh: $ARCHIVO does not exist or is empty." >&2; exit 1; }
@@ -76,8 +80,8 @@ else
     echo "retro.sh: the retro must start with a frontmatter between two --- lines. Format:" >&2
     cat "$AQUI/retro-template.md" >&2; exit 1
   fi
-  fm=$(normalize_legacy_names <<<"$fm")  # 0.9 values (orquestar, implementador…) become the new ones
-  skill=$(campo skill "$fm"); issue=$(campo issue "$fm"); pr=$(campo pr "$fm"); corrida=$(campo corrida "$fm")
+  fm=$({ echo ---; echo "$fm"; echo ---; } | normalize_legacy_names | sed '1d;$d' | awk '/^[a-z_]+:/ { k = $0; sub(/:.*/, "", k); if (seen[k]++) next } { print }')  # 0.9 keys and values (modelo:, orquestar…) become the new ones; a 0.9 key next to its new one: the first stays
+  skill=$(campo skill "$fm"); issue=$(campo issue "$fm"); pr=$(campo pr "$fm"); run=$(campo run "$fm")
   issue="${issue#\#}"; pr="${pr#\#}"
   case "$skill" in implement-issue|review-pr|improve-skills|orchestrate) ;; *)
     echo "retro.sh: 'skill:' (implement-issue, review-pr, improve-skills or orchestrate) is missing in the frontmatter. Format:" >&2
@@ -87,33 +91,33 @@ else
   # (YYYYMMDD-HHMM) or, if there is none either, by the PR (a PR without an issue).
   # The run only identifies an orchestrate run.
   if [[ "$issue" =~ ^[0-9]+$ ]]; then n="$issue"
-  elif [ "$skill" = orchestrate ] && [[ "$corrida" =~ ^[0-9]{8}-[0-9]{4}$ ]]; then n="$corrida"
+  elif [ "$skill" = orchestrate ] && [[ "$run" =~ ^[0-9]{8}-[0-9]{4}$ ]]; then n="$run"
   elif [[ "$pr" =~ ^[0-9]+$ ]]; then n="pr$pr"
-  else echo "retro.sh: 'issue: <n>', 'pr: <n>' or (in orchestrate) 'corrida: <YYYYMMDD-HHMM>' is missing in the frontmatter." >&2; exit 1
+  else echo "retro.sh: 'issue: <n>', 'pr: <n>' or (in orchestrate) 'run: <YYYYMMDD-HHMM>' is missing in the frontmatter." >&2; exit 1
   fi
   # In a repo without commits git log fails: the retro is saved anyway, with unknown skill_sha.
-  sha=$(git log -1 --format=%H -- ".claude/skills/$skill/SKILL.md" 2>/dev/null || true); sha="${sha:-desconocido}"
-  # Model and role: if they are missing or empty, the retro is still saved as desconocido / sesion
+  sha=$(git log -1 --format=%H -- ".claude/skills/$skill/SKILL.md" 2>/dev/null || true); sha="${sha:-unknown}"
+  # Model and role: if they are missing or empty, the retro is still saved as unknown / session
   # (sessions before #35, or a template copied without filling it in).
-  modelo=$(campo modelo "$fm"); modelo="${modelo:-desconocido}"
-  rol=$(campo rol "$fm"); rol="${rol:-sesion}"
+  model=$(campo model "$fm"); model="${model:-unknown}"
+  role=$(campo role "$fm"); role="${role:-session}"
   # A subagent (role with a file in .claude/agents/) records the version of its definition.
-  agente_sha=""
-  case "$rol" in implementer|implementer-light|reviewer)
-    agente_sha=$(campo agente_sha "$fm")
-    if [ -z "$agente_sha" ]; then
-      agente_sha=$(git log -1 --format=%H -- ".claude/agents/$rol.md" 2>/dev/null || true); agente_sha="${agente_sha:-desconocido}"
+  agent_sha=""
+  case "$role" in implementer|implementer-light|reviewer)
+    agent_sha=$(campo agent_sha "$fm")
+    if [ -z "$agent_sha" ]; then
+      agent_sha=$(git log -1 --format=%H -- ".claude/agents/$role.md" 2>/dev/null || true); agent_sha="${agent_sha:-unknown}"
     fi;;
   esac
-  # Normalized retro: modelo, rol and agente_sha are written only once, already normalized.
-  fm_limpio=$(grep -vE '^(modelo|rol|agente_sha):' <<<"$fm" || true)
+  # Normalized retro: model, role and agent_sha are written only once, already normalized.
+  fm_limpio=$(grep -vE '^(model|role|agent_sha):' <<<"$fm" || true)
   {
     echo ---; echo "$fm_limpio"
-    grep -q '^fecha:' <<<"$fm_limpio" || echo "fecha: $hoy"
+    grep -q '^date:' <<<"$fm_limpio" || echo "date: $hoy"
     grep -q '^skill_sha:' <<<"$fm_limpio" || echo "skill_sha: $sha"
-    echo "modelo: $modelo"
-    echo "rol: $rol"
-    if [ -n "$agente_sha" ]; then echo "agente_sha: $agente_sha"; fi
+    echo "model: $model"
+    echo "role: $role"
+    if [ -n "$agent_sha" ]; then echo "agent_sha: $agent_sha"; fi
     echo ---; tr -d '\r' <"$ARCHIVO" | awk 'NR>1 && $0=="---" && !c {c=1; next} c'
   } >"$contenido"
   base="retros/$hoy-$skill-$n"; mensaje="retro: $skill $n"; modo=retro
@@ -125,9 +129,9 @@ for intento in 1 2 3 4 5; do
   padre=$(punta)
   rm -f "$idx/index"
   [ -n "$padre" ] && GIT_INDEX_FILE="$idx/index" git read-tree "$padre"
-  # consolidado.md is replaced; a retro never overwrites another (suffix -2, -3…).
+  # consolidated.md is replaced; a retro never overwrites another (suffix -2, -3…).
   ruta="$base.md"; i=2
-  while [ "$base" != consolidado ] && [ -n "$padre" ] && git cat-file -e "$padre:$ruta" 2>/dev/null; do
+  while [ "$base" != consolidated ] && [ -n "$padre" ] && git cat-file -e "$padre:$ruta" 2>/dev/null; do
     ruta="$base-$i.md"; i=$((i + 1))
   done
   GIT_INDEX_FILE="$idx/index" git update-index --add --cacheinfo "100644,$blob,$ruta"
@@ -145,8 +149,11 @@ for intento in 1 2 3 4 5; do
   if [ "$guardado" = 1 ]; then
     if [ -n "$REMOTO" ]; then echo "Saved in $RAMA:$ruta"; else echo "Saved in $RAMA:$ruta (local only: there is no origin remote)."; fi
     # If it was a pending one, it is no longer needed.
-    if [ "$modo" = retro ] && [ "$(cd "$(dirname "$ARCHIVO")" && pwd -P)" = "$(cd "$PENDIENTES" 2>/dev/null && pwd -P)" ]; then
-      rm -f "$ARCHIVO"
+    if [ "$modo" = retro ]; then
+      dir=$(cd "$(dirname "$ARCHIVO")" && pwd -P)
+      if [ "$dir" = "$(cd "$PENDIENTES" 2>/dev/null && pwd -P)" ] || [ "$dir" = "$(cd "$PENDIENTES_VIEJO" 2>/dev/null && pwd -P)" ]; then
+        rm -f "$ARCHIVO"
+      fi
     fi
     exit 0
   fi

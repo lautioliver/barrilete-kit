@@ -6,7 +6,8 @@ AQUI=$(cd "$(dirname "$0")" && pwd)
 RAIZ=$(cd "$AQUI/../../.." && pwd)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-retros-XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
-RAMA=agentes/retros
+RAMA=agents/retros
+RAMA_VIEJA=agentes/retros
 fallas=0
 ok() { echo "ok   - $1"; }
 falla() { echo "FAIL - $1"; fallas=$((fallas + 1)); }
@@ -39,7 +40,7 @@ skill: $2
 issue: $3
 pr: 99
 area: docs
-rutas: docs/README.md
+paths: docs/README.md
 ---
 **Desvíos:** $4
 MD
@@ -54,11 +55,11 @@ igual "$(archivos | wc -l | tr -d " ")" 1; afirmar $? "retro.sh pushea un archiv
 f=$(archivos | head -1)
 grep -Eq '^retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-implement-issue-1\.md$' <<<"$f"; afirmar $? "el nombre es AAAA-MM-DD-<skill>-<n>.md"
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$f" 2>/dev/null)
-for campo in skill issue pr area rutas skill_sha fecha modelo rol; do
+for campo in skill issue pr area paths skill_sha date model role; do
   grep -Eq "^$campo: .+" <<<"$c"; afirmar $? "el frontmatter tiene $campo"
 done
-grep -q '^modelo: desconocido$' <<<"$c" && grep -q '^rol: sesion$' <<<"$c"; afirmar $? "sin modelo ni rol se guardan como desconocido y sesion"
-! grep -q '^agente_sha:' <<<"$c"; afirmar $? "una retro sin rol de subagente no lleva agente_sha"
+grep -q '^model: unknown$' <<<"$c" && grep -q '^role: session$' <<<"$c"; afirmar $? "sin modelo ni rol se guardan como desconocido y sesion"
+! grep -q '^agent_sha:' <<<"$c"; afirmar $? "una retro sin rol de subagente no lleva agent_sha"
 sha=$(cd "$TMP/a" && git log -1 --format=%h -- .claude/skills/implement-issue/SKILL.md)
 sha=$(cd "$TMP/a" && git log -1 --format=%H -- .claude/skills/implement-issue/SKILL.md)
 grep -q "^skill_sha: $sha$" <<<"$c"; afirmar $? "skill_sha es el commit completo del último cambio del SKILL.md"
@@ -74,15 +75,15 @@ retro b review-pr 1 "desde b" >/dev/null 2>&1 || true
 retro a review-pr 1 "desde a" >/dev/null 2>&1 || true
 igual "$(archivos | wc -l | tr -d " ")" 3; afirmar $? "tres retros en el remoto"
 
-# 3 y 4. signals.sh muestra solo lo posterior a consolidado.md.
+# 3 y 4. signals.sh muestra solo lo posterior a consolidated.md.
 s=$(cd "$TMP/a" && "$AQUI/signals.sh" 2>&1)
 grep -q primera <<<"$s" && grep -q "desde a" <<<"$s" && grep -q "desde b" <<<"$s"; afirmar $? "signals.sh sin consolidar muestra todas"
 punta=$(sed -n 's/.*consolidate up to: \([0-9a-f]\{7,\}\).*/\1/p' <<<"$s" | head -1)
 grep -Eq '^[0-9a-f]{40}$' <<<"$punta"; afirmar $? "signals.sh imprime el commit completo para consolidar"
 (cd "$TMP/a" && "$AQUI/retro.sh" --consolidated deadbee https://example.test/pull/7 >/dev/null 2>&1); igual $? 64; afirmar $? "--consolidated rechaza un commit que no existe"
 (cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$punta" https://example.test/pull/7 >/dev/null 2>&1) || true
-cons=$(git --git-dir="$TMP/remoto.git" show "$RAMA:consolidado.md" 2>/dev/null)
-grep -q "^consolidado-hasta: $punta" <<<"$cons" && grep -q "pull/7" <<<"$cons"; afirmar $? "consolidado.md guarda hasta dónde y el PR"
+cons=$(git --git-dir="$TMP/remoto.git" show "$RAMA:consolidated.md" 2>/dev/null)
+grep -q "^consolidated-until: $punta" <<<"$cons" && grep -q "pull/7" <<<"$cons"; afirmar $? "consolidated.md guarda hasta dónde y el PR"
 retro b implement-issue 2 "despues" >/dev/null 2>&1 || true
 s=$(cd "$TMP/a" && "$AQUI/signals.sh" 2>&1)
 grep -q despues <<<"$s" && ! grep -q primera <<<"$s"; afirmar $? "signals.sh después de consolidar muestra solo las nuevas"
@@ -123,7 +124,7 @@ git clone -q "$TMP/remoto.git" "$TMP/c" 2>/dev/null
 err=$(cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/carrera.md" 2>&1 >/dev/null); cod=$?
 ! igual "$cod" 0 && ! grep -q retrying <<<"$err"; afirmar $? "sin acceso al remoto falla sin reintentar"
 grep -q 'no-existe' <<<"$err"; afirmar $? "muestra el error de git"
-ls "$TMP/c/.git/retros-pendientes/"*.md >/dev/null 2>&1; afirmar $? "deja la retro en .git/retros-pendientes"
+ls "$TMP/c/.git/pending-retros/"*.md >/dev/null 2>&1; afirmar $? "deja la retro en .git/pending-retros"
 
 # Sin remoto: guarda en la rama local.
 git init -q "$TMP/d"; (cd "$TMP/d" && git commit -q --allow-empty -m base)
@@ -134,7 +135,7 @@ git -C "$TMP/d" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implement-
 git init -q "$TMP/vacio"
 (cd "$TMP/vacio" && "$AQUI/retro.sh" "$TMP/carrera.md" >/dev/null 2>&1)
 git -C "$TMP/vacio" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implement-issue-9\.md$' \
-  || ls "$TMP/vacio/.git/retros-pendientes/"*.md >/dev/null 2>&1; afirmar $? "en un repo sin commits la retro no se pierde"
+  || ls "$TMP/vacio/.git/pending-retros/"*.md >/dev/null 2>&1; afirmar $? "en un repo sin commits la retro no se pierde"
 
 # Revisión del PR #39.
 # --consolidated solo acepta commits de la rama de retros.
@@ -160,7 +161,7 @@ git -C "$TMP/c" worktree add -q "$TMP/cw" 2>/dev/null
 printf -- '---\nskill: implement-issue\nissue: 14\n---\nworktree\n' >"$TMP/wt.md"
 (cd "$TMP/cw" && "$AQUI/retro.sh" "$TMP/wt.md" >/dev/null 2>&1)
 git -C "$TMP/c" worktree remove --force "$TMP/cw" 2>/dev/null
-pend=$(find "$TMP/c/.git/retros-pendientes" -name "*implement-issue-14*.md" 2>/dev/null | head -1)
+pend=$(find "$TMP/c/.git/pending-retros" -name "*implement-issue-14*.md" 2>/dev/null | head -1)
 grep -q . <<<"$pend"; afirmar $? "en un worktree la pendiente sobrevive a git worktree remove"
 
 # Reintentar una pendiente con éxito la borra y no duplica.
@@ -178,68 +179,68 @@ printf -- '---\nskill: implement-issue\nissue: 15\n---\nd\n' >"$TMP/d.md"
 (cd "$TMP/d" && "$AQUI/retro.sh" "$TMP/d.md" >/dev/null 2>&1)
 git --git-dir="$TMP/remoto-d.git" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implement-issue-9'; afirmar $? "al agregar un remoto, las retros locales se suben"
 
-# 5. Modelo, rol, agente_sha y skill orchestrate (#35).
-"$AQUI/retro.sh" 2>/dev/null | grep -Eq '^modelo: .*haiku'; afirmar $? "retro.sh sin argumentos muestra el campo modelo"
-"$AQUI/retro.sh" 2>/dev/null | grep -Eq '^rol: .*implementer-light'; afirmar $? "retro.sh sin argumentos muestra el campo rol"
+# 5. Modelo, rol, agent_sha y skill orchestrate (#35).
+"$AQUI/retro.sh" 2>/dev/null | grep -Eq '^model: .*haiku'; afirmar $? "retro.sh sin argumentos muestra el campo modelo"
+"$AQUI/retro.sh" 2>/dev/null | grep -Eq '^role: .*implementer-light'; afirmar $? "retro.sh sin argumentos muestra el campo rol"
 
 clonar "$TMP/g"; (cd "$TMP/g" && git fetch -q && git reset -q --hard origin/main)
 mkdir -p "$TMP/g/.claude/agents"; echo "# implementador liviano" >"$TMP/g/.claude/agents/implementer-light.md"
 (cd "$TMP/g" && git add .claude/agents && git commit -qm "agente liviano")
 agsha=$(cd "$TMP/g" && git log -1 --format=%H -- .claude/agents/implementer-light.md)
-printf -- '---\nskill: implement-issue\nissue: 35\nmodelo: haiku\nrol: implementer-light\n---\nliviano\n' >"$TMP/liv.md"
+printf -- '---\nskill: implement-issue\nissue: 35\nmodel: haiku\nrole: implementer-light\n---\nliviano\n' >"$TMP/liv.md"
 (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/liv.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-35' | head -1)" 2>/dev/null)
-grep -q '^modelo: haiku$' <<<"$c" && grep -q '^rol: implementer-light$' <<<"$c"; afirmar $? "guarda modelo y rol tal como vienen"
-grep -q "^agente_sha: $agsha$" <<<"$c"; afirmar $? "un subagente guarda agente_sha del .claude/agents/<rol>.md"
+grep -q '^model: haiku$' <<<"$c" && grep -q '^role: implementer-light$' <<<"$c"; afirmar $? "guarda modelo y rol tal como vienen"
+grep -q "^agent_sha: $agsha$" <<<"$c"; afirmar $? "un subagente guarda agent_sha del .claude/agents/<rol>.md"
 
-# Un agente_sha explícito (el que pasa el orquestador) se respeta, aunque el checkout tenga otro.
-printf -- '---\nskill: implement-issue\nissue: 75\nmodelo: sonnet\nrol: implementer\nagente_sha: 0123456789abcdef0123456789abcdef01234567\n---\nexplicito\n' >"$TMP/expl.md"
+# Un agent_sha explícito (el que pasa el orquestador) se respeta, aunque el checkout tenga otro.
+printf -- '---\nskill: implement-issue\nissue: 75\nmodel: sonnet\nrole: implementer\nagent_sha: 0123456789abcdef0123456789abcdef01234567\n---\nexplicito\n' >"$TMP/expl.md"
 (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/expl.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-75' | head -1)" 2>/dev/null)
-grep -q '^agente_sha: 0123456789abcdef0123456789abcdef01234567$' <<<"$c" && igual "$(grep -c '^agente_sha:' <<<"$c")" 1; afirmar $? "un agente_sha explícito se guarda tal cual, una sola vez"
+grep -q '^agent_sha: 0123456789abcdef0123456789abcdef01234567$' <<<"$c" && igual "$(grep -c '^agent_sha:' <<<"$c")" 1; afirmar $? "un agent_sha explícito se guarda tal cual, una sola vez"
 
-printf -- '---\nskill: review-pr\npr: 46\nmodelo: opus\nrol: reviewer\n---\nrev\n' >"$TMP/rev.md"
+printf -- '---\nskill: review-pr\npr: 46\nmodel: opus\nrole: reviewer\n---\nrev\n' >"$TMP/rev.md"
 (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/rev.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'review-pr-pr46' | head -1)" 2>/dev/null)
-grep -q '^agente_sha: desconocido$' <<<"$c"; afirmar $? "si el archivo del agente no existe, agente_sha es desconocido"
+grep -q '^agent_sha: unknown$' <<<"$c"; afirmar $? "si el archivo del agente no existe, agent_sha es unknown"
 
-printf -- '---\nskill: orchestrate\nissue: 33\nmodelo: opus\nrol: orquestador\n---\nepica\n' >"$TMP/orq.md"
+printf -- '---\nskill: orchestrate\nissue: 33\nmodel: opus\nrole: orchestrator\n---\nepica\n' >"$TMP/orq.md"
 (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/orq.md" >/dev/null 2>&1)
 archivos | grep -Eq 'retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-orchestrate-33\.md$'; afirmar $? "orchestrate con issue de la épica se guarda como orquestar-<n>"
 
-printf -- '---\nskill: orchestrate\ncorrida: 20261008-1530\nmodelo: opus\nrol: orquestador\n---\ncorrida\n' >"$TMP/corr.md"
+printf -- '---\nskill: orchestrate\nrun: 20261008-1530\nmodel: opus\nrole: orchestrator\n---\ncorrida\n' >"$TMP/corr.md"
 (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr.md" >/dev/null 2>&1)
-archivos | grep -Eq 'retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-orchestrate-20261008-1530\.md$'; afirmar $? "orquestar sin épica se identifica con corrida: AAAAMMDD-HHMM"
+archivos | grep -Eq 'retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-orchestrate-20261008-1530\.md$'; afirmar $? "orquestar sin épica se identifica con run: AAAAMMDD-HHMM"
 
-printf -- '---\nskill: orchestrate\ncorrida: ayer\npr: 47\n---\nmal formada\n' >"$TMP/corr-mal.md"
+printf -- '---\nskill: orchestrate\nrun: ayer\npr: 47\n---\nmal formada\n' >"$TMP/corr-mal.md"
 (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-mal.md" >/dev/null 2>&1)
 archivos | grep -Eq 'retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-orchestrate-pr47\.md$'; afirmar $? "corrida mal formada cae al pr y la retro se nombra prN"
 
-printf -- '---\nskill: implement-issue\ncorrida: 20261008-1530\n---\ncorrida fuera de orquestar\n' >"$TMP/corr-ii.md"
-! (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-ii.md" >/dev/null 2>&1); afirmar $? "corrida: solo vale con skill orchestrate: implement-issue sin issue ni pr se rechaza"
+printf -- '---\nskill: implement-issue\nrun: 20261008-1530\n---\ncorrida fuera de orquestar\n' >"$TMP/corr-ii.md"
+! (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-ii.md" >/dev/null 2>&1); afirmar $? "run: solo vale con skill orchestrate: implement-issue sin issue ni pr se rechaza"
 
 # Campos vacíos y espacios al final (revisión de #46).
-printf -- '---\nskill: implement-issue\nissue: 61\nmodelo:\nrol:\n---\nvacios\n' >"$TMP/vacios.md"
+printf -- '---\nskill: implement-issue\nissue: 61\nmodel:\nrole:\n---\nvacios\n' >"$TMP/vacios.md"
 (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/vacios.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-61' | head -1)" 2>/dev/null)
-grep -q '^modelo: desconocido$' <<<"$c" && grep -q '^rol: sesion$' <<<"$c" && ! grep -Eq '^(modelo|rol):$' <<<"$c"; afirmar $? "modelo y rol vacíos se guardan como desconocido y sesion"
+grep -q '^model: unknown$' <<<"$c" && grep -q '^role: session$' <<<"$c" && ! grep -Eq '^(model|role):$' <<<"$c"; afirmar $? "modelo y rol vacíos se guardan como desconocido y sesion"
 
-printf -- '---\nskill: implement-issue\nissue: 62\nmodelo: haiku \nrol: implementer-light \n---\nespacios\n' >"$TMP/esp.md"
+printf -- '---\nskill: implement-issue\nissue: 62\nmodel: haiku \nrole: implementer-light \n---\nespacios\n' >"$TMP/esp.md"
 (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/esp.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-62' | head -1)" 2>/dev/null)
-grep -q '^modelo: haiku$' <<<"$c" && grep -q '^rol: implementer-light$' <<<"$c" && grep -q "^agente_sha: $agsha$" <<<"$c"; afirmar $? "espacios al final no se guardan en modelo/rol y no impiden agente_sha"
+grep -q '^model: haiku$' <<<"$c" && grep -q '^role: implementer-light$' <<<"$c" && grep -q "^agent_sha: $agsha$" <<<"$c"; afirmar $? "espacios al final no se guardan en modelo/rol y no impiden agent_sha"
 
 mkdir -p "$TMP/g/.claude/agents"; echo "# revisor" >"$TMP/g/.claude/agents/reviewer.md"
 (cd "$TMP/g" && git add .claude/agents && git commit -qm "agente revisor")
 revsha=$(cd "$TMP/g" && git log -1 --format=%H -- .claude/agents/reviewer.md)
-printf -- '---\nskill: review-pr\npr: 63\nmodelo: opus\nrol: reviewer \n---\nrev2\n' >"$TMP/rev2.md"
+printf -- '---\nskill: review-pr\npr: 63\nmodel: opus\nrole: reviewer \n---\nrev2\n' >"$TMP/rev2.md"
 (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/rev2.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'review-pr-pr63' | head -1)" 2>/dev/null)
-grep -q "^agente_sha: $revsha$" <<<"$c"; afirmar $? "rol con espacio al final guarda agente_sha igual"
+grep -q "^agent_sha: $revsha$" <<<"$c"; afirmar $? "rol con espacio al final guarda agent_sha igual"
 
 # La skill de improve-skills describe el agrupado por modelo y rol y el ruteo de orquestar.
 S="$RAIZ/.claude/skills/improve-skills/SKILL.md"
-grep -Eiq 'agrup[^.]*modelo' "$S" && grep -Eiq 'agrup[^.]*rol' "$S"; afirmar $? "improve-skills describe cómo agrupa por modelo y rol"
+grep -Eiq 'agrup[^.]*model' "$S" && grep -Eiq 'agrup[^.]*role' "$S"; afirmar $? "improve-skills describe cómo agrupa por modelo y rol"
 grep -Eiq 'ruteo[^.]*orchestrate|orchestrate[^.]*ruteo' "$S"; afirmar $? "improve-skills propone cambios en la regla de ruteo de orchestrate"
 es "$(wc -l <"$S")" -le 120; afirmar $? "improve-skills/SKILL.md tiene como máximo 120 líneas"
 
@@ -250,32 +251,95 @@ grep -Eq "^$RAMA:retros/[^ ]+\.md$" <<<"$valor" && git -C "$TMP/a" fetch -q orig
   && git -C "$TMP/a" show "origin/$valor" 2>/dev/null | grep -q '^skill: review-pr$'
 afirmar $? "el valor de retro: (<rama>:<ruta>) abre la retro con git show origin/<valor>"
 C="$RAIZ/docs/agents/subagent-contract.md"
-grep -q 'git show origin/agentes/retros:' "$C" && grep -q "local only" "$C" && grep -Eq '^retro: .*pendiente: ' "$C"
+grep -q 'git show origin/agents/retros:' "$C" && grep -q "local only" "$C" && grep -Eq '^retro: .*pending: ' "$C"
 afirmar $? "el contrato dice cómo abrirla (origin/), qué hacer con el sufijo sin remoto y con una retro pendiente"
 
-# Valores viejos (0.9) de skill: y rol: en una retro pendiente: se normalizan a los nuevos y se conserva agente_sha.
-printf -- '---\nskill: orquestar\nissue: 33\nmodelo: haiku\nrol: implementador-liviano\nagente_sha: 1111111111111111111111111111111111111111\n---\nvieja\n' >"$TMP/v1.md"
+# Claves y valores viejos (0.9) en una retro pendiente: se normalizan a los nuevos y se conserva agente_sha.
+printf -- '---\nskill: orquestar\nissue: 33\nmodelo: haiku\nrol: implementador-liviano\nagente_sha: 1111111111111111111111111111111111111111\nrutas: docs/x.md\nfecha: 2026-01-02\n---\nvieja\n' >"$TMP/v1.md"
 (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v1.md" >/dev/null 2>&1); c=$?
 afirmar "$c" "retro.sh acepta una retro con skill: orquestar (0.9)"
 archivos | grep -Eq 'retros/[0-9-]+-orchestrate-33(-[0-9]+)?\.md$'; afirmar $? "la retro vieja se guarda como orchestrate-<n>"
 r=$(for f in $(archivos | grep -E 'orchestrate-33'); do git --git-dir="$TMP/remoto.git" show "$RAMA:$f"; done)
-r=$(grep -B8 -A1 '^agente_sha: 1111' <<<"$r")
-grep -q '^skill: orchestrate$' <<<"$r" && grep -q '^rol: implementer-light$' <<<"$r"; afirmar $? "normaliza skill: y rol: a los valores nuevos"
-grep -q '^agente_sha: 1111111111111111111111111111111111111111$' <<<"$r"; afirmar $? "conserva agente_sha al normalizar el rol"
+r=$(grep -B9 -A1 '^agent_sha: 1111' <<<"$r")
+grep -q '^skill: orchestrate$' <<<"$r" && grep -q '^role: implementer-light$' <<<"$r" && grep -q '^model: haiku$' <<<"$r"; afirmar $? "normaliza skill:, rol: y modelo: a las claves y valores nuevos"
+grep -q '^agent_sha: 1111111111111111111111111111111111111111$' <<<"$r"; afirmar $? "conserva agente_sha al renombrar la clave"
+grep -q '^paths: docs/x.md$' <<<"$r" && grep -q '^date: 2026-01-02$' <<<"$r"; afirmar $? "rutas: y fecha: pasan a paths: y date:"
+! grep -Eq '^(modelo|rol|agente_sha|rutas|fecha):' <<<"$r"; afirmar $? "la retro guardada no conserva ninguna clave vieja"
 printf -- '---\nskill: mejorar-skills\npr: 7\nmodelo: opus\nrol: revisor\n---\nvieja2\n' >"$TMP/v2.md"
 (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v2.md" >/dev/null 2>&1)
 archivos | grep -q 'improve-skills-pr7'; afirmar $? "mejorar-skills se guarda como improve-skills"
 r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'improve-skills-pr7' | tail -1)" 2>/dev/null)
-grep -q '^rol: reviewer$' <<<"$r" && grep -q '^agente_sha: ' <<<"$r"; afirmar $? "revisor pasa a reviewer y registra agente_sha"
+grep -q '^role: reviewer$' <<<"$r" && grep -q '^agent_sha: ' <<<"$r"; afirmar $? "revisor pasa a reviewer y registra agent_sha"
+# Valores viejos de modelo/rol vacíos y de pr/area ("desconocido", "sesion", "orquestador", "sin PR", "ninguna").
+printf -- '---\nskill: orquestar\ncorrida: 20261009-0900\npr: sin PR\narea: ninguna\nmodelo: desconocido\nrol: orquestador\n---\nvalores\n' >"$TMP/v3.md"
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v3.md" >/dev/null 2>&1)
+archivos | grep -q 'orchestrate-20261009-0900'; afirmar $? "corrida: (0.9) se acepta como run:"
+r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'orchestrate-20261009-0900' | tail -1)" 2>/dev/null)
+grep -q '^model: unknown$' <<<"$r" && grep -q '^role: orchestrator$' <<<"$r" && grep -q '^pr: no PR$' <<<"$r" && grep -q '^area: none$' <<<"$r" && grep -q '^run: 20261009-0900$' <<<"$r"; afirmar $? "desconocido, orquestador, sin PR y ninguna pasan a unknown, orchestrator, no PR y none"
+# Una retro pendiente en el directorio viejo (retros-pendientes) se reintenta y se borra.
+mkdir -p "$TMP/c/.git/retros-pendientes"; cp "$TMP/v1.md" "$TMP/c/.git/retros-pendientes/vieja-1.md"
+(cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/c/.git/retros-pendientes/vieja-1.md" >/dev/null 2>&1)
+! [ -e "$TMP/c/.git/retros-pendientes/vieja-1.md" ]; afirmar $? "una pendiente del directorio viejo retros-pendientes se guarda y se borra"
 
-# signals.sh agrupa con los valores nuevos aunque la retro se haya guardado con los viejos.
+# Revisión (code-review): skill_sha desconocido, valores entre comillas y claves viejas y nuevas juntas.
+printf -- '---\nskill: implement-issue\nissue: 41\nskill_sha: desconocido\nmodelo: "desconocido"\nrol: '"'"'sesion'"'"'\nfecha: 2026-01-01\ndate: 2026-02-02\n---\ndup\n' >"$TMP/v4.md"
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v4.md" >/dev/null 2>&1)
+r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'implement-issue-41' | tail -1)" 2>/dev/null)
+grep -q '^skill_sha: unknown$' <<<"$r" && grep -q '^model: unknown$' <<<"$r" && grep -q '^role: session$' <<<"$r"; afirmar $? "skill_sha desconocido y los valores entre comillas pasan a unknown y session"
+igual "$(grep -c '^date:' <<<"$r")" 1; afirmar $? "una clave vieja y su nueva juntas no dejan claves duplicadas"
+
+# Revisión de #129: area con y sin prefijo es el mismo grupo.
+printf -- '---\nskill: implement-issue\nissue: 42\narea: area:docs\n---\narea\n' >"$TMP/v5.md"
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v5.md" >/dev/null 2>&1)
+r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'implement-issue-42' | tail -1)" 2>/dev/null)
+grep -q '^area: docs$' <<<"$r"; afirmar $? "area: area:docs se guarda como area: docs"
+
+# Historial mixto: retros viejas en agentes/retros (claves y valores 0.9) y nuevas en agents/retros.
 git init -q "$TMP/s"; mkdir -p "$TMP/s/.claude/skills"; cp -R "$RAIZ/.claude/skills/improve-skills" "$TMP/s/.claude/skills/"
+SIG="$TMP/s/.claude/skills/improve-skills"
+crear_rama() { # crear_rama <rama> <ruta> <contenido>
+  blob=$(printf '%b' "$3" | git hash-object -w --stdin)
+  rm -f "$TMP/s.idx"
+  padre=$(git rev-parse -q --verify "refs/heads/$1" || true)
+  [ -n "$padre" ] && GIT_INDEX_FILE="$TMP/s.idx" git read-tree "$padre"
+  GIT_INDEX_FILE="$TMP/s.idx" git update-index --add --cacheinfo "100644,$blob,$2"
+  c=$(git commit-tree "$(GIT_INDEX_FILE="$TMP/s.idx" git write-tree)" ${padre:+-p "$padre"} -m x)
+  git update-ref "refs/heads/$1" "$c"
+}
 (cd "$TMP/s" && git commit -q --allow-empty -m base \
-  && blob=$(printf -- '---\nskill: orquestar\nissue: 5\nmodelo: opus\nrol: implementador\n---\nhistorial\n' | git hash-object -w --stdin) \
-  && GIT_INDEX_FILE="$TMP/s.idx" git update-index --add --cacheinfo "100644,$blob,retros/2026-01-01-orquestar-5.md" \
-  && git update-ref "refs/heads/$RAMA" "$(git commit-tree "$(GIT_INDEX_FILE="$TMP/s.idx" git write-tree)" -m vieja)")
-s=$(cd "$TMP/s" && "$TMP/s/.claude/skills/improve-skills/signals.sh" 2>&1)
-grep -q '^skill: orchestrate$' <<<"$s" && grep -q '^rol: implementer$' <<<"$s" && ! grep -Eq '^(skill: orquestar|rol: implementador)$' <<<"$s"; afirmar $? "signals.sh normaliza skill: y rol: viejos al mostrar las retros"
+  && crear_rama "$RAMA_VIEJA" retros/2026-01-01-orquestar-5.md '---\nskill: orquestar\nissue: 5\nmodelo: opus\nrol: implementador\nrutas: a\nfecha: 2026-01-01\n---\nhistorial\n' \
+  && crear_rama "$RAMA" retros/2026-02-01-orchestrate-6.md '---\nskill: orchestrate\nissue: 6\nmodel: opus\nrole: implementer\npaths: b\ndate: 2026-02-01\n---\nreciente\n')
+s=$(cd "$TMP/s" && "$SIG/signals.sh" 2>&1)
+grep -q historial <<<"$s" && grep -q reciente <<<"$s"; afirmar $? "signals.sh lee las retros de las dos ramas"
+n=$(grep -c '^skill: orchestrate$' <<<"$s"); igual "$n" 2; afirmar $? "una retro vieja y una nueva cuentan como el mismo grupo (skill: orchestrate)"
+n=$(grep -c '^role: implementer$' <<<"$s"); igual "$n" 2; afirmar $? "role: implementer agrupa las dos (rol: implementador es el mismo grupo)"
+! grep -Eq '^(skill: orquestar|rol:|modelo:|rutas:|fecha:)' <<<"$s"; afirmar $? "signals.sh no muestra claves ni valores viejos"
+grep -q '^model: opus$' <<<"$s" && grep -q '^paths: a$' <<<"$s" && grep -q '^date: 2026-01-01$' <<<"$s"; afirmar $? "signals.sh renombra las claves viejas al mostrar"
+ptas=$(sed -n 's/.*consolidate up to[^:]*: \([0-9a-f]\{40\}\).*/\1/p' <<<"$s"); igual "$(wc -l <<<"$ptas" | tr -d ' ')" 2; afirmar $? "signals.sh imprime un commit para consolidar por cada rama"
+
+# Consolidar las dos ramas: cada commit se marca en consolidated.md de la rama nueva, y signals.sh no repite lo consolidado.
+viejo=$(git -C "$TMP/s" rev-parse "refs/heads/$RAMA_VIEJA"); nuevo=$(git -C "$TMP/s" rev-parse "refs/heads/$RAMA")
+(cd "$TMP/s" && "$SIG/retro.sh" --consolidated "$viejo" https://example.test/pull/1 >/dev/null 2>&1); afirmar $? "--consolidated acepta un commit de la rama vieja"
+(cd "$TMP/s" && "$SIG/retro.sh" --consolidated "$nuevo" https://example.test/pull/1 >/dev/null 2>&1); afirmar $? "--consolidated acepta un commit de la rama nueva"
+cons=$(git -C "$TMP/s" show "$RAMA:consolidated.md" 2>/dev/null)
+grep -q "^consolidated-until: $nuevo" <<<"$cons" && grep -q "^legacy-consolidated-until: $viejo" <<<"$cons"; afirmar $? "consolidated.md guarda el punto de cada rama sin pisar el otro"
+git -C "$TMP/s" cat-file -e "$viejo" 2>/dev/null && igual "$(git -C "$TMP/s" rev-parse "refs/heads/$RAMA_VIEJA")" "$viejo"; afirmar $? "la rama vieja no se reescribe ni se agrega nada"
+(cd "$TMP/s" && crear_rama "$RAMA_VIEJA" retros/2026-03-01-implement-issue-7.md '---\nskill: implement-issue\nissue: 7\n---\nllegoviejo\n' \
+  && crear_rama "$RAMA" retros/2026-03-02-implement-issue-8.md '---\nskill: implement-issue\nissue: 8\n---\nllegonuevo\n')
+s=$(cd "$TMP/s" && "$SIG/signals.sh" 2>&1)
+grep -q llegoviejo <<<"$s" && grep -q llegonuevo <<<"$s" && ! grep -q historial <<<"$s" && ! grep -q reciente <<<"$s"; afirmar $? "signals.sh después de consolidar muestra solo lo posterior en las dos ramas"
+# Un marcador viejo (consolidado.md con consolidado-hasta) de la rama vieja también se respeta.
+git init -q "$TMP/s2"; mkdir -p "$TMP/s2/.claude/skills"; cp -R "$RAIZ/.claude/skills/improve-skills" "$TMP/s2/.claude/skills/"
+(cd "$TMP/s2" && git commit -q --allow-empty -m base \
+  && crear_rama "$RAMA_VIEJA" retros/2026-01-01-implement-issue-1.md '---\nskill: implement-issue\nissue: 1\n---\nanterior\n')
+marca=$(git -C "$TMP/s2" rev-parse "refs/heads/$RAMA_VIEJA")
+(cd "$TMP/s2" && crear_rama "$RAMA_VIEJA" consolidado.md "consolidado-hasta: $marca\npr: x\nfecha: 2026-01-02\n" \
+  && crear_rama "$RAMA_VIEJA" retros/2026-01-03-implement-issue-2.md '---\nskill: implement-issue\nissue: 2\n---\nposterior\n')
+s=$(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/signals.sh" 2>&1)
+grep -q posterior <<<"$s" && ! grep -q anterior <<<"$s"; afirmar $? "signals.sh respeta el consolidado.md viejo de agentes/retros"
+(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/retro.sh" --consolidated "$(git rev-parse "refs/heads/$RAMA_VIEJA")" https://example.test/pull/9 >/dev/null 2>&1)
+s=$(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/signals.sh" 2>&1)
+! grep -q 'consolidate up to: ' <<<"$s"; afirmar $? "signals.sh no ofrece consolidar ramas sin retros nuevas"
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
