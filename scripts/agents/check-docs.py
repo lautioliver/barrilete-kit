@@ -181,6 +181,7 @@ EXENTOS = [glob_a_regex(g) for g in MAPA.get("parity_ignore", [])] if MAPA else 
 pares = [a for a in md_files(aplicar_ignore=False)
          if a.endswith(".md") and not any(r.match(a) for r in EXENTOS)]
 if MAPA.get("parity"):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from agents_map import hermano_de_idioma  # noqa: E402
     for es in sorted(a for a in pares if a.endswith(".es.md")):
         en = hermano_de_idioma(es)

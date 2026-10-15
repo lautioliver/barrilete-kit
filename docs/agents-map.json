@@ -57,6 +57,7 @@
     {
       "when": [
         ".claude/agents/**",
+        "?.claude/i18n/agents/**",
         "docs/agents/subagent-contract.md"
       ],
       "review": [
@@ -157,6 +158,7 @@
       "name": "agents",
       "when": [
         ".claude/agents/**",
+        "?.claude/i18n/agents/**",
         "docs/agents/subagent-contract.md",
         "scripts/agents/check-docs.py",
         "scripts/agents/test-agents.sh"

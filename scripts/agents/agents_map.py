@@ -110,7 +110,7 @@ def hermano_de_idioma(ruta):
     """X.md ↔ X.es.md (ADR-001), or None if it is not a prose file. The agents are the exception:
     .claude/agents/<name>.md ↔ .claude/i18n/agents/<name>.es.md."""
     if ruta.endswith(".es.md"):
-        if ruta.startswith(AGENTES_ES):
+        if ruta.startswith(AGENTES_ES) and "/" not in ruta[len(AGENTES_ES):]:
             return AGENTES_EN + ruta[len(AGENTES_ES):-len(".es.md")] + ".md"
         return ruta[:-len(".es.md")] + ".md"
     if ruta.endswith(".md"):

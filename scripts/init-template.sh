@@ -63,6 +63,8 @@ apply_language() {
   if [ "$LANG_KIT" = es ] && [ -d .claude/agents ] && [ -d .claude/i18n/agents ]; then
     for f in .claude/i18n/agents/*.es.md; do
       [ -e "$f" ] || continue
+      # Only the sibling of an agent that exists: an orphan would be created as a new agent.
+      [ -e ".claude/agents/$(basename "${f%.es.md}").md" ] || continue
       mv -f -- "$f" ".claude/agents/$(basename "${f%.es.md}").md"
     done
   fi
