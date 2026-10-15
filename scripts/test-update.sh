@@ -439,12 +439,39 @@ proyecto09 "$D" completo
 s=$(cd "$D" && python3 scripts/update.py --template "$P09" 2>&1); c=$?
 [ "$c" -eq 0 ] && es -f "$D/scripts/update.py" && grep -q "actualizar.py" <<<"$s" && ! grep -q Traceback <<<"$s"
 afirmar $? "[0.9] si la ruta nueva ya existe no la pisa, lo avisa y sigue con el resto"
+es -f "$D/scripts/actualizar.py"; afirmar $? "[0.9] la ruta vieja que no se pudo mover queda para comparar a mano: no se borra"
+
+# Lo que marcó la revisión: nombres de personas, carpetas viejas con archivos propios, claves a medias, sin fecha.
+D="$TMP/p09-revision"
+proyecto09 "$D" completo
+(
+  cd "$D" || exit 1
+  echo "guía propia" >docs/agentes/mi-guia.md
+  python3 - <<'PY'
+import json
+json.dump({"_ayuda": "x", "integrantes": [{"login": "rojo", "nombre": "rojo", "areas": [], "activo": True}]},
+          open(".github/equipo.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+k = json.load(open(".agent-kit.json", encoding="utf-8"))
+k.pop("fecha")  # sin fecha
+k["files"] = k.pop("archivos")  # claves a medias: archivos ya cambiada, el resto en español
+json.dump(k, open(".agent-kit.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+  git add -A && git commit -qm revision
+) >/dev/null 2>&1
+s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
+[ "$c" -eq 0 ] && ! grep -q Traceback <<<"$s"; afirmar $? "[0.9] un .agent-kit.json con solo algunas claves viejas se migra igual, sin traceback"
+python3 -c "import json,sys; k=json.load(open('$D/.agent-kit.json')); sys.exit(0 if k.get('language')=='en' and k.get('project')=='Demo' else 1)"
+afirmar $? "[0.9] sin fecha en las claves viejas, igual queda language: en"
+python3 -c "import json,sys; t=json.load(open('$D/.github/team.json')); sys.exit(0 if t['members'][0]['name']=='rojo' else 1)"
+afirmar $? "[0.9] no traduce los nombres de las personas de team.json"
+es -f "$D/docs/agentes/mi-guia.md" && grep -q "docs/agentes" <<<"$s" && grep -qi "own files\|your own" <<<"$s"
+afirmar $? "[0.9] una carpeta vieja con archivos propios no se mueve y el resumen lo avisa"
 
 D="$TMP/claves-viejas-chico"
 proyecto "$D" chico
 (cd "$D" && python3 -c "import json; k=json.load(open('.agent-kit.json')); json.dump({'proyecto': 'Demo', 'rama_base': 'main', 'modo': 'chico', 'fecha': k['date'], 'archivos': k['files']}, open('.agent-kit.json', 'w'))" && git commit -qam claves) >/dev/null 2>&1
 s=$(cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1); c=$?
-[ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && grep -q "update.py" <<<"$s" && ! grep -q Traceback <<<"$s"; afirmar $? "grow.py con las claves viejas de .agent-kit.json explica que es de 0.9, manda a update.py y sale con error, sin traceback"
+[ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && grep -q "update.py" <<<"$s" && grep -qi "download" <<<"$s" && ! grep -q Traceback <<<"$s"; afirmar $? "grow.py con las claves viejas de .agent-kit.json explica que es de 0.9, cómo bajar update.py y sale con error, sin traceback"
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
