@@ -196,18 +196,331 @@ s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q '"version": "0.2.0"' "$D/.agent-kit.json" && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md"
 afirmar $? "[origen viejo] actualiza usando el init que tiene el tag de origen"
 
-# Proyecto 0.9 con las claves viejas de .agent-kit.json: error claro (la migración es el issue #116), sin traceback
-# ni una actualización a medias que pierde el registro de archivos.
-D="$TMP/claves-viejas"
-proyecto "$D" completo
-(cd "$D" && python3 -c "import json; k=json.load(open('.agent-kit.json')); json.dump({'proyecto': 'Demo', 'rama_base': 'main', 'modo': 'completo', 'fecha': k['date'], 'archivos': k['files']}, open('.agent-kit.json', 'w'))" && git commit -qam claves) >/dev/null 2>&1
-s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
-[ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && ! grep -q Traceback <<<"$s"; afirmar $? "update.py con las claves viejas de .agent-kit.json explica que es de 0.9 y sale con error, sin traceback"
+# Proyectos 0.9.0 (#116): update.py los migra a los nombres, claves y labels nuevos sin perder cambios propios.
+# La plantilla 0.9.0 se arma desde el árbol actual con los nombres viejos (la tabla de test-renames.sh, que es la
+# fuente independiente de update.py) y un init mínimo con la forma de 0.9; la 0.10.0 es el árbol actual con cambios.
+TABLA="$TMP/tabla-renombres.txt"
+sed -n "/^RENAMES='/,/^'\$/p" "$RAIZ/scripts/test-renames.sh" | grep '|' >"$TABLA"
+cat >"$TMP/rev09.py" <<'PY'
+import json, os, re, sys
+arbol, tabla = sys.argv[1], sys.argv[2]
+pares = [l.strip().split("|") for l in open(tabla, encoding="utf-8") if "|" in l]
+pares = sorted(((v, n) for v, n in pares if v != n), key=lambda p: -len(p[1]))
+for v, n in pares:
+    if os.path.isfile(os.path.join(arbol, n)):
+        os.makedirs(os.path.dirname(os.path.join(arbol, v)), exist_ok=True)
+        os.replace(os.path.join(arbol, n), os.path.join(arbol, v))
+for nuevo, viejo in (("profiles/small", "perfiles/chico"), (".github/brand", ".github/marca")):
+    if os.path.isdir(os.path.join(arbol, nuevo)):
+        os.makedirs(os.path.join(arbol, viejo), exist_ok=True)
+        for base, _, files in os.walk(os.path.join(arbol, nuevo)):
+            for f in files:
+                d = os.path.join(arbol, viejo, os.path.relpath(os.path.join(base, f), os.path.join(arbol, nuevo)))
+                os.makedirs(os.path.dirname(d), exist_ok=True)
+                os.replace(os.path.join(base, f), d)
+for base, _, _ in os.walk(arbol, topdown=False):
+    if ".git" not in base and base != arbol and not os.listdir(base):
+        os.rmdir(base)
+CLAVES = {"_help": "_ayuda", "when": "cuando", "review": "revisar", "reason": "motivo", "sensitive": "sensibles",
+          "type": "tipo", "paths": "rutas", "verify": "verificar", "name": "nombre", "always": "siempre", "run": "correr",
+          "required": "obligatorios", "ignore_check": "ignorar_check", "members": "integrantes", "active": "activo"}
+VALORES = {"name": {"prepare": "preparar", "agents": "agentes", "red": "rojo", "orchestrate": "orquestar",
+                    "guardrails": "barandas", "update": "actualizar", "migrations": "migraciones", "api-contract": "contrato-api"},
+           "type": {"money": "dinero", "dependencies": "dependencias", "public-api": "api-publica"}}
+def texto(s):
+    for v, n in pares:
+        s = s.replace(n, v)
+    for n, v in (("scripts/agents/", "scripts/agentes/"), ("docs/agents/", "docs/agentes/"), ("profiles/", "perfiles/")):
+        s = s.replace(n, v)
+    return s.replace("{files}", "{archivos}")
+def viejo(o, clave=None):
+    if isinstance(o, dict):
+        return {CLAVES.get(k, k): viejo(x, k) for k, x in o.items() if k not in ("parity", "parity_ignore")}
+    if isinstance(o, list):
+        return [viejo(x, clave) for x in o]
+    if isinstance(o, str):
+        return VALORES.get(clave, {}).get(o, texto(o))
+    return o
+for ruta in ("docs/mapa-agentes.json", ".github/equipo.json"):
+    ruta = os.path.join(arbol, ruta)
+    datos = json.load(open(ruta, encoding="utf-8"))
+    open(ruta, "w", encoding="utf-8").write(json.dumps(viejo(datos), ensure_ascii=False, indent=2) + "\n")
+# labels.yml: el nombre vuelve a ser el primer alias, y sin aliases (como en 0.9).
+ruta = os.path.join(arbol, ".github/labels.yml")
+def label(m):
+    cuerpo = m.group(2)
+    a = re.search(r'  aliases:\n((?:    - .*\n)+)', cuerpo)
+    if not a:
+        return m.group(0)
+    primero = a.group(1).splitlines()[0].strip()[2:].strip('"')
+    return f'- name: "{primero}"\n' + cuerpo.replace(a.group(0), "")
+t = re.sub(r'- name: "([^"]*)"\n((?:  .*\n)*)', label, open(ruta, encoding="utf-8").read())
+open(ruta, "w", encoding="utf-8").write(t)
+PY
+cat >"$TMP/init-plantilla-09.sh" <<'SH'
+#!/usr/bin/env bash
+# Init mínimo con la forma de 0.9: init-plantilla.sh, --chico, AGENT_KIT_FECHA, perfiles/chico y .agent-kit.json en español.
+set -euo pipefail
+CHICO=""; POS=()
+for a in "$@"; do case "$a" in --chico) CHICO=1 ;; *) POS+=("$a") ;; esac; done
+export P="${POS[0]}" B="${POS[1]:-main}" F=${AGENT_KIT_FECHA:-2026-01-01} R="regla" MODO_KIT=$([ -n "$CHICO" ] && echo chico || echo completo)
+cd "$(git rev-parse --show-toplevel)"
+if [ -n "$CHICO" ]; then
+  (cd perfiles/chico && find . -type f ! -name BORRAR) | while read -r f; do mkdir -p "$(dirname "$f")"; cp "perfiles/chico/$f" "$f"; done
+  rm -rf .claude/skills/review-pr .claude/skills/orquestar
+fi
+rm -rf perfiles .github/marca docs/probar-la-plantilla.md .github/ISSUE_TEMPLATE/5-prueba.yml docs/decisions/ADR-001-*
+{ find . -name '*.es.md' -not -path './.git/*'; } | while read -r f; do rm -f -- "$f"; done
+[ -z "$CHICO" ] && rm -f scripts/crecer.py
+{ grep -rlE '<PROJECT>|<BASE_BRANCH>|<DATE>|<BRANCH_RULE>' --exclude-dir=.git . || true; } \
+  | xargs perl -pi -e 's/<PROJECT>/$ENV{P}/g; s/<BASE_BRANCH>/$ENV{B}/g; s/<DATE>/$ENV{F}/g; s/<BRANCH_RULE>/$ENV{R}/g'
+V=$(cat VERSION); export V
+rm -f scripts/init-plantilla.sh VERSION CHANGELOG.md scripts/test-*.sh
+python3 - <<'PY'
+import hashlib, json, os
+archivos = {}
+for base, dirs, files in os.walk("."):
+    dirs[:] = [d for d in dirs if d != ".git"]
+    for n in files:
+        ruta = os.path.relpath(os.path.join(base, n), ".")
+        if ruta != ".agent-kit.json":
+            archivos[ruta] = hashlib.sha1(open(ruta, "rb").read()).hexdigest()
+json.dump({"proyecto": os.environ["P"], "rama_base": os.environ["B"], "releases": False, "modo": os.environ["MODO_KIT"],
+           "fecha": os.environ["F"], "version": os.environ["V"], "archivos": dict(sorted(archivos.items()))},
+          open(".agent-kit.json", "w"), ensure_ascii=False, indent=2)
+PY
+SH
+
+P09="$TMP/plantilla09"
+mkdir -p "$P09"
+(cd "$RAIZ" && git ls-files -z -co --exclude-standard | xargs -0 tar -cf -) | (cd "$P09" && tar -xf -)
+(
+  cd "$P09" && python3 "$TMP/rev09.py" "$P09" "$TABLA" \
+    && cp "$TMP/init-plantilla-09.sh" scripts/init-plantilla.sh && chmod +x scripts/init-plantilla.sh \
+    && rm -f scripts/init-template.sh && echo 0.9.0 >VERSION \
+    && git init -q -b main && git add -A && git commit -qm v0.9.0 && git tag v0.9.0 \
+    && git rm -rqf . && (cd "$RAIZ" && git ls-files -z -co --exclude-standard | xargs -0 tar -cf -) | tar -xf - \
+    && echo 0.10.0 >VERSION \
+    && printf '\n## [0.10.0] - 2026-10-20\n\n- Cambio de prueba 0.10.\n' >>CHANGELOG.md \
+    && echo "# nuevo en 0.10" >>scripts/agents/verify.py \
+    && echo "Línea nueva de la plantilla 0.10." >>.claude/skills/create-issue/SKILL.md \
+    && perl -pi -e 's/^# .*/# Plantilla 0.10/ if $. == 1' docs/github-naming-convention.md \
+    && git add -A && git commit -qm v0.10.0 && git tag v0.10.0
+) >/dev/null 2>&1
+git -C "$P09" rev-parse -q --verify v0.9.0 >/dev/null && git -C "$P09" rev-parse -q --verify v0.10.0 >/dev/null
+afirmar $? "[0.9] la plantilla de prueba tiene los tags v0.9.0 (nombres viejos) y v0.10.0"
+git -C "$P09" show v0.9.0:docs/mapa-agentes.json | grep -q '"sensibles"' && git -C "$P09" show v0.9.0:scripts/agentes/verificar.py >/dev/null 2>&1 \
+  && git -C "$P09" show v0.9.0:scripts/init-plantilla.sh >/dev/null 2>&1 && ! git -C "$P09" show v0.9.0:scripts/init-template.sh >/dev/null 2>&1
+afirmar $? "[0.9] v0.9.0 tiene el init, las rutas y las claves viejas"
+
+NUEVO_UPDATE="$TMP/update-nuevo.py"   # lo que baja un proyecto 0.9: no tiene update.py, tiene actualizar.py
+cp "$RAIZ/scripts/update.py" "$NUEVO_UPDATE"
+
+# Proyecto creado con 0.9.0: <modo> en <dir>, con el idioma opcional en las claves viejas.
+proyecto09() {
+  local dir=$1 modo=$2 idioma=${3:-}
+  mkdir -p "$dir"
+  git -C "$P09" archive v0.9.0 | tar -xf - -C "$dir"
+  local extra=(); [ "$modo" = chico ] && extra=(--chico)
+  (cd "$dir" && git init -q -b main && git add -A && git commit -qm plantilla \
+    && AGENT_KIT_FECHA=2026-01-01 ./scripts/init-plantilla.sh Demo main ${extra[@]+"${extra[@]}"} && git add -A && git commit -qm init) >/dev/null 2>&1
+  if [ -n "$idioma" ]; then
+    (cd "$dir" && python3 -c "import json; k=json.load(open('.agent-kit.json')); k['language']='$idioma'; json.dump(k, open('.agent-kit.json', 'w'), ensure_ascii=False, indent=2)" \
+      && git commit -qam idioma) >/dev/null 2>&1
+  fi
+}
+# Cambios propios en archivos que la 0.10 renombró.
+cambios09() {
+  (
+    cd "$1" || exit 1
+    perl -pi -e 'print "# del proyecto\n" if $. == 1' scripts/agentes/verificar.py
+    echo "Lección del proyecto." >>docs/agentes/lecciones.md
+    perl -pi -e 's/^# .*/# Convención del proyecto/ if $. == 1' docs/convencion-nombres-github.md
+    printf '\n- name: "area:pagos"\n  color: "0E8A16"\n  description: "Pagos"\n' >>.github/labels.yml
+    python3 - <<'PY'
+import json
+m = json.load(open("docs/mapa-agentes.json", encoding="utf-8"))
+m["sensibles"].append({"tipo": "pagos", "rutas": ["src/pagos/**"]})
+m["verificar"].append({"nombre": "pagos", "cuando": ["src/pagos/**"], "correr": "npm test {archivos}"})
+open("docs/mapa-agentes.json", "w", encoding="utf-8").write(json.dumps(m, ensure_ascii=False, indent=2) + "\n")
+json.dump({"_ayuda": "x", "integrantes": [{"login": "ana", "nombre": "Ana", "areas": ["infra"], "activo": True}]},
+          open(".github/equipo.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+    git add -A && git commit -qm "cambios del proyecto"
+  ) >/dev/null 2>&1
+}
+
+D="$TMP/p09"
+proyecto09 "$D" completo
+grep -q '"archivos"' "$D/.agent-kit.json" && es -f "$D/scripts/actualizar.py" && es -f "$D/scripts/agentes/verificar.py" && ! [ -e "$D/scripts/update.py" ]
+afirmar $? "[0.9] el proyecto de partida tiene la forma de 0.9: claves y archivos en español, sin update.py"
+cambios09 "$D"
+antes=$(git -C "$D" rev-parse HEAD)
+s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
+[ "$c" -eq 0 ] && ! grep -q Traceback <<<"$s"; afirmar $? "[0.9] update.py actualiza un proyecto 0.9.0 a la versión nueva (salida: $(tail -1 <<<"$s" | cut -c1-80))"
+! [ -e "$D/scripts/agentes" ] && ! [ -e "$D/docs/agentes" ] && ! [ -e "$D/scripts/actualizar.py" ] && ! [ -e "$D/docs/mapa-agentes.json" ] \
+  && ! [ -e "$D/.github/equipo.json" ] && ! [ -e "$D/.claude/skills/crear-issue" ]
+afirmar $? "[0.9] no quedan archivos ni carpetas con el nombre viejo"
+es -f "$D/scripts/update.py" && es -f "$D/scripts/agents/guardrails.py" && es -f "$D/docs/agents-map.json" && es -f "$D/.claude/skills/improve-skills/retro.sh"
+afirmar $? "[0.9] los archivos renombrados están en su ruta nueva"
+grep -q "^# del proyecto" "$D/scripts/agents/verify.py" && grep -q "^# nuevo en 0.10" "$D/scripts/agents/verify.py"
+afirmar $? "[0.9] un archivo renombrado con cambios del proyecto y de la plantilla se fusiona (no se pierde ninguno)"
+grep -q "Lección del proyecto." "$D/docs/agents/lessons.md"; afirmar $? "[0.9] un archivo renombrado con cambios solo del proyecto los conserva en la ruta nueva"
+grep -q "Línea nueva de la plantilla 0.10." "$D/.claude/skills/create-issue/SKILL.md"; afirmar $? "[0.9] un archivo renombrado que el proyecto no tocó se reemplaza por la versión nueva"
+head -1 "$D/docs/github-naming-convention.md" | grep -q "Convención del proyecto" && grep -q '^<<<<<<<' "$D/.agent-kit/pending/docs/github-naming-convention.md"
+afirmar $? "[0.9] un conflicto en un archivo renombrado no lo pisa: la fusión con marcas queda en .agent-kit/pending/ con la ruta nueva"
+python3 - "$D/.agent-kit.json" <<'PY'
+import json, sys
+k = json.load(open(sys.argv[1], encoding="utf-8"))
+viejas = {"proyecto", "rama_base", "modo", "fecha", "archivos"} & set(k)
+ok = (not viejas and k.get("project") == "Demo" and k.get("base_branch") == "main" and k.get("mode") == "full"
+      and k.get("date") == "2026-01-01" and k.get("version") == "0.10.0" and isinstance(k.get("files"), dict)
+      and not any(r.startswith(("scripts/agentes/", "docs/agentes/")) for r in k["files"]) and "scripts/agents/verify.py" in k["files"])
+sys.exit(0 if ok else 1)
+PY
+afirmar $? "[0.9] .agent-kit.json pasa a las claves nuevas (project, base_branch, mode: full, date, files con las rutas nuevas) y registra la versión nueva"
+python3 - "$D/docs/agents-map.json" "$D/.github/team.json" <<'PY'
+import json, sys
+def claves(o):
+    if isinstance(o, dict):
+        for k, v in o.items():
+            yield k
+            yield from claves(v)
+    elif isinstance(o, list):
+        for v in o:
+            yield from claves(v)
+m = json.load(open(sys.argv[1], encoding="utf-8"))
+t = json.load(open(sys.argv[2], encoding="utf-8"))
+viejas = {"cuando", "revisar", "motivo", "sensibles", "rutas", "verificar", "nombre", "siempre", "correr", "obligatorios",
+          "ignorar_check", "_ayuda", "tipo", "integrantes", "activo"}
+pagos = [x for x in m.get("sensitive", []) if x.get("type") == "pagos"]
+verif = [x for x in m.get("verify", []) if x.get("name") == "pagos"]
+nombres = {x.get("name") for x in m.get("verify", [])}
+ok = (not viejas & (set(claves(m)) | set(claves(t))) and pagos and pagos[0]["paths"] == ["src/pagos/**"]
+      and verif and verif[0]["run"] == "npm test {files}" and "guardrails" in nombres and "barandas" not in nombres
+      and "money" in {x.get("type") for x in m["sensitive"]} and t["members"][0] == {"login": "ana", "name": "Ana", "areas": ["infra"], "active": True})
+sys.exit(0 if ok else 1)
+PY
+afirmar $? "[0.9] migra las claves y los valores de agents-map.json y team.json conservando lo que agregó el proyecto"
+grep -q 'name: "type:feature"' "$D/.github/labels.yml" && grep -q '^ *- "tipo:feature"' "$D/.github/labels.yml" && grep -q 'name: "area:pagos"' "$D/.github/labels.yml"
+afirmar $? "[0.9] labels.yml queda con los labels nuevos y los viejos como aliases, y conserva el label propio"
+grep -q "0.9" <<<"$s" && grep -q '"language": "en"' "$D/.agent-kit.json" && grep -q 'language' <<<"$s" && grep -q '"language": "es"' <<<"$s"
+afirmar $? "[0.9] sin language trata el proyecto como en y lo avisa en el resumen (con cómo pasar a es)"
+grep -q "Cambio de prueba 0.10" <<<"$s"; afirmar $? "[0.9] muestra el changelog de la versión nueva"
+es "$(git -C "$D" rev-parse HEAD)" = "$antes" && es -n "$(git -C "$D" status --porcelain)"; afirmar $? "[0.9] no commitea: los cambios quedan en el working tree"
+(cd "$D" && rm -rf .agent-kit && git checkout -q docs/convencion-nombres-github.md 2>/dev/null; git add -A && git commit -qm migrar) >/dev/null 2>&1
+s=$(cd "$D" && python3 scripts/update.py --template "$P09" 2>&1); c=$?
+[ "$c" -eq 0 ] && grep -qi "already at" <<<"$s"; afirmar $? "[0.9] después de migrar, el update.py del proyecto dice que ya está en la última versión"
+
+# El proyecto en español agrega "language": "es" antes de actualizar: la migración lo respeta.
+D="$TMP/p09-es"
+proyecto09 "$D" completo es
+s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
+[ "$c" -eq 0 ] && grep -q '"language": "es"' "$D/.agent-kit.json" && ! grep -q 'treated as English' <<<"$s"
+afirmar $? "[0.9] con language: es en el proyecto, la migración lo conserva y no avisa del idioma por defecto"
+
+# Proyecto chico de 0.9: crecer.py pasa a grow.py y perfiles/chico a profiles/small.
+D="$TMP/p09-chico"
+proyecto09 "$D" chico
+es -f "$D/scripts/crecer.py" && grep -q '"modo": "chico"' "$D/.agent-kit.json"; afirmar $? "[0.9 chico] el proyecto de partida es chico, con crecer.py"
+perl -pi -e 's/^# .*/# Convención del proyecto/ if $. == 1' "$D/docs/convencion-nombres-github.md"
+(cd "$D" && git add -A && git commit -qm cambios) >/dev/null 2>&1
+s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
+[ "$c" -eq 0 ] && grep -q '"mode": "small"' "$D/.agent-kit.json" && grep -q '"version": "0.10.0"' "$D/.agent-kit.json" \
+  && es -f "$D/scripts/grow.py" && ! [ -e "$D/scripts/crecer.py" ] && ! grep -q '"modo"' "$D/.agent-kit.json"
+afirmar $? "[0.9 chico] migra a mode: small y mueve crecer.py a grow.py"
+head -1 "$D/docs/github-naming-convention.md" | grep -q "Convención del proyecto" && ! [ -e "$D/docs/convencion-nombres-github.md" ]
+afirmar $? "[0.9 chico] la convención del perfil chico, con cambios del proyecto, queda en su ruta nueva"
+
+# La ruta nueva ya existe (alguien bajó update.py al proyecto): no se pisa, se avisa, y lo viejo sin cambios se borra.
+D="$TMP/p09-choque"
+proyecto09 "$D" completo
+(cd "$D" && cp "$NUEVO_UPDATE" scripts/update.py && git add -A && git commit -qm "update.py nuevo") >/dev/null 2>&1
+s=$(cd "$D" && python3 scripts/update.py --template "$P09" 2>&1); c=$?
+[ "$c" -eq 0 ] && es -f "$D/scripts/update.py" && grep -q "actualizar.py" <<<"$s" && ! grep -q Traceback <<<"$s"
+afirmar $? "[0.9] si la ruta nueva ya existe no la pisa, lo avisa y sigue con el resto"
+es -f "$D/scripts/actualizar.py"; afirmar $? "[0.9] la ruta vieja que no se pudo mover queda para comparar a mano: no se borra"
+
+# Ronda de corrección del PR: rutas propias con un nombre viejo, volver atrás por el idioma, restos generados y el orden de check-docs.
+D="$TMP/p09-rutas"
+proyecto09 "$D" completo
+(
+  cd "$D" || exit 1
+  python3 - <<'PY'
+import json
+m = json.load(open("docs/mapa-agentes.json", encoding="utf-8"))
+m["sensibles"].append({"tipo": "pii", "rutas": ["app/perfiles/**", "?src/scripts/agentes/pii.py", "scripts/agentes/**"]})
+m["verificar"].append({"nombre": "crecer", "siempre": True, "correr": "bash tools/scripts/crecer.py.sh"})
+m["verificar"].append({"nombre": "relativa", "siempre": True, "correr": "python3 ./scripts/agentes/verificar.py && python3 ../scripts/crecer.py"})
+open("docs/mapa-agentes.json", "w", encoding="utf-8").write(json.dumps(m, ensure_ascii=False, indent=2) + "\n")
+PY
+  git add -A && git commit -qm rutas
+  mkdir -p scripts/agentes/__pycache__ && echo x >scripts/agentes/__pycache__/guardrails.pyc
+) >/dev/null 2>&1
+s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
+python3 - "$D/docs/agents-map.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1], encoding="utf-8"))
+pii = [x for x in m["sensitive"] if x.get("type") == "pii"]
+cmd = [x for x in m["verify"] if x.get("name") == "crecer"]
+sys.exit(0 if pii and pii[0]["paths"] == ["app/perfiles/**", "?src/scripts/agentes/pii.py", "scripts/agents/**"]
+         and cmd and cmd[0]["run"] == "bash tools/scripts/crecer.py.sh"
+         and [x["run"] for x in m["verify"] if x.get("name") == "relativa"] == ["python3 ./scripts/agents/verify.py && python3 ../scripts/grow.py"] else 1)
+PY
+afirmar $? "[0.9] solo renombra las rutas del kit en el mapa (app/perfiles/** queda intacta), también si empiezan con ./ o ../"
+! [ -e "$D/scripts/agentes" ] && ! grep -q "own files" <<<"$s"
+afirmar $? "[0.9] un __pycache__ de la carpeta vieja no cuenta como archivo propio: se borra con la carpeta"
+grep -Eq 'git add -A.*check-docs|check-docs.*git add -A' <<<"$s" && ! grep -Eq '^ +2\. python3 scripts/agents/check-docs.py' <<<"$s"
+afirmar $? "[0.9] el resumen pide git add -A antes de check-docs.py (usa el índice de git)"
+
+# El aviso del idioma indica cómo volver atrás, y eso funciona.
+D="$TMP/p09-volver"
+proyecto09 "$D" completo
+cambios09 "$D"
+s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
+grep -q "rm -rf .agent-kit" <<<"$s" && grep -q "git reset --hard && git clean -fd" <<<"$s"; afirmar $? "[0.9] el aviso del idioma indica descartar la corrida, borrar .agent-kit/ y commitear el cambio"
+(
+  cd "$D" || exit 1
+  git add -A  # el resumen pide stagear antes de check-docs: la vuelta atrás tiene que andar con todo en el índice
+  git reset -q --hard && git clean -qfd && rm -rf .agent-kit
+  python3 -c "import json; k=json.load(open('.agent-kit.json')); k['language']='es'; json.dump(k, open('.agent-kit.json', 'w'), ensure_ascii=False, indent=2)"
+  git commit -qam "language es"
+) >/dev/null 2>&1
+s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
+[ "$c" -eq 0 ] && grep -q '"language": "es"' "$D/.agent-kit.json" && es -f "$D/scripts/agents/verify.py" && ! [ -e "$D/scripts/agentes" ]
+afirmar $? "[0.9] siguiendo el aviso (descartar con todo stageado, borrar .agent-kit/, agregar language y commitear) la segunda corrida migra en español"
+
+# Lo que marcó la revisión: nombres de personas, carpetas viejas con archivos propios, claves a medias, sin fecha.
+D="$TMP/p09-revision"
+proyecto09 "$D" completo
+(
+  cd "$D" || exit 1
+  echo "guía propia" >docs/agentes/mi-guia.md
+  python3 - <<'PY'
+import json
+json.dump({"_ayuda": "x", "integrantes": [{"login": "rojo", "nombre": "rojo", "areas": [], "activo": True}]},
+          open(".github/equipo.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+k = json.load(open(".agent-kit.json", encoding="utf-8"))
+k.pop("fecha")  # sin fecha
+k["files"] = k.pop("archivos")  # claves a medias: archivos ya cambiada, el resto en español
+json.dump(k, open(".agent-kit.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+  git add -A && git commit -qm revision
+) >/dev/null 2>&1
+s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
+[ "$c" -eq 0 ] && ! grep -q Traceback <<<"$s"; afirmar $? "[0.9] un .agent-kit.json con solo algunas claves viejas se migra igual, sin traceback"
+python3 -c "import json,sys; k=json.load(open('$D/.agent-kit.json')); sys.exit(0 if k.get('language')=='en' and k.get('project')=='Demo' else 1)"
+afirmar $? "[0.9] sin fecha en las claves viejas, igual queda language: en"
+python3 -c "import json,sys; t=json.load(open('$D/.github/team.json')); sys.exit(0 if t['members'][0]['name']=='rojo' else 1)"
+afirmar $? "[0.9] no traduce los nombres de las personas de team.json"
+es -f "$D/docs/agentes/mi-guia.md" && grep -q "docs/agentes" <<<"$s" && grep -qi "own files\|your own" <<<"$s"
+afirmar $? "[0.9] una carpeta vieja con archivos propios no se mueve y el resumen lo avisa"
+
 D="$TMP/claves-viejas-chico"
 proyecto "$D" chico
 (cd "$D" && python3 -c "import json; k=json.load(open('.agent-kit.json')); json.dump({'proyecto': 'Demo', 'rama_base': 'main', 'modo': 'chico', 'fecha': k['date'], 'archivos': k['files']}, open('.agent-kit.json', 'w'))" && git commit -qam claves) >/dev/null 2>&1
 s=$(cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1); c=$?
-[ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && ! grep -q Traceback <<<"$s"; afirmar $? "grow.py con las claves viejas de .agent-kit.json explica que es de 0.9 y sale con error, sin traceback"
+[ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && grep -q "update.py" <<<"$s" && grep -qi "download" <<<"$s" && ! grep -q Traceback <<<"$s"; afirmar $? "grow.py con las claves viejas de .agent-kit.json explica que es de 0.9, cómo bajar update.py y sale con error, sin traceback"
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi

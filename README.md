@@ -327,6 +327,8 @@ It initializes the new version with the project's data and compares it file by f
 - Files both sides changed are merged with `git merge-file`. On a conflict **nothing is overwritten**: the merge with markers lands in `.agent-kit/pending/`.
 - Files the project deleted don't come back.
 
+A project created with 0.9 (Spanish names) is migrated in the same run to the new names, keys and labels, keeping its changes; how to run and review it is in `CHANGELOG.md` (#116).
+
 It shows what changed according to the changelog and doesn't commit: you review the diff and open a PR. A project created before versions can also be updated, but without merging: what it modified lands whole in `.agent-kit/pending/`.
 
 <a name="tools"></a>
