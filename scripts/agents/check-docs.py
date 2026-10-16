@@ -281,7 +281,7 @@ if os.path.isdir(".claude/skills"):
 # What AGENTS.md says is ignored (`.env*` are ignored) must be: the agent
 # trusts that sentence and, if it is false, ends up committing a secret.
 if os.path.exists("AGENTS.md"):
-    NIEGA = re.compile(r"\b(?:no|nunca|not|never)\s+(?:(?:est[aá]n?|es|son|se|is|are|be)\s+)?ignor", re.I)
+    NIEGA = re.compile(r"\b(?:no|nunca|not|never)\s+(?:(?:est[aá]n?|es|son|se|is|are|be)\s+)?ignor|n['’]t\s+(?:be\s+)?ignor", re.I)
     for n, linea in enumerate(open("AGENTS.md", encoding="utf-8"), 1):
         if not re.search(r"ignorad|ignored", linea, re.I):
             continue

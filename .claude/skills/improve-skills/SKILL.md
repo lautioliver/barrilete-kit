@@ -28,7 +28,7 @@ Group the deviations and findings by `model` and by `role`. If the same model fa
 Rules, in this order:
 
 1. **At least two cases, or one serious one.** Serious: a bug that reached review or production, a broken business rule, data or money at risk.
-2. **Never remove or loosen** Autonomy rules (the "Autonomía" section of `AGENTS.md`), approvals, verifications or the "does not merge / does not approve". If a control stops things often for no reason, it is raised as a **question for the team** in the PR, not as a change.
+2. **Never remove or loosen** Autonomy rules (the "Agent autonomy" section of `AGENTS.md`), approvals, verifications or the "does not merge / does not approve". If a control stops things often for no reason, it is raised as a **question for the team** in the PR, not as a change.
 3. **Script before text.** If it can be verified mechanically (a CI check, a control in `verify.py` or `prepare.sh`), do that; one more instruction in Markdown is the last resort. Instructions are what the agent skips.
 4. **Maximum length:** no `SKILL.md` goes over 120 lines. If an adjustment does not fit, something else has to be removed or moved to a script.
 5. **One change per pattern**, with its reason and the cases that justify it.

@@ -102,7 +102,7 @@ con_pares() { # con_pares <copia>: pares de ejemplo en el repo, en el perfil chi
   echo "SMALL-EN" >"$p/profiles/small/AGENTS.md"; echo "SMALL-ES" >"$p/profiles/small/AGENTS.es.md"
   echo "TRIAL-ES" >"$p/docs/try-the-template.es.md"
   # llms.txt no es Markdown: su hermano es llms.es.txt (#115), con la misma regla.
-  echo "TXT-EN" >"$p/SAMPLE.txt"; echo "TXT-ES" >"$p/SAMPLE.es.txt"
+  echo "TXT-EN" >"$p/llms.txt"; echo "TXT-ES" >"$p/llms.es.txt"
   # Textos que el perfil chico edita con perl: su hermano .es.md (copia del actual) no puede pisar la edición.
   cp "$p/docs/decisions/README.md" "$p/docs/decisions/README.es.md"
   cp "$p/.github/pull_request_template.md" "$p/.github/pull_request_template.es.md"
@@ -121,11 +121,11 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
   es -z "$(find "$p" \( -name '*.es.md' -o -name '*.es.txt' \) -not -path '*/.git/*')"; afirmar $? "[$modo --lang $idioma] no queda ningún .es.md ni .es.txt"
   if [ "$idioma" = es ]; then
     grep -qx SAMPLE-ES "$p/SAMPLE.md"; afirmar $? "[$modo --lang es] SAMPLE.md es la versión .es.md"
-    grep -qx TXT-ES "$p/SAMPLE.txt"; afirmar $? "[$modo --lang es] SAMPLE.txt es la versión .es.txt"
+    grep -qx TXT-ES "$p/llms.txt"; afirmar $? "[$modo --lang es] llms.txt es la versión llms.es.txt"
     if [ "$modo" = chico ]; then esperado=SMALL-ES; else esperado=FULL-ES; fi
   else
     grep -qx SAMPLE-EN "$p/SAMPLE.md"; afirmar $? "[$modo --lang en] SAMPLE.md queda en inglés"
-    grep -qx TXT-EN "$p/SAMPLE.txt"; afirmar $? "[$modo --lang en] SAMPLE.txt queda en inglés"
+    grep -qx TXT-EN "$p/llms.txt"; afirmar $? "[$modo --lang en] llms.txt queda en inglés"
     if [ "$modo" = chico ]; then esperado=SMALL-EN; else esperado=FULL-EN; fi
   fi
   grep -qx "$esperado" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma] AGENTS.md es $esperado (el perfil pisa al archivo completo, cada uno en su idioma)"
@@ -154,6 +154,10 @@ for idioma in en es; do
   if [ -z "$repetidos" ] && [ "$(wc -l <<<"$nombres" | tr -d ' ')" = 3 ] && [ -z "$sueltos" ]; then r=0; else r=1; fi
   afirmar $r "[real completo --lang $idioma] cada name: aparece una sola vez en .claude/agents/ (3 agentes, ningún .es.md)"
   ! [ -e "$p/.claude/i18n" ]; afirmar $? "[real completo --lang $idioma] no queda .claude/i18n"
+  # La regla de la rama base (<BRANCH_RULE>) sigue el idioma de la instalación, en AGENTS.md y en la convención.
+  if [ "$idioma" = en ]; then regla='Only permanent branch'; otra='Única rama permanente'; else regla='Única rama permanente'; otra='Only permanent branch'; fi
+  if grep -q "$regla" "$p/AGENTS.md" && grep -q "$regla" "$p/docs/github-naming-convention.md" && ! grep -rq "$otra" "$p/AGENTS.md" "$p/docs"; then r=0; else r=1; fi
+  afirmar $r "[real completo --lang $idioma] <BRANCH_RULE> sale en el idioma de la instalación (AGENTS.md y la convención)"
   if [ "$idioma" = es ]; then
     grep -q 'Sos el implementador' "$p/.claude/agents/implementer.md" && grep -q '^# Implementar issue' "$p/.claude/skills/implement-issue/SKILL.md"
     afirmar $? "[real completo --lang es] el agente y la skill quedan en español"
@@ -179,6 +183,10 @@ for idioma in en es; do
     if [ "$(wc -l <"$RAIZ/profiles/small/$f" | tr -d ' ')" = "$(wc -l <"$p/$f" | tr -d ' ')" ] && [ "$(head -1 "$RAIZ/profiles/small/$f" | sed 's/<PROJECT>/Demo/')" = "$(head -1 "$p/$f")" ]; then r=0; else r=1; fi
     afirmar $r "[real chico --lang $idioma] $f es el del perfil chico (mismo largo y título)"
   done
+  if [ "$idioma" = en ]; then
+    # shellcheck disable=SC2016
+    grep -qF 'the PR says so in "Lógica de negocio afectada" (business logic affected)' "$p/docs/decisions/README.md"; afirmar $? "[real chico --lang en] docs/decisions/README.md cita el encabezado vigente de la plantilla del PR, con su glosa"
+  fi
   largos=$(wc -l <"$p/.claude/skills/implement-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/create-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/update-docs/SKILL.md" | tr -d ' ')
   if [ "$largos" = 63/32/20 ]; then r=0; else r=1; fi
   afirmar $r "[real chico --lang $idioma] implement-issue, create-issue y update-docs tienen el largo del perfil (63, 32, 20)"
@@ -268,6 +276,7 @@ Están ignorados: `.env*`.
 `dist/` is not ignored, `.env*` is ignored.
 `.env*` is never committed because it is ignored.
 `dist/` is never ignored; `.env*` is ignored.
+`dist/` isn't ignored, `.env*` is ignored.
 Ignored: `.env*`.
 FRASES
 

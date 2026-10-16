@@ -44,13 +44,25 @@ fi
 # AGENT_KIT_DATE: the original date of the project, so update.py reproduces its init.
 F=${AGENT_KIT_DATE:-$(date +%Y-%m-%d)}
 export F
-if [ "$B" = "main" ]; then
-  # shellcheck disable=SC2016  # backticks de Markdown literales
-  export R='Única rama permanente `main`: los PRs de trabajo van directo a `main`.'
-elif [ "$MODO" = "releases" ]; then
-  export R="Los PRs de trabajo van a \`$B\`. Las versiones se preparan en \`release/vX.Y.Z\` (cortada desde \`$B\`, probada en staging) y recién ahí pasan a \`main\`, que es producción."
+# The base-branch rule (<BRANCH_RULE>) is prose: it follows the language of the installation.
+if [ "$LANG_KIT" = es ]; then
+  if [ "$B" = "main" ]; then
+    # shellcheck disable=SC2016  # backticks de Markdown literales
+    export R='Única rama permanente `main`: los PRs de trabajo van directo a `main`.'
+  elif [ "$MODO" = "releases" ]; then
+    export R="Los PRs de trabajo van a \`$B\`. Las versiones se preparan en \`release/vX.Y.Z\` (cortada desde \`$B\`, probada en staging) y recién ahí pasan a \`main\`, que es producción."
+  else
+    export R="Los PRs de trabajo van a \`$B\`. \`main\` es producción y solo recibe PRs de release desde \`$B\`."
+  fi
 else
-  export R="Los PRs de trabajo van a \`$B\`. \`main\` es producción y solo recibe PRs de release desde \`$B\`."
+  if [ "$B" = "main" ]; then
+    # shellcheck disable=SC2016  # Markdown backticks, literal
+    export R='Only permanent branch `main`: working PRs go straight to `main`.'
+  elif [ "$MODO" = "releases" ]; then
+    export R="Working PRs go to \`$B\`. Versions are prepared in \`release/vX.Y.Z\` (cut from \`$B\`, tested in staging) and only then go to \`main\`, which is production."
+  else
+    export R="Working PRs go to \`$B\`. \`main\` is production and only receives release PRs from \`$B\`."
+  fi
 fi
 cd "$(git rev-parse --show-toplevel)"
 # Language (ADR-001): X.md and X.es.md are siblings. With es, the Spanish one replaces the English one;
@@ -70,7 +82,7 @@ apply_language() {
   fi
   rm -rf .claude/i18n
   # llms.txt is not Markdown: its sibling is llms.es.txt (same rule).
-  { find . \( -name '*.es.md' -o -name '*.es.txt' \) -not -path './.git/*' -not -path './profiles/*' || true; } | while read -r f; do
+  { find . \( -name '*.es.md' -o -name 'llms.es.txt' \) -not -path './.git/*' -not -path './profiles/*' || true; } | while read -r f; do
     if [ "$LANG_KIT" = es ]; then mv -f -- "$f" "${f%.es.*}.${f##*.}"; else rm -f -- "$f"; fi
   done
 }
@@ -95,7 +107,7 @@ if [ -n "$CHICO" ]; then
   done
   apply_language
   # Without the business-logic label: it is edited in place (not copied) so it does not get outdated.
-  perl -pi -e 's/el PR lleva el label `business-logic`\./el PR lo dice en "Lógica de negocio afectada"./; s/the PR carries the `business-logic` label\./the PR says so in "Business logic affected"./' docs/decisions/README.md
+  perl -pi -e 's/el PR lleva el label `business-logic`\./el PR lo dice en "Lógica de negocio afectada"./; s/the PR carries the `business-logic` label\./the PR says so in "Lógica de negocio afectada" (business logic affected)./' docs/decisions/README.md
   perl -pi -e 's/ Si sí: cuál, y agregá el label `business-logic`\./ Si sí: cuál, y por qué cambia./' .github/pull_request_template.md
 fi
 apply_language
