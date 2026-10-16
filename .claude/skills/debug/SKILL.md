@@ -1,46 +1,46 @@
 ---
 name: debug
-description: Investiga un bug separando síntoma, causa y arreglo antes de tocar código. Usar con "/debug", "esto no anda", "investigá este error", con issues type:bug (implement-issue la llama) o cuando un test falla sin causa obvia.
+description: Investigates a bug separating symptom, cause and fix before touching code. Use with "/debug", "this doesn't work", "investigate this error", with type:bug issues (implement-issue calls it) or when a test fails with no obvious cause.
 ---
 
 # Debug
 
-Los agentes tienden a probar arreglos plausibles hasta que el síntoma desaparece. Eso tapa la causa y deja el bug esperando. Esta skill obliga a ir en orden: **no se escribe el arreglo hasta tener la causa raíz con evidencia.**
+Agents tend to try plausible fixes until the symptom goes away. That hides the cause and leaves the bug waiting. This skill forces an order: **the fix is not written until you have the root cause with evidence.**
 
-## 1. Reproducir
+## 1. Reproduce
 
-- Escribí el síntoma exacto: qué se hace, qué se espera, qué pasa (mensaje de error, valor, captura).
-- Reproducilo de la forma más chica posible. Lo ideal: **un test que falla**. Si no se puede con un test, un script o pasos manuales precisos.
-- Si no se reproduce, no sigas adivinando: listá qué probaste y qué datos faltan (entorno, IDs, logs) y pedilos.
+- Write down the exact symptom: what is done, what is expected, what happens (error message, value, screenshot).
+- Reproduce it in the smallest possible way. Ideally: **a failing test**. If a test is not possible, a script or precise manual steps.
+- If it does not reproduce, do not keep guessing: list what you tried and what data is missing (environment, IDs, logs) and ask for it.
 
-## 2. Recopilar evidencia
+## 2. Gather evidence
 
-- Leé el código del camino que falla, de la entrada al punto del error. No solo el archivo donde explota.
-- Logs, stack trace, estado de la base, `git log -S` / `git blame` sobre las líneas sospechosas (¿cuándo empezó?).
-- Revisá si un ADR, la auditoría o los docs dicen cómo debería comportarse. A veces el "bug" es un cambio de regla no declarado.
+- Read the code of the failing path, from the entry point to the point of the error. Not just the file where it blows up.
+- Logs, stack trace, database state, `git log -S` / `git blame` on the suspicious lines (when did it start?).
+- Check whether an ADR, the audit or the docs say how it should behave. Sometimes the "bug" is an undeclared rule change.
 
-## 3. Causa raíz
+## 3. Root cause
 
-Escribí, antes de arreglar:
+Write, before fixing:
 
-> **Síntoma:** …
-> **Causa:** … (archivo:línea, y por qué produce el síntoma)
-> **Evidencia:** … (el test, el log, el valor que lo prueba)
-> **Por qué no lo detectaron los tests:** …
+> **Symptom:** …
+> **Cause:** … (file:line, and why it produces the symptom)
+> **Evidence:** … (the test, the log, the value that proves it)
+> **Why the tests did not catch it:** …
 
-Si tenés dos hipótesis, probá cuál es con evidencia; no arregles las dos "por las dudas". Si la causa está en algo sensible (AGENTS.md, Autonomía), consultá antes de seguir.
+If you have two hypotheses, find out which one is right with evidence; do not fix both "just in case". If the cause is in something sensitive (AGENTS.md, "Autonomía" section), ask before going on.
 
-## 4. Proponer el arreglo
+## 4. Propose the fix
 
-- El arreglo ataca la causa, no el síntoma. Si solo se puede mitigar, decilo.
-- ¿Hay otros lugares con el mismo patrón? Buscalos (`grep`). Arreglalos si están en alcance; si no, issue nuevo.
-- Si el usuario está presente y el arreglo no es obvio, mostrá causa + propuesta y esperá el visto bueno.
+- The fix attacks the cause, not the symptom. If it can only be mitigated, say so.
+- Are there other places with the same pattern? Look for them (`grep`). Fix them if they are in scope; if not, a new issue.
+- If the user is present and the fix is not obvious, show cause + proposal and wait for the go-ahead.
 
-## 5. Implementar y test de regresión
+## 5. Implement and regression test
 
-- El test del paso 1 tiene que pasar de fallar a pasar con el arreglo. Si no tenías test, escribilo ahora.
-- Corré la suite completa: el arreglo no puede romper otra cosa.
+- The step 1 test has to go from failing to passing with the fix. If you had no test, write it now.
+- Run the full suite: the fix cannot break anything else.
 
-## 6. Dejar registro
+## 6. Leave a record
 
-El bloque del paso 3 va al PR (sección "Por qué") o como comentario en el issue. Es lo que le sirve a quien mire este código dentro de seis meses.
+The step 3 block goes in the PR ("Why" section) or as a comment on the issue. It is what helps whoever looks at this code six months from now.

@@ -1,34 +1,34 @@
 ---
 name: project-status
-description: Resume el estado actual del proyecto (versión, flujo de ramas, trabajo en curso, épicas, PRs, deuda, decisiones recientes, migraciones pendientes) y responde qué se puede empezar ya, generado en el momento desde git, GitHub y los docs. Usar con "/project-status", "¿en qué estado está el proyecto?", "poneme al día", "¿qué puedo hacer ahora?", "¿qué sigue?", "¿qué está bloqueado?" o al empezar una sesión nueva.
+description: Summarizes the current state of the project (version, branch flow, work in progress, epics, PRs, debt, recent decisions, pending migrations) and answers what can be started now, generated on the spot from git, GitHub and the docs. Use with "/project-status", "what state is the project in?", "catch me up", "what can I do now?", "what's next?", "what is blocked?" or when starting a new session.
 ---
 
-# Estado del proyecto
+# Project status
 
 ```bash
 .claude/skills/project-status/status.sh
 ```
 
-Genera el resumen en el momento desde las fuentes (git, issues, PRs, ADRs, `docs/agents-map.json`). **No se guarda en un archivo a propósito**: un resumen commiteado envejece apenas nadie lo regenera y pasa a decir algo falso con aspecto oficial.
+It generates the summary on the spot from the sources (git, issues, PRs, ADRs, `docs/agents-map.json`). **It is deliberately not saved to a file**: a committed summary ages as soon as nobody regenerates it and ends up saying something false with an official look.
 
-Al responder:
-- Mostrá la salida y, si el usuario quiere más, profundizá con las fuentes que cita (`architecture.md`, la épica, el ADR).
-- Si algo se ve raro (un PR viejo abierto, un crítico sin asignar, una release abierta hace semanas), mencionalo en una línea.
+When answering:
+- Show the output and, if the user wants more, go deeper with the sources it cites (`architecture.md`, the epic, the ADR).
+- If something looks odd (an old open PR, an unassigned critical issue, a release open for weeks), mention it in one line.
 
-## Qué se puede hacer ahora
+## What can be done now
 
-Para "¿qué puedo hacer ahora?", "¿qué sigue?", "¿qué está bloqueado?":
+For "what can I do now?", "what's next?", "what is blocked?":
 
 ```bash
 .claude/skills/project-status/available.sh
 ```
 
-Devuelve cuatro listas: **se pueden empezar ya** (sin bloqueantes abiertos ni asignados, por prioridad), **en curso** (asignados o con un PR abierto que los cierra, con quién y qué PR), **bloqueados** (con lo que los bloquea) y **épicas en curso** (con avance de sub-issues). Las épicas no aparecen como disponibles: se trabajan por sus sub-issues. Los tomados tampoco: `/implement-issue` asigna el issue al tomarlo, y un PR abierto que lo cierra (por `Closes #n` en el cuerpo o por el número en la rama) también cuenta. Así dos sesiones no eligen el mismo.
+It returns four lists: **can be started now** (no open blockers and unassigned, by priority), **in progress** (assigned or with an open PR that closes them, with who and which PR), **blocked** (with what blocks them) and **epics in progress** (with sub-issue progress). Epics do not show up as available: they are worked through their sub-issues. Taken ones do not either: `/implement-issue` assigns the issue when it takes it, and an open PR that closes it (through `Closes #n` in the body or the number in the branch) counts too. That way two sessions do not pick the same one.
 
-Al responder:
-- Mostrá la salida tal cual, sin inventar issues que no están.
-- Si el usuario dice en qué área o con qué prioridad quiere trabajar, filtrá la lista con eso.
-- Si hay disponibles con `status:triage`, mencionalo: todavía no tienen prioridad.
-- GitHub tarda unos segundos en actualizar el resumen de dependencias: si un issue se cerró recién, puede seguir figurando unos segundos más.
+When answering:
+- Show the output as is, without inventing issues that are not there.
+- If the user says which area or priority they want to work on, filter the list with that.
+- If there are available ones with `status:triage`, mention it: they have no priority yet.
+- GitHub takes a few seconds to update the dependency summary: if an issue was just closed, it may still show for a few more seconds.
 
-No modifica nada, así que no hace falta confirmación.
+It changes nothing, so no confirmation is needed.

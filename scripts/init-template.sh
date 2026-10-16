@@ -57,6 +57,18 @@ cd "$(git rev-parse --show-toplevel)"
 # in both cases no .es.md is left. It goes before the edits and deletions that follow, so they apply to
 # the file that stays (the DELETE list of --small already took the siblings of its own entries).
 apply_language() {
+  # The Spanish agents live in .claude/i18n/agents/<name>.es.md (Claude Code loads every .md of .claude/agents/
+  # as an agent, so a sibling there would be a second agent with the same name). With es they replace
+  # .claude/agents/<name>.md (if the mode kept the agents); in both cases .claude/i18n goes away.
+  if [ "$LANG_KIT" = es ] && [ -d .claude/agents ] && [ -d .claude/i18n/agents ]; then
+    for f in .claude/i18n/agents/*.es.md; do
+      [ -e "$f" ] || continue
+      # Only the sibling of an agent that exists: an orphan would be created as a new agent.
+      [ -e ".claude/agents/$(basename "${f%.es.md}").md" ] || continue
+      mv -f -- "$f" ".claude/agents/$(basename "${f%.es.md}").md"
+    done
+  fi
+  rm -rf .claude/i18n
   { find . -name '*.es.md' -not -path './.git/*' -not -path './profiles/*' || true; } | while read -r f; do
     if [ "$LANG_KIT" = es ]; then mv -f -- "$f" "${f%.es.md}.md"; else rm -f -- "$f"; fi
   done
@@ -66,6 +78,12 @@ if [ -n "$CHICO" ]; then
   (cd profiles/small && find . -type f ! -name DELETE) | while read -r f; do
     mkdir -p "$(dirname "$f")"
     cp "profiles/small/$f" "$f"
+    # The profile file wins in both languages: if it has no sibling of its own, the full file's sibling goes
+    # (or --lang es would put the full Spanish file over the short one).
+    case "$f" in
+      *.es.md) ;;
+      *.md) [ -e "profiles/small/${f%.md}.es.md" ] || rm -f -- "${f%.md}.es.md" ;;
+    esac
   done
   # A .md entry also takes its Spanish sibling (ADR-001), or --lang es would bring the file back as X.md.
   grep -v '^#' profiles/small/DELETE | while read -r r; do

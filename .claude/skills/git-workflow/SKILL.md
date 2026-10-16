@@ -1,51 +1,51 @@
 ---
 name: git-workflow
-description: Flujo de ramas, commits y PRs de este repo. Usar siempre que crees ramas, commits, pushes o pull requests.
+description: Branch, commit and PR flow of this repo. Use whenever you create branches, commits, pushes or pull requests.
 ---
 
 # Git workflow — <PROJECT>
 
-Detalle en `docs/github-naming-convention.md`. Resumen obligatorio en `AGENTS.md`.
+Details in `docs/github-naming-convention.md`. Mandatory summary in `AGENTS.md`.
 
-## Ramas
+## Branches
 
-- <BRANCH_RULE> Creá la rama de trabajo desde `<BASE_BRANCH>` actualizada.
-- Nombre: `claude/<n°issue>-<descripcion>` (agente) o `<tipo>/<n°issue>-<descripcion>` (persona). Solo minúsculas, números y guiones.
-- Si no hay issue, preguntá si abrir uno (skill `create-issue`) antes de inventar el número.
+- <BRANCH_RULE> Create the working branch from an up-to-date `<BASE_BRANCH>`.
+- Name: `claude/<issue-no>-<description>` (agent) or `<type>/<issue-no>-<description>` (person). Lowercase, numbers and hyphens only.
+- If there is no issue, ask whether to open one (skill `create-issue`) before inventing the number.
 
 <!-- releases:start -->
 ## Releases (`develop` → `release/*` → `main`)
 
-Para publicar sin tocar producción hasta que la versión esté probada:
+To publish without touching production until the version is tested:
 
-1. **Cortar la release** desde `develop` actualizada: `release/vX.Y.Z` (SemVer, ver convención §8). Desde ese momento `develop` sigue recibiendo trabajo para la versión siguiente.
-2. **Congelar.** En `release/vX.Y.Z` solo entran arreglos de esa versión, por PR con base `release/vX.Y.Z`. Nada de features nuevas.
-3. **Probar** la release en el entorno de staging antes de mergear.
-4. **Publicar:** PR `release/vX.Y.Z` → `main`. Al mergear, tag `vX.Y.Z` en `main`.
-5. **Devolver a `develop`:** PR `main` → `develop` (o `release/vX.Y.Z` → `develop`) para que los arreglos de la release no se pierdan. Después se borra la rama `release/*`.
+1. **Cut the release** from an up-to-date `develop`: `release/vX.Y.Z` (SemVer, see convention §8). From then on `develop` keeps receiving work for the next version.
+2. **Freeze.** Only fixes for that version go into `release/vX.Y.Z`, through a PR based on `release/vX.Y.Z`. No new features.
+3. **Test** the release in the staging environment before merging.
+4. **Publish:** PR `release/vX.Y.Z` → `main`. On merge, tag `vX.Y.Z` on `main`.
+5. **Return to `develop`:** PR `main` → `develop` (or `release/vX.Y.Z` → `develop`) so the release fixes are not lost. Then the `release/*` branch is deleted.
 
-Hotfix (algo roto en producción):
+Hotfix (something broken in production):
 
-- Sale de `main`: `hotfix/<n°issue>-<descripcion>`, PR a `main`, tag de PATCH (`vX.Y.Z+1`).
-- **Siempre vuelve a `develop`**, y a la `release/*` abierta si hay una. Si no vuelve, el bug reaparece en la próxima versión.
+- It comes off `main`: `hotfix/<issue-no>-<description>`, PR to `main`, PATCH tag (`vX.Y.Z+1`).
+- **It always goes back to `develop`**, and to the open `release/*` if there is one. If it does not go back, the bug reappears in the next version.
 
-Un agente no corta releases, ni mergea a `main`, ni crea tags sin que se lo pidan explícitamente.
+An agent does not cut releases, merge to `main` or create tags unless explicitly asked.
 <!-- releases:end -->
 
 ## Commits
 
-- `<tipo>(<scope>): <descripcion>` — imperativo, minúscula, sin punto, ≤ 72 caracteres. Tipos en inglés, descripción en español.
-- Un commit = un cambio lógico. Si toca varios scopes, sin scope o dividir.
-- Rompe compatibilidad: `feat(api)!: …` + footer `BREAKING CHANGE: …`.
+- `<type>(<scope>): <description>` — imperative, lowercase, no period, ≤ 72 characters. Types in English; the description in the language `AGENTS.md` sets.
+- One commit = one logical change. If it touches several scopes: no scope, or split.
+- Breaks compatibility: `feat(api)!: …` + footer `BREAKING CHANGE: …`.
 
 ## Pull requests
 
-1. Nunca push directo a las ramas troncales. Todo entra por PR.
-2. Título con el mismo formato que un commit.
-3. Cuerpo con `.github/pull_request_template.md`: Qué cambia / Por qué / Lógica de negocio afectada / Cómo probarlo / `Closes #n`.
-4. Labels: exactamente un `type:` (las ramas `claude/` no lo reciben automático: ponelo vos), 1–2 `area:`, ningún `priority:`. Solo labels de `.github/labels.yml`.
-5. Si cambia una regla de un ADR, auditoría o plan: label `business-logic` y explicarlo en "Lógica de negocio afectada".
+1. Never push directly to the trunk branches. Everything goes in through a PR.
+2. Title with the same format as a commit.
+3. Body from `.github/pull_request_template.md`: Qué cambia / Por qué / Lógica de negocio afectada / Cómo probarlo / `Closes #n`.
+4. Labels: exactly one `type:` (`claude/` branches do not get it automatically: set it yourself), 1–2 `area:`, no `priority:`. Only labels from `.github/labels.yml`.
+5. If it changes a rule from an ADR, audit or plan: label `business-logic` and explain it in "Lógica de negocio afectada".
 
 ```bash
-gh pr create --base <BASE_BRANCH> --title "fix(api): …" --body-file <archivo> --label "type:bug" --label "area:api"
+gh pr create --base <BASE_BRANCH> --title "fix(api): …" --body-file <file> --label "type:bug" --label "area:api"
 ```

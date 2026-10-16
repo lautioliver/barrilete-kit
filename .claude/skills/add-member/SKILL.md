@@ -1,19 +1,19 @@
 ---
 name: add-member
-description: Agrega un integrante al equipo del proyecto (o edita sus áreas) para que reciba issues asignados automáticamente. Usar con "/add-member @usuario", "sumá a X al equipo", "X ahora cubre pagos", "listá el equipo".
+description: Adds a member to the project team (or edits their areas) so they get issues assigned automatically. Use with "/add-member @user", "add X to the team", "X now covers payments", "list the team".
 ---
 
-# Agregar integrante
+# Add a member
 
-El equipo vive en `.github/team.json` y lo usan `create-issue` y `plan-feature` para asignar cada issue nuevo: entre los integrantes activos que cubren alguna `area:` del issue, el de menos issues abiertos; si nadie cubre el área, el de menos carga de todo el equipo.
+The team lives in `.github/team.json` and `create-issue` and `plan-feature` use it to assign every new issue: among the active members who cover some `area:` of the issue, the one with the fewest open issues; if nobody covers the area, the one with the lowest load in the whole team.
 
-1. **Datos:** usuario de GitHub (obligatorio), nombre y las áreas que cubre (labels `area:` de `.github/labels.yml`). Si el usuario no dice áreas, preguntá; sin áreas recibe issues de cualquier área.
-2. **Agregar o editar** (si ya está, actualiza nombre o áreas):
+1. **Data:** GitHub user (required), name and the areas they cover (`area:` labels from `.github/labels.yml`). If the user gives no areas, ask; without areas they get issues from any area.
+2. **Add or edit** (if they are already there, it updates name or areas):
    ```bash
-   python3 scripts/agents/team.py add <login> --name "<Nombre>" --areas area:x,area:y
+   python3 scripts/agents/team.py add <login> --name "<Name>" --areas area:x,area:y
    ```
-   Valida que el usuario exista y tenga acceso al repo (GitHub no deja asignar issues a quien no lo tiene). Si falta la invitación, decilo; `--force` solo si el usuario confirma que la invitación está pendiente.
-3. **Ver el equipo:** `python3 scripts/agents/team.py list` (con la carga de cada uno).
-4. **Commitear** `.github/team.json` en una rama y abrir un PR (`chore: …`): el equipo es configuración del repo y entra por PR como todo lo demás.
+   It validates that the user exists and has access to the repo (GitHub does not let you assign issues to someone who does not). If the invitation is missing, say so; `--force` only if the user confirms the invitation is pending.
+3. **See the team:** `python3 scripts/agents/team.py list` (with each member's load).
+4. **Commit** `.github/team.json` on a branch and open a PR (`chore: …`): the team is repo configuration and goes in through a PR like everything else.
 
-Para pausar a alguien sin quitarlo (vacaciones, otra prioridad): `team.py pause <login>` / `activate <login>`.
+To pause someone without removing them (vacation, another priority): `team.py pause <login>` / `activate <login>`.

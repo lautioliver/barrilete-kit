@@ -1,19 +1,19 @@
 ---
 name: remove-member
-description: Quita o pausa a un integrante del equipo para que deje de recibir issues asignados automáticamente. Usar con "/remove-member @usuario", "sacá a X del equipo", "X se va de vacaciones".
+description: Removes or pauses a team member so they stop getting issues assigned automatically. Use with "/remove-member @user", "take X off the team", "X is going on vacation".
 ---
 
-# Quitar integrante
+# Remove a member
 
-1. **¿Quitar o pausar?** Si es temporal (vacaciones, otra prioridad), pausá: sigue en el equipo pero no recibe issues nuevos.
+1. **Remove or pause?** If it is temporary (vacation, another priority), pause: they stay on the team but get no new issues.
    ```bash
    python3 scripts/agents/team.py pause <login>    # or: activate <login>
    python3 scripts/agents/team.py remove <login>
    ```
-2. **Sus issues abiertos siguen asignados.** Listalos (`gh issue list --assignee <login> --state open`) y preguntá si reasignarlos. Para reasignar cada uno al que corresponde según el equipo:
+2. **Their open issues stay assigned.** List them (`gh issue list --assignee <login> --state open`) and ask whether to reassign them. To reassign each one to whoever fits according to the team:
    ```bash
-   nuevo=$(python3 scripts/agents/team.py suggest --labels "<labels del issue separados por coma>")
-   gh issue edit <n> --remove-assignee <login> --add-assignee "$nuevo"
+   new=$(python3 scripts/agents/team.py suggest --labels "<the issue's labels, comma-separated>")
+   gh issue edit <n> --remove-assignee <login> --add-assignee "$new"
    ```
-   Mostrá la lista de reasignaciones y esperá un "sí" antes de aplicarla.
-3. **Commitear** `.github/team.json` en una rama y abrir un PR.
+   Show the list of reassignments and wait for a "yes" before applying it.
+3. **Commit** `.github/team.json` on a branch and open a PR.

@@ -1,14 +1,14 @@
 ---
 skill: implement-issue | review-pr | improve-skills | orchestrate
-issue: <n> (en review-pr, si el PR no cierra ninguno: "no issue"; en orchestrate, el n° de la épica)
-run: <YYYYMMDD-HHMM> (solo orchestrate, si la corrida no es de una épica)
-pr: <n o "no PR">
-area: <area: del issue, o "none">
-paths: <archivos o carpetas principales que tocó, separados por coma>
-model: opus | sonnet | haiku (o "unknown")
+issue: <n> (in review-pr, if the PR closes none: "no issue"; in orchestrate, the epic's no.)
+run: <YYYYMMDD-HHMM> (orchestrate only, if the run is not for an epic)
+pr: <n or "no PR">
+area: <area: of the issue, or "none">
+paths: <main files or folders it touched, comma-separated>
+model: opus | sonnet | haiku (or "unknown")
 role: implementer | implementer-light | reviewer | orchestrator | session
 ---
-**Desvíos:** dónde no se siguió la skill y por qué (o "ninguno").
-**Decisiones no cubiertas:** qué hubo que decidir que la skill no decía.
-**Lo que encontró la revisión:** hallazgos que la implementación no vio — en implement-issue, los de `/code-review` o `/security-review`; en review-pr, los bloqueantes (o "nada").
-**Propuesta:** opcional, qué cambiarías.
+**Deviations:** where the skill was not followed and why (or "none").
+**Decisions not covered:** what had to be decided that the skill did not say.
+**What the review found:** findings the implementation did not see — in implement-issue, those from `/code-review` or `/security-review`; in review-pr, the blockers (or "nothing").
+**Proposal:** optional, what you would change.

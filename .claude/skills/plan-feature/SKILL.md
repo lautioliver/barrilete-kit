@@ -1,94 +1,94 @@
 ---
 name: plan-feature
-description: Convierte una idea o feature grande en un plan técnico investigado y después en una épica con issues y dependencias. No escribe código. Usar con "/plan-feature", "planificá X", "quiero hacer X, ¿cómo lo encaramos?" o antes de cualquier trabajo que no entre en un solo PR.
+description: Turns an idea or big feature into a researched technical plan and then into an epic with issues and dependencies. It writes no code. Use with "/plan-feature", "plan X", "I want to do X, how do we approach it?" or before any work that does not fit in a single PR.
 ---
 
-# Planificar una feature
+# Plan a feature
 
-Evita empezar a programar demasiado pronto. Primero se entiende qué hay, después se decide, y recién al final se parte en issues. **Esta skill no toca código.**
+It avoids starting to code too early. First you understand what is there, then you decide, and only at the end do you split into issues. **This skill touches no code.**
 
-## 1. Investigar
+## 1. Research
 
-Antes de proponer nada, leé:
-- `docs/development/architecture.md`, `docs/reference/` (dominio, módulos, superficies) y los ADRs relacionados.
-- El código de los módulos que se van a tocar: cómo está hecho hoy, no cómo debería estar.
-- `docs/development/roadmap.md` y `horizon.md`: ¿ya estaba pensado? ¿choca con algo?
-- Issues abiertos relacionados (`gh issue list --search …`) y `.claude/skills/project-status/available.sh`.
+Before proposing anything, read:
+- `docs/development/architecture.md`, `docs/reference/` (domain, modules, surfaces) and the related ADRs.
+- The code of the modules that will be touched: how it is built today, not how it should be.
+- `docs/development/roadmap.md` and `horizon.md`: was it already planned? Does it clash with anything?
+- Related open issues (`gh issue list --search …`) and `.claude/skills/project-status/available.sh`.
 
-Si la idea es vaga en algo que cambia el diseño (quién la usa, qué pasa en los casos límite), preguntá ahora, antes de escribir el plan.
+If the idea is vague on something that changes the design (who uses it, what happens in the edge cases), ask now, before writing the plan.
 
-## 2. Plan técnico
+## 2. Technical plan
 
-Escribilo con estas secciones. Concreto: archivos y módulos reales, no genéricos.
+Write it with these sections. Be concrete: real files and modules, not generic ones.
 
 ```markdown
-## Objetivo
-Qué se logra y para quién. Qué queda explícitamente afuera.
+## Goal
+What is achieved and for whom. What is explicitly left out.
 
-## Estado actual
-Cómo funciona hoy lo que se va a tocar (con rutas).
+## Current state
+How what will be touched works today (with paths).
 
-## Componentes afectados
-Módulos, tablas, endpoints, pantallas. Marcar los sensibles (docs/agents-map.json).
+## Affected components
+Modules, tables, endpoints, screens. Mark the sensitive ones (docs/agents-map.json).
 
-## Decisiones necesarias
-Lo que hay que decidir antes de construir, con opciones y recomendación.
-Las difíciles de revertir → proponer ADR.
+## Decisions needed
+What has to be decided before building, with options and a recommendation.
+The hard-to-revert ones → propose an ADR.
 
-## Riesgos
-Qué puede salir mal (datos, dinero, seguridad, rendimiento, usuarios activos) y cómo se mitiga.
+## Risks
+What can go wrong (data, money, security, performance, active users) and how it is mitigated.
 
-## Migraciones
-Cambios de schema y su estrategia (skill db-migration). "Ninguna" si no hay.
+## Migrations
+Schema changes and their strategy (skill db-migration). "None" if there are none.
 
 ## Tests
-Qué hay que probar y en qué nivel.
+What has to be tested and at what level.
 
 ## Issues
-La división en PRs, en orden, con sus bloqueos.
+The split into PRs, in order, with their blockers.
 ```
 
-**Mostrá el plan y frená.** Las decisiones de la sección "Decisiones necesarias" las toma el usuario o el equipo, no el agente. Iterá hasta que lo apruebe.
+**Show the plan and stop.** The decisions in the "Decisions needed" section are taken by the user or the team, not the agent. Iterate until they approve it.
 
-## 3. Partir en issues
+## 3. Split into issues
 
-Con el plan aprobado:
-- Cada issue = un PR que se revisa solo y deja el sistema funcionando. Típicamente 3 a 8.
-- Bloqueos solo donde de verdad hay orden (schema → API → pantalla). Lo paralelo, sin bloqueo.
-- Si hay decisiones pendientes o un ADR por escribir, son el primer issue y **se cargan como bloqueo** (`blocked_by`) de los issues que dependen de esa decisión. Que la épica lo diga en el texto no alcanza: `prepare.sh` solo ve los bloqueos cargados.
-- Ningún issue sale con valores sin definir ("una ventana razonable", "un límite adecuado"): o el plan los fija, o el issue lleva una sección **Decisiones abiertas** con la pregunta concreta para el equipo.
-- Las migraciones destructivas en dos pasos (expand / contract) son dos issues.
+With the plan approved:
+- Each issue = one PR that is reviewed on its own and leaves the system working. Typically 3 to 8.
+- Blockers only where there really is an order (schema → API → screen). Parallel things, with no blocker.
+- If there are pending decisions or an ADR to write, they are the first issue and **are loaded as a blocker** (`blocked_by`) of the issues that depend on that decision. Having the epic say so in its text is not enough: `prepare.sh` only sees loaded blockers.
+- No issue goes out with undefined values ("a reasonable window", "an adequate limit"): either the plan fixes them, or the issue carries an **Open decisions** section with the concrete question for the team.
+- Destructive migrations in two steps (expand / contract) are two issues.
 
-## 4. Crear
+## 4. Create
 
-El **plan técnico completo va en el cuerpo de la épica**: así queda junto a los issues y lo lee `/implement-issue` al tomar cada uno. No crees un documento aparte en `docs/` salvo que sea un ADR. Se crea con `planner.py` (en esta carpeta; requiere `python3`):
+The **full technical plan goes in the epic's body**: that way it stays next to the issues and `/implement-issue` reads it when taking each one. Do not create a separate document in `docs/` unless it is an ADR. It is created with `planner.py` (in this folder; requires `python3`):
 
-1. **Escribir el plan** en un JSON temporal (fuera del repo):
+1. **Write the plan** in a temporary JSON (outside the repo):
    ```json
    {
-     "epic": {"title": "Migrar cuentas a la tabla nueva", "body": "## Objetivo\n…", "labels": ["type:feature", "area:api"]},
+     "epic": {"title": "Migrate accounts to the new table", "body": "## Goal\n…", "labels": ["type:feature", "area:api"]},
      "issues": [
-       {"key": "schema", "title": "Crear la tabla de cuentas", "body": "…", "labels": ["type:task", "area:infra"]},
-       {"key": "api", "title": "Exponer las cuentas en la API", "body": "…", "labels": ["type:task", "area:api"],
-        "blocked_by": ["schema"], "reason": "necesita la tabla"},
-       {"key": "pantalla", "title": "Mostrar las cuentas en el panel", "body": "…", "labels": ["type:feature"],
-        "blocked_by": ["api", 25], "reason": "consume el endpoint; #25 define el diseño"}
+       {"key": "schema", "title": "Create the accounts table", "body": "…", "labels": ["type:task", "area:infra"]},
+       {"key": "api", "title": "Expose accounts in the API", "body": "…", "labels": ["type:task", "area:api"],
+        "blocked_by": ["schema"], "reason": "needs the table"},
+       {"key": "screen", "title": "Show accounts in the dashboard", "body": "…", "labels": ["type:feature"],
+        "blocked_by": ["api", 25], "reason": "consumes the endpoint; #25 defines the design"}
      ]
    }
    ```
-   `blocked_by` acepta claves del plan o números de issues existentes. Títulos, labels y cuerpos siguen la convención de la skill `create-issue` (pasos 3–6).
-2. **Validar y mostrar el borrador:**
+   `blocked_by` accepts plan keys or numbers of existing issues. Titles, labels and bodies follow the convention of the `create-issue` skill (steps 3–6).
+2. **Validate and show the draft:**
    ```bash
    .claude/skills/plan-feature/planner.py <plan.json> --draft
    ```
-   Valida labels contra `labels.yml`, exactamente un `type:` por issue, claves y números existentes, y que no haya ciclos. Muestra los issues en el orden en que se pueden hacer. Si falla, corregí el plan; no saltees la validación.
-   Mostrale al usuario esa salida y pedí un "sí" explícito.
-3. **Crear:**
+   It validates labels against `labels.yml`, exactly one `type:` per issue, existing keys and numbers, and that there are no cycles. It shows the issues in the order they can be done. If it fails, fix the plan; do not skip the validation.
+   Show the user that output and ask for an explicit "yes".
+3. **Create:**
    ```bash
    .claude/skills/plan-feature/planner.py <plan.json>
    ```
-   Crea la épica, cada issue en orden, los vincula como sub-issues, registra los bloqueos, agrega `status:blocked` y la línea `Bloqueado por #N` donde corresponde. Si falla a mitad de camino, informa qué alcanzó a crear: mostralo y no reintentes el plan entero (duplicaría issues); creá solo lo que falta.
+   It creates the epic, each issue in order, links them as sub-issues, records the blockers, adds `status:blocked` and the `Blocked by #N` line where it applies. If it fails halfway, it reports what it managed to create: show it and do not retry the whole plan (it would duplicate issues); create only what is missing.
 
-## 5. Entregar
+## 5. Deliver
 
-Link a la épica, los issues en orden y qué se puede empezar ya (`.claude/skills/project-status/available.sh`). El siguiente paso es `/implement-issue <n>` sobre el primero disponible.
+Link to the epic, the issues in order and what can be started now (`.claude/skills/project-status/available.sh`). The next step is `/implement-issue <n>` on the first available one.

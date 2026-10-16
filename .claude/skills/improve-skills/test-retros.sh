@@ -240,8 +240,8 @@ grep -q "^agent_sha: $revsha$" <<<"$c"; afirmar $? "rol con espacio al final gua
 
 # La skill de improve-skills describe el agrupado por modelo y rol y el ruteo de orquestar.
 S="$RAIZ/.claude/skills/improve-skills/SKILL.md"
-grep -Eiq 'agrup[^.]*model' "$S" && grep -Eiq 'agrup[^.]*role' "$S"; afirmar $? "improve-skills describe cómo agrupa por modelo y rol"
-grep -Eiq 'ruteo[^.]*orchestrate|orchestrate[^.]*ruteo' "$S"; afirmar $? "improve-skills propone cambios en la regla de ruteo de orchestrate"
+grep -Eiq '(agrup|group)[^.]*model' "$S" && grep -Eiq '(agrup|group)[^.]*role' "$S"; afirmar $? "improve-skills describe cómo agrupa por modelo y rol"
+grep -Eiq '(ruteo|routing)[^.]*orchestrate|orchestrate[^.]*(ruteo|routing)' "$S"; afirmar $? "improve-skills propone cambios en la regla de ruteo de orchestrate"
 es "$(wc -l <"$S")" -le 120; afirmar $? "improve-skills/SKILL.md tiene como máximo 120 líneas"
 
 # #88: lo que imprime retro.sh after "Saved in" es el campo retro: del contrato y abre la retro
