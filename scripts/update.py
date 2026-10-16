@@ -87,7 +87,8 @@ RENAMES_0_9 = {
     "scripts/test-actualizar.sh": "scripts/test-update.sh",
 }
 # Old directory prefix -> new one, to rewrite paths inside the project's JSON (globs, commands).
-# Not perfiles/: the init deletes it, so any `perfiles/` in the project's map is the project's own.
+# Not perfiles/: the 0.9 map lists its own entries (`?perfiles/chico/BORRAR`, `perfiles/**`) but the 3-way merge brings the
+# new template's values for them, and rewriting by prefix would also touch the project's own `perfiles/` folders.
 DIRS_0_9 = (("scripts/agentes/", "scripts/agents/"), ("docs/agentes/", "docs/agents/"))
 # JSON keys of agents-map.json and team.json; `name` and `type` also have values to translate.
 KEYS_0_9 = {"_ayuda": "_help", "cuando": "when", "revisar": "review", "motivo": "reason", "sensibles": "sensitive",
@@ -127,14 +128,15 @@ def _ruta_0_9():
     nothing, a space, a quote, `?` or `!`) and not inside another one (`app/perfiles/`, `x.py.sh`)."""
     archivos_ = "|".join(re.escape(v) for v in sorted(RENAMES_0_9, key=len, reverse=True))
     dirs = "|".join(re.escape(v) for v, _ in DIRS_0_9)
-    return re.compile(rf"(?<![\w./-])(?:({archivos_})(?![\w-]|\.\w)|({dirs}))")
+    # An optional ./ or ../ in front is kept: `python3 ./scripts/agentes/x.py` is the kit's path too.
+    return re.compile(rf"(?<![\w./-])((?:\.\.?/)?)(?:({archivos_})(?![\w-]|\.\w)|({dirs}))")
 
 
 def texto_nuevo(s):
     """A string of the project's JSON with the kit's old paths and the {archivos} placeholder replaced.
     The project's own paths stay as they are, even if they contain an old name."""
     dirs = dict(DIRS_0_9)
-    s = _ruta_0_9().sub(lambda m: RENAMES_0_9[m.group(1)] if m.group(1) else dirs[m.group(2)], s)
+    s = _ruta_0_9().sub(lambda m: m.group(1) + (RENAMES_0_9[m.group(2)] if m.group(2) else dirs[m.group(3)]), s)
     return s.replace("{archivos}", "{files}")
 
 
@@ -515,8 +517,8 @@ def main():
         if sin_idioma:
             print("Language: .agent-kit.json had no `language` (projects before #130), so this project is treated as "
                   "English, which is the default now: the kit's prose came in English and the files you had not touched "
-                  "were replaced by it. If your project is in Spanish: discard this run (git checkout . && git clean -fd && "
-                  'rm -rf .agent-kit; .agent-kit/ is ignored, so git clean does not remove it), add "language": "es" to '
+                  "were replaced by it. If your project is in Spanish: discard this run (git reset --hard && git clean -fd && "
+                  'rm -rf .agent-kit; reset also undoes a git add -A, and .agent-kit/ is ignored, so git clean does not remove it), add "language": "es" to '
                   ".agent-kit.json, commit that change (update.py refuses to run with uncommitted changes) and run "
                   "update.py again.")
         if any(r in hechos.get("conflicto", []) + hechos.get("pendiente", []) for r in HOOKS):
