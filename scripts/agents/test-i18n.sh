@@ -37,8 +37,11 @@ par() { # par <ruta sin extensión> <encabezados extra en .es.md> <bloques extra
   return 0
 }
 
-grep -q '"parity": false' "$RAIZ/docs/agents-map.json"; afirmar $? "la plantilla trae el interruptor parity apagado en el mapa (#115 lo prende)"
-copia; par docs/sample 1 0
+grep -q '"parity": true' "$RAIZ/docs/agents-map.json"; afirmar $? "la plantilla trae el interruptor parity prendido en el mapa (el init lo apaga en los proyectos)"
+python3 -c "import json,sys; sys.exit(0 if 'CLAUDE.md' in json.load(open('$RAIZ/docs/agents-map.json'))['parity_ignore'] else 1)"; afirmar $? "CLAUDE.md (solo trae @AGENTS.md) está en parity_ignore"
+copia; s=$(check)
+! grep -q 'sibling\|headings\|code blocks' <<<"$s"; afirmar $? "con parity prendido, la plantilla tal como está no da errores de paridad"
+copia; parity false; par docs/sample 1 0
 s=$(check)
 ! grep -q 'sibling\|headings' <<<"$s"; afirmar $? "con parity apagado, un par distinto y todos los demás X.md sin hermano no dan errores"
 copia; parity true; par docs/sample
@@ -102,6 +105,24 @@ grep -q 'docs/llms.es.txt: 2 headings, but docs/llms.txt has 1' <<<"$s"; afirmar
 printf '# T\n\n- [a](a.md)\n' >"$TMP/r/docs/llms.es.txt"
 s=$(check)
 ! grep '^- docs/llms' <<<"$s" | grep -Eq 'sibling|headings|code blocks'; afirmar $? "llms.txt: el par con la misma estructura no da errores de paridad"
+
+# Los formularios de issue (.yml): GitHub carga todo .yml de ISSUE_TEMPLATE, así que el español vive en .github/i18n/ISSUE_TEMPLATE/ (#115).
+copia; parity true
+rm "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
+s=$(check)
+grep -q '.github/ISSUE_TEMPLATE/1-bug.yml: missing its Spanish sibling .github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; afirmar $? "formularios: sin su hermano en .github/i18n/ISSUE_TEMPLATE/ falla con esa ruta"
+copia; parity true
+sed -i.bak 's/id: esperado/id: otro/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
+s=$(check)
+grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; afirmar $? "formularios: ids distintos entre los dos idiomas fallan con los dos archivos"
+copia; parity true
+cp "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml" "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.es.yml"
+s=$(check)
+grep -q '.github/ISSUE_TEMPLATE/1-bug.es.yml.*second' <<<"$s"; afirmar $? "formularios: un .es.yml dentro de ISSUE_TEMPLATE falla (GitHub lo ofrecería como otro formulario)"
+copia
+(cd "$TMP/r" && git checkout -qb feat && echo "# More" >>.github/ISSUE_TEMPLATE/1-bug.yml && git commit -qam cambio)
+s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
+grep -q 'UNPAIRED' <<<"$s" && grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; afirmar $? "agents_map.py avisa si cambia un formulario sin su hermano de .github/i18n/ISSUE_TEMPLATE/"
 
 # Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).
 copia; parity true

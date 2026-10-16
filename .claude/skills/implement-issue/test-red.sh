@@ -118,6 +118,10 @@ printf '%s\n' "Segmentation fault" >"$TMP/salida.txt"
 s=$("$AQUI/red.sh" -- bash -c "cat '$TMP/salida.txt'; exit 1" 2>&1)
 if grep -q "I do not recognize this failure as an assertion" <<<"$s"; then ok "una falla desconocida explica qué hacer"; else falla "una falla desconocida explica qué hacer"; fi
 
+# El bloque para el PR lleva el literal inglés que lee el CI (#115): "Red before implementing".
+bloque=$(cat "$TMP"/*.md 2>/dev/null)
+grep -q '<summary>Red before implementing</summary>' <<<"$bloque" && ! grep -q 'Rojo antes de implementar' <<<"$bloque"; if [ $? -eq 0 ]; then ok "el bloque del PR usa el literal Red before implementing"; else falla "el bloque del PR usa el literal Red before implementing"; fi
+
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
 echo "Todos los tests pasan."

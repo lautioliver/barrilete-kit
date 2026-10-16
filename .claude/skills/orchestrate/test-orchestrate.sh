@@ -237,13 +237,26 @@ if(!m||!r) process.exit(1);
 const ok=b=>eval(m[1]).test(b)||eval(r[1]).test(b);
 const casos=[["Closes #1",1],["Refs #77",1],["texto\nRefs: #3\n",1],["  Ref #2",1],["ver ref #38 de pasada",0],["prefs #4",0],["Refs 77",0]];
 process.exit(casos.every(([b,e])=>ok(b)===!!e)?0:1);' "$L" 2>/dev/null; afirmar $? "check de labels: Refs #n solo en su propia línea, Closes en cualquier parte"
+# El bloque rojo y "no tests": el literal en inglés es el vigente; el español (Rojo antes de implementar, sin test) se acepta como alias (#115).
 node -e '
 const src=require("fs").readFileSync(process.argv[1],"utf8");
-const m=src.match(/if \(!(\/<summary>Rojo antes de implementar.*\/i)\.test\(body\)\)/);
+const m=src.match(/if \(!(\/<summary>.*\/i)\.test\(body\)\)/);
 if(!m) process.exit(1);
 const ok=b=>eval(m[1]).test(b);
-const casos=[["sin test: es solo docs",1],["sin tests: es config",1],["Sin test\nes solo docs",1],["<summary>Rojo antes de implementar</summary>",1],["sin test",0],["testear sin testigo",0]];
-process.exit(casos.every(([b,e])=>ok(b)===!!e)?0:1);' "$L" 2>/dev/null; afirmar $? "check de labels: acepta sin test o sin tests, con el motivo en la misma línea o en la siguiente"
+const casos=[
+ ["<summary>Red before implementing</summary>",1],["no tests: docs only",1],["No tests: it is config",1],["no test: only docs",1],["No tests:\nonly docs",1],
+ ["there is no test coverage here",0],["no tests were added",0],["no test",0],["no tests:",0],["no tests: ",0],["nonetheless no testing",0],
+ ["sin test: es solo docs",1],["sin tests: es config",1],["Sin test\nes solo docs",1],["<summary>Rojo antes de implementar</summary>",1],["sin test",0],["testear sin testigo",0]];
+const malos=casos.filter(([b,e])=>ok(b)!==!!e).map(c=>JSON.stringify(c[0]));
+if(malos.length){console.error("mal:",malos.join(" | "));process.exit(1);}' "$L"; afirmar $? "check de labels: acepta 'Red before implementing' y 'no tests: <motivo>' (y los alias sin test / Rojo antes de implementar), no una frase suelta con 'no test'"
+node -e '
+const src=require("fs").readFileSync(process.argv[1],"utf8");
+const m=src.match(/const explica = (\/.*\/[a-z]*)\.test/);
+if(!m) process.exit(1);
+const ok=b=>eval(m[1]).test(b);
+const casos=[["ADR unchanged: the rule is not touched",1],["adr unchanged: x",1],["ADR sin cambios: no toca la regla",1],["ADR unchanged:",0],["ADR unchanged: ",0],["ADR sin cambios:",0],["the ADR is unchanged",0],["ADR unchanged because",0]];
+const malos=casos.filter(([b,e])=>ok(b)!==!!e).map(c=>JSON.stringify(c[0]));
+if(malos.length){console.error("mal:",malos.join(" | "));process.exit(1);}' "$L"; afirmar $? "check de labels: 'ADR unchanged: <motivo>' exime al business-logic sin cambios en docs/decisions/, y 'ADR sin cambios:' sigue valiendo"
 if [ -d "$RAIZ/profiles/small" ]; then
   grep -Eqi 'que el issue lo pida no es la aprobación|that the issue asks for it is not the approval' "$RAIZ/profiles/small/AGENTS.md"; afirmar $? "chico: pedirlo en el issue no es la aprobación"
   ! grep -qi 'si está disponible ./code-review.' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.md"; afirmar $? "chico: /code-review obligatorio"
