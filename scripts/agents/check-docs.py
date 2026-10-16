@@ -227,6 +227,24 @@ if MAPA.get("parity") and os.path.isdir(FORMS_EN):
             if nombre.endswith(".es.yml") and nombre not in ya_vistos:
                 errores.append(f"{FORMS_ES}/{nombre}: has no English sibling {FORMS_EN}/{nombre[:-len('.es.yml')]}.yml.")
 
+# labels.yml and labels.es.yml: the same labels and colors (only the descriptions are translated); if one gets behind,
+# a --lang es install would sync a different set of labels and delete the missing ones (delete-other-labels).
+def etiquetas(ruta):
+    """(name, color) of each label of a labels.yml, in order."""
+    with open(ruta, encoding="utf-8") as fh:
+        return re.findall(r'^- name: *"?([^"\n]+?)"?\s*\n\s*color: *"?([^"\n]+?)"?\s*$', fh.read(), re.M)
+
+
+if MAPA.get("parity"):
+    for en in ("profiles/small/.github/labels.yml", ".github/labels.yml"):
+        if not os.path.exists(en) or any(r.match(en) for r in EXENTOS):
+            continue
+        es = en[:-len(".yml")] + ".es.yml"
+        if not os.path.exists(es):
+            errores.append(f"{en}: missing its Spanish sibling {es}.")
+        elif etiquetas(en) != etiquetas(es):
+            errores.append(f"{es}: its labels (names or colors) differ from {en} (one of the two is out of date).")
+
 if MAPA:
     mapa = MAPA
     for f in mapa.get("required", []):

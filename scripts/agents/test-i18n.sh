@@ -125,6 +125,22 @@ copia
 s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
 grep -q 'UNPAIRED' <<<"$s" && grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; afirmar $? "agents_map.py avisa si cambia un formulario sin su hermano de .github/i18n/ISSUE_TEMPLATE/"
 
+# labels.yml y labels.es.yml: mismos labels y colores (cambian solo las descripciones); si no, un --lang es instalaría labels que faltan.
+copia; parity true
+s=$(check)
+! grep -q 'labels' <<<"$s"; afirmar $? "labels: el par labels.yml / labels.es.yml tal como está no da errores"
+sed -i.bak 's/name: "priority:low"/name: "priority:lowest"/' "$TMP/r/.github/labels.es.yml"
+s=$(check)
+grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un label distinto entre los dos idiomas falla con los dos archivos"
+copia; parity true
+perl -0pi -e 's/color: "7B61FF"/color: "000000"/' "$TMP/r/.github/labels.es.yml"
+s=$(check)
+grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un color distinto entre los dos idiomas falla"
+copia; parity true
+rm "$TMP/r/.github/labels.es.yml"
+s=$(check)
+grep -q '.github/labels.yml: missing its Spanish sibling .github/labels.es.yml' <<<"$s"; afirmar $? "labels: sin labels.es.yml falla"
+
 # Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).
 copia; parity true
 s=$(check)

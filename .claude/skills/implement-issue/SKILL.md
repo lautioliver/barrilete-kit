@@ -64,7 +64,7 @@ Follow the `update-docs` skill (mode 1): `agents_map.py` tells you which docs to
 
 ## 7. Verify
 
-With everything committed, `python3 scripts/agents/verify.py` runs what applies to what changed and explains in its output what to do with each result. Never disable a verification or take it out of the map to make it pass. Whatever is left **unconfigured** is not verified: say so in the PR, with the summary in "Cómo probarlo".
+With everything committed, `python3 scripts/agents/verify.py` runs what applies to what changed and explains in its output what to do with each result. Never disable a verification or take it out of the map to make it pass. Whatever is left **unconfigured** is not verified: say so in the PR, with the summary in "How to test it".
 
 ## 8. Open the PR
 
