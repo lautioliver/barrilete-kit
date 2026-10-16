@@ -65,6 +65,9 @@ else
     export R="Working PRs go to \`$B\`. \`main\` is production and only receives release PRs from \`$B\`."
   fi
 fi
+# The language of the commit and PR-title descriptions (<COMMIT_LANG>, ADR-001 R-6) follows --lang. The files that
+# carry it are the ones of the chosen language (apply_language runs first), so a single word per language is enough.
+if [ "$LANG_KIT" = es ]; then export CL="español"; else export CL="English"; fi
 cd "$(git rev-parse --show-toplevel)"
 # Language (ADR-001): X.md and X.es.md are siblings. With es, the Spanish one replaces the English one;
 # in both cases no .es.md is left. It goes before the edits and deletions that follow, so they apply to
@@ -130,7 +133,7 @@ rm -rf profiles
 # The brand (Barrilete) and the trial guide belong to the template, not to the new project.
 rm -rf .github/brand
 rm -f docs/try-the-template.md .github/ISSUE_TEMPLATE/5-trial.yml
-for f in README.md README.es.md docs/README.md docs/llms.txt; do
+for f in README.md README.es.md AGENTS.md docs/README.md docs/llms.txt; do
   [ -f "$f" ] || continue
   # brand: what is Barrilete's. template: what is only useful in the template repo (the trial guide).
   perl -0pi -e 's/<!-- (brand|template|lang):start -->.*?<!-- \1:end -->\n\n?//gs' "$f"
@@ -148,8 +151,8 @@ for w in .github/workflows/*.yml; do
   fi
 done
 # shellcheck disable=SC2016  # $ENV{…} expanded by perl, not bash
-grep -rlE '<PROJECT>|<BASE_BRANCH>|<DATE>|<BRANCH_RULE>' --exclude-dir=.git --exclude=init-template.sh . \
-  | xargs perl -pi -e 's/<PROJECT>/$ENV{P}/g; s/<BASE_BRANCH>/$ENV{B}/g; s/<DATE>/$ENV{F}/g; s/<BRANCH_RULE>/$ENV{R}/g'
+grep -rlE '<PROJECT>|<BASE_BRANCH>|<DATE>|<BRANCH_RULE>|<COMMIT_LANG>' --exclude-dir=.git --exclude=init-template.sh . \
+  | xargs perl -pi -e 's/<PROJECT>/$ENV{P}/g; s/<BASE_BRANCH>/$ENV{B}/g; s/<DATE>/$ENV{F}/g; s/<BRANCH_RULE>/$ENV{R}/g; s/<COMMIT_LANG>/$ENV{CL}/g'
 BLOQUES=$(grep -rl 'releases:start' --exclude-dir=.git --exclude=init-template.sh . || true)
 if [ "$MODO" = "releases" ]; then
   # The content stays; only the markers are removed.
@@ -177,7 +180,7 @@ mapa["verify"] = [v for v in mapa.get("verify", []) if v.get("name") not in ("in
 # CHANGELOG.md and the kit ADRs are deleted above: their ignore entries would hide the project's own ADR-001.
 mapa["ignore_check"] = [g for g in mapa.get("ignore_check", []) if g not in ("CHANGELOG.md", "CLAUDE.md", "docs/decisions/ADR-001-*")]
 mapa["parity"] = False  # a project has one language: the siblings check is the template's
-mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("CHANGELOG.md", "CLAUDE.md", "docs/decisions/ADR-001-*", "profiles/small/**")]
+mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("CHANGELOG.md", "CLAUDE.md", "docs/decisions/ADR-001-*")]
 open(ruta, "w", encoding="utf-8").write(json.dumps(mapa, ensure_ascii=False, indent=2) + "\n")
 PY
 fi

@@ -1,17 +1,17 @@
-# Documentación de <PROJECT>
+# <PROJECT> documentation
 
-| Para | Leé |
+| For | Read |
 |---|---|
-| Entender qué corre hoy | [architecture.md](architecture.md) |
-| Saber por qué algo es como es | [decisions/](decisions/README.md) |
-| Ramas, commits, PRs y labels | [github-naming-convention.md](github-naming-convention.md) |
-| Reglas para agentes | [`AGENTS.md`](../AGENTS.md) y [`llms.txt`](llms.txt) |
+| Understanding what runs today | [architecture.md](architecture.md) |
+| Knowing why something is the way it is | [decisions/](decisions/README.md) |
+| Branches, commits, PRs and labels | [github-naming-convention.md](github-naming-convention.md) |
+| Rules for agents | [`AGENTS.md`](../AGENTS.md) and [`llms.txt`](llms.txt) |
 
-Reglas:
-- Si `architecture.md` y el código no coinciden, gana el código y se corrige el doc **en el mismo PR**.
-- Una decisión difícil de revertir va en un ADR nuevo.
-- Un documento nuevo se suma a este índice y a `llms.txt`.
+Rules:
+- If `architecture.md` and the code do not match, the code wins and the doc is fixed **in the same PR**.
+- A decision that is hard to revert goes in a new ADR.
+- A new document is added to this index and to `llms.txt`.
 
-## Decisiones
+## Decisions
 
-- TODO: `- [ADR-001](decisions/ADR-001-....md) — resumen en una línea`
+- TODO: `- [ADR-001](decisions/ADR-001-....md) — one-line summary`

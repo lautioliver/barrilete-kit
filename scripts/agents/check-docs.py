@@ -5,7 +5,8 @@ Checks:
 - Relative Markdown links ([text](path)) that point to missing files.
 - Paths in backticks (`dir/file.ext`) whose first directory exists but the file does not.
 - Mentions of ADR-NNN with no file in docs/decisions/.
-- ADRs missing from docs/README.md or docs/llms.txt.
+- ADRs missing from docs/README.md or docs/llms.txt (and from their Spanish siblings, if they exist); a kit ADR with
+  `Scope: kit` (the init only deletes `Ámbito: kit`) is a warning.
 - Required documents and paths of docs/agents-map.json that do not exist.
 - Example paths (TODO/...) and checks without a command left in docs/agents-map.json
   after the init.
@@ -151,12 +152,23 @@ for archivo in md_files():
 
 # In an installed repo every ADR is the project's (the kit's own are not installed) and its indices are the
 # project's too: the kit does not require them to list its ADRs.
-for indice in ("docs/README.md", "docs/llms.txt"):
+# The Spanish siblings (docs/README.es.md, docs/llms.es.txt) are the project's indices when it is installed with --lang es:
+# the parity check counts headings, not lines, so it would not notice an ADR missing from them.
+for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llms.es.txt"):
     if os.path.exists(indice) and not INSTALADO:
         contenido = open(indice, encoding="utf-8").read()
         for num, f in adrs.items():
             if num != "000" and f not in contenido:
                 errores.append(f"{indice}: the ADR {f} is missing from the index")
+
+# The init only deletes the ADRs of the kit with the exact line "Ámbito: kit" (it is a literal, it is not translated): one written
+# with "Scope: kit" would be installed in every project. Warning, not error: a project may use that line for something else.
+for num, f in sorted(adrs.items()):
+    with open(os.path.join("docs/decisions", f), encoding="utf-8") as fh:
+        if re.search(r"^Scope: kit\s*$", fh.read(), re.M):
+            avisos.append(f"docs/decisions/{f} has the line `Scope: kit`, but the init only deletes the ADRs with `Ámbito: kit` "
+                          "(a literal that is not translated): this one would be installed in the projects.")
+
 
 def estructura(ruta):
     """(number of headings, number of code blocks) outside the ``` blocks: a "# comment" inside one is not a heading."""

@@ -296,8 +296,10 @@ A short `release/*` was chosen instead of a permanent `staging` branch: each ver
 | Option | Detail |
 |---|---|
 | A — All in English | International standard; better for tools and for bringing in outside people |
-| B — Types in English, descriptions in Spanish ⭐ | The types (`feat`, `fix`) are part of the standard and are not translated; the rest in Spanish because the team and the business are local |
-| C — All in Spanish | Breaks compatibility with tools (`funcionalidad:` is not a valid type) |
+| B — Types in English, descriptions in the team's language ⭐ | The types (`feat`, `fix`) are part of the standard and are not translated; the description is in the language the team and the business use |
+| C — All in the team's language | Breaks compatibility with tools (`funcionalidad:` is not a valid type) |
+
+> ✅ **DECIDED (<DATE>):** the description of commits and PR titles is written in <COMMIT_LANG> (the language chosen at install, `--lang`). Types and scopes stay in English.
 
 **Always without accents or ñ in branch and label names** (`user-view`, `design`, not `diseño`).
 
@@ -349,7 +351,7 @@ Mark the option chosen by the team and the date:
 | 6 | Project fields | | | priority as a field or a label? |
 | 7 | Milestones | | | |
 | 8 | Versioning | | | |
-| 9 | Language | | | |
+| 9 | Language | ✅ B — types in English, description in <COMMIT_LANG> | <DATE> | Comes decided from the installation language (`--lang`) |
 
 ---
 

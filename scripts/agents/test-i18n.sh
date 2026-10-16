@@ -217,7 +217,7 @@ s=$(check)
 # README: sin la nota "Spanish-first"; el README en español muestra --lang es en los comandos de inicio.
 ! grep -qi 'spanish-first' "$RAIZ/README.md"; afirmar $? "README.md ya no dice que la plantilla es Spanish-first"
 grep -q 'init-template.sh "Nombre del proyecto" main --lang es' "$RAIZ/README.es.md"; afirmar $? "README.es.md: el comando de inicio lleva --lang es"
-grep -q 'convencion-nombres-github.md' "$RAIZ/README.md" && grep -q 'convencion-nombres-github.md' "$RAIZ/README.es.md"; afirmar $? "los README avisan a dónde se mudaron los docs con nombre en español (tabla de renombres del CHANGELOG)"
+grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.md" && grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.es.md"; afirmar $? "los README avisan a dónde se mudaron los docs con nombre en español (tabla de renombres del CHANGELOG)"
 
 # Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).
 copia; parity true

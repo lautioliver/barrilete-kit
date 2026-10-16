@@ -1,11 +1,11 @@
-# Arquitectura — <PROJECT>
+# Architecture — <PROJECT>
 
-> Lo que corre hoy. Si el código dice otra cosa, gana el código y se corrige este archivo en el mismo PR.
+> What runs today. If the code says otherwise, the code wins and this file is fixed in the same PR.
 
-TODO: completar a medida que exista. Secciones sugeridas, solo las que apliquen:
+TODO: fill in as it comes to exist. Suggested sections, only the ones that apply:
 
-- **Piezas:** qué partes tiene (app, API, base, jobs) y dónde vive cada una en el repo.
-- **Datos:** tablas o entidades principales y sus estados.
-- **Flujos:** los dos o tres recorridos importantes, paso a paso, con los archivos.
-- **Deploy:** dónde corre y cómo se publica.
-- **Cómo levantarlo en local:** variables de entorno y comandos.
+- **Parts:** what pieces it has (app, API, database, jobs) and where each one lives in the repo.
+- **Data:** main tables or entities and their states.
+- **Flows:** the two or three important journeys, step by step, with the files.
+- **Deploy:** where it runs and how it is published.
+- **How to run it locally:** environment variables and commands.

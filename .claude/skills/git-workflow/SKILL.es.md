@@ -34,7 +34,7 @@ Un agente no corta releases, ni mergea a `main`, ni crea tags sin que se lo pida
 
 ## Commits
 
-- `<tipo>(<scope>): <descripcion>` — imperativo, minúscula, sin punto, ≤ 72 caracteres. Tipos en inglés, descripción en español.
+- `<tipo>(<scope>): <descripcion>` — imperativo, minúscula, sin punto, ≤ 72 caracteres. Tipos en inglés, descripción en <COMMIT_LANG>.
 - Un commit = un cambio lógico. Si toca varios scopes, sin scope o dividir.
 - Rompe compatibilidad: `feat(api)!: …` + footer `BREAKING CHANGE: …`.
 

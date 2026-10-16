@@ -1,5 +1,5 @@
-# .github/workflows/docs.yml — <PROJECT> (modo chico)
-# Valida links, rutas mencionadas y ADRs de la documentación, y corre shellcheck y los tests de los scripts.
+# .github/workflows/docs.yml — <PROJECT> (small mode)
+# Validates links, mentioned paths and ADRs of the documentation, and runs shellcheck and the script tests.
 name: Docs
 
 on:
@@ -15,27 +15,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validar documentación
+      - name: Validate documentation
         run: python3 scripts/agents/check-docs.py
-      - name: Tests de los scripts de agentes
+      - name: Agent script tests
         run: python3 -m unittest discover -s scripts/agents -p 'test_*.py'
-      - name: Instalar shellcheck 0.11.0
-        # Versión fija (la de ubuntu-latest es más vieja y reporta otros códigos que la local).
-        # Para subirla: cambiar la versión y el sha256 (está en la release de koalaman/shellcheck).
+      - name: Install shellcheck 0.11.0
+        # Pinned version (the ubuntu-latest one is older and reports other codes than the local one).
+        # To bump it: change the version and the sha256 (it is in the koalaman/shellcheck release).
         run: |
           v=0.11.0; sum=8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
           curl -fsSL -o /tmp/sc.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v$v/shellcheck-v$v.linux.x86_64.tar.xz"
           echo "$sum  /tmp/sc.tar.xz" | sha256sum -c -
           tar -xJf /tmp/sc.tar.xz -C /tmp && sudo install /tmp/shellcheck-v$v/shellcheck /usr/local/bin/shellcheck
           shellcheck --version
-      - name: Shellcheck de los scripts
-        # Solo los del kit: en un repo con .agent-kit.json, los .sh del proyecto no se revisan.
+      - name: Shellcheck of the scripts
+        # Only the kit ones: in a repo with .agent-kit.json, the project .sh files are not checked.
         run: |
-          # Primero la lista: si falla, el paso falla (en un pipe, xargs sin entrada pasaría en verde).
+          # The list first: if it fails, the step fails (in a pipe, xargs without input would pass in green).
           lista=$(python3 scripts/agents/check-docs.py --list '*.sh')
           echo "$lista" | xargs -r shellcheck
-      - name: Tests de los scripts
-        # Aislados de la config de git del runner: no pueden depender de init.defaultBranch ni de otra config.
+      - name: Script tests
+        # Isolated from the runner git config: they cannot depend on init.defaultBranch or other config.
         env:
           GIT_CONFIG_GLOBAL: /dev/null
           GIT_CONFIG_NOSYSTEM: "1"

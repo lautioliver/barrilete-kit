@@ -1,37 +1,37 @@
-# .github/labels.yml — <PROJECT> (modo chico)
-# Fuente de verdad de los labels. Ver docs/github-naming-convention.md.
+# .github/labels.yml — <PROJECT> (small mode)
+# Source of truth for the labels. See docs/github-naming-convention.md.
 - name: "type:feature"
   color: "7B61FF"
-  description: "Funcionalidad nueva o cambio visible"
+  description: "New functionality or a visible change"
   aliases:
     - "tipo:feature"
 - name: "type:bug"
   color: "7B61FF"
-  description: "Algo no funciona como debería"
+  description: "Something does not work as it should"
   aliases:
     - "tipo:bug"
 - name: "type:task"
   color: "7B61FF"
-  description: "Trabajo técnico sin cambio visible"
+  description: "Technical work with no visible change"
   aliases:
     - "tipo:task"
 - name: "type:docs"
   color: "7B61FF"
-  description: "Documentación"
+  description: "Documentation"
   aliases:
     - "tipo:docs"
 - name: "priority:high"
   color: "D93F0B"
-  description: "Va primero"
+  description: "Goes first"
   aliases:
     - "prioridad:alta"
 - name: "priority:medium"
   color: "FBCA04"
-  description: "Importante, sin apuro"
+  description: "Important, not urgent"
   aliases:
     - "prioridad:media"
 - name: "priority:low"
   color: "C5C5C5"
-  description: "Cuando haya tiempo"
+  description: "When there is time"
   aliases:
     - "prioridad:baja"

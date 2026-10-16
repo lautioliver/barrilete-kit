@@ -28,9 +28,6 @@
 
 A repo template for working with coding agents **without losing control**: clear rules, tested documentation and an issue-to-PR flow where **people approve the plan and merge**.
 
-> [!NOTE]
-> The template is Spanish-first: rules, skills, docs and GitHub conventions are written in Spanish, and commit and PR descriptions go in Spanish. Agents work fine in any language, but the files you'll edit are in Spanish.
-
 <table>
   <tr>
     <td width="50%" valign="top">
@@ -61,6 +58,9 @@ A repo template for working with coding agents **without losing control**: clear
 <!-- template:start -->
 > [!NOTE]
 > Trying it for the first time to tell us how it went? Follow the [test guide](docs/try-the-template.md): steps, what to note and the form to report it.
+
+> [!NOTE]
+> The docs used to have Spanish file names. If you have an old link, where each file went is in the [rename table](CHANGELOG.md#tabla-de-renombres-09--nuevo) of the changelog (it is in Spanish).
 <!-- template:end -->
 
 > [!TIP]
