@@ -146,13 +146,13 @@ TODO: `<scope-1>`, `<scope-2>`, `db`, `api`, `docs`
 
 ### Suggested body template
 ```markdown
-## Qué cambia
-## Por qué
-## Lógica de negocio afectada (¿modifica algo ya definido en auditorías?)
-## Cómo probarlo
+## What changes
+## Why
+## Business logic affected (does it modify anything already defined in audits?)
+## How to test it
 Closes #
 ```
-> The "Lógica de negocio afectada" section is key to the project's goal: it forces declaring whether the PR touches something that had already been fixed. (The headings are the ones of the current `.github/pull_request_template.md`: what changes / why / business logic affected, does it modify anything already defined in audits? / how to test it.)
+> The "Business logic affected" section is key to the project's goal: it forces declaring whether the PR touches something that had already been fixed. (The headings are the ones of the current `.github/pull_request_template.md`.)
 
 ---
 
@@ -201,7 +201,7 @@ Epic     →  Unified user view
 ### 4.4 Own type: audit
 Since the project generates audits, an `audit` type/label is proposed for issues that come from an audit, with the title:
 
-`Auditoría <área>: <hallazgo>` (audit <area>: <finding>) → `Auditoría pagos: el webhook no es idempotente`
+`Audit <area>: <finding>` → `Audit payments: the webhook is not idempotent` (the Spanish form `Auditoría <área>: <hallazgo>` is still accepted)
 
 And in the body the link to the corresponding audit document.
 

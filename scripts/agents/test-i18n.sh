@@ -50,6 +50,7 @@ s=$(check)
 rm "$TMP/r/docs/guides/README.es.md"; s=$(check)
 grep -q 'docs/guides/README.md: missing its Spanish sibling docs/guides/README.es.md' <<<"$s"; afirmar $? "con parity prendido, un X.md sin su X.es.md falla con el archivo en el mensaje"
 copia; parity true
+find "$TMP/r" -name '*.es.md' -not -path '*/.git/*' -delete
 s=$(check)
 grep -q 'missing its Spanish sibling' <<<"$s"; afirmar $? "con parity prendido, falla aunque no exista ningún .es.md"
 

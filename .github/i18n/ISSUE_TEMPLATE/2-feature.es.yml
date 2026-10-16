@@ -1,0 +1,20 @@
+name: Feature
+description: Funcionalidad nueva o cambio de comportamiento visible
+labels: ["type:feature", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Título en imperativo, sin prefijo. Ej.: *Unificar cuentas por email*."
+  - type: textarea
+    id: objetivo
+    attributes: { label: Objetivo, description: Qué hay que lograr y para quién. }
+    validations: { required: true }
+  - type: textarea
+    id: alcance
+    attributes: { label: Alcance, description: Qué entra y qué queda afuera. }
+  - type: textarea
+    id: criterios
+    attributes: { label: Criterios de aceptación, value: "- [ ] " }
+  - type: textarea
+    id: negocio
+    attributes: { label: Lógica de negocio afectada, description: "¿Cambia una regla ya definida? ADR o doc." }

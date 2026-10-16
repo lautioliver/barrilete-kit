@@ -77,11 +77,11 @@ Source of truth: `docs/github-naming-convention.md`. Labels: `.github/labels.yml
 - **Base branch:** <BRANCH_RULE> See the `git-workflow` skill.
 - **Commits and PR titles:** Conventional Commits 1.0, `<type>(<scope>): <description>`, imperative, lowercase, no final period, ≤ 72 characters. Types in English; description in Spanish.
 - **Scopes:** those in `docs/github-naming-convention.md` §2. If a change touches several, omit the scope or split it into several commits.
-- **PR body:** `.github/pull_request_template.md` (Qué cambia / Por qué / Lógica de negocio afectada / Cómo probarlo / `Closes #n`: what changes / why / business logic affected / how to test it).
+- **PR body:** `.github/pull_request_template.md` (What changes / Why / Business logic affected / How to test it / `Closes #n`).
 - **Labels:** prefix `group:value` (`type:`, `area:`, `priority:`, `status:`, plus `business-logic` and `breaking-change`). Only those in `.github/labels.yml`; do not create others.
 - **Business logic:** if the PR changes an already defined rule (ADR, audit or plan), it gets the `business-logic` label and it is explained in the PR.
 - **Team:** new issues are assigned on their own to a member (by area and load). The team is changed with `/add-member` and `/remove-member`; do not edit the file by hand. Assigned = owner; in progress = with an open PR.
-- **Issues:** opened with the `create-issue` skill. Title in the imperative and with no prefix; the type goes in the `type:` label. If it comes from an audit: `Auditoría <área>: <hallazgo>` (the literal format: audit <area>: <finding>), with the link to the document.
+- **Issues:** opened with the `create-issue` skill. Title in the imperative and with no prefix; the type goes in the `type:` label. If it comes from an audit: `Audit <area>: <finding>` (the Spanish form `Auditoría <área>: <hallazgo>` is still accepted), with the link to the document.
 - **Irreversible decisions:** new ADR in `docs/decisions/` (see its README).
 
 Nothing goes into the trunk branches without a PR. The only branch written without a PR is `agents/retros`, and only with `retro.sh`.

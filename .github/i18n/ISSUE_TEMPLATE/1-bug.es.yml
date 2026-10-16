@@ -1,0 +1,21 @@
+name: Bug
+description: Algo no funciona como está definido
+labels: ["type:bug", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Título: el síntoma, descriptivo. Ej.: *El QR no valida sin conexión*."
+  - type: textarea
+    id: que-pasa
+    attributes: { label: Qué pasa, description: Qué se ve y dónde. }
+    validations: { required: true }
+  - type: textarea
+    id: esperado
+    attributes: { label: Qué debería pasar, description: Con link al ADR o doc que lo define, si existe. }
+    validations: { required: true }
+  - type: textarea
+    id: pasos
+    attributes: { label: Cómo reproducirlo }
+  - type: textarea
+    id: contexto
+    attributes: { label: Contexto, description: Entorno, IDs, logs (sin secretos ni datos personales). }

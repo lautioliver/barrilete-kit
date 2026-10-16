@@ -1,19 +1,19 @@
-<!-- Título: <tipo>(<scope>): <descripcion> — imperativo, minúscula, sin punto, ≤ 72 caracteres -->
+<!-- Title: <type>(<scope>): <description> — imperative, lowercase, no trailing period, ≤ 72 characters -->
 
-## Qué cambia
+## What changes
 
-## Por qué
+## Why
 
-## Lógica de negocio afectada
+## Business logic affected
 
-<!-- ¿Modifica una regla ya definida en un ADR, auditoría o plan? Si sí: cuál, y agregá el label `business-logic`. Si no: "Ninguna". -->
+<!-- Does it modify a rule already defined in an ADR, audit or plan? If so: which one, and add the `business-logic` label. If not: "None". -->
 
-## Cómo probarlo
+## How to test it
 
-<!-- TDD: pegá el bloque "Rojo antes de implementar" de .claude/skills/implement-issue/red.sh
-     y el commit de los tests en rojo (test(...): ...). Si no hay comportamiento que probar
-     (docs, config) o una parte no se puede probar acá, decilo como "sin test" con el motivo. -->
+<!-- TDD: paste the "Red before implementing" block from .claude/skills/implement-issue/red.sh
+     and the commit of the red tests (test(...): ...). If there is no behavior to test
+     (docs, config) or a part cannot be tested here, say it as "no tests: <reason>". -->
 
-Commit de los tests en rojo:
+Commit of the red tests:
 
 Closes #

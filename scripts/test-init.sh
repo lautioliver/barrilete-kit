@@ -70,10 +70,11 @@ afirmar $? "la plantilla trae la guía de prueba, enlazada desde el README, y la
 python3 - "$RAIZ" <<'PY'
 import re, sys
 raiz = sys.argv[1]
-guia = re.findall(r"^(\d+)\. \*\*([^*:]+):?\*\*", open(f"{raiz}/docs/try-the-template.es.md", encoding="utf-8").read(), re.M)  # el formulario está en español: se compara con la guía en español (si el formulario se traduce, pasar a la guía inglesa)
-form = re.findall(r"^ +- \"?(\d+)\. ([^\"\n]+)\"?$", open(f"{raiz}/.github/ISSUE_TEMPLATE/5-trial.yml", encoding="utf-8").read(), re.M)
+guia = re.findall(r"^(\d+)\. \*\*([^*:]+):?\*\*", open(f"{raiz}/docs/try-the-template.es.md", encoding="utf-8").read(), re.M)
+form = re.findall(r"^ +- \"?(\d+)\. ([^\"\n]+)\"?$", open(f"{raiz}/.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml", encoding="utf-8").read(), re.M)
 en = re.findall(r"^(\d+)\. \*\*([^*:]+):?\*\*", open(f"{raiz}/docs/try-the-template.md", encoding="utf-8").read(), re.M)
-sys.exit(0 if guia and [(n, t.strip()) for n, t in guia] == [(n, t.strip()) for n, t in form] and [n for n, _ in en] == [n for n, _ in guia] else 1)
+form_en = re.findall(r"^ +- \"?(\d+)\. ([^\"\n]+)\"?$", open(f"{raiz}/.github/ISSUE_TEMPLATE/5-trial.yml", encoding="utf-8").read(), re.M)
+sys.exit(0 if guia and [(n, t.strip()) for n, t in guia] == [(n, t.strip()) for n, t in form] and [(n, t.strip()) for n, t in en] == [(n, t.strip()) for n, t in form_en] and [n for n, _ in en] == [n for n, _ in guia] else 1)
 PY
 afirmar $? "los pasos del formulario de prueba coinciden con los de la guía"
 
@@ -103,9 +104,7 @@ con_pares() { # con_pares <copia>: pares de ejemplo en el repo, en el perfil chi
   echo "TRIAL-ES" >"$p/docs/try-the-template.es.md"
   # llms.txt no es Markdown: su hermano es llms.es.txt (#115), con la misma regla.
   echo "TXT-EN" >"$p/llms.txt"; echo "TXT-ES" >"$p/llms.es.txt"
-  # Textos que el perfil chico edita con perl: su hermano .es.md (copia del actual) no puede pisar la edición.
-  cp "$p/docs/decisions/README.md" "$p/docs/decisions/README.es.md"
-  cp "$p/.github/pull_request_template.md" "$p/.github/pull_request_template.es.md"
+  # Textos que el perfil chico edita con perl (docs/decisions/README y la plantilla del PR): sus hermanos .es.md reales no pueden pisar la edición.
   # Un archivo que el perfil chico borra (DELETE) y su hermano: el hermano no puede volver como X.md con --lang es.
   echo "DEL-EN" >"$p/DELETED.md"; echo "DEL-ES" >"$p/DELETED.es.md"; echo "DELETED.md" >>"$p/profiles/small/DELETE"
   (cd "$p" && git add -A && git commit -qm pares)
@@ -195,7 +194,7 @@ for combinacion in "completo en" "completo es" "chico en" "chico es"; do
   es -z "$(find "$p/.github" \( -name '*.es.*' -o -name i18n \) | head -1)"; afirmar $? "[$modo --lang $idioma .github] no queda ningún .es.* ni .github/i18n"
   # Los literales que lee el CI: el inglés es el vigente (los alias en español los acepta el workflow, no la plantilla).
   if [ "$idioma" = en ]; then
-    grep -q 'Red before implementing' "$p/.github/pull_request_template.md" && grep -q '"no tests"' "$p/.github/pull_request_template.md"
+    grep -q 'Red before implementing' "$p/.github/pull_request_template.md" && grep -q 'no tests: <reason>' "$p/.github/pull_request_template.md"
     afirmar $? "[$modo --lang en .github] la plantilla del PR nombra los literales ingleses del CI (Red before implementing, no tests)"
   fi
 done
@@ -238,7 +237,7 @@ for idioma in en es; do
   done
   if [ "$idioma" = en ]; then
     # shellcheck disable=SC2016
-    grep -qF 'the PR says so in "Lógica de negocio afectada" (business logic affected)' "$p/docs/decisions/README.md"; afirmar $? "[real chico --lang en] docs/decisions/README.md cita el encabezado vigente de la plantilla del PR, con su glosa"
+    grep -qF 'the PR says so in "Business logic affected"' "$p/docs/decisions/README.md"; afirmar $? "[real chico --lang en] docs/decisions/README.md cita el encabezado vigente de la plantilla del PR"
   fi
   largos=$(wc -l <"$p/.claude/skills/implement-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/create-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/update-docs/SKILL.md" | tr -d ' ')
   if [ "$largos" = 63/32/20 ]; then r=0; else r=1; fi

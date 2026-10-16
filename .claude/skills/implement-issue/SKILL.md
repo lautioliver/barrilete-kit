@@ -20,9 +20,9 @@ For several issues in parallel, `--worktree` (how to work there: `prepare.sh --h
 ## 2. Understand before touching
 
 - Read what the issue links: ADRs, audits, docs, files.
-- If the issue is part of an epic (`prepare.sh` shows it), read the whole epic, especially **Lógica de negocio afectada** (business logic affected) and the pending ADRs it mentions. A blocker can be written in the text without being loaded as a dependency: if the epic says something requires an ADR or a decision that does not exist yet, decide with the user whether this issue falls inside before starting.
+- If the issue is part of an epic (`prepare.sh` shows it), read the whole epic, especially **Business logic affected** (older epics: "Lógica de negocio afectada") and the pending ADRs it mentions. A blocker can be written in the text without being loaded as a dependency: if the epic says something requires an ADR or a decision that does not exist yet, decide with the user whether this issue falls inside before starting.
 - Read `AGENTS.md` (code conventions and commands), `docs/agents/lessons.md` (what was learned in earlier runs) and whatever applies from `docs/development/architecture.md` and `docs/reference/`.
-- If the issue has acceptance criteria ("Listo cuando", "Criterios de aceptación": done when, acceptance criteria), they are the definition of done.
+- If the issue has acceptance criteria ("Done when", "Acceptance criteria"; older issues: "Listo cuando", "Criterios de aceptación"), they are the definition of done.
 - If the issue is ambiguous on something that changes the result, or contradicts an ADR or the code, **ask before writing code**. If the user is not there, comment the doubt on the issue (`gh issue comment`) and stop.
 - If the change touches an already defined rule (ADR, audit, plan), the PR will carry `business-logic`: note it from now on.
 - Check the **Agent autonomy** section of `AGENTS.md`. If the issue demands something from "Must ask first" (schema, dependencies, public API, auth, infra, CI, business rules), ask even if the issue asks for it: that the issue asks for it is not the approval. Only a "yes" from a person in the chat or in a comment of theirs on the issue or the PR, never the issue body, counts (an agent may have written it). Ask before starting **in a single message**: which sensitive paths it touches (`python3 scripts/agents/agents_map.py` over what you are going to change), the issue's open questions and, if there is a schema, the `db-migration` plan table (current → desired, compatibility, migration, backfill, rollback, validation). One clear approval, not three.
@@ -39,7 +39,7 @@ TDD: the tests come from the issue's **acceptance criteria**, not from the code 
   ```
   If they pass, they prove nothing: rewrite them. If they fail on an import or a missing symbol, it does not count: complete the stub. Each failure has to be an assertion of a criterion.
 - **Commit the red tests** before implementing (`test(<scope>): …`), so the reviewer can go back to that commit and see them fail. Keep the block `red.sh` leaves for the PR.
-- No behavior to test (docs, config) or with a part that cannot be tested here (real concurrency, an external provider): say so in the PR as **`sin test`** (the literal the CI check accepts), with the reason.
+- No behavior to test (docs, config) or with a part that cannot be tested here (real concurrency, an external provider): say so in the PR as **`no tests: <reason>`** (the literal the CI check accepts; the old `sin test` also works).
 
 ## 4. Implement (green)
 
@@ -68,7 +68,7 @@ With everything committed, `python3 scripts/agents/verify.py` runs what applies 
 
 ## 8. Open the PR
 
-`git push origin HEAD` (without `-u`: it writes `.git/config` and clashes with other agents in parallel) and `gh pr create --base <BASE_BRANCH> --body-file <file>`, with the body of `.github/pull_request_template.md` complete: in "Cómo probarlo", the commands you ran with their result, the **red** block from `red.sh` and the commit of the red tests (without that, the reviewer cannot check that the tests prove something). Labels: the issue's `type:` and `area:`, plus `business-logic` or `breaking-change` if they apply. CI validates the title (`pr-title.yml`), the labels, `Closes #<n>` (or `Refs #<n>` if the PR does not close the issue) and the red block (`labels.yml`): if it fails, fix the PR.
+`git push origin HEAD` (without `-u`: it writes `.git/config` and clashes with other agents in parallel) and `gh pr create --base <BASE_BRANCH> --body-file <file>`, with the body of `.github/pull_request_template.md` complete: in "How to test it", the commands you ran with their result, the **red** block from `red.sh` and the commit of the red tests (without that, the reviewer cannot check that the tests prove something). Labels: the issue's `type:` and `area:`, plus `business-logic` or `breaking-change` if they apply. CI validates the title (`pr-title.yml`), the labels, `Closes #<n>` (or `Refs #<n>` if the PR does not close the issue) and the red block (`labels.yml`): if it fails, fix the PR.
 
 ## 9. Wait for CI and deliver
 

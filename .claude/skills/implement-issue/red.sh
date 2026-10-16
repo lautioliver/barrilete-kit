@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # TDD: runs the freshly written tests BEFORE implementing and requires them to fail,
 # for the right reason (a behavior assertion, not a broken import).
-# Leaves a block ready to paste into "Cómo probarlo" of the PR.
+# Leaves a block ready to paste into "How to test it" of the PR.
 # Uso: red.sh -- <comando de test>
 #   ej.: red.sh -- npx vitest run src/modulo
 # Exits with 0 if it is red because of an assertion; 1 if the tests pass; 2 if they fail
@@ -63,7 +63,7 @@ resumen=$(grep -E "FAIL|$aserciones" "$salida" | head -40)
 fallas="${resumen:-$(tail -20 "$salida")}"
 pr="${salida}.md"
 {
-  echo "<details><summary>Rojo antes de implementar</summary>"
+  echo "<details><summary>Red before implementing</summary>"
   echo
   echo '```'
   echo "\$ $*"
@@ -76,4 +76,4 @@ echo "Red. Failures:"
 while IFS= read -r linea; do printf '  %s\n' "$linea"; done <<<"$fallas"
 echo
 echo "Confirm that each failure is an assertion of an acceptance criterion."
-echo "Block for \"Cómo probarlo\" in the PR: $pr"
+echo "Block for \"How to test it\" in the PR: $pr"

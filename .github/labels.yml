@@ -1,92 +1,93 @@
 # .github/labels.yml — <PROJECT>
-# Fuente de verdad de los labels del repo. Ver docs/github-naming-convention.md §5
-# Formato compatible con EndBug/label-sync y crazy-max/ghaction-github-labeler.
+# Source of truth for the repo labels. See docs/github-naming-convention.md §5
+# Format compatible with EndBug/label-sync and crazy-max/ghaction-github-labeler.
+# The Spanish descriptions live in labels.es.yml (the init picks one, ADR-001).
 
 # ── type: ────────────────────────────────────────────
 - name: "type:feature"
   color: "7B61FF"
-  description: "Funcionalidad nueva o cambio de comportamiento visible"
+  description: "New functionality or a change in visible behavior"
   aliases:
     - "tipo:feature"
 - name: "type:bug"
   color: "7B61FF"
-  description: "Algo no funciona como está definido"
+  description: "Something does not work as defined"
   aliases:
     - "tipo:bug"
 - name: "type:task"
   color: "7B61FF"
-  description: "Trabajo técnico sin cambio visible"
+  description: "Technical work with no visible change"
   aliases:
     - "tipo:task"
 - name: "type:audit"
   color: "7B61FF"
-  description: "Hallazgo surgido de una auditoría"
+  description: "Finding that came out of an audit"
   aliases:
     - "tipo:audit"
 - name: "type:docs"
   color: "7B61FF"
-  description: "Documentación"
+  description: "Documentation"
   aliases:
     - "tipo:docs"
 
 # ── area: ────────────────────────────────────────────
-# TODO: una por área del producto; mismos nombres que los scopes de commit (§2).
-# Las tres de abajo existen siempre: labeler.yml las usa.
+# TODO: one per product area; same names as the commit scopes (§2).
+# The three below always exist: labeler.yml uses them.
 - name: "area:api"
   color: "1D76DB"
-  description: "API y lógica de negocio"
+  description: "API and business logic"
 - name: "area:infra"
   color: "1D76DB"
-  description: "Deploy, base de datos, CI/CD"
+  description: "Deploy, database, CI/CD"
 - name: "area:docs"
   color: "1D76DB"
-  description: "Documentación, ADRs y reglas para agentes"
+  description: "Documentation, ADRs and rules for agents"
 
 # ── priority: ───────────────────────────────────────
 - name: "priority:critical"
   color: "B60205"
-  description: "Rompe producción o afecta dinero/entradas"
+  description: "Breaks production or affects money/tickets"
   aliases:
     - "prioridad:critica"
 - name: "priority:high"
   color: "D93F0B"
-  description: "Bloquea el próximo hito"
+  description: "Blocks the next milestone"
   aliases:
     - "prioridad:alta"
 - name: "priority:medium"
   color: "FBCA04"
-  description: "Importante pero no bloquea"
+  description: "Important but not blocking"
   aliases:
     - "prioridad:media"
 - name: "priority:low"
   color: "C5C5C5"
-  description: "Mejora deseable, sin fecha"
+  description: "Nice to have, no date"
   aliases:
     - "prioridad:baja"
 
 # ── status: ───────────────────────────────────────────────────────────────────────────────────
 - name: "status:triage"
   color: "FEF2C0"
-  description: "Falta asignar tipo, área y prioridad"
+  description: "Type, area and priority still to be assigned"
   aliases:
     - "estado:a-triar"
 - name: "status:needs-info"
   color: "FEF2C0"
-  description: "No se puede avanzar sin más datos"
+  description: "Cannot move forward without more information"
   aliases:
     - "estado:necesita-info"
 - name: "status:blocked"
   color: "FEF2C0"
-  description: "Depende de otro issue o de un tercero"
+  description: "Depends on another issue or on a third party"
   aliases:
     - "estado:bloqueado"
 
-# ── especiales ───────────────────────────────────────
+# ── special ───────────────────────────────────────
 - name: "business-logic"
   color: "000000"
-  description: "Toca una regla de negocio ya definida; requiere revisión del equipo"
+  description: "Touches a business rule already defined; needs team review"
   aliases:
     - "logica-negocio"
 - name: "breaking-change"
   color: "000000"
-  description: "Rompe compatibilidad"
+  description: "Breaks compatibility"

@@ -226,7 +226,7 @@ In `.claude/agents/`, each role with its model:
 2. `/improve-skills` looks for patterns (at least two cases, or one serious one) and prefers turning them into scripts or checks over adding more text. It always proposes through a PR, and can be scheduled to run weekly.
 3. Whatever is useful but not enough to change a skill goes to `docs/agents/lessons.md`, which `implement-issue` reads before starting. Agents learn from consolidated, reviewed lessons, never from raw retros.
 
-Skills are capped at 120 lines, enforced by `check-docs.py`. Two checks in the labels workflow came out of this loop on a real repo: a PR labeled `business-logic` must touch `docs/decisions/` (or say `ADR sin cambios: <motivo>`), and a PR that arrives without a `type:` label copies it from the issue it closes.
+Skills are capped at 120 lines, enforced by `check-docs.py`. Two checks in the labels workflow came out of this loop on a real repo: a PR labeled `business-logic` must touch `docs/decisions/` (or say `ADR unchanged: <reason>`), and a PR that arrives without a `type:` label copies it from the issue it closes.
 
 <a name="team"></a>
 

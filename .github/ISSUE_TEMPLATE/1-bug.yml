@@ -1,21 +1,21 @@
 name: Bug
-description: Algo no funciona como está definido
+description: Something does not work as defined
 labels: ["type:bug", "status:triage"]
 body:
   - type: markdown
     attributes:
-      value: "Título: el síntoma, descriptivo. Ej.: *El QR no valida sin conexión*."
+      value: "Title: the symptom, descriptive. E.g.: *The QR does not validate offline*."
   - type: textarea
     id: que-pasa
-    attributes: { label: Qué pasa, description: Qué se ve y dónde. }
+    attributes: { label: What happens, description: What you see and where. }
     validations: { required: true }
   - type: textarea
     id: esperado
-    attributes: { label: Qué debería pasar, description: Con link al ADR o doc que lo define, si existe. }
+    attributes: { label: What should happen, description: With a link to the ADR or doc that defines it, if there is one. }
     validations: { required: true }
   - type: textarea
     id: pasos
-    attributes: { label: Cómo reproducirlo }
+    attributes: { label: How to reproduce it }
   - type: textarea
     id: contexto
-    attributes: { label: Contexto, description: Entorno, IDs, logs (sin secretos ni datos personales). }
+    attributes: { label: Context, description: Environment, IDs, logs (no secrets or personal data). }

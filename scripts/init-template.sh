@@ -8,7 +8,8 @@
 #              short versions (profiles/small/) and deletes what solves team
 #              problems (epics, review between sessions, path map, labeler…).
 #   --lang:    prose language, en (default) or es. With es, each X.md is replaced by its
-#              sibling X.es.md; in both cases the leftover .es.md files are deleted (ADR-001).
+#              sibling X.es.md; in both cases the leftover .es.md files are deleted (ADR-001). The siblings of the
+#              agents and of the issue forms live in .claude/i18n/agents/ and .github/i18n/ISSUE_TEMPLATE/.
 #              It is recorded as "language" in .agent-kit.json.
 set -euo pipefail
 USO="Usage: $0 \"Project name\" [main|develop] [releases] [--small] [--lang en|es]"
@@ -81,8 +82,18 @@ apply_language() {
     done
   fi
   rm -rf .claude/i18n
-  # llms.txt is not Markdown: its sibling is llms.es.txt (same rule).
-  { find . \( -name '*.es.md' -o -name 'llms.es.txt' \) -not -path './.git/*' -not -path './profiles/*' || true; } | while read -r f; do
+  # The same goes for the issue forms: GitHub offers every .yml of .github/ISSUE_TEMPLATE as a form, so the Spanish ones
+  # live in .github/i18n/ISSUE_TEMPLATE/<name>.es.yml and, with es, replace .github/ISSUE_TEMPLATE/<name>.yml.
+  if [ "$LANG_KIT" = es ] && [ -d .github/ISSUE_TEMPLATE ] && [ -d .github/i18n/ISSUE_TEMPLATE ]; then
+    for f in .github/i18n/ISSUE_TEMPLATE/*.es.yml; do
+      [ -e "$f" ] || continue
+      [ -e ".github/ISSUE_TEMPLATE/$(basename "${f%.es.yml}").yml" ] || continue
+      mv -f -- "$f" ".github/ISSUE_TEMPLATE/$(basename "${f%.es.yml}").yml"
+    done
+  fi
+  rm -rf .github/i18n
+  # llms.txt is not Markdown: its sibling is llms.es.txt (same rule). labels.yml has labels.es.yml (the descriptions).
+  { find . \( -name '*.es.md' -o -name 'llms.es.txt' -o -path './.github/labels.es.yml' \) -not -path './.git/*' -not -path './profiles/*' || true; } | while read -r f; do
     if [ "$LANG_KIT" = es ]; then mv -f -- "$f" "${f%.es.*}.${f##*.}"; else rm -f -- "$f"; fi
   done
 }
@@ -94,9 +105,10 @@ if [ -n "$CHICO" ]; then
     # The profile file wins in both languages: if it has no sibling of its own, the full file's sibling goes
     # (or --lang es would put the full Spanish file over the short one).
     case "$f" in
-      *.es.md|*.es.txt) ;;
+      *.es.md|*.es.txt|*.es.yml) ;;
       *.md) [ -e "profiles/small/${f%.md}.es.md" ] || rm -f -- "${f%.md}.es.md" ;;
       *.txt) [ -e "profiles/small/${f%.txt}.es.txt" ] || rm -f -- "${f%.txt}.es.txt" ;;
+      ./.github/labels.yml) [ -e "profiles/small/.github/labels.es.yml" ] || rm -f -- .github/labels.es.yml ;;
     esac
   done
   # A .md entry also takes its Spanish sibling (ADR-001), or --lang es would bring the file back as X.md.
@@ -107,8 +119,8 @@ if [ -n "$CHICO" ]; then
   done
   apply_language
   # Without the business-logic label: it is edited in place (not copied) so it does not get outdated.
-  perl -pi -e 's/el PR lleva el label `business-logic`\./el PR lo dice en "Lógica de negocio afectada"./; s/the PR carries the `business-logic` label\./the PR says so in "Lógica de negocio afectada" (business logic affected)./' docs/decisions/README.md
-  perl -pi -e 's/ Si sí: cuál, y agregá el label `business-logic`\./ Si sí: cuál, y por qué cambia./' .github/pull_request_template.md
+  perl -pi -e 's/el PR lleva el label `business-logic`\./el PR lo dice en "Lógica de negocio afectada"./; s/the PR carries the `business-logic` label\./the PR says so in "Business logic affected"./' docs/decisions/README.md
+  perl -pi -e 's/ Si sí: cuál, y agregá el label `business-logic`\./ Si sí: cuál, y por qué cambia./; s/ If so: which one, and add the `business-logic` label\./ If so: which one, and why it changes./' .github/pull_request_template.md
 fi
 apply_language
 rm -rf profiles
@@ -165,7 +177,7 @@ mapa["verify"] = [v for v in mapa.get("verify", []) if v.get("name") not in ("in
 # CHANGELOG.md and the kit ADRs are deleted above: their ignore entries would hide the project's own ADR-001.
 mapa["ignore_check"] = [g for g in mapa.get("ignore_check", []) if g not in ("CHANGELOG.md", "docs/decisions/ADR-001-*")]
 mapa["parity"] = False  # a project has one language: the siblings check is the template's
-mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("CHANGELOG.md", "docs/decisions/ADR-001-*")]
+mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("CHANGELOG.md", "docs/decisions/ADR-001-*", "profiles/small/**")]
 open(ruta, "w", encoding="utf-8").write(json.dumps(mapa, ensure_ascii=False, indent=2) + "\n")
 PY
 fi

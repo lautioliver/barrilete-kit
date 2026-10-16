@@ -16,7 +16,8 @@ Checks:
 - Subagents (.claude/agents/*.md) without name, description or tools, with a model that is not
   opus, sonnet or haiku, or that do not point to the common contract (docs/agents/subagent-contract.md).
 - Language siblings (ADR-001), only with "parity": true in the map: every X.md has its X.es.md (and the
-  other way around; the Spanish sibling of an agent lives in .claude/i18n/agents/) with the same number of headings and code blocks. "parity_ignore" in the map lists
+  other way around; the Spanish sibling of an agent lives in .claude/i18n/agents/, and that of an issue form in
+  .github/i18n/ISSUE_TEMPLATE/, compared by type/id/labels) with the same number of headings and code blocks. "parity_ignore" in the map lists
   the exceptions (globs). The ignore_check paths do NOT exempt: profiles/ has siblings too.
 - Members of .github/team.json that are repeated or have areas that are not in labels.yml.
 The paths in "ignore_check" of the map (for example, historical logs) are not validated.
@@ -195,6 +196,36 @@ if MAPA.get("parity"):
             errores.append(f"{es}: {h_es} headings, but {en} has {h_en} (one of the two is out of date).")
         if b_es != b_en:
             errores.append(f"{es}: {b_es} code blocks, but {en} has {b_en} (one of the two is out of date).")
+
+# Issue forms (.yml): GitHub offers every .yml of .github/ISSUE_TEMPLATE as a form, so the Spanish sibling lives in
+# .github/i18n/ISSUE_TEMPLATE/<name>.es.yml (ADR-001, R-1). They are compared by the keys that do not carry prose.
+FORMS_EN, FORMS_ES = ".github/ISSUE_TEMPLATE", ".github/i18n/ISSUE_TEMPLATE"
+
+
+def claves_de_formulario(ruta):
+    """type:, id: and labels: lines of an issue form, without the spacing: the prose is the only thing that changes."""
+    with open(ruta, encoding="utf-8") as fh:
+        return [re.sub(r"\s+", " ", m.group(0)).strip() for m in re.finditer(r"^\s*(?:- )?(?:type|id|labels):.*$", fh.read(), re.M)]
+
+
+if os.path.isdir(FORMS_EN):
+    for nombre in sorted(os.listdir(FORMS_EN)):
+        if nombre.endswith(".es.yml"):
+            errores.append(f"{FORMS_EN}/{nombre}: GitHub would offer it as a second form; the Spanish sibling of a form "
+                           f"lives in {FORMS_ES}/ (ADR-001, R-1).")
+if MAPA.get("parity") and os.path.isdir(FORMS_EN):
+    ya_vistos = set()
+    for nombre in sorted(n for n in os.listdir(FORMS_EN) if n.endswith(".yml") and n not in ("config.yml",) and not n.endswith(".es.yml")):
+        en, es = f"{FORMS_EN}/{nombre}", f"{FORMS_ES}/{nombre[:-len('.yml')]}.es.yml"
+        ya_vistos.add(os.path.basename(es))
+        if not os.path.exists(es):
+            errores.append(f"{en}: missing its Spanish sibling {es}.")
+        elif claves_de_formulario(en) != claves_de_formulario(es):
+            errores.append(f"{es}: its type/id/labels keys differ from {en} (one of the two is out of date).")
+    if os.path.isdir(FORMS_ES):
+        for nombre in sorted(os.listdir(FORMS_ES)):
+            if nombre.endswith(".es.yml") and nombre not in ya_vistos:
+                errores.append(f"{FORMS_ES}/{nombre}: has no English sibling {FORMS_EN}/{nombre[:-len('.es.yml')]}.yml.")
 
 if MAPA:
     mapa = MAPA
