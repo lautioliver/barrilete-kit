@@ -32,7 +32,7 @@ def salir(msg):
 
 def verificar_claves(kit):
     """.agent-kit.json of 0.9 (Spanish keys): update.py migrates it; grow.py does not."""
-    if "archivos" in kit and "files" not in kit:
+    if any(k in kit for k in ("proyecto", "rama_base", "modo", "fecha", "archivos")):
         salir(".agent-kit.json uses the 0.9 keys (proyecto, rama_base, modo, fecha, archivos): this project "
               "was created before the English renames. update.py migrates it (names, keys and labels; see the CHANGELOG): "
               "download scripts/update.py from the new template version outside the repo (for example to /tmp/update.py, "

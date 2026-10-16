@@ -87,8 +87,8 @@ RENAMES_0_9 = {
     "scripts/test-actualizar.sh": "scripts/test-update.sh",
 }
 # Old directory prefix -> new one, to rewrite paths inside the project's JSON (globs, commands).
-DIRS_0_9 = (("scripts/agentes/", "scripts/agents/"), ("docs/agentes/", "docs/agents/"),
-            ("perfiles/chico/", "profiles/small/"), ("perfiles/", "profiles/"))
+# Not perfiles/: the init deletes it, so any `perfiles/` in the project's map is the project's own.
+DIRS_0_9 = (("scripts/agentes/", "scripts/agents/"), ("docs/agentes/", "docs/agents/"))
 # JSON keys of agents-map.json and team.json; `name` and `type` also have values to translate.
 KEYS_0_9 = {"_ayuda": "_help", "cuando": "when", "revisar": "review", "motivo": "reason", "sensibles": "sensitive",
             "tipo": "type", "rutas": "paths", "verificar": "verify", "nombre": "name", "siempre": "always",
@@ -115,19 +115,26 @@ def migrar_kit(kit):
     for k, v in kit.items():
         k = KIT_KEYS_0_9.get(k, k)
         nuevo[k] = MODES_0_9.get(v, v) if k == "mode" else v
-    if "language" not in nuevo:  # placed after the date when there is one, as the init writes it
+    if "language" not in nuevo:  # placed after the mode, as the init writes it
         items = list(nuevo.items())
-        i = next((n + 1 for n, (k, _) in enumerate(items) if k == "date"), len(items))
+        i = next((n + 1 for n, (k, _) in enumerate(items) if k == "mode"), len(items))
         nuevo = dict(items[:i] + [("language", "en")] + items[i:])
     return nuevo
 
 
+def _ruta_0_9():
+    """One regex for the kit's old paths: a whole file path or a directory prefix, starting a path (after
+    nothing, a space, a quote, `?` or `!`) and not inside another one (`app/perfiles/`, `x.py.sh`)."""
+    archivos_ = "|".join(re.escape(v) for v in sorted(RENAMES_0_9, key=len, reverse=True))
+    dirs = "|".join(re.escape(v) for v, _ in DIRS_0_9)
+    return re.compile(rf"(?<![\w./-])(?:({archivos_})(?![\w-]|\.\w)|({dirs}))")
+
+
 def texto_nuevo(s):
-    """A string of the project's JSON with the old paths and the {archivos} placeholder replaced."""
-    for viejo, nuevo in sorted(RENAMES_0_9.items(), key=lambda p: -len(p[0])):
-        s = s.replace(viejo, nuevo)
-    for viejo, nuevo in DIRS_0_9:
-        s = s.replace(viejo, nuevo)
+    """A string of the project's JSON with the kit's old paths and the {archivos} placeholder replaced.
+    The project's own paths stay as they are, even if they contain an old name."""
+    dirs = dict(DIRS_0_9)
+    s = _ruta_0_9().sub(lambda m: RENAMES_0_9[m.group(1)] if m.group(1) else dirs[m.group(2)], s)
     return s.replace("{archivos}", "{files}")
 
 
@@ -140,6 +147,11 @@ def json_nuevo(o, mapa, clave=None):
     if isinstance(o, str) and (mapa or clave == "_help"):
         return VALUES_0_9.get(clave, {}).get(o, texto_nuevo(o)) if mapa else texto_nuevo(o)
     return o
+
+
+def generado(ruta):
+    """Files that running the project leaves behind (not the project's own)."""
+    return "__pycache__" in ruta.split(os.sep) or ruta.endswith((".pyc", ".DS_Store"))
 
 
 def migrar_arbol(raiz, registradas=None):
@@ -169,8 +181,13 @@ def migrar_arbol(raiz, registradas=None):
             h = registradas.pop(viejo)  # the file stays where it is if it was blocked: it is not the kit's anymore
             if (viejo, nuevo) not in bloqueados:
                 registradas[nuevo] = h  # also when the project had deleted it
-    for viejo, nuevo in DIRS_0_9[:2]:
-        if os.path.isdir(os.path.join(raiz, viejo)) and any(archivos(os.path.join(raiz, viejo))):
+    for viejo, nuevo in DIRS_0_9:
+        carpeta = os.path.join(raiz, viejo)
+        if not os.path.isdir(carpeta):
+            continue
+        if not any(not generado(f) for f in archivos(carpeta)):
+            shutil.rmtree(carpeta)  # empty, or only __pycache__ and the like left by running the old tests
+        else:
             avisos.append(f"{viejo} still has your own files (not the kit's): they stay there. Move them to {nuevo} "
                           "by hand if you want, and fix the paths that docs/agents-map.json now points to.")
     for ruta in JSON_0_9:
@@ -383,8 +400,8 @@ def main():
     if migracion:
         kit = migrar_kit(kit)
         print("Project from 0.9: it will be migrated to the new names, keys and labels."
-              + (" It has no `language`, so it is treated as English (the default now): to keep it in Spanish, stop "
-                 'now (Ctrl-C), add "language": "es" to .agent-kit.json and run again.' if sin_idioma else ""))
+              + (" It has no `language`, so it is treated as English (the default now); see Language at the end "
+                 "if it is in Spanish." if sin_idioma else ""))
     if sh("git", "status", "--porcelain").stdout.strip():
         salir("there are uncommitted changes. Commit or stash them before updating.")
     if os.path.isdir(PENDIENTES) and any(archivos(PENDIENTES)):
@@ -498,8 +515,10 @@ def main():
         if sin_idioma:
             print("Language: .agent-kit.json had no `language` (projects before #130), so this project is treated as "
                   "English, which is the default now: the kit's prose came in English and the files you had not touched "
-                  "were replaced by it. If your project is in Spanish, discard this run's changes (git stash push -u, then "
-                  'git stash drop), add "language": "es" to .agent-kit.json and run update.py again.')
+                  "were replaced by it. If your project is in Spanish: discard this run (git checkout . && git clean -fd && "
+                  'rm -rf .agent-kit; .agent-kit/ is ignored, so git clean does not remove it), add "language": "es" to '
+                  ".agent-kit.json, commit that change (update.py refuses to run with uncommitted changes) and run "
+                  "update.py again.")
         if any(r in hechos.get("conflicto", []) + hechos.get("pendiente", []) for r in HOOKS):
             print("Warning: a hook registration (.claude/settings.json, .codex/hooks.json, .cursor/hooks.json, "
                   ".github/hooks/guardrails.json) is in .agent-kit/pending/: all four must point to "
@@ -531,7 +550,8 @@ def main():
         print(f"     version {objetivo or ref}: what you do not integrate from this one will not show up again.")
     else:
         print("  1. Nothing pending to integrate by hand.")
-    print("  2. python3 scripts/agents/check-docs.py, and review the diff.")
+    # check-docs.py reads the git index: with files moved or added and not staged it reports false missing paths.
+    print("  2. git add -A, then python3 scripts/agents/check-docs.py (it reads the git index), and review the diff.")
     print("  3. Commit and open a PR. If .github/labels.yml changed, run the Labels workflow after the merge.")
 
 
