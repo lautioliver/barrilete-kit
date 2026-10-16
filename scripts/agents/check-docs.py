@@ -111,7 +111,7 @@ def md_files(aplicar_ignore=True):
         if "/.claude/worktrees" in base:
             continue
         for f in files:
-            if f.endswith(".md") or f == "llms.txt":
+            if f.endswith(".md") or f in ("llms.txt", "llms.es.txt"):
                 ruta = os.path.normpath(os.path.join(base, f))
                 if not (aplicar_ignore and any(r.match(ruta) for r in IGNORAR)) and del_alcance(ruta):
                     yield ruta
@@ -179,13 +179,13 @@ def estructura(ruta):
 # the template turns it on when its content is translated (#115); the init turns it off in the projects.
 EXENTOS = [glob_a_regex(g) for g in MAPA.get("parity_ignore", [])] if MAPA else []
 pares = [a for a in md_files(aplicar_ignore=False)
-         if a.endswith(".md") and not any(r.match(a) for r in EXENTOS)]
+         if (a.endswith(".md") or os.path.basename(a) in ("llms.txt", "llms.es.txt")) and not any(r.match(a) for r in EXENTOS)]
 if MAPA.get("parity"):
-    for es in sorted(a for a in pares if a.endswith(".es.md")):
+    for es in sorted(a for a in pares if a.endswith((".es.md", ".es.txt"))):
         en = hermano_de_idioma(es)
         if not os.path.exists(en):
             errores.append(f"{es}: has no English sibling {en} (rename the file or add it).")
-    for en in sorted(a for a in pares if not a.endswith(".es.md")):
+    for en in sorted(a for a in pares if not a.endswith((".es.md", ".es.txt"))):
         es = hermano_de_idioma(en)
         if not os.path.exists(es):
             errores.append(f"{en}: missing its Spanish sibling {es}.")
@@ -281,9 +281,9 @@ if os.path.isdir(".claude/skills"):
 # What AGENTS.md says is ignored (`.env*` are ignored) must be: the agent
 # trusts that sentence and, if it is false, ends up committing a secret.
 if os.path.exists("AGENTS.md"):
-    NIEGA = re.compile(r"\b(?:no|nunca)\s+(?:est[aá]n?\s+|es\s+|son\s+|se\s+)?ignor", re.I)
+    NIEGA = re.compile(r"\b(?:no|nunca|not|never)\s+(?:(?:est[aá]n?|es|son|se|is|are|be)\s+)?ignor", re.I)
     for n, linea in enumerate(open("AGENTS.md", encoding="utf-8"), 1):
-        if not re.search(r"ignorad", linea, re.I):
+        if not re.search(r"ignorad|ignored", linea, re.I):
             continue
         # Cada patrón entre backticks se decide por lo que viene después, hasta el siguiente:
         # en "`.env*` está ignorado y `dist/` no está ignorado" se valida .env* y no dist/.

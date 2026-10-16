@@ -13,7 +13,7 @@ echo
 echo "## Version and branches"
 echo "- Latest version: $(git describe --tags --abbrev=0 "origin/$DEFAULT" 2>/dev/null || echo 'no tags')"
 echo "- Default branch: $DEFAULT"
-regla=$(grep -m1 '^\- \*\*Rama base:\*\*' AGENTS.md 2>/dev/null | sed 's/^- \*\*Rama base:\*\* //')
+regla=$(grep -m1 -E '^- \*\*(Rama base|Base branch):\*\*' AGENTS.md 2>/dev/null | sed -E 's/^- \*\*(Rama base|Base branch):\*\* //')
 [ -n "$regla" ] && echo "- Flow: $regla"
 rel=$(git branch -r --list 'origin/release/*' | sed 's#origin/##' | xargs)
 [ -n "$rel" ] && echo "- Open releases: $rel"
@@ -21,7 +21,7 @@ echo "- Latest commit on $DEFAULT: $(git log -1 --format='%h %s (%cr)' "origin/$
 
 echo
 echo "## Architecture"
-if grep -q "TODO: completar" docs/development/architecture.md 2>/dev/null; then
+if grep -Eq "TODO: (completar|fill in)" docs/development/architecture.md 2>/dev/null; then
   echo "_docs/development/architecture.md has no content yet._"
 else
   echo "See docs/development/architecture.md (updated $(git log -1 --format=%cr -- docs/development/architecture.md))."

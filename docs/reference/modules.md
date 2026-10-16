@@ -1,5 +1,5 @@
-# Módulos — <PROJECT>
+# Modules — <PROJECT>
 
-> Dónde vive cada cosa en el código y qué es responsable de qué.
+> Where each thing lives in the code and what is responsible for what.
 
-TODO: completar.
+TODO: fill in.

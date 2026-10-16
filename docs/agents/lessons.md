@@ -1,16 +1,16 @@
-# Lecciones del flujo con agentes
+# Lessons from the agent flow
 
-Lo que salió de las retros y sirve, pero no alcanza para cambiar una skill: un solo caso, o algo que no se puede verificar con un script. `implement-issue` lo lee antes de empezar.
+What came out of the retros and is useful, but not enough to change a skill: a single case, or something that cannot be verified with a script. `implement-issue` reads it before starting.
 
-Reglas:
-- Solo lo escribe `/improve-skills`, en su PR: una persona revisa cada lección antes de que un agente la lea. Las retros crudas (rama `agents/retros`) no las lee ningún agente salvo `/improve-skills`.
-- Es contexto, no regla: si una lección contradice `AGENTS.md`, una skill o un ADR, ganan ellos. Nunca afloja un control.
-- Una línea por lección, con el caso que la originó: `- <lección> (#<issue o PR>, AAAA-MM)`.
-- Máximo 40 líneas en todo el archivo (lo controla `scripts/agents/check-docs.py`). Si no entra, sacá la más vieja o la que ya pasó a una skill o a un script.
+Rules:
+- Only `/improve-skills` writes it, in its PR: a person reviews each lesson before an agent reads it. No agent reads the raw retros (`agents/retros` branch) except `/improve-skills`.
+- It is context, not a rule: if a lesson contradicts `AGENTS.md`, a skill or an ADR, they win. It never loosens a control.
+- One line per lesson, with the case that originated it: `- <lesson> (#<issue or PR>, YYYY-MM)`.
+- At most 40 lines in the whole file (checked by `scripts/agents/check-docs.py`). If it does not fit, remove the oldest one or the one that already moved to a skill or a script.
 
-## Lecciones
+## Lessons
 
-- Comprobá los hallazgos de `/code-review` antes de arreglarlos o clasificarlos: pueden ser falsos (en #39, `commit-tree` no respeta `commit.gpgSign`). (#39, #40, 2026-10)
-- Los scripts que escriben en `.git` se prueban también desde un `git worktree` y con escrituras concurrentes en todas las que hacen, no solo en la que nombra el issue: los agentes corren en worktrees y en paralelo (retros pendientes perdidas con `git worktree remove`; lock de `.git/config` en `worktree add`). (#39, #40, 2026-10)
-- En los scripts que toman un issue, asigná al final, después de todo lo que puede fallar: si falla antes, el issue queda asignado sin trabajo. (#40, 2026-10)
-- Para testear scripts de shell sin framework: un remoto bare local y un `gh` falso en el `PATH`, aislados de la config global de git. Modelos: `.claude/skills/improve-skills/test-retros.sh` y `.claude/skills/implement-issue/test-prepare.sh`. (#39, #40, 2026-10)
+- Check the `/code-review` findings before fixing or classifying them: they can be false (in #39, `commit-tree` does not respect `commit.gpgSign`). (#39, #40, 2026-10)
+- Scripts that write to `.git` are also tested from a `git worktree` and with concurrent writes in all the ones they do, not just the one the issue names: agents run in worktrees and in parallel (pending retros lost with `git worktree remove`; `.git/config` lock in `worktree add`). (#39, #40, 2026-10)
+- In the scripts that take an issue, assign at the end, after everything that can fail: if it fails before, the issue stays assigned with no work done. (#40, 2026-10)
+- To test shell scripts without a framework: a local bare remote and a fake `gh` in the `PATH`, isolated from the global git config. Models: `.claude/skills/improve-skills/test-retros.sh` and `.claude/skills/implement-issue/test-prepare.sh`. (#39, #40, 2026-10)

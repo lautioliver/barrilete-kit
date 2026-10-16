@@ -135,7 +135,9 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
     viejo1='el PR lleva el label `business-logic`'
     # shellcheck disable=SC2016
     viejo2='agregá el label `business-logic`'
-    ! grep -qF "$viejo1" "$p/docs/decisions/README.md" && ! grep -qF "$viejo2" "$p/.github/pull_request_template.md"
+    # shellcheck disable=SC2016
+    viejo3='the PR carries the `business-logic` label'
+    ! grep -qF "$viejo1" "$p/docs/decisions/README.md" && ! grep -qF "$viejo3" "$p/docs/decisions/README.md" && ! grep -qF "$viejo2" "$p/.github/pull_request_template.md"
     afirmar $? "[$modo --lang $idioma] los ajustes del perfil chico (label business-logic) valen también con el hermano .es.md"
   fi
   ! [ -e "$p/docs/try-the-template.md" ]; afirmar $? "[$modo --lang $idioma] el init sigue borrando la guía de prueba, también su versión .es.md"
@@ -170,6 +172,11 @@ for idioma in en es; do
     # El init reemplaza los marcadores (<BASE_BRANCH>…): se comparan con esa sustitución.
     cmp -s <(sed 's/<BASE_BRANCH>/main/g; s/<PROJECT>/Demo/g' "$RAIZ/profiles/small/.claude/skills/$sk/SKILL.md") "$p/.claude/skills/$sk/SKILL.md"
     afirmar $? "[real chico --lang $idioma] $sk es la del perfil chico (contenido igual)"
+  done
+  # Los archivos del perfil que ahora tienen hermano completo (AGENTS.md, docs/README.md, la convención, llms.txt) siguen siendo los suyos.
+  for f in AGENTS.md docs/README.md docs/github-naming-convention.md docs/llms.txt; do
+    cmp -s <(sed 's/<BASE_BRANCH>/main/g; s/<PROJECT>/Demo/g' "$RAIZ/profiles/small/$f") "$p/$f"
+    afirmar $? "[real chico --lang $idioma] $f es el del perfil chico (contenido igual)"
   done
   largos=$(wc -l <"$p/.claude/skills/implement-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/create-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/update-docs/SKILL.md" | tr -d ' ')
   if [ "$largos" = 63/32/20 ]; then r=0; else r=1; fi
@@ -229,6 +236,7 @@ s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
 cp "$p/AGENTS.md" "$TMP/AGENTS.md"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `dist/` no está ignorado: se commitea.' >>"$p/AGENTS.md"
+# shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `build/` is not ignored: it is committed.' >>"$p/AGENTS.md"
 s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
 ! grep -q 'dist/\|build/' <<<"$s"; afirmar $? "check-docs.py no se queja de una frase que dice que algo no está ignorado"

@@ -1,5 +1,5 @@
-# Visión — <PROJECT>
+# Vision — <PROJECT>
 
-> Qué es, qué hay y qué viene. Narrativa, no especificación.
+> What it is, what exists and what is coming. Narrative, not specification.
 
-TODO: completar.
+TODO: fill in.

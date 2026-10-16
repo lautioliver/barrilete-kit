@@ -69,8 +69,9 @@ apply_language() {
     done
   fi
   rm -rf .claude/i18n
-  { find . -name '*.es.md' -not -path './.git/*' -not -path './profiles/*' || true; } | while read -r f; do
-    if [ "$LANG_KIT" = es ]; then mv -f -- "$f" "${f%.es.md}.md"; else rm -f -- "$f"; fi
+  # llms.txt is not Markdown: its sibling is llms.es.txt (same rule).
+  { find . \( -name '*.es.md' -o -name '*.es.txt' \) -not -path './.git/*' -not -path './profiles/*' || true; } | while read -r f; do
+    if [ "$LANG_KIT" = es ]; then mv -f -- "$f" "${f%.es.*}.${f##*.}"; else rm -f -- "$f"; fi
   done
 }
 if [ -n "$CHICO" ]; then
@@ -81,8 +82,9 @@ if [ -n "$CHICO" ]; then
     # The profile file wins in both languages: if it has no sibling of its own, the full file's sibling goes
     # (or --lang es would put the full Spanish file over the short one).
     case "$f" in
-      *.es.md) ;;
+      *.es.md|*.es.txt) ;;
       *.md) [ -e "profiles/small/${f%.md}.es.md" ] || rm -f -- "${f%.md}.es.md" ;;
+      *.txt) [ -e "profiles/small/${f%.txt}.es.txt" ] || rm -f -- "${f%.txt}.es.txt" ;;
     esac
   done
   # A .md entry also takes its Spanish sibling (ADR-001), or --lang es would bring the file back as X.md.
@@ -93,7 +95,7 @@ if [ -n "$CHICO" ]; then
   done
   apply_language
   # Without the business-logic label: it is edited in place (not copied) so it does not get outdated.
-  perl -pi -e 's/el PR lleva el label `business-logic`\./el PR lo dice en "Lógica de negocio afectada"./' docs/decisions/README.md
+  perl -pi -e 's/el PR lleva el label `business-logic`\./el PR lo dice en "Lógica de negocio afectada"./; s/the PR carries the `business-logic` label\./the PR says so in "Business logic affected"./' docs/decisions/README.md
   perl -pi -e 's/ Si sí: cuál, y agregá el label `business-logic`\./ Si sí: cuál, y por qué cambia./' .github/pull_request_template.md
 fi
 apply_language

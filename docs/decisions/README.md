@@ -1,27 +1,27 @@
-# Decisiones (ADRs) — <PROJECT>
+# Decisions (ADRs) — <PROJECT>
 
-Un ADR (Architecture Decision Record) registra una decisión **difícil de revertir**: de producto, de datos, de dinero, de infraestructura o legal. Explica el porqué para que nadie la deshaga sin saberlo.
+An ADR (Architecture Decision Record) records a decision that is **hard to revert**: product, data, money, infrastructure or legal. It explains the why so nobody undoes it without knowing.
 
-## Cuándo escribir uno
+## When to write one
 
-- Cambia el modelo de datos de forma que no se deshace con un revert.
-- Fija una regla de negocio que otros van a dar por sentada.
-- Elige un proveedor, un stack o una topología.
-- Contradice o reemplaza un ADR anterior.
+- It changes the data model in a way a revert does not undo.
+- It fixes a business rule that others will take for granted.
+- It picks a provider, a stack or a topology.
+- It contradicts or replaces an earlier ADR.
 
-No hace falta ADR para cosas que se revierten con un PR sin costo.
+No ADR is needed for things that are reverted with a PR at no cost.
 
-## Formato
+## Format
 
-- Archivo: `ADR-NNN-<tema-en-kebab>.md`, número correlativo de tres dígitos. Nunca se reutiliza un número.
-- Partir de [`ADR-000-template.md`](ADR-000-template.md).
-- Estado: `Propuesto` → `Aceptado (AAAA-MM-DD)` → opcionalmente `Reemplazado por ADR-NNN`.
-- Un ADR aceptado no se reescribe. Si cambia, se agrega una sección `## Enmienda AAAA-MM-DD` o se escribe un ADR nuevo que lo reemplace.
-- ADRs del kit (los que explican cómo es el kit, no el producto): línea `Ámbito: kit` debajo de `## Estado`. El init (completo y `--small`) los borra, y borra sus líneas de los índices (bloques `<!-- template:start -->` … `<!-- template:end -->`). Los ADRs de un proyecto no la llevan.
-- Reglas numeradas (`R-1`, `R-2`…) cuando el código o los tests las van a citar.
+- File: `ADR-NNN-<topic-in-kebab-case>.md`, consecutive three-digit number. A number is never reused.
+- Start from [`ADR-000-template.md`](ADR-000-template.md).
+- Status: `Proposed` → `Accepted (YYYY-MM-DD)` → optionally `Superseded by ADR-NNN`.
+- An accepted ADR is not rewritten. If it changes, an `## Amendment YYYY-MM-DD` section is added or a new ADR that replaces it is written.
+- Kit ADRs (the ones that explain how the kit is, not the product): line `Ámbito: kit` below `## Status` (the line is kept exactly like that: it is an identifier, not prose). The init (full and `--small`) deletes them, and deletes their lines from the indexes (blocks `<!-- template:start -->` … `<!-- template:end -->`). A project's ADRs do not carry it.
+- Numbered rules (`R-1`, `R-2`…) when the code or the tests are going to cite them.
 
-## Al aceptar un ADR
+## When accepting an ADR
 
-1. Sumarlo al índice en `docs/README.md` y en `docs/llms.txt`.
-2. Si cambia una regla ya definida, el PR lleva el label `business-logic`.
-3. Si contradice código existente, abrir el issue para alinear el código (skill `create-issue`).
+1. Add it to the index in `docs/README.md` and in `docs/llms.txt`.
+2. If it changes an already defined rule, the PR carries the `business-logic` label.
+3. If it contradicts existing code, open the issue to align the code (skill `create-issue`).

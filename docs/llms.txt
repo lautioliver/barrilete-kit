@@ -1,25 +1,25 @@
 # <PROJECT>
 
-> TODO: una línea con qué es el producto, la decisión que lo define y cómo está armado el repo.
+> TODO: one line with what the product is, the decision that defines it and how the repo is laid out.
 
-Instrucciones para modelos: leer este archivo y AGENTS.md. Spec aspiracional = /README.md. Narrativa = docs/development/vision.md. Código que corre = docs/development/architecture.md. Orden = docs/development/roadmap.md. Largo plazo (no implementar) = docs/development/horizon.md. Por qué = docs/decisions/. TODO: reglas de una línea que un modelo no debe romper.
+Instructions for models: read this file and AGENTS.md. Aspirational spec = /README.md. Narrative = docs/development/vision.md. Code that runs = docs/development/architecture.md. Order = docs/development/roadmap.md. Long term (do not implement) = docs/development/horizon.md. Why = docs/decisions/. TODO: one-line rules a model must not break.
 
-## Documentación
+## Documentation
 
-<!-- Regla: un documento entra a esta lista recién cuando tiene contenido. Si solo dice "TODO: completar", no se lista: un modelo que lo lee no gana nada y puede asumir que no hay nada definido. Al completarlo, sumalo con su línea. -->
+<!-- Rule: a document goes into this list only once it has content. If it only says "TODO: fill in", it is not listed: a model that reads it gains nothing and may assume nothing is defined. When you fill it in, add it with its line. -->
 
 - [Hub](README.md)
-- [Convención de nombres en GitHub](github-naming-convention.md) — labels en ../.github/labels.yml
-- [Decisiones (ADRs)](decisions/README.md)
+- [GitHub naming convention](github-naming-convention.md) — labels in ../.github/labels.yml
+- [Decisions (ADRs)](decisions/README.md)
 <!-- template:start -->
-- [ADR-001: idioma del kit, labels y nombres en inglés (ADR del kit)](decisions/ADR-001-language-labels-and-names-in-english.md)
+- [ADR-001: kit language, labels and names in English (kit ADR)](decisions/ADR-001-language-labels-and-names-in-english.md)
 <!-- template:end -->
-- [Mapa para agentes: docs según cambios, rutas sensibles](agents-map.json)
-- [Contrato de los subagentes: reglas y salida común](agents/subagent-contract.md)
-- [Lecciones de las retros de agentes (revisadas en PR; leer antes de implementar)](agents/lessons.md)
+- [Map for agents: docs by change, sensitive paths](agents-map.json)
+- [Subagent contract: common rules and output](agents/subagent-contract.md)
+- [Lessons from the agent retros (reviewed in a PR; read before implementing)](agents/lessons.md)
 - [AGENTS.md](../AGENTS.md)
 - [Spec](../README.md)
 
-## Código ancla
+## Anchor code
 
-- TODO: los 4 o 5 archivos por donde se entiende el sistema (montaje de rutas, schema, estados).
+- TODO: the 4 or 5 files through which the system is understood (route mounting, schema, states).

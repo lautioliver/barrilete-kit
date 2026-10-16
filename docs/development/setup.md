@@ -1,5 +1,5 @@
 # Setup — <PROJECT>
 
-> Cómo levantar el proyecto en local: variables de entorno, servicios, troubleshooting.
+> How to run the project locally: environment variables, services, troubleshooting.
 
-TODO: completar.
+TODO: fill in.

@@ -1,5 +1,5 @@
-# Guías — <PROJECT>
+# Guides — <PROJECT>
 
-> Una guía por integración o uso externo: qué se configura, qué se llama, cómo se prueba.
+> One guide per integration or external use: what is configured, what is called, how it is tested.
 
-TODO: completar.
+TODO: fill in.

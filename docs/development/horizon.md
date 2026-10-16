@@ -1,5 +1,5 @@
-# Horizonte — <PROJECT>
+# Horizon — <PROJECT>
 
-> Ideas de largo plazo. No son el próximo ticket: no se implementan sin pasar al roadmap.
+> Long-term ideas. They are not the next ticket: they are not implemented without moving to the roadmap.
 
-TODO: completar.
+TODO: fill in.

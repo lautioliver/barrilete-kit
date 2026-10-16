@@ -1,5 +1,5 @@
-# Dominio y datos — <PROJECT>
+# Domain and data — <PROJECT>
 
-> Entidades, tablas, IDs, estados y sus transiciones.
+> Entities, tables, IDs, states and their transitions.
 
-TODO: completar.
+TODO: fill in.
