@@ -13,7 +13,7 @@ echo
 echo "## Version and branches"
 echo "- Latest version: $(git describe --tags --abbrev=0 "origin/$DEFAULT" 2>/dev/null || echo 'no tags')"
 echo "- Default branch: $DEFAULT"
-regla=$(grep -m1 -E '^- \*\*(Rama base|Base branch):\*\*' AGENTS.md 2>/dev/null | sed -E 's/^- \*\*(Rama base|Base branch):\*\* //')
+regla=$(grep -m1 -E '^- \*\*(Rama base|Rama|Base branch):\*\*' AGENTS.md 2>/dev/null | sed -E 's/^- \*\*(Rama base|Rama|Base branch):\*\* //')
 [ -n "$regla" ] && echo "- Flow: $regla"
 rel=$(git branch -r --list 'origin/release/*' | sed 's#origin/##' | xargs)
 [ -n "$rel" ] && echo "- Open releases: $rel"

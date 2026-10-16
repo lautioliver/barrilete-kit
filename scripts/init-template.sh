@@ -91,7 +91,7 @@ if [ -n "$CHICO" ]; then
   grep -v '^#' profiles/small/DELETE | while read -r r; do
     [ -n "$r" ] || continue
     rm -rf -- "$r"
-    case "$r" in *.md) rm -f -- "${r%.md}.es.md" ;; esac
+    case "$r" in *.md) rm -f -- "${r%.md}.es.md" ;; *.txt) rm -f -- "${r%.txt}.es.txt" ;; esac
   done
   apply_language
   # Without the business-logic label: it is edited in place (not copied) so it does not get outdated.

@@ -63,7 +63,7 @@ What an agent can do on its own and what it has to ask about first. "Ask" means 
 
 A hook (`scripts/agents/guardrails.py`, registered in `.claude/settings.json`) stops, before they run, the commands on this list that can be recognized: merging or approving PRs, pushing to a trunk branch, creating tags or releases, changing branch protection and `--no-verify`. In Codex, Copilot and Cursor it is registered by `.codex/hooks.json`, `.github/hooks/guardrails.json` and `.cursor/hooks.json`. If it stops you, do not look for another way: ask the person to run it themselves (in Claude Code, in the chat with `! <command>`). Claude Code only loads it if the session was opened at the repo root. Changing the hook or its registration is touching CI and infrastructure: ask first.
 
-The skills improve with use: `implement-issue` and `review-pr` end with a retro on the `agents/retros` branch (`retro.sh`) and `/improve-skills` proposes adjustments **always in a PR**; it never removes or loosens these rules. What does not make it into a skill stays in `docs/agents/lessons.md`: it is the only thing from the retros that agents read. A PR with `business-logic` has to amend the rule's ADR or say "ADR sin cambios: <reason>" (checked by the labels check).
+The skills improve with use: `implement-issue` and `review-pr` end with a retro on the `agents/retros` branch (`retro.sh`) and `/improve-skills` proposes adjustments **always in a PR**; it never removes or loosens these rules. What does not make it into a skill stays in `docs/agents/lessons.md`: it is the only thing from the retros that agents read. A PR with `business-logic` has to amend the rule's ADR or say "ADR sin cambios: <reason>" (checked by the labels check, which looks for that exact Spanish text).
 
 **Subagents** (`.claude/agents/`, launched by `/orchestrate`: `implementer` on Sonnet, `implementer-light` on Haiku, `reviewer` on Opus): the same rules, plus `docs/agents/subagent-contract.md`. They work only in their worktree, cannot ask the person (they comment on the issue and return `question`), never publish reviews or comments on PRs, and the light one escalates to Sonnet if the issue touches sensitive paths or business logic.
 
@@ -75,13 +75,13 @@ Source of truth: `docs/github-naming-convention.md`. Labels: `.github/labels.yml
 
 - **Branches:** Conventional Branch 1.1, `<type>/<issue-no>-<description>`. Types: `feat`, `fix`, `hotfix`, `chore`, `release`. If an agent creates it: `claude/<issue-no>-<description>`. Lowercase, numbers and hyphens only, no accents or ñ.
 - **Base branch:** <BRANCH_RULE> See the `git-workflow` skill.
-- **Commits and PR titles:** Conventional Commits 1.0, `<type>(<scope>): <description>`, imperative, lowercase, no final period, ≤ 72 characters. Types and description in English.
+- **Commits and PR titles:** Conventional Commits 1.0, `<type>(<scope>): <description>`, imperative, lowercase, no final period, ≤ 72 characters. Types in English; description in Spanish.
 - **Scopes:** those in `docs/github-naming-convention.md` §2. If a change touches several, omit the scope or split it into several commits.
 - **PR body:** `.github/pull_request_template.md` (Qué cambia / Por qué / Lógica de negocio afectada / Cómo probarlo / `Closes #n`: what changes / why / business logic affected / how to test it).
 - **Labels:** prefix `group:value` (`type:`, `area:`, `priority:`, `status:`, plus `business-logic` and `breaking-change`). Only those in `.github/labels.yml`; do not create others.
 - **Business logic:** if the PR changes an already defined rule (ADR, audit or plan), it gets the `business-logic` label and it is explained in the PR.
 - **Team:** new issues are assigned on their own to a member (by area and load). The team is changed with `/add-member` and `/remove-member`; do not edit the file by hand. Assigned = owner; in progress = with an open PR.
-- **Issues:** opened with the `create-issue` skill. Title in the imperative and with no prefix; the type goes in the `type:` label. If it comes from an audit: `Audit <area>: <finding>`, with the link to the document.
+- **Issues:** opened with the `create-issue` skill. Title in the imperative and with no prefix; the type goes in the `type:` label. If it comes from an audit: `Auditoría <área>: <hallazgo>` (the literal format: audit <area>: <finding>), with the link to the document.
 - **Irreversible decisions:** new ADR in `docs/decisions/` (see its README).
 
 Nothing goes into the trunk branches without a PR. The only branch written without a PR is `agents/retros`, and only with `retro.sh`.

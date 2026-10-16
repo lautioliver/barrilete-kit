@@ -201,7 +201,7 @@ Epic     →  Unified user view
 ### 4.4 Own type: audit
 Since the project generates audits, an `audit` type/label is proposed for issues that come from an audit, with the title:
 
-`Audit <area>: <finding>` → `Audit payments: the webhook is not idempotent`
+`Auditoría <área>: <hallazgo>` (audit <area>: <finding>) → `Auditoría pagos: el webhook no es idempotente`
 
 And in the body the link to the corresponding audit document.
 
