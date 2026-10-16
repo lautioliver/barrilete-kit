@@ -178,9 +178,9 @@ def estructura(ruta):
 # Language siblings (ADR-001): X.md in English and X.es.md in Spanish. Only with "parity": true in the map:
 # the template turns it on when its content is translated (#115); the init turns it off in the projects.
 EXENTOS = [glob_a_regex(g) for g in MAPA.get("parity_ignore", [])] if MAPA else []
-pares = [a for a in md_files(aplicar_ignore=False)
-         if hermano_de_idioma(a) and not any(r.match(a) for r in EXENTOS)]
 if MAPA.get("parity"):
+    pares = [a for a in md_files(aplicar_ignore=False)
+             if hermano_de_idioma(a) and not any(r.match(a) for r in EXENTOS)]
     for es in sorted(a for a in pares if a.endswith((".es.md", ".es.txt"))):
         en = hermano_de_idioma(es)
         if not os.path.exists(en):

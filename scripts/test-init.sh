@@ -176,7 +176,7 @@ for idioma in en es; do
   # Los archivos del perfil que ahora tienen hermano completo (AGENTS.md, docs/README.md, la convención, llms.txt) siguen siendo los suyos.
   for f in AGENTS.md docs/README.md docs/github-naming-convention.md docs/llms.txt; do
     # El init también reemplaza <DATE> y <BRANCH_RULE>: se compara el largo y el título.
-    [ "$(wc -l <"$RAIZ/profiles/small/$f" | tr -d ' ')" = "$(wc -l <"$p/$f" | tr -d ' ')" ] && [ "$(head -1 "$RAIZ/profiles/small/$f" | sed 's/<PROJECT>/Demo/')" = "$(head -1 "$p/$f")" ]; r=$?
+    if [ "$(wc -l <"$RAIZ/profiles/small/$f" | tr -d ' ')" = "$(wc -l <"$p/$f" | tr -d ' ')" ] && [ "$(head -1 "$RAIZ/profiles/small/$f" | sed 's/<PROJECT>/Demo/')" = "$(head -1 "$p/$f")" ]; then r=0; else r=1; fi
     afirmar $r "[real chico --lang $idioma] $f es el del perfil chico (mismo largo y título)"
   done
   largos=$(wc -l <"$p/.claude/skills/implement-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/create-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/update-docs/SKILL.md" | tr -d ' ')
