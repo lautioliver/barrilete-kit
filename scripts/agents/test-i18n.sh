@@ -89,6 +89,19 @@ s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
 ! grep -q 'UNPAIRED' <<<"$s"; afirmar $? "agents_map.py no avisa si cambiaron los dos"
 grep -q 'UNPAIRED' "$RAIZ/.github/workflows/docs.yml"; afirmar $? "docs.yml convierte el aviso del mapa en un ::warning::"
 
+# llms.txt no es Markdown pero también se instala en dos idiomas: su hermano es llms.es.txt (#115).
+copia; parity true
+rm -f "$TMP/r/docs/llms.es.txt"
+printf '# T\n\n- [a](a.md)\n' >"$TMP/r/docs/llms.txt"
+s=$(check)
+grep -q 'docs/llms.txt: missing its Spanish sibling docs/llms.es.txt' <<<"$s"; afirmar $? "llms.txt sin su llms.es.txt falla con parity prendido"
+printf '# T\n\n## Extra\n- [a](a.md)\n' >"$TMP/r/docs/llms.es.txt"
+s=$(check)
+grep -q 'docs/llms.es.txt: 2 headings, but docs/llms.txt has 1' <<<"$s"; afirmar $? "llms.txt: encabezados distintos entre los dos idiomas fallan"
+printf '# T\n\n- [a](a.md)\n' >"$TMP/r/docs/llms.es.txt"
+s=$(check)
+! grep -q 'llms' <<<"$s"; afirmar $? "llms.txt: el par con la misma estructura no da errores"
+
 # Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).
 copia; parity true
 s=$(check)

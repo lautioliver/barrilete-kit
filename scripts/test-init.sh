@@ -101,6 +101,8 @@ con_pares() { # con_pares <copia>: pares de ejemplo en el repo, en el perfil chi
   echo "FULL-EN" >"$p/AGENTS.md"; echo "FULL-ES" >"$p/AGENTS.es.md"
   echo "SMALL-EN" >"$p/profiles/small/AGENTS.md"; echo "SMALL-ES" >"$p/profiles/small/AGENTS.es.md"
   echo "TRIAL-ES" >"$p/docs/try-the-template.es.md"
+  # llms.txt no es Markdown: su hermano es llms.es.txt (#115), con la misma regla.
+  echo "TXT-EN" >"$p/SAMPLE.txt"; echo "TXT-ES" >"$p/SAMPLE.es.txt"
   # Textos que el perfil chico edita con perl: su hermano .es.md (copia del actual) no puede pisar la edición.
   cp "$p/docs/decisions/README.md" "$p/docs/decisions/README.es.md"
   cp "$p/.github/pull_request_template.md" "$p/.github/pull_request_template.es.md"
@@ -116,12 +118,14 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
   base=(main); [ "$modo" = completo-releases ] && base=(develop releases)
   [ "$idioma" = en ] && args=(--lang en) || args=(--lang=es)
   (cd "$p" && ./scripts/init-template.sh Demo "${base[@]}" "${args[@]}" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); afirmar $? "[$modo --lang $idioma] el init termina bien"
-  es -z "$(find "$p" -name '*.es.md' -not -path '*/.git/*')"; afirmar $? "[$modo --lang $idioma] no queda ningún .es.md"
+  es -z "$(find "$p" \( -name '*.es.md' -o -name '*.es.txt' \) -not -path '*/.git/*')"; afirmar $? "[$modo --lang $idioma] no queda ningún .es.md ni .es.txt"
   if [ "$idioma" = es ]; then
     grep -qx SAMPLE-ES "$p/SAMPLE.md"; afirmar $? "[$modo --lang es] SAMPLE.md es la versión .es.md"
+    grep -qx TXT-ES "$p/SAMPLE.txt"; afirmar $? "[$modo --lang es] SAMPLE.txt es la versión .es.txt"
     if [ "$modo" = chico ]; then esperado=SMALL-ES; else esperado=FULL-ES; fi
   else
     grep -qx SAMPLE-EN "$p/SAMPLE.md"; afirmar $? "[$modo --lang en] SAMPLE.md queda en inglés"
+    grep -qx TXT-EN "$p/SAMPLE.txt"; afirmar $? "[$modo --lang en] SAMPLE.txt queda en inglés"
     if [ "$modo" = chico ]; then esperado=SMALL-EN; else esperado=FULL-EN; fi
   fi
   grep -qx "$esperado" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma] AGENTS.md es $esperado (el perfil pisa al archivo completo, cada uno en su idioma)"
@@ -225,14 +229,15 @@ s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
 cp "$p/AGENTS.md" "$TMP/AGENTS.md"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `dist/` no está ignorado: se commitea.' >>"$p/AGENTS.md"
+echo '- `build/` is not ignored: it is committed.' >>"$p/AGENTS.md"
 s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
-! grep -q 'dist/' <<<"$s"; afirmar $? "check-docs.py no se queja de una frase que dice que algo no está ignorado"
+! grep -q 'dist/\|build/' <<<"$s"; afirmar $? "check-docs.py no se queja de una frase que dice que algo no está ignorado"
 cp "$TMP/AGENTS.md" "$p/AGENTS.md"
 (cd "$p" && git rm -q .gitignore)
 s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1); c=$?
 [ "$c" -ne 0 ] && grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s"; afirmar $? "check-docs.py falla si AGENTS.md dice que .env* está ignorado y no lo está"
 # Una línea que afirma una cosa y niega otra: la negación no tapa la afirmación.
-grep -v 'ignorad' "$TMP/AGENTS.md" >"$p/AGENTS.md"
+grep -Ev 'ignorad|ignored' "$TMP/AGENTS.md" >"$p/AGENTS.md"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `.env*` están ignorados; `dist/` no está ignorado.' >>"$p/AGENTS.md"
 s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
@@ -241,7 +246,7 @@ grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s" && ! grep -q 'dist/' <<<"$s"; afirma
 # La negación se decide por cada patrón, aunque la afirmación y la negación estén en la misma frase.
 # Sin .gitignore: tiene que reclamar por .env* y nunca por dist/.
 while IFS= read -r frase; do
-  grep -v 'ignorad' "$TMP/AGENTS.md" >"$p/AGENTS.md"; printf -- '- %s\n' "$frase" >>"$p/AGENTS.md"
+  grep -Ev 'ignorad|ignored' "$TMP/AGENTS.md" >"$p/AGENTS.md"; printf -- '- %s\n' "$frase" >>"$p/AGENTS.md"
   s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
   grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s" && ! grep -q 'dist/' <<<"$s"; afirmar $? "check-docs.py valida .env* en: $frase"
 done <<'FRASES'
@@ -250,6 +255,11 @@ done <<'FRASES'
 `.env*` no se commitea porque está ignorado.
 `dist/` nunca está ignorado; `.env*` está ignorado.
 Están ignorados: `.env*`.
+`.env*` is ignored and `dist/` is not ignored.
+`dist/` is not ignored, `.env*` is ignored.
+`.env*` is never committed because it is ignored.
+`dist/` is never ignored; `.env*` is ignored.
+Ignored: `.env*`.
 FRASES
 
 echo
