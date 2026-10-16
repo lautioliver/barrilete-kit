@@ -1,5 +1,5 @@
-# Glosario — <PROJECT>
+# Glossary — <PROJECT>
 
-> Palabras del dominio que no se cambian. Una por fila: término, definición, en el código se llama.
+> Domain words that do not change. One per row: term, definition, what it is called in the code.
 
-TODO: completar.
+TODO: fill in.

@@ -1,5 +1,5 @@
-# Superficies — <PROJECT>
+# Surfaces — <PROJECT>
 
-> Cada pantalla o URL pública: quién entra, con qué permiso, qué puede hacer.
+> Each public screen or URL: who gets in, with what permission, what they can do.
 
-TODO: completar.
+TODO: fill in.

@@ -192,6 +192,9 @@ class Hook(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("! gh pr merge 1", r.stderr)
         self.assertIn("AGENTS.md", r.stderr)
+        # The message names the section in both languages (AGENTS.md can be the English or the Spanish version).
+        self.assertIn("Agent autonomy", r.stderr)
+        self.assertIn("Autonomía del agente", r.stderr)
 
     def test_deja_pasar_con_exit_0(self):
         r = self.correr({"tool_name": "Bash", "tool_input": {"command": "gh pr view 1"}, "cwd": AQUI})

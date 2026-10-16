@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Guardrails: Claude Code PreToolUse hook that blocks, before they run, the commands an agent
-never runs on its own (AGENTS.md, Autonomía → Nunca): merging or approving PRs, pushing to a
+never runs on its own (AGENTS.md, "Agent autonomy" / "Autonomía del agente" → "Never" / "Nunca"): merging or approving PRs, pushing to a
 trunk branch, creating tags or releases, touching branch protection and skipping hooks with --no-verify.
 
 It is registered in .claude/settings.json. It reads the hook JSON from stdin; if it blocks, it exits
@@ -407,7 +407,7 @@ def main():
     if not m:
         return 0
     corto = f"Blocked by the template guardrails (scripts/agents/guardrails.py): {m}."
-    texto = (f"{corto}\nAGENTS.md (Autonomía): an agent does not merge, does not approve PRs, does not create tags or releases, "
+    texto = (f"{corto}\nAGENTS.md ('Agent autonomy' / 'Autonomía del agente'): an agent does not merge, does not approve PRs, does not create tags or releases, "
              f"does not push to trunk branches and does not skip checks. Do not look for another way: if the person asked for it, "
              f"ask them to run it (in Claude Code, in the chat):\n! {comando.strip()}")
     # Each tool reads the reason from a different place: Claude Code and Codex from stderr with exit 2,

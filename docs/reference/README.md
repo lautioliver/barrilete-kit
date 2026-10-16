@@ -1,5 +1,5 @@
-# Referencia — <PROJECT>
+# Reference — <PROJECT>
 
-> Mapa del sistema. Describe lo que existe; no decide nada (eso va en decisions/).
+> Map of the system. It describes what exists; it decides nothing (that goes in decisions/).
 
-TODO: completar.
+TODO: fill in.

@@ -1,5 +1,5 @@
-# Arquitectura implementada — <PROJECT>
+# Implemented architecture — <PROJECT>
 
-> Lo que corre hoy. Si otro documento dice otra cosa, gana este (y el código).
+> What runs today. If another document says something else, this one wins (and the code).
 
-TODO: completar.
+TODO: fill in.

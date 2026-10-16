@@ -1,5 +1,5 @@
-# Recorridos — <PROJECT>
+# Journeys — <PROJECT>
 
-> Flujos de punta a punta, paso por paso, con los archivos que intervienen.
+> End-to-end flows, step by step, with the files involved.
 
-TODO: completar.
+TODO: fill in.

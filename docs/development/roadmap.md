@@ -1,5 +1,5 @@
 # Roadmap — <PROJECT>
 
-> Qué se construye y en qué orden (olas o hitos), con su estado.
+> What gets built and in what order (waves or milestones), with its status.
 
-TODO: completar.
+TODO: fill in.

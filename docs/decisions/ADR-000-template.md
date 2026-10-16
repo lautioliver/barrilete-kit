@@ -1,29 +1,29 @@
-# ADR-NNN — <Título corto de la decisión>
+# ADR-NNN — <Short title of the decision>
 
-## Estado
+## Status
 
-Propuesto | Aceptado (AAAA-MM-DD) | Reemplazado por ADR-NNN
+Proposed | Accepted (YYYY-MM-DD) | Superseded by ADR-NNN
 
-<!-- Solo en ADRs del kit (los que explican cómo es la plantilla): línea `Ámbito: kit`. El init los borra. En un proyecto no va. -->
+<!-- Only in kit ADRs (the ones that explain how the template is): line `Ámbito: kit`. The init deletes them. It does not go in a project. -->
 
-Origen: <auditoría, plan o issue que la motivó, con link>.
+Origin: <audit, plan or issue that motivated it, with a link>.
 
-## Contexto
+## Context
 
-Qué pasa hoy y por qué hay que decidir. Hechos, no opiniones. Si hay problemas concretos, listarlos con su ID (de la auditoría o del issue).
+What is happening today and why a decision is needed. Facts, not opinions. If there are concrete problems, list them with their ID (from the audit or the issue).
 
-## Decisión
+## Decision
 
-1. **La regla en una frase en negrita.** Detalle: cómo se aplica, qué tablas o módulos toca, qué queda prohibido.
-2. **Siguiente regla.** …
+1. **The rule in one bold sentence.** Detail: how it applies, which tables or modules it touches, what becomes forbidden.
+2. **Next rule.** …
 
-## Alternativas descartadas
+## Rejected alternatives
 
-- **Opción X** — por qué no.
-- **Opción Y** — por qué no.
+- **Option X** — why not.
+- **Option Y** — why not.
 
-## Consecuencias
+## Consequences
 
-- Lo que se gana.
-- Lo que cuesta o queda pendiente.
-- Qué hay que cambiar en el código y en qué issue.
+- What is gained.
+- What it costs or stays pending.
+- What has to change in the code and in which issue.

@@ -101,6 +101,8 @@ con_pares() { # con_pares <copia>: pares de ejemplo en el repo, en el perfil chi
   echo "FULL-EN" >"$p/AGENTS.md"; echo "FULL-ES" >"$p/AGENTS.es.md"
   echo "SMALL-EN" >"$p/profiles/small/AGENTS.md"; echo "SMALL-ES" >"$p/profiles/small/AGENTS.es.md"
   echo "TRIAL-ES" >"$p/docs/try-the-template.es.md"
+  # llms.txt no es Markdown: su hermano es llms.es.txt (#115), con la misma regla.
+  echo "TXT-EN" >"$p/llms.txt"; echo "TXT-ES" >"$p/llms.es.txt"
   # Textos que el perfil chico edita con perl: su hermano .es.md (copia del actual) no puede pisar la edición.
   cp "$p/docs/decisions/README.md" "$p/docs/decisions/README.es.md"
   cp "$p/.github/pull_request_template.md" "$p/.github/pull_request_template.es.md"
@@ -116,12 +118,14 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
   base=(main); [ "$modo" = completo-releases ] && base=(develop releases)
   [ "$idioma" = en ] && args=(--lang en) || args=(--lang=es)
   (cd "$p" && ./scripts/init-template.sh Demo "${base[@]}" "${args[@]}" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); afirmar $? "[$modo --lang $idioma] el init termina bien"
-  es -z "$(find "$p" -name '*.es.md' -not -path '*/.git/*')"; afirmar $? "[$modo --lang $idioma] no queda ningún .es.md"
+  es -z "$(find "$p" \( -name '*.es.md' -o -name '*.es.txt' \) -not -path '*/.git/*')"; afirmar $? "[$modo --lang $idioma] no queda ningún .es.md ni .es.txt"
   if [ "$idioma" = es ]; then
     grep -qx SAMPLE-ES "$p/SAMPLE.md"; afirmar $? "[$modo --lang es] SAMPLE.md es la versión .es.md"
+    grep -qx TXT-ES "$p/llms.txt"; afirmar $? "[$modo --lang es] llms.txt es la versión llms.es.txt"
     if [ "$modo" = chico ]; then esperado=SMALL-ES; else esperado=FULL-ES; fi
   else
     grep -qx SAMPLE-EN "$p/SAMPLE.md"; afirmar $? "[$modo --lang en] SAMPLE.md queda en inglés"
+    grep -qx TXT-EN "$p/llms.txt"; afirmar $? "[$modo --lang en] llms.txt queda en inglés"
     if [ "$modo" = chico ]; then esperado=SMALL-EN; else esperado=FULL-EN; fi
   fi
   grep -qx "$esperado" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma] AGENTS.md es $esperado (el perfil pisa al archivo completo, cada uno en su idioma)"
@@ -131,7 +135,9 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
     viejo1='el PR lleva el label `business-logic`'
     # shellcheck disable=SC2016
     viejo2='agregá el label `business-logic`'
-    ! grep -qF "$viejo1" "$p/docs/decisions/README.md" && ! grep -qF "$viejo2" "$p/.github/pull_request_template.md"
+    # shellcheck disable=SC2016
+    viejo3='the PR carries the `business-logic` label'
+    ! grep -qF "$viejo1" "$p/docs/decisions/README.md" && ! grep -qF "$viejo3" "$p/docs/decisions/README.md" && ! grep -qF "$viejo2" "$p/.github/pull_request_template.md"
     afirmar $? "[$modo --lang $idioma] los ajustes del perfil chico (label business-logic) valen también con el hermano .es.md"
   fi
   ! [ -e "$p/docs/try-the-template.md" ]; afirmar $? "[$modo --lang $idioma] el init sigue borrando la guía de prueba, también su versión .es.md"
@@ -148,6 +154,10 @@ for idioma in en es; do
   if [ -z "$repetidos" ] && [ "$(wc -l <<<"$nombres" | tr -d ' ')" = 3 ] && [ -z "$sueltos" ]; then r=0; else r=1; fi
   afirmar $r "[real completo --lang $idioma] cada name: aparece una sola vez en .claude/agents/ (3 agentes, ningún .es.md)"
   ! [ -e "$p/.claude/i18n" ]; afirmar $? "[real completo --lang $idioma] no queda .claude/i18n"
+  # La regla de la rama base (<BRANCH_RULE>) sigue el idioma de la instalación, en AGENTS.md y en la convención.
+  if [ "$idioma" = en ]; then regla='Only permanent branch'; otra='Única rama permanente'; else regla='Única rama permanente'; otra='Only permanent branch'; fi
+  if grep -q "$regla" "$p/AGENTS.md" && grep -q "$regla" "$p/docs/github-naming-convention.md" && ! grep -rq "$otra" "$p/AGENTS.md" "$p/docs"; then r=0; else r=1; fi
+  afirmar $r "[real completo --lang $idioma] <BRANCH_RULE> sale en el idioma de la instalación (AGENTS.md y la convención)"
   if [ "$idioma" = es ]; then
     grep -q 'Sos el implementador' "$p/.claude/agents/implementer.md" && grep -q '^# Implementar issue' "$p/.claude/skills/implement-issue/SKILL.md"
     afirmar $? "[real completo --lang es] el agente y la skill quedan en español"
@@ -167,6 +177,16 @@ for idioma in en es; do
     cmp -s <(sed 's/<BASE_BRANCH>/main/g; s/<PROJECT>/Demo/g' "$RAIZ/profiles/small/.claude/skills/$sk/SKILL.md") "$p/.claude/skills/$sk/SKILL.md"
     afirmar $? "[real chico --lang $idioma] $sk es la del perfil chico (contenido igual)"
   done
+  # Los archivos del perfil que ahora tienen hermano completo (AGENTS.md, docs/README.md, la convención, llms.txt) siguen siendo los suyos.
+  for f in AGENTS.md docs/README.md docs/github-naming-convention.md docs/llms.txt; do
+    # El init también reemplaza <DATE> y <BRANCH_RULE>: se compara el largo y el título.
+    if [ "$(wc -l <"$RAIZ/profiles/small/$f" | tr -d ' ')" = "$(wc -l <"$p/$f" | tr -d ' ')" ] && [ "$(head -1 "$RAIZ/profiles/small/$f" | sed 's/<PROJECT>/Demo/')" = "$(head -1 "$p/$f")" ]; then r=0; else r=1; fi
+    afirmar $r "[real chico --lang $idioma] $f es el del perfil chico (mismo largo y título)"
+  done
+  if [ "$idioma" = en ]; then
+    # shellcheck disable=SC2016
+    grep -qF 'the PR says so in "Lógica de negocio afectada" (business logic affected)' "$p/docs/decisions/README.md"; afirmar $? "[real chico --lang en] docs/decisions/README.md cita el encabezado vigente de la plantilla del PR, con su glosa"
+  fi
   largos=$(wc -l <"$p/.claude/skills/implement-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/create-issue/SKILL.md" | tr -d ' ')/$(wc -l <"$p/.claude/skills/update-docs/SKILL.md" | tr -d ' ')
   if [ "$largos" = 63/32/20 ]; then r=0; else r=1; fi
   afirmar $r "[real chico --lang $idioma] implement-issue, create-issue y update-docs tienen el largo del perfil (63, 32, 20)"
@@ -225,14 +245,16 @@ s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
 cp "$p/AGENTS.md" "$TMP/AGENTS.md"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `dist/` no está ignorado: se commitea.' >>"$p/AGENTS.md"
+# shellcheck disable=SC2016  # backticks de Markdown literales
+echo '- `build/` is not ignored: it is committed.' >>"$p/AGENTS.md"
 s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
-! grep -q 'dist/' <<<"$s"; afirmar $? "check-docs.py no se queja de una frase que dice que algo no está ignorado"
+! grep -q 'dist/\|build/' <<<"$s"; afirmar $? "check-docs.py no se queja de una frase que dice que algo no está ignorado"
 cp "$TMP/AGENTS.md" "$p/AGENTS.md"
 (cd "$p" && git rm -q .gitignore)
 s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1); c=$?
 [ "$c" -ne 0 ] && grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s"; afirmar $? "check-docs.py falla si AGENTS.md dice que .env* está ignorado y no lo está"
 # Una línea que afirma una cosa y niega otra: la negación no tapa la afirmación.
-grep -v 'ignorad' "$TMP/AGENTS.md" >"$p/AGENTS.md"
+grep -Ev 'ignorad|ignored' "$TMP/AGENTS.md" >"$p/AGENTS.md"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `.env*` están ignorados; `dist/` no está ignorado.' >>"$p/AGENTS.md"
 s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
@@ -241,7 +263,7 @@ grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s" && ! grep -q 'dist/' <<<"$s"; afirma
 # La negación se decide por cada patrón, aunque la afirmación y la negación estén en la misma frase.
 # Sin .gitignore: tiene que reclamar por .env* y nunca por dist/.
 while IFS= read -r frase; do
-  grep -v 'ignorad' "$TMP/AGENTS.md" >"$p/AGENTS.md"; printf -- '- %s\n' "$frase" >>"$p/AGENTS.md"
+  grep -Ev 'ignorad|ignored' "$TMP/AGENTS.md" >"$p/AGENTS.md"; printf -- '- %s\n' "$frase" >>"$p/AGENTS.md"
   s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
   grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s" && ! grep -q 'dist/' <<<"$s"; afirmar $? "check-docs.py valida .env* en: $frase"
 done <<'FRASES'
@@ -250,6 +272,12 @@ done <<'FRASES'
 `.env*` no se commitea porque está ignorado.
 `dist/` nunca está ignorado; `.env*` está ignorado.
 Están ignorados: `.env*`.
+`.env*` is ignored and `dist/` is not ignored.
+`dist/` is not ignored, `.env*` is ignored.
+`.env*` is never committed because it is ignored.
+`dist/` is never ignored; `.env*` is ignored.
+`dist/` isn't ignored, `.env*` is ignored.
+Ignored: `.env*`.
 FRASES
 
 echo
