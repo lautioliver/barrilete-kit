@@ -108,7 +108,7 @@ if [ -n "$CHICO" ]; then
       *.es.md|*.es.txt|*.es.yml) ;;
       *.md) [ -e "profiles/small/${f%.md}.es.md" ] || rm -f -- "${f%.md}.es.md" ;;
       *.txt) [ -e "profiles/small/${f%.txt}.es.txt" ] || rm -f -- "${f%.txt}.es.txt" ;;
-      ./.github/labels.yml) [ -e "profiles/small/.github/labels.es.yml" ] || rm -f -- .github/labels.es.yml ;;
+      *.yml) [ -e "profiles/small/${f%.yml}.es.yml" ] || rm -f -- "${f%.yml}.es.yml" ;;
     esac
   done
   # A .md entry also takes its Spanish sibling (ADR-001), or --lang es would bring the file back as X.md.
@@ -175,9 +175,9 @@ ruta = "docs/agents-map.json"
 mapa = json.load(open(ruta, encoding="utf-8"))
 mapa["verify"] = [v for v in mapa.get("verify", []) if v.get("name") not in ("init", "update", "renames", "i18n", "install")]
 # CHANGELOG.md and the kit ADRs are deleted above: their ignore entries would hide the project's own ADR-001.
-mapa["ignore_check"] = [g for g in mapa.get("ignore_check", []) if g not in ("CHANGELOG.md", "docs/decisions/ADR-001-*")]
+mapa["ignore_check"] = [g for g in mapa.get("ignore_check", []) if g not in ("CHANGELOG.md", "CLAUDE.md", "docs/decisions/ADR-001-*")]
 mapa["parity"] = False  # a project has one language: the siblings check is the template's
-mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("CHANGELOG.md", "docs/decisions/ADR-001-*", "profiles/small/**")]
+mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("CHANGELOG.md", "CLAUDE.md", "docs/decisions/ADR-001-*", "profiles/small/**")]
 open(ruta, "w", encoding="utf-8").write(json.dumps(mapa, ensure_ascii=False, indent=2) + "\n")
 PY
 fi

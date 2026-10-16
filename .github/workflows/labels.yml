@@ -106,7 +106,10 @@ jobs:
                 ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100,
               });
               const tocaAdr = archivos.some(f => f.filename.startsWith('docs/decisions/'));
-              const explica = /ADR (?:unchanged|sin cambios):\s*\S/i.test(pr.body || '');
+              // Without the <!-- … --> comments of the template (they quote "ADR unchanged: <reason>"), and the reason on
+              // the same line: a blank line followed by the next heading is not a reason.
+              const cuerpo = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '');
+              const explica = /ADR (?:unchanged|sin cambios):[^\S\n]*\S/i.test(cuerpo);
               if (!tocaAdr && !explica) errors.push('business-logic without changes in docs/decisions/: amend the ADR that defines the rule, or add "ADR unchanged: <reason>" to the body.');
             }
             // Agent branches: what implement-issue asks for in the body, validated here instead of in the skill.

@@ -117,6 +117,9 @@ def hermano_de_idioma(ruta):
         if ruta.endswith(".es.txt"):
             return ruta[:-len(".es.txt")] + ".txt"
         return ruta[:-len(".txt")] + ".es.txt"
+    m = re.match(r"^((?:profiles/small/)?\.github/labels)(\.es)?\.yml$", ruta)  # the labels: same descriptions, other language
+    if m:
+        return m.group(1) + (".yml" if m.group(2) else ".es.yml")
     if ruta.endswith(".yml") and ruta.startswith((FORMS_EN, FORMS_ES)) and "/" not in ruta.rsplit("ISSUE_TEMPLATE/", 1)[1]:
         nombre = ruta.rsplit("/", 1)[1]
         if ruta.startswith(FORMS_ES):

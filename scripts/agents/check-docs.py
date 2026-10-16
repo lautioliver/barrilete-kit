@@ -198,14 +198,34 @@ if MAPA.get("parity"):
             errores.append(f"{es}: {b_es} code blocks, but {en} has {b_en} (one of the two is out of date).")
 
 # Issue forms (.yml): GitHub offers every .yml of .github/ISSUE_TEMPLATE as a form, so the Spanish sibling lives in
-# .github/i18n/ISSUE_TEMPLATE/<name>.es.yml (ADR-001, R-1). They are compared by the keys that do not carry prose.
+# .github/i18n/ISSUE_TEMPLATE/<name>.es.yml (ADR-001, R-1; the rule is hermano_de_idioma() in agents_map.py). They are
+# compared by what does not carry prose: type, id, labels, required and the number of options.
 FORMS_EN, FORMS_ES = ".github/ISSUE_TEMPLATE", ".github/i18n/ISSUE_TEMPLATE"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from agents_map import hermano_de_idioma as hermano  # noqa: E402
 
 
 def claves_de_formulario(ruta):
-    """type:, id: and labels: lines of an issue form, without the spacing: the prose is the only thing that changes."""
+    """type, id, labels and required lines of an issue form (without the spacing) and the size of each options list."""
     with open(ruta, encoding="utf-8") as fh:
-        return [re.sub(r"\s+", " ", m.group(0)).strip() for m in re.finditer(r"^\s*(?:- )?(?:type|id|labels):.*$", fh.read(), re.M)]
+        lineas = fh.read().splitlines()
+    claves = [re.sub(r"\s+", " ", l).strip() for l in lineas if re.match(r"^\s*(?:- )?(?:type|id|labels):", l)]
+    claves += ["required" for l in lineas if re.search(r"\brequired: *true\b", l)]
+    for i, l in enumerate(lineas):
+        m = re.match(r"^(\s*)options:\s*(.*)$", l)
+        if not m:
+            continue
+        if m.group(2).startswith("["):
+            claves.append(f"options={len([x for x in m.group(2).strip('[]').split(',') if x.strip()])}")
+        else:
+            n = 0
+            for sig in lineas[i + 1:]:
+                if re.match(r"^\s*- ", sig) and len(sig) - len(sig.lstrip()) > len(m.group(1)):
+                    n += 1
+                elif sig.strip():
+                    break
+            claves.append(f"options={n}")
+    return claves
 
 
 if os.path.isdir(FORMS_EN):
@@ -215,35 +235,47 @@ if os.path.isdir(FORMS_EN):
                            f"lives in {FORMS_ES}/ (ADR-001, R-1).")
 if MAPA.get("parity") and os.path.isdir(FORMS_EN):
     ya_vistos = set()
-    for nombre in sorted(n for n in os.listdir(FORMS_EN) if n.endswith(".yml") and n not in ("config.yml",) and not n.endswith(".es.yml")):
-        en, es = f"{FORMS_EN}/{nombre}", f"{FORMS_ES}/{nombre[:-len('.yml')]}.es.yml"
-        ya_vistos.add(os.path.basename(es))
+    for nombre in sorted(os.listdir(FORMS_EN)):
+        en = f"{FORMS_EN}/{nombre}"
+        es = hermano(en)
+        if not es:  # config.yml, or a .es.yml (reported above)
+            continue
+        ya_vistos.add(es)
         if not os.path.exists(es):
             errores.append(f"{en}: missing its Spanish sibling {es}.")
         elif claves_de_formulario(en) != claves_de_formulario(es):
-            errores.append(f"{es}: its type/id/labels keys differ from {en} (one of the two is out of date).")
+            errores.append(f"{es}: its type/id/labels/required/options keys differ from {en} (one of the two is out of date).")
     if os.path.isdir(FORMS_ES):
         for nombre in sorted(os.listdir(FORMS_ES)):
-            if nombre.endswith(".es.yml") and nombre not in ya_vistos:
-                errores.append(f"{FORMS_ES}/{nombre}: has no English sibling {FORMS_EN}/{nombre[:-len('.es.yml')]}.yml.")
+            es = f"{FORMS_ES}/{nombre}"
+            if hermano(es) and es not in ya_vistos:
+                errores.append(f"{es}: has no English sibling {hermano(es)}.")
 
-# labels.yml and labels.es.yml: the same labels and colors (only the descriptions are translated); if one gets behind,
-# a --lang es install would sync a different set of labels and delete the missing ones (delete-other-labels).
+# labels.yml and labels.es.yml: the same labels, colors and aliases (only the descriptions are translated); if one gets behind,
+# a --lang es install would sync a different set of labels and delete the missing ones (delete-other-labels), and a project
+# migrating from 0.9 would lose the renames. Parsed per block, so the order of the keys does not matter.
 def etiquetas(ruta):
-    """(name, color) of each label of a labels.yml, in order."""
+    """(name, color, aliases) of each label of a labels.yml, in order."""
     with open(ruta, encoding="utf-8") as fh:
-        return re.findall(r'^- name: *"?([^"\n]+?)"?\s*\n\s*color: *"?([^"\n]+?)"?\s*$', fh.read(), re.M)
+        bloques = re.split(r"^- name:", fh.read(), flags=re.M)[1:]
+    res = []
+    for b in bloques:
+        nombre = b.splitlines()[0].strip().strip("\"'")
+        color = re.search(r"^\s+color: *[\"']?([^\"'\n]+)", b, re.M)
+        alias = re.findall(r"^\s+- [\"']?([^\"'\n]+?)[\"']?\s*$", b.split("aliases:", 1)[1], re.M) if "aliases:" in b else []
+        res.append((nombre, color.group(1).strip() if color else "", tuple(alias)))
+    return res
 
 
 if MAPA.get("parity"):
     for en in ("profiles/small/.github/labels.yml", ".github/labels.yml"):
         if not os.path.exists(en) or any(r.match(en) for r in EXENTOS):
             continue
-        es = en[:-len(".yml")] + ".es.yml"
+        es = hermano(en)
         if not os.path.exists(es):
             errores.append(f"{en}: missing its Spanish sibling {es}.")
         elif etiquetas(en) != etiquetas(es):
-            errores.append(f"{es}: its labels (names or colors) differ from {en} (one of the two is out of date).")
+            errores.append(f"{es}: its labels (names, colors or aliases) differ from {en} (one of the two is out of date).")
 
 if MAPA:
     mapa = MAPA
