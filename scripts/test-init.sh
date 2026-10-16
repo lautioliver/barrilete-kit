@@ -154,7 +154,8 @@ for idioma in en es; do
     afirmar $? "[real completo --lang en] el agente y la skill quedan en inglés"
   fi
 done
-# --small gana al archivo completo en los dos idiomas: las skills chicas (63, 32 y 20 líneas), no las completas.
+# Hoy las skills del perfil chico están solo en español: con --lang en se instalan así; la parte 3 de #115 las traduce
+# y este test pasa a comprobar el inglés. --small gana al archivo completo en los dos idiomas: las skills chicas (63, 32 y 20 líneas), no las completas.
 for idioma in en es; do
   p="$TMP/real-chico-$idioma"
   copiar "$p"

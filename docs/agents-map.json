@@ -201,7 +201,12 @@
         ".claude/agents/**",
         "?.claude/i18n/**",
         ".claude/skills/*/SKILL.md",
-        ".github/workflows/docs.yml"
+        ".github/workflows/docs.yml",
+        ".claude/skills/**/*.es.md",
+        ".claude/skills/improve-skills/retro-template.md",
+        "scripts/agents/test-agents.sh",
+        ".claude/skills/orchestrate/test-orchestrate.sh",
+        ".claude/skills/improve-skills/test-retros.sh"
       ],
       "run": "bash scripts/agents/test-i18n.sh"
     },

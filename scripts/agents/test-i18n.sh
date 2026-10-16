@@ -92,10 +92,15 @@ grep -q 'UNPAIRED' "$RAIZ/.github/workflows/docs.yml"; afirmar $? "docs.yml conv
 # Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).
 copia; parity true
 s=$(check)
-! grep -q 'implementer' <<<"$s"; afirmar $? "agentes: el par .claude/agents/X.md + .claude/i18n/agents/X.es.md no da errores de paridad"
+! grep -q 'Traceback' <<<"$s" && ! grep -v 'profiles/' <<<"$s" | grep -q '\.claude/'; afirmar $? "agentes: el par .claude/agents/X.md + .claude/i18n/agents/X.es.md no da errores (ni Traceback) fuera del perfil chico"
 rm "$TMP/r/.claude/i18n/agents/reviewer.es.md"
 s=$(check)
 grep -q 'reviewer.md: missing its Spanish sibling .claude/i18n/agents/reviewer.es.md' <<<"$s"; afirmar $? "agentes: sin su hermano en .claude/i18n/agents/ falla con esa ruta"
+copia
+sed -i.bak 's#docs/agents/subagent-contract.md#docs/otro.md#g; s/^model: opus/model: gpt/' "$TMP/r/.claude/i18n/agents/reviewer.es.md"
+s=$(check)
+grep -q '.claude/i18n/agents/reviewer.es.md: does not point to the common contract' <<<"$s" && grep -q ".claude/i18n/agents/reviewer.es.md: model 'gpt'" <<<"$s" && grep -q "reviewer.es.md: 'model:' is 'gpt' but .claude/agents/reviewer.md has 'opus'" <<<"$s"
+afirmar $? "agentes: el hermano en español se valida como agente (contrato, model) y debe coincidir con el inglés"
 copia; parity true
 printf '\n## Extra\n' >>"$TMP/r/.claude/i18n/agents/reviewer.es.md"
 s=$(check)

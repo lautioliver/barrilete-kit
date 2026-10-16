@@ -94,7 +94,7 @@ avisos = []
 if MAPA:
     # Without a map (small mode) there are no paths to validate and agents_map.py is not needed.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from agents_map import glob_a_regex  # noqa: E402
+    from agents_map import glob_a_regex, hermano_de_idioma  # noqa: E402
     IGNORAR = [glob_a_regex(g) for g in MAPA.get("ignore_check", [])]
 
 
@@ -181,8 +181,6 @@ EXENTOS = [glob_a_regex(g) for g in MAPA.get("parity_ignore", [])] if MAPA else 
 pares = [a for a in md_files(aplicar_ignore=False)
          if a.endswith(".md") and not any(r.match(a) for r in EXENTOS)]
 if MAPA.get("parity"):
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from agents_map import hermano_de_idioma  # noqa: E402
     for es in sorted(a for a in pares if a.endswith(".es.md")):
         en = hermano_de_idioma(es)
         if not os.path.exists(en):
@@ -312,13 +310,17 @@ if os.path.exists(LECCIONES):
         errores.append(f"{LECCIONES}: {lineas} lines (maximum {MAX_LECCIONES}). Remove the oldest lesson or the one that already moved to a skill.")
 
 # Subagents: the orchestrator picks the model by role, and all return the same output.
-CONTRATO, AGENTES = "docs/agents/subagent-contract.md", ".claude/agents"
-if os.path.isdir(AGENTES):
-    for nombre in sorted(os.listdir(AGENTES)):
+CONTRATO, AGENTES, AGENTES_ES = "docs/agents/subagent-contract.md", ".claude/agents", ".claude/i18n/agents"
+# The Spanish agents (.claude/i18n/agents/<name>.es.md) become .claude/agents/<name>.md with --lang es:
+# they have to be valid agents too, and keep the name of their English sibling.
+for carpeta, es in ((AGENTES, False), (AGENTES_ES, True)):
+    if not os.path.isdir(carpeta):
+        continue
+    for nombre in sorted(os.listdir(carpeta)):
         if not nombre.endswith(".md"):
             continue
-        ruta = os.path.join(AGENTES, nombre)
-        if nombre.endswith(".es.md"):
+        ruta = os.path.join(carpeta, nombre)
+        if nombre.endswith(".es.md") and not es:
             errores.append(f"{ruta}: Claude Code would load it as a second agent with the same name; "
                            f"the Spanish sibling of an agent lives in .claude/i18n/agents/ (ADR-001, R-1).")
             continue
@@ -332,6 +334,14 @@ if os.path.isdir(AGENTES):
             errores.append(f"{ruta}: model '{campos.get('model', '')}' (must be opus, sonnet or haiku: the model is part of the role, it is not inherited).")
         if CONTRATO not in texto:
             errores.append(f"{ruta}: does not point to the common contract ({CONTRATO}).")
+        if es:
+            en = os.path.join(AGENTES, nombre[:-len(".es.md")] + ".md")
+            if os.path.exists(en):
+                m_en = re.match(r"---\n(.*?)\n---\n", open(en, encoding="utf-8").read(), re.S)
+                campos_en = {k: v.strip().strip("'\"") for k, v in re.findall(r"^(\w+): *(.*)$", m_en.group(1), re.M)} if m_en else {}
+                for campo in ("name", "model", "tools"):
+                    if campos.get(campo) != campos_en.get(campo):
+                        errores.append(f"{ruta}: '{campo}:' is '{campos.get(campo, '')}' but {en} has '{campos_en.get(campo, '')}'.")
 
 for a in avisos:
     print(f"Warning: {a}")
