@@ -35,7 +35,7 @@ import sys
 import tempfile
 
 PLANTILLA = "https://github.com/lautioliver/barrilete-kit"
-NUNCA_TOCAR = {"README.md", "README.en.md", "LICENSE", ".agent-kit.json"}
+NUNCA_TOCAR = {"README.md", "README.es.md", "README.en.md", "LICENSE", ".agent-kit.json"}
 PENDIENTES = ".agent-kit/pending"
 # Labels GitHub creates in every new repo: they stay as the project's own (deleting them is the project's call).
 LABELS_GITHUB = {"bug", "documentation", "duplicate", "enhancement", "good first issue", "help wanted", "invalid",

@@ -1,11 +1,11 @@
 # <PROJECT>
 
-TODO: qué es, para quién y cómo se usa, en dos o tres líneas.
+TODO: what it is, who it is for and how it is used, in two or three lines.
 
-## Desarrollo
+## Development
 
 ```bash
-# TODO: instalar y levantar en local
+# TODO: install and run locally
 ```
 
-Convenciones, comandos y reglas para agentes: [`AGENTS.md`](AGENTS.md). Documentación: [`docs/`](docs/README.md).
+Conventions, commands and rules for agents: [`AGENTS.md`](AGENTS.md). Documentation: [`docs/`](docs/README.md).

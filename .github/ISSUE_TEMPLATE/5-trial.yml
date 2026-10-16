@@ -4,7 +4,7 @@ labels: ["type:task", "status:triage"]
 body:
   - type: markdown
     attributes:
-      value: "Gracias por probarla. La guía está en `docs/try-the-template.md`. No pegues secretos ni datos personales."
+      value: "Gracias por probarla. La guía está en `docs/try-the-template.es.md`. No pegues secretos ni datos personales."
   - type: dropdown
     id: herramienta
     attributes:

@@ -86,10 +86,10 @@ rm -rf profiles
 # The brand (Barrilete) and the trial guide belong to the template, not to the new project.
 rm -rf .github/brand
 rm -f docs/try-the-template.md .github/ISSUE_TEMPLATE/5-trial.yml
-for f in README.md README.en.md docs/README.md docs/llms.txt; do
+for f in README.md README.es.md docs/README.md docs/llms.txt; do
   [ -f "$f" ] || continue
   # brand: what is Barrilete's. template: what is only useful in the template repo (the trial guide).
-  perl -0pi -e 's/<!-- (brand|template):start -->.*?<!-- \1:end -->\n\n?//gs' "$f"
+  perl -0pi -e 's/<!-- (brand|template|lang):start -->.*?<!-- \1:end -->\n\n?//gs' "$f"
   perl -ni -e 'print unless m{^\|.*`\.github/brand/`}' "$f"  # "Brand" row of the table
 done
 # grow.py is only useful in small projects (to move to the full mode).
