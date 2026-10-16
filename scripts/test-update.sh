@@ -451,6 +451,7 @@ import json
 m = json.load(open("docs/mapa-agentes.json", encoding="utf-8"))
 m["sensibles"].append({"tipo": "pii", "rutas": ["app/perfiles/**", "?src/scripts/agentes/pii.py", "scripts/agentes/**"]})
 m["verificar"].append({"nombre": "crecer", "siempre": True, "correr": "bash tools/scripts/crecer.py.sh"})
+m["verificar"].append({"nombre": "relativa", "siempre": True, "correr": "python3 ./scripts/agentes/verificar.py && python3 ../scripts/crecer.py"})
 open("docs/mapa-agentes.json", "w", encoding="utf-8").write(json.dumps(m, ensure_ascii=False, indent=2) + "\n")
 PY
   git add -A && git commit -qm rutas
@@ -463,9 +464,10 @@ m = json.load(open(sys.argv[1], encoding="utf-8"))
 pii = [x for x in m["sensitive"] if x.get("type") == "pii"]
 cmd = [x for x in m["verify"] if x.get("name") == "crecer"]
 sys.exit(0 if pii and pii[0]["paths"] == ["app/perfiles/**", "?src/scripts/agentes/pii.py", "scripts/agents/**"]
-         and cmd and cmd[0]["run"] == "bash tools/scripts/crecer.py.sh" else 1)
+         and cmd and cmd[0]["run"] == "bash tools/scripts/crecer.py.sh"
+         and [x["run"] for x in m["verify"] if x.get("name") == "relativa"] == ["python3 ./scripts/agents/verify.py && python3 ../scripts/grow.py"] else 1)
 PY
-afirmar $? "[0.9] solo renombra las rutas del kit en el mapa: una ruta propia con un nombre viejo (app/perfiles/**) queda intacta"
+afirmar $? "[0.9] solo renombra las rutas del kit en el mapa (app/perfiles/** queda intacta), también si empiezan con ./ o ../"
 ! [ -e "$D/scripts/agentes" ] && ! grep -q "own files" <<<"$s"
 afirmar $? "[0.9] un __pycache__ de la carpeta vieja no cuenta como archivo propio: se borra con la carpeta"
 grep -Eq 'git add -A.*check-docs|check-docs.*git add -A' <<<"$s" && ! grep -Eq '^ +2\. python3 scripts/agents/check-docs.py' <<<"$s"
@@ -476,16 +478,17 @@ D="$TMP/p09-volver"
 proyecto09 "$D" completo
 cambios09 "$D"
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
-grep -q "rm -rf .agent-kit" <<<"$s" && grep -q "git clean -fd" <<<"$s"; afirmar $? "[0.9] el aviso del idioma indica descartar la corrida, borrar .agent-kit/ y commitear el cambio"
+grep -q "rm -rf .agent-kit" <<<"$s" && grep -q "git reset --hard && git clean -fd" <<<"$s"; afirmar $? "[0.9] el aviso del idioma indica descartar la corrida, borrar .agent-kit/ y commitear el cambio"
 (
   cd "$D" || exit 1
-  git checkout -q . && git clean -qfd && rm -rf .agent-kit
+  git add -A  # el resumen pide stagear antes de check-docs: la vuelta atrás tiene que andar con todo en el índice
+  git reset -q --hard && git clean -qfd && rm -rf .agent-kit
   python3 -c "import json; k=json.load(open('.agent-kit.json')); k['language']='es'; json.dump(k, open('.agent-kit.json', 'w'), ensure_ascii=False, indent=2)"
   git commit -qam "language es"
 ) >/dev/null 2>&1
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q '"language": "es"' "$D/.agent-kit.json" && es -f "$D/scripts/agents/verify.py" && ! [ -e "$D/scripts/agentes" ]
-afirmar $? "[0.9] siguiendo el aviso (descartar, borrar .agent-kit/, agregar language y commitear) la segunda corrida migra en español"
+afirmar $? "[0.9] siguiendo el aviso (descartar con todo stageado, borrar .agent-kit/, agregar language y commitear) la segunda corrida migra en español"
 
 # Lo que marcó la revisión: nombres de personas, carpetas viejas con archivos propios, claves a medias, sin fecha.
 D="$TMP/p09-revision"
