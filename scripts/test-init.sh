@@ -186,7 +186,7 @@ for combinacion in "completo en" "completo es" "chico en" "chico es"; do
     afirmar $r "[$modo --lang $idioma .github] el formulario de bug está en el idioma de la instalación"
     if grep -qF "$label" "$p/.github/labels.yml" && ! grep -qF "$otro_label" "$p/.github/labels.yml"; then r=0; else r=1; fi
     afirmar $r "[$modo --lang $idioma .github] las descripciones de labels.yml están en el idioma de la instalación"
-    n=$(ls "$p/.github/ISSUE_TEMPLATE" | sort | tr '\n' ' ')
+    n=$(cd "$p/.github/ISSUE_TEMPLATE" && printf '%s ' * )
     es "$n" = "1-bug.yml 2-feature.yml 3-task.yml 4-audit.yml config.yml "; afirmar $? "[$modo --lang $idioma .github] ISSUE_TEMPLATE queda con los 4 formularios y config.yml (sin 5-trial ni duplicados)"
   else
     ! [ -e "$p/.github/ISSUE_TEMPLATE" ]; afirmar $? "[$modo --lang $idioma .github] el modo chico no tiene formularios de issue (los borra su DELETE)"

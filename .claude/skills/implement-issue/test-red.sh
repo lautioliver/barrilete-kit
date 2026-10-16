@@ -120,7 +120,7 @@ if grep -q "I do not recognize this failure as an assertion" <<<"$s"; then ok "u
 
 # El bloque para el PR lleva el literal inglés que lee el CI (#115): "Red before implementing".
 bloque=$(cat "$TMP"/*.md 2>/dev/null)
-grep -q '<summary>Red before implementing</summary>' <<<"$bloque" && ! grep -q 'Rojo antes de implementar' <<<"$bloque"; if [ $? -eq 0 ]; then ok "el bloque del PR usa el literal Red before implementing"; else falla "el bloque del PR usa el literal Red before implementing"; fi
+if grep -q '<summary>Red before implementing</summary>' <<<"$bloque" && ! grep -q 'Rojo antes de implementar' <<<"$bloque"; then ok "el bloque del PR usa el literal Red before implementing"; else falla "el bloque del PR usa el literal Red before implementing"; fi
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
