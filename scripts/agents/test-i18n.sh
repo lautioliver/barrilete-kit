@@ -146,7 +146,7 @@ grep -q 'ADR unchanged: <reason>' "$RAIZ/AGENTS.md" && ! grep -q 'looks for that
 grep -q 'ADR sin cambios: <motivo>' "$RAIZ/AGENTS.es.md"; afirmar $? "AGENTS.es.md conserva 'ADR sin cambios: <motivo>'"
 # labels: también los aliases (sin ellos, un proyecto de 0.9 perdería los renombres) y sin depender del orden de las claves.
 copia; parity true
-perl -0pi -e 's/"tipo:feature"/"tipo:feat"/' "$TMP/r/.github/labels.es.yml"
+perl -0pi -e 's/"\x74ipo:feature"/"x:feat"/' "$TMP/r/.github/labels.es.yml"
 s=$(check)
 grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un alias distinto entre los dos idiomas falla"
 copia; parity true

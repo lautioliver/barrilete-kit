@@ -202,7 +202,10 @@ if MAPA.get("parity"):
 # compared by what does not carry prose: type, id, labels, required and the number of options.
 FORMS_EN, FORMS_ES = ".github/ISSUE_TEMPLATE", ".github/i18n/ISSUE_TEMPLATE"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from agents_map import hermano_de_idioma as hermano  # noqa: E402
+try:
+    from agents_map import hermano_de_idioma as hermano  # noqa: E402
+except ImportError:  # small mode deletes agents_map.py (and has no forms nor map): nothing to compare
+    hermano = lambda ruta: None  # noqa: E731
 
 
 def claves_de_formulario(ruta):
