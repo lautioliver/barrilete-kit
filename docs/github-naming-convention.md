@@ -300,6 +300,9 @@ A short `release/*` was chosen instead of a permanent `staging` branch: each ver
 | C — All in the team's language | Breaks compatibility with tools (`funcionalidad:` is not a valid type) |
 
 > ✅ **DECIDED (<DATE>):** the description of commits and PR titles is written in <COMMIT_LANG> (the language chosen at install, `--lang`). Types and scopes stay in English.
+<!-- template:start -->
+> In this repo (the template itself) the descriptions are in Spanish.
+<!-- template:end -->
 
 **Always without accents or ñ in branch and label names** (`user-view`, `design`, not `diseño`).
 

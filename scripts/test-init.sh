@@ -276,11 +276,13 @@ for combinacion in "completo en English" "completo es español" "chico en Englis
     grep -Eq "(in|en) $lengua" "$p/docs/github-naming-convention.md" && grep -Eq "(in|en) $lengua" "$p/.claude/skills/git-workflow/SKILL.md"
     afirmar $? "[$modo --lang $idioma R-6] la convención y la skill git-workflow dicen $lengua"
   fi
-  ! grep -rq 'the template itself\|la plantilla misma' "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma R-6] el aviso del kit (descripciones en español en este repo) no llega al proyecto"
+  ! grep -rq 'the template itself\|la plantilla misma' "$p/AGENTS.md" "$p/docs" "$p/.claude/skills" 2>/dev/null; afirmar $? "[$modo --lang $idioma R-6] el aviso del kit (descripciones en español en este repo) no llega al proyecto"
 done
 if grep -q '<COMMIT_LANG>' "$RAIZ/AGENTS.md" && grep -q '<COMMIT_LANG>' "$RAIZ/AGENTS.es.md" && grep -q '<COMMIT_LANG>' "$RAIZ/docs/github-naming-convention.md" && grep -q '<COMMIT_LANG>' "$RAIZ/.claude/skills/git-workflow/SKILL.md"; then r=0; else r=1; fi
 afirmar $r "la plantilla trae el marcador <COMMIT_LANG> donde se fija el idioma de los commits (AGENTS en/es, convención, git-workflow)"
-grep -q 'template:start' "$RAIZ/AGENTS.md" && grep -qi 'in Spanish' "$RAIZ/AGENTS.md"; afirmar $? "el AGENTS.md del kit dice, en un bloque template:, que los commits de este repo van en español"
+if grep -q 'template:start' "$RAIZ/AGENTS.md" && grep -qi 'in Spanish' "$RAIZ/AGENTS.md" \
+  && grep -qi 'in Spanish' "$RAIZ/docs/github-naming-convention.md" && grep -qi 'in Spanish' "$RAIZ/.claude/skills/git-workflow/SKILL.md"; then r=0; else r=1; fi
+afirmar $r "el kit dice, en un bloque template:, que sus commits van en español (AGENTS.md, convención y git-workflow: quien lea solo la skill o la convención también lo sabe)"
 
 # El proyecto instalado tiene un solo idioma: un docs/*.es.md propio no activa la paridad (interruptor parity).
 p="$TMP/lang-propio"

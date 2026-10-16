@@ -163,7 +163,8 @@ for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llm
 
 # The init only deletes the ADRs of the kit with the exact line "Ámbito: kit" (it is a literal, it is not translated): one written
 # with "Scope: kit" would be installed in every project. Warning, not error: a project may use that line for something else.
-for num, f in sorted(adrs.items()):
+# Only where the init is still there (the kit itself): in a project the ADRs are its own and there is nothing left to delete.
+for num, f in sorted(adrs.items() if os.path.exists("scripts/init-template.sh") else []):
     with open(os.path.join("docs/decisions", f), encoding="utf-8") as fh:
         if re.search(r"^Scope: kit\s*$", fh.read(), re.M):
             avisos.append(f"docs/decisions/{f} has the line `Scope: kit`, but the init only deletes the ADRs with `Ámbito: kit` "

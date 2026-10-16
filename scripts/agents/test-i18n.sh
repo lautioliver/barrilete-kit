@@ -213,6 +213,12 @@ grep -q 'Warning: .*ADR-002-prueba.md.*Scope: kit.*Ámbito: kit' <<<"$s"; afirma
 copia
 s=$(check)
 ! grep -q 'Scope: kit' <<<"$s"; afirmar $? "sin 'Scope: kit' en ningún ADR no hay aviso"
+# En un proyecto (sin init-template.sh) un ADR propio con esa línea es suyo: no hay nada que borrar, no hay aviso.
+copia
+rm "$TMP/r/scripts/init-template.sh"
+printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+s=$(check)
+! grep -q 'Scope: kit' <<<"$s"; afirmar $? "sin init-template.sh (un proyecto) un ADR con 'Scope: kit' no da aviso"
 
 # README: sin la nota "Spanish-first"; el README en español muestra --lang es en los comandos de inicio.
 ! grep -qi 'spanish-first' "$RAIZ/README.md"; afirmar $? "README.md ya no dice que la plantilla es Spanish-first"
