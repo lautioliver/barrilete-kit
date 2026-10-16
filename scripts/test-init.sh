@@ -240,7 +240,7 @@ for idioma in en es; do
   # Nada en el idioma equivocado: ni la regla de la rama base, ni las secciones de AGENTS.md que nombran las skills.
   if [ "$idioma" = en ]; then
     marcas='Qué es|Autonomía|Consulta antes|Única rama|Los PRs de trabajo|Cuerpo del PR|Convenci[oó]n de GitHub|Documentación de'
-    grep -q '^## Agent autonomy' "$p/AGENTS.md" && grep -q 'Agent autonomy' "$p/.claude/skills/debug/SKILL.md" 2>/dev/null || [ ! -e "$p/.claude/skills/debug/SKILL.md" ]
+    grep -q '^## Agent autonomy' "$p/AGENTS.md" && grep -q 'Agent autonomy' "$p/.claude/skills/debug/SKILL.md"
     afirmar $? "[real chico --lang en] AGENTS.md tiene la sección que nombran las skills (Agent autonomy)"
   else
     marcas='What it is|Agent autonomy|Must ask first|Only permanent branch|Working PRs go|GitHub convention'
