@@ -218,23 +218,41 @@ for en in sorted(glob.glob(f"{raiz}/.github/ISSUE_TEMPLATE/[0-9]*.yml")):
 print("\n".join(mal)); sys.exit(1 if mal else 0)
 PY
 afirmar $? "cada formulario de issue tiene su hermano en español con los mismos type, id y labels"
-# Hoy las skills del perfil chico están solo en español: con --lang en se instalan así; la parte 3 de #115 las traduce
-# y este test pasa a comprobar el inglés. --small gana al archivo completo en los dos idiomas: las skills chicas (63, 32 y 20 líneas), no las completas.
+# El perfil chico tiene su hermano en español (#115, parte 3): --small gana al archivo completo en los dos idiomas, cada uno en el suyo
+# (las skills chicas, de 63, 32 y 20 líneas, no las completas).
 for idioma in en es; do
   p="$TMP/real-chico-$idioma"
   copiar "$p"
   (cd "$p" && ./scripts/init-template.sh Demo main --small --lang "$idioma" >/dev/null 2>&1); afirmar $? "[real chico --lang $idioma] el init termina bien"
+  hermano() { if [ "$idioma" = es ]; then case "$1" in *.md) echo "${1%.md}.es.md" ;; *.txt) echo "${1%.txt}.es.txt" ;; esac; else echo "$1"; fi; }
   for sk in implement-issue create-issue update-docs; do
     # El init reemplaza los marcadores (<BASE_BRANCH>…): se comparan con esa sustitución.
-    cmp -s <(sed 's/<BASE_BRANCH>/main/g; s/<PROJECT>/Demo/g' "$RAIZ/profiles/small/.claude/skills/$sk/SKILL.md") "$p/.claude/skills/$sk/SKILL.md"
-    afirmar $? "[real chico --lang $idioma] $sk es la del perfil chico (contenido igual)"
+    cmp -s <(sed 's/<BASE_BRANCH>/main/g; s/<PROJECT>/Demo/g' "$RAIZ/profiles/small/$(hermano ".claude/skills/$sk/SKILL.md")") "$p/.claude/skills/$sk/SKILL.md"
+    afirmar $? "[real chico --lang $idioma] $sk es la del perfil chico en ese idioma (contenido igual)"
   done
-  # Los archivos del perfil que ahora tienen hermano completo (AGENTS.md, docs/README.md, la convención, llms.txt) siguen siendo los suyos.
-  for f in AGENTS.md docs/README.md docs/github-naming-convention.md docs/llms.txt; do
-    # El init también reemplaza <DATE> y <BRANCH_RULE>: se compara el largo y el título.
-    if [ "$(wc -l <"$RAIZ/profiles/small/$f" | tr -d ' ')" = "$(wc -l <"$p/$f" | tr -d ' ')" ] && [ "$(head -1 "$RAIZ/profiles/small/$f" | sed 's/<PROJECT>/Demo/')" = "$(head -1 "$p/$f")" ]; then r=0; else r=1; fi
-    afirmar $r "[real chico --lang $idioma] $f es el del perfil chico (mismo largo y título)"
+  # Los archivos del perfil que tienen hermano completo (AGENTS.md, docs/README.md, la convención, llms.txt) siguen siendo los suyos.
+  for f in AGENTS.md docs/README.md docs/github-naming-convention.md docs/llms.txt docs/architecture.md; do
+    # El init también reemplaza <DATE>, <BRANCH_RULE> y <COMMIT_LANG>: se compara el largo y el título.
+    src="$RAIZ/profiles/small/$(hermano "$f")"
+    if [ "$(wc -l <"$src" | tr -d ' ')" = "$(wc -l <"$p/$f" | tr -d ' ')" ] && [ "$(head -1 "$src" | sed 's/<PROJECT>/Demo/')" = "$(head -1 "$p/$f")" ]; then r=0; else r=1; fi
+    afirmar $r "[real chico --lang $idioma] $f es el del perfil chico en ese idioma (mismo largo y título)"
   done
+  # Nada en el idioma equivocado: ni la regla de la rama base, ni las secciones de AGENTS.md que nombran las skills.
+  if [ "$idioma" = en ]; then
+    marcas='Qué es|Autonomía|Consulta antes|Única rama|Los PRs de trabajo|Cuerpo del PR|Convenci[oó]n de GitHub|Documentación de'
+    grep -q '^## Agent autonomy' "$p/AGENTS.md" && grep -q 'Agent autonomy' "$p/.claude/skills/debug/SKILL.md" 2>/dev/null || [ ! -e "$p/.claude/skills/debug/SKILL.md" ]
+    afirmar $? "[real chico --lang en] AGENTS.md tiene la sección que nombran las skills (Agent autonomy)"
+  else
+    marcas='What it is|Agent autonomy|Must ask first|Only permanent branch|Working PRs go|GitHub convention'
+    grep -q '^## Autonomía del agente' "$p/AGENTS.md"; afirmar $? "[real chico --lang es] AGENTS.md tiene la sección Autonomía del agente"
+  fi
+  if grep -rEq "$marcas" "$p/AGENTS.md" "$p/docs" "$p/.claude/skills" 2>/dev/null; then r=1; else r=0; fi
+  afirmar $r "[real chico --lang $idioma] ningún archivo del perfil chico mezcla el otro idioma (AGENTS.md, docs/, skills)"
+  if [ "$idioma" = en ]; then regla='Only permanent branch'; else regla='Única rama permanente'; fi
+  grep -q "$regla" "$p/AGENTS.md" && grep -q "$regla" "$p/docs/github-naming-convention.md"; afirmar $? "[real chico --lang $idioma] <BRANCH_RULE> sale en el idioma de la instalación"
+  # Los labels del perfil: nombres y colores iguales en los dos idiomas, descripciones en el idioma de la instalación.
+  if [ "$idioma" = en ]; then d='Something does not work as it should'; else d='Algo no funciona como debería'; fi
+  grep -qF "$d" "$p/.github/labels.yml"; afirmar $? "[real chico --lang $idioma] las descripciones de labels.yml están en el idioma de la instalación"
   if [ "$idioma" = en ]; then
     # shellcheck disable=SC2016
     grep -qF 'the PR says so in "Business logic affected"' "$p/docs/decisions/README.md"; afirmar $? "[real chico --lang en] docs/decisions/README.md cita el encabezado vigente de la plantilla del PR"
@@ -244,6 +262,26 @@ for idioma in en es; do
   afirmar $r "[real chico --lang $idioma] implement-issue, create-issue y update-docs tienen el largo del perfil (63, 32, 20)"
   ! [ -e "$p/.claude/agents" ] && ! [ -e "$p/.claude/i18n" ]; afirmar $? "[real chico --lang $idioma] sin agentes ni .claude/i18n"
 done
+# R-6 (ADR-001): la descripción de los commits y de los títulos de PR sigue a --lang. <COMMIT_LANG> es el marcador; el kit
+# se queda con descripciones en español (lo dice su AGENTS.md en un bloque template: que el init borra).
+for combinacion in "completo en English" "completo es español" "chico en English" "chico es español"; do
+  read -r modo idioma lengua <<<"$combinacion"
+  p="$TMP/commitlang-$modo-$idioma"
+  copiar "$p"
+  extra=(); [ "$modo" = chico ] && extra=(--small)
+  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); afirmar $? "[$modo --lang $idioma R-6] el init termina bien"
+  ! grep -rq '<COMMIT_LANG>' "$p" --exclude-dir=.git; afirmar $? "[$modo --lang $idioma R-6] no queda ningún <COMMIT_LANG> sin reemplazar"
+  grep -Eq "(description in|descripción en|descripcion en) $lengua" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma R-6] AGENTS.md fija la descripción de los commits en $lengua"
+  if [ "$modo" = completo ]; then
+    grep -Eq "(in|en) $lengua" "$p/docs/github-naming-convention.md" && grep -Eq "(in|en) $lengua" "$p/.claude/skills/git-workflow/SKILL.md"
+    afirmar $? "[$modo --lang $idioma R-6] la convención y la skill git-workflow dicen $lengua"
+  fi
+  ! grep -rq 'the template itself\|la plantilla misma' "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma R-6] el aviso del kit (descripciones en español en este repo) no llega al proyecto"
+done
+if grep -q '<COMMIT_LANG>' "$RAIZ/AGENTS.md" && grep -q '<COMMIT_LANG>' "$RAIZ/AGENTS.es.md" && grep -q '<COMMIT_LANG>' "$RAIZ/docs/github-naming-convention.md" && grep -q '<COMMIT_LANG>' "$RAIZ/.claude/skills/git-workflow/SKILL.md"; then r=0; else r=1; fi
+afirmar $r "la plantilla trae el marcador <COMMIT_LANG> donde se fija el idioma de los commits (AGENTS en/es, convención, git-workflow)"
+grep -q 'template:start' "$RAIZ/AGENTS.md" && grep -qi 'in Spanish' "$RAIZ/AGENTS.md"; afirmar $? "el AGENTS.md del kit dice, en un bloque template:, que los commits de este repo van en español"
+
 # El proyecto instalado tiene un solo idioma: un docs/*.es.md propio no activa la paridad (interruptor parity).
 p="$TMP/lang-propio"
 copiar "$p"

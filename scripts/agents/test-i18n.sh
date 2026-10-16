@@ -177,6 +177,47 @@ copia
 (cd "$TMP/r" && git checkout -qb feat2 && echo "# More" >>.github/labels.yml && git commit -qam cambio)
 s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
 grep -q 'UNPAIRED' <<<"$s" && grep -q '.github/labels.es.yml' <<<"$s"; afirmar $? "agents_map.py avisa si cambia labels.yml sin labels.es.yml"
+# El perfil chico también tiene hermanos (#115, parte 3): la plantilla ya no lo exime de la paridad.
+! grep -q 'profiles/small' <(python3 -c "import json; print(json.load(open('$RAIZ/docs/agents-map.json'))['parity_ignore'])"); afirmar $? "profiles/small ya no está en parity_ignore (el perfil chico tiene sus hermanos)"
+copia; parity true
+rm "$TMP/r/profiles/small/AGENTS.es.md"
+s=$(check)
+grep -q 'profiles/small/AGENTS.md: missing its Spanish sibling profiles/small/AGENTS.es.md' <<<"$s"; afirmar $? "perfil chico: sin su hermano en español falla con parity prendido"
+copia; parity true
+rm "$TMP/r/profiles/small/docs/llms.es.txt"
+s=$(check)
+grep -q 'profiles/small/docs/llms.txt: missing its Spanish sibling profiles/small/docs/llms.es.txt' <<<"$s"; afirmar $? "perfil chico: llms.txt sin su llms.es.txt falla con parity prendido"
+copia; parity true
+rm "$TMP/r/profiles/small/.github/labels.es.yml"
+s=$(check)
+grep -q 'profiles/small/.github/labels.yml: missing its Spanish sibling profiles/small/.github/labels.es.yml' <<<"$s"; afirmar $? "perfil chico: labels.yml sin su labels.es.yml falla con parity prendido"
+
+# Los índices de ADRs: los hermanos en español (docs/README.es.md, docs/llms.es.txt) también tienen que listar cada ADR.
+copia
+grep -v 'ADR-001-language' "$TMP/r/docs/README.es.md" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/docs/README.es.md"
+s=$(check)
+grep -q 'docs/README.es.md: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"; afirmar $? "índices: un ADR que falta en docs/README.es.md falla"
+copia
+grep -v 'ADR-001-language' "$TMP/r/docs/llms.es.txt" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/docs/llms.es.txt"
+s=$(check)
+grep -q 'docs/llms.es.txt: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"; afirmar $? "índices: un ADR que falta en docs/llms.es.txt falla"
+copia
+s=$(check)
+! grep -q 'missing from the index' <<<"$s"; afirmar $? "índices: la plantilla tal como está lista el ADR en los cuatro (README, llms, y sus hermanos)"
+
+# "Scope: kit" no lo borra el init (solo "Ámbito: kit"): check-docs avisa, sin fallar.
+copia
+printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+s=$(check)
+grep -q 'Warning: .*ADR-002-prueba.md.*Scope: kit.*Ámbito: kit' <<<"$s"; afirmar $? "un ADR con 'Scope: kit' da un aviso que dice que el init solo borra 'Ámbito: kit'"
+copia
+s=$(check)
+! grep -q 'Scope: kit' <<<"$s"; afirmar $? "sin 'Scope: kit' en ningún ADR no hay aviso"
+
+# README: sin la nota "Spanish-first"; el README en español muestra --lang es en los comandos de inicio.
+! grep -qi 'spanish-first' "$RAIZ/README.md"; afirmar $? "README.md ya no dice que la plantilla es Spanish-first"
+grep -q 'init-template.sh "Nombre del proyecto" main --lang es' "$RAIZ/README.es.md"; afirmar $? "README.es.md: el comando de inicio lleva --lang es"
+grep -q 'convencion-nombres-github.md' "$RAIZ/README.md" && grep -q 'convencion-nombres-github.md' "$RAIZ/README.es.md"; afirmar $? "los README avisan a dónde se mudaron los docs con nombre en español (tabla de renombres del CHANGELOG)"
 
 # Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).
 copia; parity true
