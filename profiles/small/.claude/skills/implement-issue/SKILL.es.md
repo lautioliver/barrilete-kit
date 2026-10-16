@@ -7,7 +7,7 @@ description: Implementa un issue de GitHub de punta a punta, del issue al PR lis
 
 Lleva un issue a un PR listo para revisar. **Nunca mergea**: eso lo hace una persona.
 
-Si no te dieron un número ("tomá el siguiente"), listá `gh issue list --state open --search "no:assignee" --label "priority:high"` (después `media`, `baja`, sin prioridad), proponé uno y esperá confirmación.
+Si no te dieron un número ("tomá el siguiente"), listá `gh issue list --state open --search "no:assignee" --label "priority:high"` (después `medium`, `low`, sin prioridad), proponé uno y esperá confirmación.
 
 ## 1. Tomar el issue
 

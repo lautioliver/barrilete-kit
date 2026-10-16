@@ -300,6 +300,7 @@ Se eligió `release/*` corta en vez de una rama permanente `staging`: cada versi
 | C — Todo en el idioma del equipo | Rompe la compatibilidad con herramientas (`funcionalidad:` no es un tipo válido) |
 
 > ✅ **DECIDIDO (<DATE>):** la descripción de los commits y de los títulos de PR se escribe en <COMMIT_LANG> (el idioma elegido al instalar, `--lang`). Los tipos y los scopes siguen en inglés.
+
 <!-- template:start -->
 > En este repo (la plantilla misma) las descripciones van en español.
 <!-- template:end -->

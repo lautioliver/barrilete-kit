@@ -241,7 +241,9 @@ grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar 
 ! grep -qi 'spanish-first' "$RAIZ/README.md"; afirmar $? "README.md ya no dice que la plantilla es Spanish-first"
 grep -q 'init-template.sh "Nombre del proyecto" main --lang es' "$RAIZ/README.es.md"; afirmar $? "README.es.md: el comando de inicio lleva --lang es"
 ! grep '^| `init-template.sh' "$RAIZ/README.es.md" | grep -qv -e '--lang es'; afirmar $? "README.es.md: los comandos de la tabla de modos llevan --lang es"
+# shellcheck disable=SC2016  # backticks de Markdown literales
 ! grep -q 'después `media`, `baja`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md" && grep -q 'después `medium`, `low`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md"; afirmar $? "perfil chico (es): implement-issue nombra los labels que existen (priority:medium y low)"
+# shellcheck disable=SC2016
 grep -q 'sin `"language": "es"`' "$RAIZ/CHANGELOG.md" || grep -q 'descripción de los commits.*language' "$RAIZ/CHANGELOG.md"; afirmar $? "CHANGELOG: avisa que sin language es también el idioma de las descripciones de commits pasa a inglés"
 grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.md" && grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.es.md"; afirmar $? "los README avisan a dónde se mudaron los docs con nombre en español (tabla de renombres del CHANGELOG)"
 

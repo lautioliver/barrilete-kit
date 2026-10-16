@@ -124,7 +124,9 @@ def sin_codigo(texto):
     return re.sub(r"```.*?```", "", texto, flags=re.S)
 
 
-adrs = {m.group(1): f for f in os.listdir("docs/decisions") if (m := re.match(r"ADR-(\d{3})-", f))} \
+# The .es.md siblings of an ADR are not ADRs of their own: only X.md counts (and in a fixed order, not the one os.listdir gives).
+adrs = {m.group(1): f for f in sorted(os.listdir("docs/decisions"), reverse=True)
+        if (m := re.match(r"ADR-(\d{3})-", f)) and not f.endswith(".es.md")} \
     if os.path.isdir("docs/decisions") else {}
 
 for archivo in md_files():
@@ -164,11 +166,17 @@ for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llm
 # The init only deletes the ADRs of the kit with the exact line "Ámbito: kit" (it is a literal, it is not translated): one written
 # with "Scope: kit" would be installed in every project. Warning, not error: a project may use that line for something else.
 # Only where the init is still there (the kit itself): in a project the ADRs are its own and there is nothing left to delete.
-for num, f in sorted(adrs.items() if os.path.exists("scripts/init-template.sh") else []):
+for f in sorted(os.listdir("docs/decisions") if os.path.exists("scripts/init-template.sh") and os.path.isdir("docs/decisions") else []):
+    if not re.match(r"ADR-\d{3}-.*\.md$", f):
+        continue
     with open(os.path.join("docs/decisions", f), encoding="utf-8") as fh:
-        if re.search(r"^Scope: kit\s*$", fh.read(), re.M):
-            avisos.append(f"docs/decisions/{f} has the line `Scope: kit`, but the init only deletes the ADRs with `Ámbito: kit` "
-                          "(a literal that is not translated): this one would be installed in the projects.")
+        texto = fh.read()
+    if re.search(r"^Scope: kit\s*$", texto, re.M):
+        avisos.append(f"docs/decisions/{f} has the line `Scope: kit`, but the init only deletes the ADRs with `Ámbito: kit` "
+                      "(a literal that is not translated): this one would be installed in the projects.")
+    if re.search(r"^Ámbito: kit[ \t\r]+$", texto, re.M):
+        avisos.append(f"docs/decisions/{f} has `Ámbito: kit` with trailing whitespace: the init matches the whole line, so it would "
+                      "not delete it (remove the trailing spaces).")
 
 
 def estructura(ruta):

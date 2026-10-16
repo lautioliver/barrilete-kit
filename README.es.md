@@ -276,9 +276,9 @@ El segundo argumento del init define a dónde van los PRs:
 
 | Comando | Flujo | Cuándo |
 |---|---|---|
-| `init-template.sh "X" main` | rama → `main` | 🌱 Proyecto nuevo, sin usuarios todavía |
-| `init-template.sh "X" develop` | rama → `develop` → `main` | 🔀 Separar integración de producción |
-| `init-template.sh "X" develop releases` | rama → `develop` → `release/vX.Y.Z` → `main` | 🚢 Ya hay usuarios activos: cada versión se congela y se prueba en staging antes de llegar a producción |
+| `init-template.sh "X" main --lang es` | rama → `main` | 🌱 Proyecto nuevo, sin usuarios todavía |
+| `init-template.sh "X" develop --lang es` | rama → `develop` → `main` | 🔀 Separar integración de producción |
+| `init-template.sh "X" develop releases --lang es` | rama → `develop` → `release/vX.Y.Z` → `main` | 🚢 Ya hay usuarios activos: cada versión se congela y se prueba en staging antes de llegar a producción |
 
 ### 🐣 Completo o chico
 
