@@ -220,9 +220,29 @@ printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/
 s=$(check)
 ! grep -q 'Scope: kit' <<<"$s"; afirmar $? "sin init-template.sh (un proyecto) un ADR con 'Scope: kit' no da aviso"
 
+# Un ADR con hermano .es.md: el índice pide solo el .md, y 'Scope: kit' se detecta en el .md aunque el .es.md diga 'Ámbito: kit'
+# (no puede depender del orden en que el sistema de archivos lista los dos).
+for orden in 1 2; do
+  copia
+  printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+  printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+  [ "$orden" = 2 ] && { touch -t 202001010000 "$TMP/r/docs/decisions/ADR-002-prueba.es.md"; touch -t 202501010000 "$TMP/r/docs/decisions/ADR-002-prueba.md"; }
+  s=$(check)
+  grep -q 'Warning: .*ADR-002-prueba.md .*Scope: kit' <<<"$s" && ! grep -q 'ADR-002-prueba.es.md is missing from the index' <<<"$s" && grep -q 'ADR-002-prueba.md is missing from the index' <<<"$s"
+  afirmar $? "ADR con hermano .es.md (prueba $orden): avisa 'Scope: kit' del .md y el índice pide solo el .md"
+done
+# Un 'Ámbito: kit ' con espacio al final tampoco lo borra el init (grep -x exacto): avisa.
+copia
+printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit \n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+s=$(check)
+grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar $? "un 'Ámbito: kit' con espacios al final avisa que el init no lo borra"
+
 # README: sin la nota "Spanish-first"; el README en español muestra --lang es en los comandos de inicio.
 ! grep -qi 'spanish-first' "$RAIZ/README.md"; afirmar $? "README.md ya no dice que la plantilla es Spanish-first"
 grep -q 'init-template.sh "Nombre del proyecto" main --lang es' "$RAIZ/README.es.md"; afirmar $? "README.es.md: el comando de inicio lleva --lang es"
+! grep '^| `init-template.sh' "$RAIZ/README.es.md" | grep -qv -e '--lang es'; afirmar $? "README.es.md: los comandos de la tabla de modos llevan --lang es"
+! grep -q 'después `media`, `baja`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md" && grep -q 'después `medium`, `low`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md"; afirmar $? "perfil chico (es): implement-issue nombra los labels que existen (priority:medium y low)"
+grep -q 'sin `"language": "es"`' "$RAIZ/CHANGELOG.md" || grep -q 'descripción de los commits.*language' "$RAIZ/CHANGELOG.md"; afirmar $? "CHANGELOG: avisa que sin language es también el idioma de las descripciones de commits pasa a inglés"
 grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.md" && grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.es.md"; afirmar $? "los README avisan a dónde se mudaron los docs con nombre en español (tabla de renombres del CHANGELOG)"
 
 # Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).

@@ -273,8 +273,13 @@ for combinacion in "completo en English" "completo es español" "chico en Englis
   ! grep -rq '<COMMIT_LANG>' "$p" --exclude-dir=.git; afirmar $? "[$modo --lang $idioma R-6] no queda ningún <COMMIT_LANG> sin reemplazar"
   grep -Eq "(description in|descripción en|descripcion en) $lengua" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma R-6] AGENTS.md fija la descripción de los commits en $lengua"
   if [ "$modo" = completo ]; then
-    grep -Eq "(in|en) $lengua" "$p/docs/github-naming-convention.md" && grep -Eq "(in|en) $lengua" "$p/.claude/skills/git-workflow/SKILL.md"
+    grep -Eq "(is written in|se escribe en) $lengua" "$p/docs/github-naming-convention.md" && grep -Eq "(the description in|descripción en) $lengua" "$p/.claude/skills/git-workflow/SKILL.md"
     afirmar $? "[$modo --lang $idioma R-6] la convención y la skill git-workflow dicen $lengua"
+  fi
+  if [ "$modo" = completo ]; then
+    # La línea que sigue al bloque DECIDED de la convención es en blanco (si no, la regla siguiente se vuelve parte de la cita).
+    n=$(grep -n 'DECID' "$p/docs/github-naming-convention.md" | tail -1 | cut -d: -f1)
+    [ -z "$(sed -n "$((n + 1))p" "$p/docs/github-naming-convention.md")" ]; afirmar $? "[$modo --lang $idioma R-6] después del bloque DECIDED de la convención queda una línea en blanco"
   fi
   ! grep -rq 'the template itself\|la plantilla misma' "$p/AGENTS.md" "$p/docs" "$p/.claude/skills" 2>/dev/null; afirmar $? "[$modo --lang $idioma R-6] el aviso del kit (descripciones en español en este repo) no llega al proyecto"
 done
