@@ -249,6 +249,13 @@ p="$TMP/lang-propio"
 copiar "$p"
 (cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1 && git add -A && git commit -qm init)
 grep -q '"parity": false' "$p/docs/agents-map.json"; afirmar $? "[completo] el init deja parity apagado en el mapa del proyecto"
+! grep -q 'CLAUDE.md' <(python3 -c "import json; print(json.load(open('$p/docs/agents-map.json'))['parity_ignore'])"); afirmar $? "[completo] el init saca CLAUDE.md del parity_ignore del proyecto (es ruido de la plantilla)"
+# Un .yml del perfil chico gana a su hermano completo, cualquiera sea el archivo (no solo labels.yml).
+p="$TMP/yml-general"
+copiar "$p"
+echo "FULL-ES" >"$p/.github/foo.es.yml"; echo "FULL-EN" >"$p/.github/foo.yml"; echo "SMALL-EN" >"$p/profiles/small/.github/foo.yml"
+(cd "$p" && git add -A && git commit -qm foo && ./scripts/init-template.sh Demo main --small --lang es >/dev/null 2>&1)
+grep -qx SMALL-EN "$p/.github/foo.yml" && ! [ -e "$p/.github/foo.es.yml" ]; afirmar $? "[chico --lang es] un .yml del perfil gana a su hermano .es.yml completo (regla general, no solo labels.yml)"
 printf '# Guía\n' >"$p/docs/manual.es.md"
 s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
 ! grep -q 'sibling\|headings\|code blocks' <<<"$s"; afirmar $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"
