@@ -6,7 +6,8 @@ Checks:
 - Paths in backticks (`dir/file.ext`) whose first directory exists but the file does not.
 - Mentions of ADR-NNN with no file in docs/decisions/ or docs/decisions/kit/.
 - ADRs missing from docs/README.md or docs/llms.txt (and from their Spanish siblings, if they exist); a kit ADR with
-  `Scope: kit` (the init only deletes `Ámbito: kit`) is a warning.
+  `Scope: kit` (the init only deletes `Ámbito: kit`) is a warning, and so is a docs/decisions/kit/ ADR missing from an
+  index in a project (no scripts/init-template.sh).
 - Required documents and paths of docs/agents-map.json that do not exist.
 - Example paths (TODO/...) and checks without a command left in docs/agents-map.json
   after the init.
@@ -162,7 +163,7 @@ for archivo in md_files():
                 errores.append(f"{archivo}:{n}: ADR-{num} does not exist in docs/decisions/ or docs/decisions/kit/")
 
 # Not checked in a repo where install.py put the kit (INSTALADO): there every ADR is the project's and its indices are the project's
-# too. In a project created from the template the ADRs of docs/decisions/kit/ are installed (ADR-002, D11) and its indices are checked,
+# too. In a project created from the template the ADRs of docs/decisions/kit/ are installed (kit/ADR-002, D11) and its indices are checked,
 # but a kit ADR missing from them is only a warning there (below).
 # The Spanish siblings (docs/README.es.md, docs/llms.es.txt) are the project's indices when it is installed with --lang es:
 # the parity check counts headings, not lines, so it would not notice an ADR missing from them.
@@ -213,7 +214,7 @@ for f in sorted(os.listdir("docs/decisions") if os.path.exists("scripts/init-tem
             avisos.append(f"docs/decisions/{con} has `Ámbito: kit` but docs/decisions/{sin} does not: the two siblings must agree "
                           "(the init would delete the ADR in one language and install it in the other).")
 
-# docs/decisions/kit/ holds the kit ADRs that the projects install (ADR-002, D11): the init deletes only the `Ámbito: kit` ones of
+# docs/decisions/kit/ holds the kit ADRs that the projects install (kit/ADR-002, D11): the init deletes only the `Ámbito: kit` ones of
 # docs/decisions/, so one in kit/ that carries the line (or `Scope: kit`) contradicts itself and would be installed anyway.
 for f in sorted(os.listdir("docs/decisions/kit") if os.path.exists("scripts/init-template.sh") and os.path.isdir("docs/decisions/kit") else []):
     if not re.match(r"ADR-\d{3}-.*\.md$", f):
