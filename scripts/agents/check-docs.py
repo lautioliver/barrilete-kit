@@ -93,6 +93,7 @@ if "--list" in sys.argv[1:]:
 MAPA = json.load(open("docs/agents-map.json", encoding="utf-8")) if os.path.exists("docs/agents-map.json") else {}
 IGNORAR = []
 avisos = []
+hermano_de_idioma = None  # small mode has no agents_map.py nor map: parity (the only user) is off there
 if MAPA:
     # Without a map (small mode) there are no paths to validate and agents_map.py is not needed.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -234,7 +235,7 @@ if MAPA.get("parity"):
 # compared by what does not carry prose: type, id, labels, required and the number of options.
 FORMS_EN, FORMS_ES = ".github/ISSUE_TEMPLATE", ".github/i18n/ISSUE_TEMPLATE"
 # hermano_de_idioma is imported at the top, with the map: small mode deletes agents_map.py and has no map, forms or parity.
-hermano = hermano_de_idioma
+hermano = hermano_de_idioma  # None without a map: only called with "parity": true
 # One option of an inline list: a quoted string (it can carry a comma: "Yes, I did") or text up to the next comma.
 OPCION = re.compile(r"""\s*(?:"[^"]*"|'[^']*'|[^,"'][^,]*)\s*(?:,|$)""")
 
