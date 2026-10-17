@@ -225,25 +225,25 @@ guion solo en su línea|^- name: "type:bug"|-\n  name: "type:bug"|name: "type:bu
 lista indentada|^- name: "type:bug"|  - name: "type:bug"|"\x74ipo:bug"/"\x74ipo:otro"
 FORMATOS
 copia
-printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
-printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
+printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
 s=$(check)
 # shellcheck disable=SC2016  # backticks literales del mensaje
-grep -q 'Warning: .*ADR-002-prueba.md.*Scope: kit' <<<"$s" && ! grep -q 'has `Ámbito: kit` but' <<<"$s"; afirmar $? "un ADR con 'Scope: kit' y su hermano sin ámbito: un solo aviso, el del Scope (no dice que tiene 'Ámbito: kit')"
+grep -q 'Warning: .*ADR-099-prueba.md.*Scope: kit' <<<"$s" && ! grep -q 'has `Ámbito: kit` but' <<<"$s"; afirmar $? "un ADR con 'Scope: kit' y su hermano sin ámbito: un solo aviso, el del Scope (no dice que tiene 'Ámbito: kit')"
 # ADRs: 'Ámbito: kit' en un idioma y no en el otro; con finales de línea CRLF el init tampoco lo borra.
 copia
-printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
-printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
+printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
 s=$(check)
-grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*ADR-002-prueba.es.md' <<<"$s"; afirmar $? "un ADR con 'Ámbito: kit' en el .md y no en el .es.md avisa"
-printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
-printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*ADR-099-prueba.es.md' <<<"$s"; afirmar $? "un ADR con 'Ámbito: kit' en el .md y no en el .es.md avisa"
+printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
+printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
 s=$(check)
-grep -q 'Warning: .*ADR-002-prueba.es.md.*Ámbito: kit.*ADR-002-prueba.md' <<<"$s"; afirmar $? "un ADR con 'Ámbito: kit' en el .es.md y no en el .md avisa"
+grep -q 'Warning: .*ADR-099-prueba.es.md.*Ámbito: kit.*ADR-099-prueba.md' <<<"$s"; afirmar $? "un ADR con 'Ámbito: kit' en el .es.md y no en el .md avisa"
 copia
-printf '# ADR-002 — Prueba\r\n\r\n## Status\r\n\r\nAccepted\r\n\r\nÁmbito: kit\r\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+printf '# ADR-099 — Prueba\r\n\r\n## Status\r\n\r\nAccepted\r\n\r\nÁmbito: kit\r\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 s=$(check)
-grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar $? "un 'Ámbito: kit' con final de línea CRLF avisa que el init no lo borra"
+grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar $? "un 'Ámbito: kit' con final de línea CRLF avisa que el init no lo borra"
 
 # Los índices de ADRs: los hermanos en español (docs/README.es.md, docs/llms.es.txt) también tienen que listar cada ADR.
 copia
@@ -258,18 +258,51 @@ copia
 s=$(check)
 ! grep -q 'missing from the index' <<<"$s"; afirmar $? "índices: la plantilla tal como está lista el ADR en los cuatro (README, llms, y sus hermanos)"
 
+# Los ADRs del kit que los proyectos instalan viven en docs/decisions/kit/ (decidido por @lautioliver, 2026-10-17): la numeración
+# del proyecto en docs/decisions/ queda libre. check-docs los lee, y dos ADRs con el mismo número en carpetas distintas no se pisan.
+KITADR=ADR-002-structured-red-validation.md
+[ -f "$RAIZ/docs/decisions/kit/$KITADR" ] && [ -f "$RAIZ/docs/decisions/kit/${KITADR%.md}.es.md" ] && ! ls "$RAIZ"/docs/decisions/ADR-002-* >/dev/null 2>&1
+afirmar $? "el ADR-002 (en y es) vive en docs/decisions/kit/ y no queda uno suelto en docs/decisions/"
+for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do
+  copia
+  grep -v "$KITADR" "$TMP/r/$indice" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/$indice"
+  s=$(check)
+  grep -q "$indice: the ADR kit/$KITADR is missing from the index" <<<"$s"; afirmar $? "índices: un ADR de kit/ que falta en $indice falla (con su ruta kit/)"
+done
+# Mismo número en las dos carpetas: cada uno se pide por su ruta; el índice del de kit/ no cubre al de afuera (ni al revés).
+copia
+printf '# ADR-002 — Otro\n\n## Status\n\nAccepted\n' >"$TMP/r/docs/decisions/ADR-002-otro.md"
+s=$(check)
+grep -q 'docs/README.md: the ADR ADR-002-otro.md is missing from the index' <<<"$s" && ! grep -q "the ADR kit/$KITADR is missing" <<<"$s"
+afirmar $? "mismo número 002 en docs/decisions/ y en kit/: el índice del de kit/ no tapa al otro"
+copia
+cp "$TMP/r/docs/decisions/kit/$KITADR" "$TMP/r/docs/decisions/$KITADR"
+s=$(check)
+grep -q "docs/README.md: the ADR $KITADR is missing from the index" <<<"$s" && ! grep -q "the ADR kit/$KITADR is missing" <<<"$s"
+afirmar $? "mismo nombre en docs/decisions/ y en kit/: el índice del de kit/ no cubre al de afuera"
+copia
+printf '# ADR-002 — Otro\n\n## Status\n\nAccepted\n' >"$TMP/r/docs/decisions/ADR-002-otro.md"
+for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do printf -- '- [ADR-002 otro](decisions/ADR-002-otro.md)\n' >>"$TMP/r/$indice"; done
+s=$(check)
+! grep -q 'missing from the index' <<<"$s"; afirmar $? "mismo número 002 en las dos carpetas, cada uno con su línea en los cuatro índices: no falla"
+# Una mención ADR-NNN se resuelve contra las dos carpetas: la de kit/ existe, una inexistente no.
+copia
+printf '\nSee ADR-002 and ADR-077.\n' >>"$TMP/r/docs/README.md"
+s=$(check)
+grep -q 'ADR-077 does not exist' <<<"$s" && ! grep -q 'ADR-002 does not exist' <<<"$s"; afirmar $? "una mención ADR-002 se resuelve con el de kit/; ADR-077 no existe y falla"
+
 # "Scope: kit" no lo borra el init (solo "Ámbito: kit"): check-docs avisa, sin fallar.
 copia
-printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 s=$(check)
-grep -q 'Warning: .*ADR-002-prueba.md.*Scope: kit.*Ámbito: kit' <<<"$s"; afirmar $? "un ADR con 'Scope: kit' da un aviso que dice que el init solo borra 'Ámbito: kit'"
+grep -q 'Warning: .*ADR-099-prueba.md.*Scope: kit.*Ámbito: kit' <<<"$s"; afirmar $? "un ADR con 'Scope: kit' da un aviso que dice que el init solo borra 'Ámbito: kit'"
 copia
 s=$(check)
 ! grep -q 'Scope: kit' <<<"$s"; afirmar $? "sin 'Scope: kit' en ningún ADR no hay aviso"
 # En un proyecto (sin init-template.sh) un ADR propio con esa línea es suyo: no hay nada que borrar, no hay aviso.
 copia
 rm "$TMP/r/scripts/init-template.sh"
-printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 s=$(check)
 ! grep -q 'Scope: kit' <<<"$s"; afirmar $? "sin init-template.sh (un proyecto) un ADR con 'Scope: kit' no da aviso"
 
@@ -277,8 +310,8 @@ s=$(check)
 # (no puede depender del orden en que el sistema de archivos lista los dos: el test fuerza los dos órdenes).
 for orden in 1 2; do
   copia
-  printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
-  printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+  printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
+  printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
   # touch -t no cambia el orden de os.listdir: se fuerza el orden con un os.listdir propio (ascendente en 1, descendente en 2).
   s=$(cd "$TMP/r" && python3 -c "
 import os, runpy, sys
@@ -286,21 +319,21 @@ real = os.listdir
 os.listdir = lambda p='.': sorted(real(p), reverse=($orden == 2))
 sys.argv = ['check-docs.py']
 runpy.run_path('scripts/agents/check-docs.py', run_name='__main__')" 2>&1)
-  grep -q 'Warning: .*ADR-002-prueba.md .*Scope: kit' <<<"$s" && ! grep -q 'ADR-002-prueba.es.md is missing from the index' <<<"$s" && grep -q 'ADR-002-prueba.md is missing from the index' <<<"$s"
+  grep -q 'Warning: .*ADR-099-prueba.md .*Scope: kit' <<<"$s" && ! grep -q 'ADR-099-prueba.es.md is missing from the index' <<<"$s" && grep -q 'ADR-099-prueba.md is missing from the index' <<<"$s"
   afirmar $? "ADR con hermano .es.md (prueba $orden): avisa 'Scope: kit' del .md y el índice pide solo el .md"
 done
 # Un 'Ámbito: kit ' con espacio al final tampoco lo borra el init (grep -x exacto): avisa.
 copia
-printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit \n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit \n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 s=$(check)
-grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar $? "un 'Ámbito: kit' con espacios al final avisa que el init no lo borra"
+grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar $? "un 'Ámbito: kit' con espacios al final avisa que el init no lo borra"
 
 # Un 'Ámbito: kit ' con espacios al final en un idioma y nada en el otro: el init no borra ninguno, así que no hay diferencia que avisar.
 copia
-printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nÁmbito: kit \n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
-printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nÁmbito: kit \n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
+printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
 s=$(check)
-grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*trailing' <<<"$s" && ! grep -q 'the two siblings must agree' <<<"$s"; afirmar $? "un 'Ámbito: kit ' con espacios al final no se cuenta como kit en la comparación de hermanos (no dice algo falso)"
+grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*trailing' <<<"$s" && ! grep -q 'the two siblings must agree' <<<"$s"; afirmar $? "un 'Ámbito: kit ' con espacios al final no se cuenta como kit en la comparación de hermanos (no dice algo falso)"
 # formularios: un campo sin id después de otro con id no hereda su id (required va con el campo al que pertenece).
 copia; parity true
 printf 'name: X\ndescription: x\nbody:\n  - type: textarea\n    id: aaa\n    validations: { required: true }\n  - type: textarea\n    attributes: { label: B }\n' >"$TMP/r/.github/ISSUE_TEMPLATE/9-x.yml"
