@@ -87,7 +87,7 @@ else
   while IFS= read -r linea; do
     case "$linea" in agent_sha:*|skill_sha:*)
       v=$(sed -E 's/^[a-z_]+:[[:space:]]*//; s/[[:space:]]+$//' <<<"$linea")
-      [[ "$v" =~ ^([0-9a-fA-F]{7,40}|unknown)$ ]] || continue;;
+      [[ "$v" =~ ^([0-9a-fA-F]{7,64}|unknown)$ ]] || continue;;
     esac
     fm_ok+="$linea"$'\n'
   done <<<"$fm"

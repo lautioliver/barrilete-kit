@@ -18,7 +18,7 @@ gh pr checks <n>
 cd <root> && python3 scripts/agents/agents_map.py --pr <n>
 ```
 
-`<root>` es el checkout de confianza: el de tu propia sesión, o el del orquestador si te lanzó. Los scripts del kit (`agents_map.py`, `red.sh`, `retro.sh`) corren siempre desde ahí, nunca desde el worktree del PR: es código del PR que nadie revisó todavía. Lo único del PR que se ejecuta son los tests del commit en rojo (§3), y eso sigue siendo código del PR: antes mirá que el commit en rojo solo agregue tests (no scripts, `package.json`, CI ni config de build); si hace más, no lo corras y decilo en la revisión.
+`<root>` es el checkout de confianza: el de tu propia sesión, en la rama base (no en la del PR), o el del orquestador si te lanzó. El revisor corre siempre los scripts del kit (`red.sh`, `agents_map.py`, `verify.py`, `retro.sh`) desde el checkout de confianza, en la rama base. Corre los tests del PR en el worktree de revisión, en el commit en rojo y en la punta, sabiendo que son código del PR: es inevitable para comprobar el TDD. El commit en rojo puede tener tests, fixtures y stubs. Nunca corre otro código del PR (scripts, hooks, instaladores).
 
 Leé el issue que cierra (y su épica, si tiene): la revisión es contra lo que se pidió, no contra lo que el PR dice que hace.
 

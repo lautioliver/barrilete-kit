@@ -267,17 +267,17 @@
     {
       "name": "lint",
       "always": true,
-      "run": "TODO: comando de lint (por ejemplo: npm run lint)"
+      "run": "TODO: lint command (for example: npm run lint)"
     },
     {
       "name": "typecheck",
       "always": true,
-      "run": "TODO: comando de typecheck (por ejemplo: npx tsc --noEmit)"
+      "run": "TODO: typecheck command (for example: npx tsc --noEmit)"
     },
     {
       "name": "tests",
       "always": true,
-      "run": "TODO: tests, idealmente solo los afectados (por ejemplo: npx vitest related {files} --run)"
+      "run": "TODO: the tests, ideally only the affected ones (for example: npx vitest related {files} --run)"
     },
     {
       "name": "migrations",
@@ -285,14 +285,14 @@
         "TODO/schema/**",
         "?**/migrations/**"
       ],
-      "run": "TODO: verificar que el schema y las migraciones coinciden (generar y comprobar que no queda nada sin commitear)"
+      "run": "TODO: check that the schema and the migrations match (generate and check that nothing is left uncommitted)"
     },
     {
       "name": "api-contract",
       "when": [
         "TODO/public-api/**"
       ],
-      "run": "TODO: comparar el contrato público contra la base (por ejemplo: un diff de OpenAPI)"
+      "run": "TODO: compare the public contract against the base (for example: an OpenAPI diff)"
     }
   ],
   "required": [

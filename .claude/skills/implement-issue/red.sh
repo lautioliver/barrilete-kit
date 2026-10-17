@@ -35,6 +35,8 @@ fi
 #    pytest also marks these as FAILED.
 mala='Cannot find module|Failed to resolve import|ERR_MODULE_NOT_FOUND|SyntaxError|ReferenceError|is not defined|is not a function|is not a constructor|Transform failed|error TS[0-9]{4}'
 mala+='|ImportError|ModuleNotFoundError|IndentationError|AttributeError: module|NameError|ERROR collecting|no tests ran|collected 0 items|No test files found|No tests found'
+# A bash test that did not run: a missing script, a syntax error, an unset variable, a missing command.
+mala+='|No such file or directory|syntax error|unbound variable|command not found'
 # Missing symbol or wrong signature: the test runs, but breaks before the assertion.
 mala+="|AttributeError: '[^']*' object has no attribute|TypeError: .*(takes [0-9]+ positional argument|missing [0-9]+ required|unexpected keyword argument|Cannot read propert(y|ies) of (undefined|null))"
 if grep -Eq "$mala" "$salida"; then
@@ -49,9 +51,13 @@ fi
 #    example, exits with 2). FAILED (pytest) and ×/✗ (vitest) mark any failing test, not
 #    an assertion: they are not enough. "E   assert" is the pytest line with the assertion that failed
 #    (">   assert" is the test code); with --tb=line it only remains in the summary (FAILED … - assert).
-#    DID NOT RAISE is a pytest.raises that was not met. A line that starts with `FAIL - ` or `FAIL: ` (in Spanish `FALLA`/`FALLO`/`FALLÓ`,
-#    same separators) is the format of the test-*.sh: it is how a bash test says that an assertion failed.
-aserciones='AssertionError|^E +assert |FAILED .*::[^ ]* - (assert |AssertionError)|DID NOT RAISE|Expected|Received|expected .* to|^(FAIL|FALLA|FALLO|FALLÓ)( - |: )'
+#    DID NOT RAISE is a pytest.raises that was not met. A line that starts with `FAIL - ` (in Spanish `FALLA`/`FALLO`/`FALLÓ`) is the
+#    format of the test-*.sh: it is how a bash test says that an assertion failed. A bare `FAIL: ` counts too, but only if the output
+#    has no crash signal: automake and Bazel print `FAIL: <test>` for ANY failing test (a segfault, a load error), so with a
+#    segfault, a core dump or their summary lines it is not evidence of an assertion.
+aserciones='AssertionError|^E +assert |FAILED .*::[^ ]* - (assert |AssertionError)|DID NOT RAISE|Expected|Received|expected .* to|^(FAIL|FALLA|FALLO|FALLÓ) - '
+crash='Segmentation fault|core dumped|Aborted|^# (TOTAL|FAIL):|^FAIL: //|\(see [^)]*\.log\)|test-suite\.log'
+grep -Eq "$crash" "$salida" || aserciones+='|^(FAIL|FALLA|FALLO|FALLÓ): '
 if ! grep -Eq "$aserciones" "$salida"; then
   echo "The tests fail, but I do not recognize this failure as an assertion; check it and, if it is valid,"
   echo "add the pattern to red.sh. Last lines:"
@@ -60,7 +66,7 @@ if ! grep -Eq "$aserciones" "$salida"; then
   exit 2
 fi
 
-resumen=$(grep -E "FAIL|FALL|$aserciones" "$salida" | head -40)
+resumen=$(grep -E "FAIL|$aserciones" "$salida" | head -40)
 fallas="${resumen:-$(tail -20 "$salida")}"
 pr="${salida}.md"
 {

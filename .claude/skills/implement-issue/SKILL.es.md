@@ -39,7 +39,7 @@ TDD: los tests salen de los **criterios de aceptación** del issue, no del códi
   ```
   Si pasan, no prueban nada: reescribilos. Si fallan por un import o un símbolo inexistente, no cuenta: completá el stub. Cada falla tiene que ser una aserción de un criterio.
 - Lo que `red.sh` acepta como aserción: la salida de aserción de la herramienta (`AssertionError`, `E   assert`, `Expected`/`Received`…) o, en un test bash (`test-*.sh`), una línea que **empieza con `FAIL - <descripción>` o `FAIL: <descripción>`** (`FALLA - …`/`FALLO: …` también valen). Cualquier otra forma (`not ok`, `Error: …`, un mensaje propio) sale con 2: hacé que el helper de aserciones del test imprima una de esas líneas.
-- **Commiteá los tests en rojo** antes de implementar (`test(<scope>): …`), así el revisor puede volver a ese commit y verlos fallar. Guardá el bloque que deja `red.sh` para el PR.
+- **Commiteá los tests en rojo** antes de implementar (`test(<scope>): …`), así el revisor puede volver a ese commit y verlos fallar. Ese commit puede tener tests, fixtures y stubs, y nada más (ni scripts, hooks, instaladores, CI ni config de build): el revisor lo corre. Guardá el bloque que deja `red.sh` para el PR.
 - Sin comportamiento que probar (docs, config) o con una parte que no se puede probar acá (concurrencia real, un proveedor externo): decilo en el PR como **`sin test`** (o `no tests: <motivo>`: el check del CI acepta los dos), con el motivo.
 
 ## 4. Implementar (verde)

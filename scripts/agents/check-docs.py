@@ -313,7 +313,7 @@ def etiquetas(ruta):
                        "format not supported by this check (write each label as `- name: ...`).")
     valida = (re.compile(r"^\s*(?:#.*)?$"), re.compile(r"^- name: *(?:\"[^\"]*\"|'[^']*'|[^\s#\"'{\[][^#]*?) *$"),
               re.compile(r"^  (?!aliases:)[a-z_]+: *\S.*$"), re.compile(r"^  aliases: *$"))
-    alias_ok = re.compile(r"^    - +(?:\"[^\"]*\"|'[^']*'|[^\s#\"'{\[][^#]*?) *$")  # a space after the dash is required
+    alias_ok = re.compile(r"^    - (?:\"[^\"]*\"|'[^']*'|[^\s#\"'{\[][^#]*?) *$")  # exactly one space after the dash: the parser below reads `- ` once
     en_aliases = False  # `    - "x"` lines only count right after `  aliases:` (a stray one would be dropped without a word)
     for n, linea in enumerate(texto.splitlines(), 1):
         if re.match(r"^  aliases: *$", linea):
