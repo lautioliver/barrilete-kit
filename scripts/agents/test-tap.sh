@@ -6,7 +6,7 @@
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-tap-XXXXXX")" && pwd -P)
-# shellcheck source=scripts/agents/tap.sh
+# shellcheck source=/dev/null
 . "$ROOT/scripts/agents/tap.sh"
 tap_begin "$0"
 tap_at_exit 'rm -rf "$TMP"'
@@ -21,7 +21,9 @@ run_tap() {
     printf '%s\n' "$1"
   } >"$TMP/t.sh"
   rm -f "$TMP/tap"
-  if [ "${2:-}" = "file" ]; then
+  if [ "${2:-}" = "dir" ]; then
+    (cd "$ROOT" && TAP_OUT="$TMP" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"); echo $? >"$TMP/rc"
+  elif [ "${2:-}" = "file" ]; then
     (cd "$ROOT" && TAP_OUT="$TMP/tap" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"); echo $? >"$TMP/rc"
   else
     (cd "$ROOT" && env -u TAP_OUT bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"); echo $? >"$TMP/rc"
@@ -40,6 +42,7 @@ before_cases() { local f; f=$(line_of '^# file: ' "$TMP/tap"); [ "$f" -gt 0 ] &&
 empty() { [ ! -s "$1" ]; }
 nonempty() { [ -s "$1" ]; }
 nogrep() { ! grep -q -- "$1" "$2" 2>/dev/null; }
+has_msg() { grep -q -- "$1" "$TMP/stderr" 2>/dev/null; }
 has_bail() { grep -q "^Bail out!" "$TMP/tap" 2>/dev/null; }
 has_cleaned() { grep -q "^cleaned" "$TMP/stderr" 2>/dev/null; }
 
@@ -189,18 +192,61 @@ count_is 2 '^# file: ' "$TMP/tap3"; check $? "each script writes its own # file:
 run_tap 'tap_skip_all "does not apply here"' file
 has "1..0 # SKIP does not apply here" "$TMP/tap" && rc_is 0; check $? "tap_skip_all writes 1..0 # SKIP and exits with 0"
 
+# 8b. Fail closed: a TAP_OUT that cannot be opened is an error, never a green run with nothing recorded.
+run_tap 'tap_ok "x"
+tap_done' dir
+rc_not 0; check $? "a TAP_OUT that cannot be opened exits non-zero"
+has_msg "TAP_OUT"; check $? "a TAP_OUT that cannot be opened says so on stderr"
+run_tap 'tap_ok "x"
+tap_done' file
+rc_is 0; check $? "a TAP_OUT that can be opened still works"
+
+# 8c. An unexpected failure without set -e: a command that does not exist or cannot run is never a checked status.
+run_tap 'tap_ok "before"
+command_that_does_not_exist_here 2>/dev/null
+tap_ok "after"
+tap_done' file
+has_bail && rc_not 0; check $? "a command that does not exist emits Bail out! even without set -e"
+run_tap 'tap_ok "before"
+kill -TERM $$
+tap_ok "after"
+tap_done' file
+has_bail && rc_not 0; check $? "a script killed by a signal emits Bail out!"
+
+# 8d. A merged case that passes does not show the description of its first repetition only.
+run_tap 'for x in a b c; do tap_ok "looped" "input $x"; done
+tap_ok "single" "only one"
+tap_done' file
+nogrep "input a" "$TMP/tap" && has "# desc: only one" "$TMP/tap"; check $? "a passing case with repetitions has no description, one with a single call keeps it"
+
+# 8e. A bail out leaves no plan from an earlier script in the stream.
+printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_ok "d"\nexit 4\n' "$ROOT" >"$TMP/three.sh"
+rm -f "$TMP/tap4"; (cd "$ROOT" && TAP_OUT="$TMP/tap4" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap4" bash "$TMP/three.sh") 2>/dev/null
+has_bail4() { grep -q '^Bail out!' "$TMP/tap4" 2>/dev/null; }
+has_bail4 && nogrep '^1\.\.' "$TMP/tap4"; check $? "a bail out removes the plan an earlier script wrote"
+
 # 9. The kit's own tests use the helper (what the issue migrates).
+# test-red.sh is left out on purpose: it belongs to the rewrite of red.sh (#150), which migrates it to tap.sh.
+# Remove the exclusion when #150 lands (the hand-off is recorded on issue #150).
 SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh ! -name test-red.sh | sort)
 n=0; sin=""
 for s in $SCRIPTS; do n=$((n + 1)); grep -q 'agents/tap\.sh' "$ROOT/$s" || sin="$sin $s"; done
-[ -z "$sin" ] && [ "$n" -ge 1 ]; check $? "every test-*.sh of the kit loads tap.sh (missing:${sin:- none})"
+[ -z "$sin" ] && [ "$n" -ge 1 ]; check $? "every test-*.sh of the kit loads tap.sh" "missing:${sin:- none}"
 propios=""
 for s in $SCRIPTS; do grep -qE '^(ok|falla|fail)\(\)' "$ROOT/$s" && propios="$propios $s"; done
-[ -z "$propios" ]; check $? "no test-*.sh defines its own ok()/falla()/fail() (still:${propios:- none})"
+[ -z "$propios" ]; check $? "no test-*.sh defines its own ok()/falla()/fail()" "still:${propios:- none}"
 dinamicos=""
-for s in $SCRIPTS; do
-  grep -nE 'tap_(ok|fail) "[^"]*\$|tap_check [^ ]+ "[^"]*\$' "$ROOT/$s" | grep -vE 'tap_(ok|fail) "\$\{?[A-Za-z0-9_@*]+\}?"|tap_check [^ ]+ "\$\{?[A-Za-z0-9_@*]+\}?"' >"$TMP/dyn" && dinamicos="$dinamicos $s:$(head -1 "$TMP/dyn" | cut -d: -f1)"
+# test-tap.sh is checked too: its own wrapper is check $?, so that call is looked at as well.
+for s in $SCRIPTS scripts/agents/test-tap.sh; do
+  grep -nE '(tap_(ok|fail)|tap_check [^ ]+|check \$\?) "[^"]*\$' "$ROOT/$s" | grep -vE '(tap_(ok|fail)|tap_check [^ ]+|check \$\?) "\$\{?[A-Za-z0-9_@*]+\}?"' >"$TMP/dyn" && dinamicos="$dinamicos $s:$(head -1 "$TMP/dyn" | cut -d: -f1)"
 done
-[ -z "$dinamicos" ]; check $? "the id of each case is a literal, never built at run time (first offender:${dinamicos:- none})"
+[ -z "$dinamicos" ]; check $? "the id of each case is a literal, never built at run time" "first offender:${dinamicos:- none}"
+# tap_begin runs before any cd of the script: with a relative $0 it would resolve from the wrong folder.
+tarde=""
+for s in $SCRIPTS; do
+  b=$(grep -n '^tap_begin ' "$ROOT/$s" | head -1 | cut -d: -f1); c=$(grep -n '^cd ' "$ROOT/$s" | head -1 | cut -d: -f1)
+  [ -z "$c" ] || [ "${b:-999999}" -lt "$c" ] || tarde="$tarde $s"
+done
+[ -z "$tarde" ]; check $? "tap_begin comes before the first cd of each test" "after the cd:${tarde:- none}"
 
 tap_done
