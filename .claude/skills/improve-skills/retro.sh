@@ -81,6 +81,8 @@ else
     cat "$AQUI/retro-template.md" >&2; exit 1
   fi
   fm=$({ echo ---; echo "$fm"; echo ---; } | normalize_legacy_names | sed '1d;$d' | awk '/^[a-z_]+:/ { k = $0; sub(/:.*/, "", k); if (seen[k]++) next } { print }')  # 0.9 keys and values (modelo:, orquestar…) become the new ones; a 0.9 key next to its new one: the first stays
+  # agent_sha / skill_sha copied from the template without filling them in (<...>) are dropped: retro.sh puts the real ones.
+  fm=$(grep -vE '^(agent_sha|skill_sha):[[:space:]]*<' <<<"$fm" || true)
   skill=$(campo skill "$fm"); issue=$(campo issue "$fm"); pr=$(campo pr "$fm"); run=$(campo run "$fm")
   issue="${issue#\#}"; pr="${pr#\#}"
   case "$skill" in implement-issue|review-pr|improve-skills|orchestrate) ;; *)

@@ -150,6 +150,13 @@ for w in .github/workflows/*.yml; do
     echo "init: could not adjust the branch filter of $w"; exit 1
   fi
 done
+# With base main, "neither to <base> nor to main" would say "main" twice: the whole phrase changes (before the generic replacement).
+if [ "$B" = "main" ]; then
+  # shellcheck disable=SC2016  # Markdown backticks, literal
+  { grep -rlE 'neither to `<BASE_BRANCH>` nor to `main`|ni a `<BASE_BRANCH>` ni a `main`' --exclude-dir=.git --exclude=init-template.sh . || true; } | while read -r f; do
+    perl -pi -e 's/neither to `<BASE_BRANCH>` nor to `main`/not even to `main`/g; s/ni a `<BASE_BRANCH>` ni a `main`/ni siquiera a `main`/g' "$f"
+  done
+fi
 # shellcheck disable=SC2016  # $ENV{…} expanded by perl, not bash
 grep -rlE '<PROJECT>|<BASE_BRANCH>|<DATE>|<BRANCH_RULE>|<COMMIT_LANG>' --exclude-dir=.git --exclude=init-template.sh . \
   | xargs perl -pi -e 's/<PROJECT>/$ENV{P}/g; s/<BASE_BRANCH>/$ENV{B}/g; s/<DATE>/$ENV{F}/g; s/<BRANCH_RULE>/$ENV{R}/g; s/<COMMIT_LANG>/$ENV{CL}/g'

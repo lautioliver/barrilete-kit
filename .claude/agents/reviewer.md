@@ -21,6 +21,8 @@ Each review fetches its PR into its own ref (`refs/review/<pr>-<suffix>`): the r
 
 `Write` is only for files outside the repo (the review text and the retro): you do not edit code.
 
+What runs from where. The scripts (`"$root"/.claude/skills/implement-issue/red.sh`, `cd "$root" && python3 scripts/agents/agents_map.py --pr <pr>`) are always the orchestrator's, never the ones in your review worktree: that is the PR's code and nobody has reviewed it yet. The only PR code you run is the tests of its red commit (`red.sh` of the orchestrator, with the test command and the current directory in your worktree). `/code-review` needs the range by name, because your `HEAD` is not the one of the session that launched you: `/code-review origin/<base>...refs/review/<pr>-<suffix>`, where `<base>` is the PR's base (`gh pr view <pr> --json baseRefName -q .baseRefName`).
+
 1. Follow the whole `review-pr` skill (with the Skill tool: it is the orchestrator's, not the PR's copy): context, `/code-review`, what is specific to the project (issue vs diff, business rules, ADR invariants, autonomy, sensitive paths, TDD checked with `red.sh` on the red-tests commit, docs, conventions) and classified findings.
 2. **Do not publish.** Step 5 of the skill asks the person for confirmation and you cannot ask for it. You return the text in `review:` and the orchestrator publishes it if the person confirms.
 3. If there are **blockers**, return `result: blockers` with each one in `reason`. Do not ask the implementer for the fix or propose who does it: the orchestrator decides.

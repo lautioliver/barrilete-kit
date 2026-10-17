@@ -36,7 +36,7 @@ Título en imperativo, sin prefijo: `Agregar login con Google`. Para bugs vale e
 
 Fuente: [`.github/labels.yml`](../.github/labels.yml). No se crean otros.
 
-**Repos que ya tienen labels:** el sync de `labels.yml` borra los que no están en el archivo. El instalador (`install.py`) agrega al archivo los que ya tiene el repo (`gh label list`), en la sección `# ── project's own labels …`, así el sync no borra ninguno. Los que GitHub crea en todo repo nuevo (`bug`, `enhancement`…) quedan ahí: borralos de esa sección si no los querés.
+**Repos que ya tienen labels:** el sync de `labels.yml` borra los que no están en el archivo. En un repo que ya tenía labels, agregá al archivo los que tiene (`gh label list`), en la sección `# ── project's own labels …`, así el sync no borra ninguno. Los que GitHub crea en todo repo nuevo (`bug`, `enhancement`…) quedan ahí: borralos de esa sección si no los querés.
 
 ## Versiones
 

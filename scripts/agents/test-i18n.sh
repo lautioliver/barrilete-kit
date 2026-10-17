@@ -113,7 +113,7 @@ rm "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
 s=$(check)
 grep -q '.github/ISSUE_TEMPLATE/1-bug.yml: missing its Spanish sibling .github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; afirmar $? "formularios: sin su hermano en .github/i18n/ISSUE_TEMPLATE/ falla con esa ruta"
 copia; parity true
-sed -i.bak 's/id: esperado/id: otro/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
+sed -i.bak 's/id: expected/id: otro/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
 s=$(check)
 grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; afirmar $? "formularios: ids distintos entre los dos idiomas fallan con los dos archivos"
 copia; parity true

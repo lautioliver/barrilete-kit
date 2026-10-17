@@ -295,7 +295,7 @@ for t in retro-template.md retro-template.es.md; do
 done
 # 4. La base del diff del /code-review es la del PR (o BASE), nunca origin/main fijo, y la rama va por nombre (no HEAD).
 ! grep -Eq 'code-review[^`]*(origin/main|\.\.\.HEAD)' "$I" "$V" "$C" "$AG"/*.md; afirmar $? "ninguna skill ni agente fija origin/main ni ...HEAD en el /code-review"
-grep -q 'refs/review/<pr>-<suffix>' "$R" && grep -Eq 'code-review origin/<base>\.\.\.refs/review' "$R"; afirmar $? "revisor: /code-review sobre origin/<base>...refs/review/<pr>-<suffix> (su HEAD no es el de la sesión que lo lanzó)"
+grep -Eq 'code-review origin/<base>\.\.\.refs/(review|revision)/' "$R"; afirmar $? "revisor: /code-review sobre origin/<base>...refs/review/<pr>-<suffix> (su HEAD no es el de la sesión que lo lanzó)"
 # 5. Una sola regla para saltear /code-review, y qué poner en self-review:.
 ambos "una sola regla: /code-review se saltea solo si el comando no existe en la sesión, y se informa como 'no code-review: <reason>'" 'no code-review: <(reason|motivo)>' "$C" "$I" "$AG/implementer.md" "$AG/implementer-light.md"
 ambos "la regla de saltear /code-review dice 'no existe en tu sesión' en la skill, el contrato y los agentes" 'does not exist in your session|no existe en tu sesión' "$C" "$I" "$V" "$AG/implementer.md" "$AG/implementer-light.md"
@@ -303,9 +303,15 @@ ambos "un diff vacío no es motivo para saltear /code-review (se arregla el rang
 # 8. El revisor no corre código del PR salvo los tests: los scripts del kit salen del checkout de confianza.
 ambos "review-pr: agents_map.py y red.sh corren desde el checkout de confianza (<root>), no desde el worktree del PR" 'cd <root> && python3 scripts/agents/agents_map.py --pr <n>' "$V"
 ambos "review-pr: red.sh del checkout de confianza, y lo único del PR que corre son sus tests" '<root>/.claude/skills/implement-issue/red\.sh --' "$V"
-ambos "revisor: red.sh y agents_map.py del checkout del orquestador, no del worktree de revisión" 'root.*/\.claude/skills/implement-issue/red\.sh|root.*agents_map\.py' "$R"
+ambos "revisor: red.sh y agents_map.py del checkout del orquestador, no del worktree de revisión" '(root|raiz).*/\.claude/skills/implement-issue/red\.sh.*agents_map\.py' "$R"
 # 7. Restos en español en la instalación en inglés.
-! grep -Eq 'Qué pasa|Qué debería' "$SK/create-issue/SKILL.md" && grep -q '## What happens' "$SK/create-issue/SKILL.md" && grep -q '## Qué pasa' "$SK/create-issue/SKILL.es.md"; afirmar $? "create-issue paso 6: los títulos del cuerpo salen de la plantilla en el idioma de la instalación"
+CI="$SK/create-issue/SKILL.md"
+if [ -f "$SK/create-issue/SKILL.es.md" ]; then
+  ! grep -Eq 'Qué pasa|Qué debería' "$CI" && grep -q '## What happens' "$CI" && grep -q '## Qué pasa' "$SK/create-issue/SKILL.es.md"
+else  # proyecto instalado: un solo idioma, sin mezclar
+  grep -Eq '## (What happens|Qué pasa)' "$CI" && ! { grep -q 'What happens' "$CI" && grep -q 'Qué pasa' "$CI"; }
+fi
+afirmar $? "create-issue paso 6: los títulos del cuerpo salen de la plantilla en el idioma de la instalación"
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi

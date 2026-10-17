@@ -341,6 +341,13 @@ grep -q posterior <<<"$s" && ! grep -q anterior <<<"$s"; afirmar $? "signals.sh 
 s=$(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/signals.sh" 2>&1)
 ! grep -q 'consolidate up to: ' <<<"$s"; afirmar $? "signals.sh no ofrece consolidar ramas sin retros nuevas"
 
+# #143: el template trae agent_sha y skill_sha; si se copia sin completar (<...>), retro.sh los reemplaza por los reales en vez de guardar el texto.
+printf -- '---\nskill: implement-issue\nissue: 77\npr: 99\nmodel: sonnet\nrole: implementer\nagent_sha: <the agent_sha the orchestrator gave you>\nskill_sha: <the skill_sha the orchestrator gave you>\n---\n**Desvíos:** plantilla sin completar\n' >"$TMP/ph.md"
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/ph.md" >"$TMP/ph.out" 2>&1)
+c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-77\.md$')" 2>/dev/null)
+grep -Eq '^agent_sha: [0-9a-f]{40}$|^agent_sha: unknown$' <<<"$c" && grep -Eq '^skill_sha: [0-9a-f]{40}$|^skill_sha: unknown$' <<<"$c" && ! grep -Eq '^(agent_sha|skill_sha): <' <<<"$c"; afirmar $? "agent_sha y skill_sha sin completar (<...>) no se guardan: retro.sh pone los reales"
+grep -q '^agent_sha:' "$AQUI/retro-template.md" && grep -q '^skill_sha:' "$AQUI/retro-template.md"; afirmar $? "el template de retro trae agent_sha y skill_sha"
+
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
 echo "Todos los tests pasan."

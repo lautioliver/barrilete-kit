@@ -2,16 +2,16 @@
 # TDD: runs the freshly written tests BEFORE implementing and requires them to fail,
 # for the right reason (a behavior assertion, not a broken import).
 # Leaves a block ready to paste into "How to test it" of the PR.
-# Uso: red.sh -- <comando de test>
-#   ej.: red.sh -- npx vitest run src/modulo
+# Usage: red.sh -- <test command>
+#   e.g.: red.sh -- npx vitest run src/module
 # Exits with 0 if it is red because of an assertion; 1 if the tests pass; 2 if they fail
 # for another reason (the command did not run, loading, syntax, missing symbol) or for
 # a failure it does not recognize as an assertion.
 set -uo pipefail
 [ "${1:-}" = "--" ] && shift
-[ $# -gt 0 ] || { echo "Uso: $0 -- <comando de test>" >&2; exit 64; }
+[ $# -gt 0 ] || { echo "Usage: $0 -- <test command>" >&2; exit 64; }
 
-salida=$(mktemp "${TMPDIR:-/tmp}/rojo-XXXXXX")
+salida=$(mktemp "${TMPDIR:-/tmp}/red-XXXXXX")
 "$@" >"$salida" 2>&1
 codigo=$?
 # Without ANSI colors (pytest with PY_COLORS=1, vitest): otherwise "^E +assert" does not recognize the line.
@@ -49,8 +49,9 @@ fi
 #    example, exits with 2). FAILED (pytest) and ×/✗ (vitest) mark any failing test, not
 #    an assertion: they are not enough. "E   assert" is the pytest line with the assertion that failed
 #    (">   assert" is the test code); with --tb=line it only remains in the summary (FAILED … - assert).
-#    DID NOT RAISE is a pytest.raises that was not met. ^FAIL - is the format of the test-*.sh.
-aserciones='AssertionError|^E +assert |FAILED .*::[^ ]* - (assert |AssertionError)|DID NOT RAISE|Expected|Received|expected .* to|^FAIL - '
+#    DID NOT RAISE is a pytest.raises that was not met. A line that starts with `FAIL - ` or `FAIL: ` (in Spanish `FALLA`/`FALLO`/`FALLÓ`,
+#    same separators) is the format of the test-*.sh: it is how a bash test says that an assertion failed.
+aserciones='AssertionError|^E +assert |FAILED .*::[^ ]* - (assert |AssertionError)|DID NOT RAISE|Expected|Received|expected .* to|^(FAIL|FALLA|FALLO|FALLÓ)( - |: )'
 if ! grep -Eq "$aserciones" "$salida"; then
   echo "The tests fail, but I do not recognize this failure as an assertion; check it and, if it is valid,"
   echo "add the pattern to red.sh. Last lines:"
@@ -59,7 +60,7 @@ if ! grep -Eq "$aserciones" "$salida"; then
   exit 2
 fi
 
-resumen=$(grep -E "FAIL|$aserciones" "$salida" | head -40)
+resumen=$(grep -E "FAIL|FALL|$aserciones" "$salida" | head -40)
 fallas="${resumen:-$(tail -20 "$salida")}"
 pr="${salida}.md"
 {

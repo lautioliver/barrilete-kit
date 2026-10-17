@@ -3,12 +3,12 @@ description: Technical work with no visible change
 labels: ["type:task", "status:triage"]
 body:
   - type: textarea
-    id: que
+    id: what
     attributes: { label: What needs to be done }
     validations: { required: true }
   - type: textarea
-    id: porque
+    id: why
     attributes: { label: Why }
   - type: textarea
-    id: criterios
+    id: criteria
     attributes: { label: Done when, value: "- [ ] " }

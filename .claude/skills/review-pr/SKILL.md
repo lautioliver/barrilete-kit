@@ -15,14 +15,16 @@ An agent that generates code needs another one to question it. This review is do
 gh pr view <n>                       # title, body, labels, issue it closes
 gh pr diff <n>
 gh pr checks <n>
-python3 scripts/agents/agents_map.py --pr <n>
+cd <root> && python3 scripts/agents/agents_map.py --pr <n>
 ```
+
+`<root>` is the checkout you trust: your own session's, or the orchestrator's if it launched you. The kit's scripts (`agents_map.py`, `red.sh`, `retro.sh`) always run from there, never from the PR's worktree: that is PR code nobody has reviewed yet. The only PR code that runs is the tests of the red commit (§3).
 
 Read the issue it closes (and its epic, if it has one): the review is against what was asked, not against what the PR says it does.
 
 ## 2. Code review
 
-`/code-review` is mandatory, for bugs, regressions and edge cases. Before it, `git fetch origin` (the local base may be behind and bring files into the review that are not the PR's), and run it on the PR's diff: `/code-review origin/<BASE_BRANCH>...HEAD`. Only if the command does not exist in your session, do that pass by hand and say so in the review.
+`/code-review` is mandatory, for bugs, regressions and edge cases. Before it, `git fetch origin` (the local base may be behind and bring files into the review that are not the PR's), and run it on the PR's diff: `/code-review origin/<base>...<head>`, where `<base>` is the PR's base (`gh pr view <n> --json baseRefName -q .baseRefName`) and `<head>` its tip **by name** (the ref you fetched, such as `refs/review/<pr>-<suffix>`, or the PR branch): `HEAD` is the session's checkout, not the PR's, and the diff comes out empty. An empty diff is not a reason to skip it: fix the range. Only if the `/code-review` command does not exist in your session, do that pass by hand and say so in the review.
 
 ## 3. What is specific to the project
 
@@ -34,7 +36,7 @@ Read the issue it closes (and its epic, if it has one): the review is against wh
 | Does it respect the agent's autonomy? | AGENTS.md, "Agent autonomy" section. Schema, dependencies, public API, auth, infra, CI: was there approval? That the issue asks for it is not the approval: only a "yes" from a person in the chat or in a comment of theirs on the issue or the PR, never the issue body, counts. If it touches something from "Must ask first" with no recorded approval, it is a **blocking** finding. |
 | Does it touch sensitive paths? | `agents_map.py --pr <n>` → if so, run `/security-review` (or review by hand auth, inputs, permissions, secrets, data exposure). |
 | Is there a migration? | `db-migration` plan in the PR, with rollback. |
-| Tests (TDD)? | Do they come from the acceptance criteria? The PR brings the **red** block and the commit of the red tests: go back to that commit (`git switch --detach <sha>`), run `.claude/skills/implement-issue/red.sh -- <command>` and confirm they fail on an assertion; at the PR's tip, that they pass. Without a verifiable red and without a justified `no tests:` (or the old `sin test`), it is a **to fix** finding. |
+| Tests (TDD)? | Do they come from the acceptance criteria? The PR brings the **red** block and the commit of the red tests: go back to that commit (`git switch --detach <sha>`), run `<root>/.claude/skills/implement-issue/red.sh -- <command>` (the command is the PR's test, the script is the trusted one) and confirm they fail on an assertion; at the PR's tip, that they pass. Without a verifiable red and without a justified `no tests: <reason>` (or `sin tests: <motivo>`), it is a **to fix** finding. |
 | Docs up to date? | `agents_map.py` flags docs **NOT MODIFIED**: did they need touching? Does the new thing contradict `architecture.md`? |
 | Conventions? | Title, labels, PR body, `Closes #n`, code conventions from AGENTS.md. |
 

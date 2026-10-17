@@ -3,12 +3,12 @@ description: Trabajo técnico sin cambio visible
 labels: ["type:task", "status:triage"]
 body:
   - type: textarea
-    id: que
+    id: what
     attributes: { label: Qué hay que hacer }
     validations: { required: true }
   - type: textarea
-    id: porque
+    id: why
     attributes: { label: Por qué }
   - type: textarea
-    id: criterios
+    id: criteria
     attributes: { label: Listo cuando, value: "- [ ] " }

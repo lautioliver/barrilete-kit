@@ -49,7 +49,7 @@ It is not for:
 
    **Assignee:** `python3 scripts/agents/team.py suggest --labels "<comma-separated labels>"` returns who to assign it to according to `.github/team.json` (by area and load). If it returns nothing, the team is empty: the issue stays unassigned (suggest `/add-member`). If the user asked for another person, the user wins.
 
-6. **Write the body** with the sections of the chosen template, as Markdown (`## Qué pasa`, `## Qué debería pasar`…). Rules:
+6. **Write the body** with the sections of the chosen template, as Markdown (`## What happens`, `## What should happen`…). Rules:
    - Links to files with a repo-relative path and, if useful, the line.
    - If it comes from an audit or ADR, the link to the document and the ID of the finding or rule.
    - Never secrets, tokens or real personal data.

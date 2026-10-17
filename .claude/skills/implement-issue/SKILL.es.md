@@ -38,6 +38,7 @@ TDD: los tests salen de los **criterios de aceptación** del issue, no del códi
   .claude/skills/implement-issue/red.sh -- <comando de test, el de `AGENTS.md`, acotado a lo que probás>
   ```
   Si pasan, no prueban nada: reescribilos. Si fallan por un import o un símbolo inexistente, no cuenta: completá el stub. Cada falla tiene que ser una aserción de un criterio.
+- Lo que `red.sh` acepta como aserción: la salida de aserción de la herramienta (`AssertionError`, `E   assert`, `Expected`/`Received`…) o, en un test bash (`test-*.sh`), una línea que **empieza con `FAIL - <descripción>` o `FAIL: <descripción>`** (`FALLA - …`/`FALLO: …` también valen). Cualquier otra forma (`not ok`, `Error: …`, un mensaje propio) sale con 2: hacé que el helper de aserciones del test imprima una de esas líneas.
 - **Commiteá los tests en rojo** antes de implementar (`test(<scope>): …`), así el revisor puede volver a ese commit y verlos fallar. Guardá el bloque que deja `red.sh` para el PR.
 - Sin comportamiento que probar (docs, config) o con una parte que no se puede probar acá (concurrencia real, un proveedor externo): decilo en el PR como **`sin test`** (o `no tests: <motivo>`: el check del CI acepta los dos), con el motivo.
 
@@ -51,7 +52,7 @@ TDD: los tests salen de los **criterios de aceptación** del issue, no del códi
 ## 5. Autorevisión
 
 Revisá el diff completo contra `<BASE_BRANCH>` antes de abrir el PR:
-- `/code-review` es obligatorio: corrélo sobre el diff de la rama (`/code-review origin/<BASE_BRANCH>...HEAD`, con la herramienta Skill si sos subagente), no sobre todo el repo, y resolvé lo que encuentre. Solo si el comando no existe en tu sesión, revisá vos (bugs, casos borde, código muerto, secretos, archivos que no deberían estar) y decí en el PR que no se corrió y por qué.
+- `/code-review` es obligatorio: corrélo sobre el diff de la rama, no sobre todo el repo, y resolvé lo que encuentre: `/code-review origin/<base>...<branch>` (con la herramienta Skill si sos subagente), donde `<base>` es la base del PR (`<BASE_BRANCH>`, o el `BASE` que te dio el orquestador) y `<branch>` es tu rama **por nombre**: desde un subagente, `HEAD` es el checkout de la sesión, no tu worktree, y el diff sale vacío. Un diff vacío no es motivo para saltearlo: arreglá el rango. Solo si el comando `/code-review` no existe en tu sesión, revisá vos (bugs, casos borde, código muerto, secretos, archivos que no deberían estar) y decilo en el PR y en `self-review:` (`no code-review: <motivo>`).
 - Cada hallazgo que corrijas sigue el mismo ciclo: test que reproduce el hallazgo, `red.sh` contra el código actual, arreglo, verde.
 
 Además, si `python3 scripts/agents/agents_map.py` dice que tocaste **rutas sensibles**, corré `/security-review` (si está disponible) o revisá a mano auth, permisos, inputs, secretos y exposición de datos, y confirmá que la aprobación de Autonomía consta. Además revisá a mano las **invariantes de los ADRs** que toca el cambio (lo que no puede pasar nunca: dos ingresos con la misma entrada, un doble cobro…): una revisión de seguridad genérica no las conoce, y es donde suelen estar los errores graves.

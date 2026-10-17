@@ -6,15 +6,15 @@ body:
     attributes:
       value: "Título en imperativo, sin prefijo. Ej.: *Unificar cuentas por email*."
   - type: textarea
-    id: objetivo
+    id: goal
     attributes: { label: Objetivo, description: Qué hay que lograr y para quién. }
     validations: { required: true }
   - type: textarea
-    id: alcance
+    id: scope
     attributes: { label: Alcance, description: Qué entra y qué queda afuera. }
   - type: textarea
-    id: criterios
+    id: criteria
     attributes: { label: Criterios de aceptación, value: "- [ ] " }
   - type: textarea
-    id: negocio
+    id: business
     attributes: { label: Lógica de negocio afectada, description: "¿Cambia una regla ya definida? ADR o doc." }

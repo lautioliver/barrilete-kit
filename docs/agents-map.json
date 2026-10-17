@@ -1,5 +1,5 @@
 {
-  "_help": "Mapa para agentes y CI. 'docs': qué documento revisar cuando cambian ciertos archivos (lo usan update-docs, implement-issue y review-pr). 'sensitive': rutas que exigen consultar antes de cambiarlas y correr /security-review (ver AGENTS.md, Autonomía). 'verify': qué correr antes del PR según lo que cambió (scripts/agents/verify.py). 'required': documentos que tienen que existir (lo valida scripts/agents/check-docs.py). 'ignore_check': rutas que check-docs.py no valida, como bitácoras históricas que citan archivos que ya no existen. Globs estilo git: ** cualquier profundidad, * un nivel. Una ruta que empieza con ? es opcional: check-docs no falla si no coincide con ningún archivo (sirve para alternativas de stack, como package.json o *.lock). 'parity': true|false, interruptor del check de paridad de idiomas (cada X.md con su X.es.md): la plantilla lo prende cuando su contenido está traducido y el init lo apaga en los proyectos, que tienen un solo idioma. 'parity_ignore': archivos .md que no tienen versión .es.md (el check de paridad de idiomas; ignore_check no los exime). Las rutas propias del proyecto van sin ?: si dejan de existir, el check falla. TODO: completar con las rutas del proyecto.",
+  "_help": "Map for agents and CI. 'docs': which document to review when certain files change (used by update-docs, implement-issue and review-pr). 'sensitive': paths that must be asked about before changing them and that need /security-review (see AGENTS.md, Agent autonomy). 'verify': what to run before the PR according to what changed (scripts/agents/verify.py). 'required': documents that must exist (validated by scripts/agents/check-docs.py). 'ignore_check': paths that check-docs.py does not validate, such as historical logs that cite files that no longer exist. Git-style globs: ** any depth, * one level. A path that starts with ? is optional: check-docs does not fail if it matches no file (useful for stack alternatives, such as package.json or *.lock). 'parity': true|false, switch of the language-parity check (each X.md with its X.es.md): the template turns it on while its content is translated and the init turns it off in projects, which have a single language. 'parity_ignore': .md files that have no .es.md version (the language-parity check; ignore_check does not exempt them). The project's own paths go without ?: if they stop existing, the check fails. TODO: fill in with the project's paths.",
   "docs": [
     {
       "when": [
@@ -10,7 +10,7 @@
         "docs/reference/domain.md",
         "docs/development/architecture.md"
       ],
-      "reason": "cambió el modelo de datos"
+      "reason": "the data model changed"
     },
     {
       "when": [
@@ -20,7 +20,7 @@
         "docs/development/architecture.md",
         "docs/reference/surfaces.md"
       ],
-      "reason": "cambió un endpoint o una pantalla"
+      "reason": "an endpoint or a screen changed"
     },
     {
       "when": [
@@ -29,7 +29,7 @@
       "review": [
         "docs/reference/modules.md"
       ],
-      "reason": "cambió la responsabilidad de un módulo"
+      "reason": "a module's responsibility changed"
     },
     {
       "when": [
@@ -41,7 +41,7 @@
         "AGENTS.md",
         "docs/development/setup.md"
       ],
-      "reason": "cambió un comando, una dependencia o el CI"
+      "reason": "a command, a dependency or the CI changed"
     },
     {
       "when": [
@@ -52,7 +52,7 @@
       "review": [
         "docs/development/deploy.md"
       ],
-      "reason": "cambió la infraestructura o el deploy"
+      "reason": "the infrastructure or the deploy changed"
     },
     {
       "when": [
@@ -65,7 +65,7 @@
         "README.md",
         "docs/agents/subagent-contract.md"
       ],
-      "reason": "cambió un subagente (modelo, herramientas, escalado) o su contrato"
+      "reason": "a subagent (model, tools, escalation) or its contract changed"
     },
     {
       "when": [
@@ -79,7 +79,7 @@
         "AGENTS.md",
         "README.md"
       ],
-      "reason": "cambiaron las barandas (qué comandos frena el hook)"
+      "reason": "the guardrails changed (which commands the hook stops)"
     }
   ],
   "sensitive": [

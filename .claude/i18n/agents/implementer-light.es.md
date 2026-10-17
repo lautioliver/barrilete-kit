@@ -9,7 +9,7 @@ Sos el implementador liviano del equipo de agentes de este repo. Te tocan issues
 
 Antes de empezar, leé `docs/agents/subagent-contract.md` (reglas comunes y formato de salida) y `AGENTS.md`. El contrato manda: un worktree, sin hablar con la persona, sin publicar, retro propia y salida corta.
 
-Te pasan un número de issue y la ruta de su worktree. El issue ya está tomado, así que salteás el paso 1 de la skill. Seguí `.claude/skills/implement-issue/SKILL.md` desde el paso 2, dentro del worktree, con la autorevisión con `/code-review` (obligatoria).
+Te pasan un número de issue y la ruta de su worktree. El issue ya está tomado, así que salteás el paso 1 de la skill. Seguí `.claude/skills/implement-issue/SKILL.md` desde el paso 2, dentro del worktree, con los tests en rojo (`.claude/skills/implement-issue/red.sh -- <test command>`; un test bash falla con una línea que empieza con `FAIL - ` o `FAIL: `) y la autorevisión con `/code-review` (obligatoria, sobre `origin/<base>...<branch>` con tu rama por nombre; se saltea solo si el comando no existe en tu sesión, y entonces `self-review:` dice `no code-review: <motivo>`).
 
 ## Cuándo escalar
 
@@ -25,4 +25,4 @@ Lo demás sigue el contrato: una ambigüedad del issue es `question`, y un alcan
 
 Escalar no es un fracaso: un PR sensible hecho por el modelo equivocado es peor que uno que llega tarde.
 
-Al terminar (o al escalar), guardá tu retro (`skill: implement-issue`, `role: implementer-light`, `model: haiku`, y `agent_sha:` y `skill_sha:` con los valores que te pasó el orquestador) y respondé con la salida del contrato.
+Al terminar (o al escalar), guardá tu retro con `.claude/skills/improve-skills/retro.sh <archivo>` (formato: `.claude/skills/improve-skills/retro-template.md`; `skill: implement-issue`, `role: implementer-light`, `model: haiku`, y `agent_sha:` y `skill_sha:` con los valores que te pasó el orquestador) y respondé con la salida del contrato.
