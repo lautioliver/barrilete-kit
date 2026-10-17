@@ -17,7 +17,7 @@ export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COM
 # La plantilla tal como está en el árbol, en un repo con dos versiones etiquetadas.
 P="$TMP/plantilla"
 mkdir -p "$P"
-(cd "$RAIZ" && git ls-files -z -co --exclude-standard | xargs -0 tar -cf -) | (cd "$P" && tar -xf -)
+(cd "$RAIZ" && git ls-files -z -co --exclude-standard | tar --null -T - -cf -) | (cd "$P" && tar -xf -)
 (
   cd "$P" && git init -q -b main
   echo 0.1.0 >VERSION
@@ -292,13 +292,13 @@ SH
 
 P09="$TMP/plantilla09"
 mkdir -p "$P09"
-(cd "$RAIZ" && git ls-files -z -co --exclude-standard | xargs -0 tar -cf -) | (cd "$P09" && tar -xf -)
+(cd "$RAIZ" && git ls-files -z -co --exclude-standard | tar --null -T - -cf -) | (cd "$P09" && tar -xf -)
 (
   cd "$P09" && python3 "$TMP/rev09.py" "$P09" "$TABLA" \
     && cp "$TMP/init-plantilla-09.sh" scripts/init-plantilla.sh && chmod +x scripts/init-plantilla.sh \
     && rm -f scripts/init-template.sh && echo 0.9.0 >VERSION \
     && git init -q -b main && git add -A && git commit -qm v0.9.0 && git tag v0.9.0 \
-    && git rm -rqf . && (cd "$RAIZ" && git ls-files -z -co --exclude-standard | xargs -0 tar -cf -) | tar -xf - \
+    && git rm -rqf . && (cd "$RAIZ" && git ls-files -z -co --exclude-standard | tar --null -T - -cf -) | tar -xf - \
     && echo 0.10.0 >VERSION \
     && printf '\n## [0.10.0] - 2026-10-20\n\n- Cambio de prueba 0.10.\n' >>CHANGELOG.md \
     && echo "# nuevo en 0.10" >>scripts/agents/verify.py \

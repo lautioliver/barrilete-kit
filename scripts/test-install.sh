@@ -20,7 +20,7 @@ unset BASE AGENT_KIT_TEMPLATE
 # La plantilla tal como está en el árbol, con una versión etiquetada (v0.1.0).
 P="$TMP/plantilla"
 mkdir -p "$P"
-(cd "$RAIZ" && git ls-files -z -co --exclude-standard | xargs -0 tar -cf -) | (cd "$P" && tar -xf -)
+(cd "$RAIZ" && git ls-files -z -co --exclude-standard | tar --null -T - -cf -) | (cd "$P" && tar -xf -)
 (cd "$P" && git init -q -b main && echo 0.1.0 >VERSION && git add -A && git commit -qm v0.1.0 && git tag v0.1.0) >/dev/null 2>&1
 
 # `gh` falso: solo `gh label list`, con los labels de $TMP/labels.json (o falla si no existe).
