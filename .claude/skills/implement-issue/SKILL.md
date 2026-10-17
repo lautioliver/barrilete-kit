@@ -38,7 +38,8 @@ TDD: the tests come from the issue's **acceptance criteria**, not from the code 
   .claude/skills/implement-issue/red.sh -- <test command, the one from `AGENTS.md`, narrowed to what you test>
   ```
   If they pass, they prove nothing: rewrite them. If they fail on an import or a missing symbol, it does not count: complete the stub. Each failure has to be an assertion of a criterion.
-- **Commit the red tests** before implementing (`test(<scope>): …`), so the reviewer can go back to that commit and see them fail. Keep the block `red.sh` leaves for the PR.
+- What `red.sh` recognizes as an assertion: the assertion output of the tool (`AssertionError`, `E   assert`, `Expected`/`Received`, `DID NOT RAISE`…) or, in a bash test (`test-*.sh`), a line that **starts with `FAIL - `**, as the tests of this repo print them: `FAIL - assigns the issue`. Nothing else counts (`FAIL: …`, `not ok`, `Error: …` or a message of your own exit with 2): make the test's assertion helper print `FAIL - <description>`.
+- **Commit the red tests** before implementing (`test(<scope>): …`), so the reviewer can go back to that commit and see them fail. That commit may contain tests, fixtures and stubs, and nothing else (no scripts other than the tests themselves, hooks, installers, CI or build config): the reviewer runs it. Keep the block `red.sh` leaves for the PR.
 - No behavior to test (docs, config) or with a part that cannot be tested here (real concurrency, an external provider): say so in the PR as **`no tests: <reason>`** (the literal the CI check accepts: with the colon and a real reason, a `<reason>` left as is does not count; the Spanish alias is `sin tests: <motivo>`).
 
 ## 4. Implement (green)
@@ -51,7 +52,7 @@ TDD: the tests come from the issue's **acceptance criteria**, not from the code 
 ## 5. Self-review
 
 Review the full diff against `<BASE_BRANCH>` before opening the PR:
-- `/code-review` is mandatory: run it on the branch's diff (`/code-review origin/<BASE_BRANCH>...HEAD`, with the Skill tool if you are a subagent), not on the whole repo, and resolve what it finds. Only if the command does not exist in your session, review yourself (bugs, edge cases, dead code, secrets, files that should not be there) and say in the PR that it was not run and why.
+- `/code-review` is mandatory: run it on the branch's diff, not on the whole repo, and resolve what it finds: `/code-review origin/<base>...<branch>` (with the Skill tool if you are a subagent), where `<base>` is the PR's base (`<BASE_BRANCH>`, or the `BASE` the orchestrator gave you) and `<branch>` is your branch **by name**: from a subagent, `HEAD` is the session's checkout, not your worktree, and the diff comes out empty. An empty diff is not a reason to skip it: fix the range. Only if the `/code-review` command does not exist in your session, review yourself (bugs, edge cases, dead code, secrets, files that should not be there) and say it in the PR and in `self-review:` (`no code-review: <reason>`).
 - Each finding you fix follows the same cycle: a test that reproduces the finding, `red.sh` against the current code, fix, green.
 
 Also, if `python3 scripts/agents/agents_map.py` says you touched **sensitive paths**, run `/security-review` (if available) or review by hand auth, permissions, inputs, secrets and data exposure, and confirm that the autonomy approval is on record. Also review by hand the **ADR invariants** the change touches (what can never happen: two entries with the same input, a double charge…): a generic security review does not know them, and that is where the serious errors tend to be.

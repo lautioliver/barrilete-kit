@@ -167,7 +167,7 @@ for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llm
 # The init only deletes the ADRs of the kit with the exact line "Ámbito: kit" (it is a literal, it is not translated): one written
 # with "Scope: kit" would be installed in every project. Warning, not error: a project may use that line for something else.
 # Only where the init is still there (the kit itself): in a project the ADRs are its own and there is nothing left to delete.
-KIT_AMBITO = re.compile(r"^Ámbito: kit[ \t\r]*$", re.M)
+KIT_AMBITO = re.compile(r"^Ámbito: kit$", re.M)  # exactly what the init matches (grep -x): trailing spaces or a \r do not count
 for f in sorted(os.listdir("docs/decisions") if os.path.exists("scripts/init-template.sh") and os.path.isdir("docs/decisions") else []):
     if not re.match(r"ADR-\d{3}-.*\.md$", f):
         continue
@@ -249,6 +249,8 @@ def claves_de_formulario(ruta):
     claves = [re.sub(r"\s+", " ", l).strip() for l in lineas if re.match(r"^\s*(?:- )?(?:type|id|labels):", l)]
     actual = ""  # the id of the field the line belongs to: two forms that require different fields are not the same
     for l in lineas:
+        if re.match(r"^\s*- type:", l):
+            actual = ""  # a new field: without its own id it must not inherit the previous one's
         m = re.match(r"^\s*(?:- )?id: *[\"']?([^\"'\s]+)", l)
         if m:
             actual = m.group(1)
@@ -310,10 +312,15 @@ def etiquetas(ruta):
         errores.append(f"{ruta}: {items} items (`- ` at the start of a line) but {len(bloques)} blocks `- name:` were read: a YAML "
                        "format not supported by this check (write each label as `- name: ...`).")
     valida = (re.compile(r"^\s*(?:#.*)?$"), re.compile(r"^- name: *(?:\"[^\"]*\"|'[^']*'|[^\s#\"'{\[][^#]*?) *$"),
-              re.compile(r"^  (?!aliases:)[a-z_]+: *\S.*$"), re.compile(r"^  aliases: *$"),
-              re.compile(r"^    - *(?:\"[^\"]*\"|'[^']*'|[^\s#\"'{\[][^#]*?) *$"))
+              re.compile(r"^  (?!aliases:)[a-z_]+: *\S.*$"), re.compile(r"^  aliases: *$"))
+    alias_ok = re.compile(r"^    - (?:\"[^\"]*\"|'[^']*'|[^\s#\"'{\[][^#]*?) *$")  # exactly one space after the dash: the parser below reads `- ` once
+    en_aliases = False  # `    - "x"` lines only count right after `  aliases:` (a stray one would be dropped without a word)
     for n, linea in enumerate(texto.splitlines(), 1):
-        if not any(v.match(linea) for v in valida):
+        if re.match(r"^  aliases: *$", linea):
+            en_aliases = True
+        elif re.match(r"^(?:- name:|  [a-z_]+:)", linea):
+            en_aliases = False
+        if not (any(v.match(linea) for v in valida) or (en_aliases and alias_ok.match(linea))):
             errores.append(f"{ruta}:{n}: format not supported by this check (it would be dropped without a word): {linea.strip()[:60]!r}. "
                            "Use `- name:` at the start of the line, `  key: value` lines and `  aliases:` followed by `    - \"x\"` lines.")
             break

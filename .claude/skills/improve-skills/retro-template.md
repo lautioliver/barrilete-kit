@@ -7,6 +7,8 @@ area: <area: of the issue, or "none">
 paths: <main files or folders it touched, comma-separated>
 model: opus | sonnet | haiku (or "unknown")
 role: implementer | implementer-light | reviewer | orchestrator | session
+agent_sha: <the agent_sha the orchestrator gave you; without an orchestrator, leave it out and retro.sh fills it in>
+skill_sha: <the skill_sha the orchestrator gave you; without an orchestrator, leave it out and retro.sh fills it in>
 ---
 **Deviations:** where the skill was not followed and why (or "none").
 **Decisions not covered:** what had to be decided that the skill did not say.

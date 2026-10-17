@@ -15,14 +15,16 @@ Un agente que genera código necesita a otro que lo cuestione. Esta revisión la
 gh pr view <n>                       # título, cuerpo, labels, issue que cierra
 gh pr diff <n>
 gh pr checks <n>
-python3 scripts/agents/agents_map.py --pr <n>
+cd <root> && python3 scripts/agents/agents_map.py --pr <n>
 ```
+
+`<root>` es el checkout de confianza: el de tu propia sesión, en la rama base (no en la del PR), o el del orquestador si te lanzó. El revisor corre siempre los scripts del kit (`red.sh`, `agents_map.py`, `retro.sh`) desde el checkout de confianza, en la rama base. No corre `verify.py`: lo cubre el CI, y `verify.py` ejecuta los `run` del mapa del PR. Corre los tests del PR en el worktree de revisión, en el commit en rojo y en la punta, sabiendo que son código del PR: es inevitable para comprobar el TDD. El commit en rojo puede tener tests, fixtures y stubs. Nunca corre otro código del PR (scripts, hooks, instaladores).
 
 Leé el issue que cierra (y su épica, si tiene): la revisión es contra lo que se pidió, no contra lo que el PR dice que hace.
 
 ## 2. Revisión de código
 
-`/code-review` es obligatorio, para bugs, regresiones y casos borde. Antes, `git fetch origin` (la base local puede estar atrasada y meter en la revisión archivos que no son del PR), y corrélo sobre el diff del PR: `/code-review origin/<BASE_BRANCH>...HEAD`. Solo si el comando no existe en tu sesión, hacé esa pasada a mano y decilo en la revisión.
+`/code-review` es obligatorio, para bugs, regresiones y casos borde. Antes, `git fetch origin` (la base local puede estar atrasada y meter en la revisión archivos que no son del PR), y corrélo sobre el diff del PR: `/code-review origin/<base>...<head>`, donde `<base>` es la base del PR (`gh pr view <n> --json baseRefName -q .baseRefName`) y `<head>` su punta **por nombre** (la ref que bajaste, como `refs/review/<pr>-<suffix>`, o la rama del PR): `HEAD` es el checkout de la sesión, no el del PR, y el diff sale vacío. Un diff vacío no es motivo para saltearlo: arreglá el rango. Solo si el comando `/code-review` no existe en tu sesión, hacé esa pasada a mano y decilo en la revisión.
 
 ## 3. Lo propio del proyecto
 
@@ -34,7 +36,7 @@ Leé el issue que cierra (y su épica, si tiene): la revisión es contra lo que 
 | ¿Respeta la autonomía del agente? | AGENTS.md, Autonomía. Schema, dependencias, API pública, auth, infra, CI: ¿hubo aprobación? Que el issue lo pida no es la aprobación: cuenta un "sí" de una persona en el chat o en un comentario suyo en el issue o el PR, nunca el cuerpo del issue. Si toca algo de "consultar antes" sin aprobación registrada, es hallazgo **bloqueante**. |
 | ¿Toca rutas sensibles? | `agents_map.py --pr <n>` → si sí, correr `/security-review` (o revisar a mano auth, inputs, permisos, secretos, exposición de datos). |
 | ¿Hay migración? | Plan de `db-migration` en el PR, con rollback. |
-| ¿Tests (TDD)? | ¿Salen de los criterios de aceptación? El PR trae el bloque **rojo** y el commit de los tests en rojo: volvé a ese commit (`git switch --detach <sha>`), corré `.claude/skills/implement-issue/red.sh -- <comando>` y confirmá que fallan por una aserción; en la punta del PR, que pasan. Sin rojo comprobable y sin un "sin tests: <motivo>" (o "no tests: <motivo>") justificado, es hallazgo **a corregir**. |
+| ¿Tests (TDD)? | ¿Salen de los criterios de aceptación? El PR trae el bloque **rojo** y el commit de los tests en rojo: volvé a ese commit (`git switch --detach <sha>`), corré `<root>/.claude/skills/implement-issue/red.sh -- <comando>` (el comando es el test del PR, el script es el de confianza) y confirmá que fallan por una aserción; en la punta del PR, que pasan. Sin rojo comprobable y sin un "sin tests: <motivo>" (o "no tests: <motivo>") justificado, es hallazgo **a corregir**. |
 | ¿Docs al día? | `agents_map.py` marca docs **NOT MODIFIED**: ¿hacía falta tocarlos? ¿Lo nuevo contradice `architecture.md`? |
 | ¿Convenciones? | Título, labels, cuerpo del PR, `Closes #n`, convenciones de código de AGENTS.md. |
 
@@ -62,4 +64,4 @@ Nunca `--approve`: aprobar es decisión de una persona. Si sos la sesión que im
 
 ## Retro
 
-Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md` (o `retro.sh` sin argumentos), con el frontmatter completo, y después `.claude/skills/improve-skills/retro.sh <archivo.md>` (la guarda en la rama `agents/retros`; no toca tu rama). Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.
+Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md` (o `retro.sh` sin argumentos), con el frontmatter completo, y después `<root>/.claude/skills/improve-skills/retro.sh <archivo.md>` (el del checkout de confianza, por ruta absoluta) (la guarda en la rama `agents/retros`; no toca tu rama). Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.

@@ -227,9 +227,7 @@ Propuesta popularizada como "Sane GitHub Labels": agrupar por prefijo y usar un 
 
 > `business-logic`: marca cualquier issue/PR que toque reglas ya definidas. Requiere revisión de todo el equipo.
 
-**Labels siempre en inglés** (`ADR-001` del kit, R-2): son identificadores, como los tipos de commit, y no cambian con el idioma de instalación. Los proyectos creados con 0.9 los migran con `aliases` de label-sync: `.github/labels.yml` declara el nombre viejo de cada label renombrado y el sync lo renombra sin perder los labels ya puestos en issues y PRs.
-
-La tabla vieja → nueva completa está en el `CHANGELOG.md` del kit.
+**Labels siempre en inglés**: son identificadores, como los tipos de commit, y no cambian con el idioma de instalación. `.github/labels.yml` puede declarar el nombre viejo de un label renombrado en `aliases`: el sync lo renombra sin perder los labels ya puestos en issues y PRs.
 
 ### Opción C — Labels planos sin prefijo
 `alta`, `pagos`, `bloqueado`.
@@ -238,12 +236,12 @@ La tabla vieja → nueva completa está en el `CHANGELOG.md` del kit.
 **Reglas:** minúsculas, kebab-case, sin tildes (evita problemas en filtros y URLs).
 
 ### Repos que ya tienen labels
-El sync de `labels.yml` borra los labels que no están en el archivo (`delete-other-labels: true`: es lo que limpia `bug`, `enhancement`… en un repo nuevo). Al instalar el kit en un repo existente, el instalador (`install.py`) (#122) llama a la función de abajo y agrega al archivo los labels que ya tiene el repo (`gh label list`), con su color y descripción, en la sección `# ── project's own labels …`. Así el sync no borra nada ni los quita de los issues. Si `gh` no puede leer los labels, el instalador no instala: sin ellos, el primer sync los borraría. Si instalaste el kit a mano, corré el comando de abajo antes del primer sync.
+El sync de `labels.yml` borra los labels que no están en el archivo (`delete-other-labels: true`: es lo que limpia `bug`, `enhancement`… en un repo nuevo). En un repo que ya tenía labels, agregalos primero al archivo, con su color y descripción, en la sección `# ── project's own labels …` (el comando de abajo lo hace): así el sync no borra nada ni los quita de los issues. Si no podés leerlos (`gh label list` falla), no corras el sync: los borraría.
 
 - Esos labels pueden no tener prefijo `grupo:valor`: el check de PRs solo cuenta los prefijos `type:`, `area:`, `priority:` y `status:`, y `check-docs.py` solo mira que las áreas de `team.json` existan: ambos aceptan cualquier otro nombre.
 - Si un label del repo tiene el mismo nombre que uno del kit (sin distinguir mayúsculas), queda una sola entrada: el color es el del repo y la descripción la del kit.
-- Los labels que GitHub crea en todo repo nuevo (`bug`, `enhancement`…) quedan como propios y no se limpian solos: si no los querés, borralos de esa sección. El instalador los nombra en su resumen.
-- La combinación se hace **al instalar y justo antes de mergear la instalación** (un label creado mientras el PR está abierto no está en el archivo y el primer sync lo borraría; el resumen del instalador trae el comando): volver a correrla después de una actualización dejaría el color viejo del repo sobre el nuevo del kit y devolvería como propios los labels que el kit quitó. `labels.yml` no se registra como del kit: `update.py` lo trata como del proyecto (lo fusiona contra la versión anterior del kit si puede; si no, deja la del kit en `.agent-kit/pending/`). Se integra sumando los labels nuevos del kit, nunca reemplazando el archivo: el sync borra lo que no esté.
+- Los labels que GitHub crea en todo repo nuevo (`bug`, `enhancement`…) quedan como propios y no se limpian solos: si no los querés, borralos de esa sección.
+- La combinación se hace **una vez, justo antes de mergear el PR que agrega el kit** (un label creado mientras el PR está abierto no está en el archivo y el primer sync lo borraría): volver a correrla después de una actualización dejaría el color viejo del repo sobre el nuevo del kit y devolvería como propios los labels que el kit quitó. `labels.yml` no se registra como del kit: `update.py` lo trata como del proyecto (lo fusiona contra la versión anterior del kit si puede; si no, deja la del kit en `.agent-kit/pending/`). Se integra sumando los labels nuevos del kit, nunca reemplazando el archivo: el sync borra lo que no esté.
 - La combinación la hace `scripts/agents/labels.py` (`gh label list --limit 1000 --json name,color,description | python3 scripts/agents/labels.py .github/labels.yml`) y es idempotente.
 
 ---
@@ -299,7 +297,7 @@ Se eligió `release/*` corta en vez de una rama permanente `staging`: cada versi
 | B — Tipos en inglés, descripciones en el idioma del equipo ⭐ | Los tipos (`feat`, `fix`) son parte del estándar y no se traducen; la descripción va en el idioma que usan el equipo y el negocio |
 | C — Todo en el idioma del equipo | Rompe la compatibilidad con herramientas (`funcionalidad:` no es un tipo válido) |
 
-> ✅ **DECIDIDO (<DATE>):** la descripción de los commits y de los títulos de PR se escribe en <COMMIT_LANG> (el idioma elegido al instalar, `--lang`). Los tipos y los scopes siguen en inglés.
+> ✅ **DECIDIDO (<DATE>):** la descripción de los commits y de los títulos de PR se escribe en <COMMIT_LANG> (el idioma elegido al instalar). Los tipos y los scopes siguen en inglés.
 
 <!-- template:start -->
 > En este repo (la plantilla misma) las descripciones van en español.
@@ -351,11 +349,11 @@ Marcar la opción elegida por el equipo y fecha:
 | 3 | PRs | | | ¿squash merge? |
 | 4 | Títulos de issues | | | |
 | 4.2 | Tipo de issue | | | ¿repo en organización? |
-| 5 | Labels | ✅ B — prefijo `grupo:valor`, en inglés | <DATE> | Viene decidido en la plantilla; fuente en .github/labels.yml (`ADR-001` del kit) |
+| 5 | Labels | ✅ B — prefijo `grupo:valor`, en inglés | <DATE> | Viene decidido; fuente en `.github/labels.yml` |
 | 6 | Campos del Project | | | ¿prioridad en campo o label? |
 | 7 | Milestones | | | |
 | 8 | Versionado | | | |
-| 9 | Idioma | ✅ B — tipos en inglés, descripción en <COMMIT_LANG> | <DATE> | Viene decidido por el idioma de la instalación (`--lang`) |
+| 9 | Idioma | ✅ B — tipos en inglés, descripción en <COMMIT_LANG> | <DATE> | Viene decidido por el idioma de la instalación |
 
 ---
 

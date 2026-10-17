@@ -1,4 +1,4 @@
 {
-  "_help": "Integrantes del equipo para asignar issues. Lo leen solo los scripts que crean issues (create-issue, planner.py). Se edita con /add-member y /remove-member (scripts/agents/team.py). areas: labels area: de .github/labels.yml que cubre cada uno.",
+  "_help": "Team members, to assign issues. Read only by the scripts that create issues (create-issue, planner.py). Edited with /add-member and /remove-member (scripts/agents/team.py). areas: the area: labels of .github/labels.yml that each member covers.",
   "members": []
 }

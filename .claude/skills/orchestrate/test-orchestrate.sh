@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016  # los backticks de Markdown y los regex de los tests van entre comillas simples a propósito
 # Tests de routing.py y cleanup.sh con un gh falso y un repo local (no usa GitHub).
 # Uso: bash .claude/skills/orchestrate/test-orchestrate.sh
 set -uo pipefail
@@ -227,7 +228,7 @@ for f in "$RAIZ/AGENTS.md" "$C" "$I" "$V"; do
 done
 ! grep -Eq 'línea del issue|a line (of|in) the issue' "$I"; afirmar $? "implement-issue: una línea del issue no es aprobación"
 grep -Eqi 'sin aprobación.*bloqueante|no recorded approval.*blocking' "$V"; afirmar $? "review-pr: algo de consultar sin aprobación registrada es bloqueante"
-! grep -Eqi 'si está disponible ./code-review.|code-review[^.]*if available|if[^.]*code-review[^.]*available' "$V" && grep -q 'code-review origin/<BASE_BRANCH>\.\.\.HEAD' "$V"; afirmar $? "review-pr: /code-review obligatorio y sobre origin/<base>...HEAD"
+! grep -Eqi 'si está disponible ./code-review.|code-review[^.]*if available|if[^.]*code-review[^.]*available' "$V" && grep -q 'code-review origin/<base>\.\.\.<head>' "$V"; afirmar $? "review-pr: /code-review obligatorio y sobre origin/<base>...<head> (la base del PR, la rama por nombre)"
 grep -q 'fetch' "$V"; afirmar $? "review-pr: hace fetch antes de /code-review (la base local puede estar atrasada)"
 L="$RAIZ/.github/workflows/labels.yml"
 node -e '
@@ -245,9 +246,67 @@ if [ -d "$RAIZ/profiles/small" ]; then
   grep -Eqi 'que el issue lo pida no es la aprobación|that the issue asks for it is not the approval' "$RAIZ/profiles/small/AGENTS.md"; afirmar $? "chico: pedirlo en el issue no es la aprobación"
   ! grep -qi 'si está disponible ./code-review.' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.md"; afirmar $? "chico: /code-review obligatorio"
 fi
-grep -q 'code-review.*origin/<BASE_BRANCH>\.\.\.HEAD' "$RAIZ/.claude/skills/implement-issue/SKILL.md"; afirmar $? "implement-issue corre /code-review sobre el diff de la rama"
+grep -q 'code-review.*origin/<base>\.\.\.<branch>' "$RAIZ/.claude/skills/implement-issue/SKILL.md"; afirmar $? "implement-issue corre /code-review sobre el diff de la rama, nombrada (origin/<base>...<branch>)"
 (cd "$RAIZ" && git check-ignore -q .claude/worktrees/agente-x); afirmar $? ".claude/worktrees/ está ignorado (el aislamiento de Claude Code no ensucia el checkout)"
 grep -qx '.claude/skills/orchestrate' "$RAIZ/profiles/small/DELETE" 2>/dev/null || ! [ -d "$RAIZ/profiles" ]; afirmar $? "el modo chico borra la skill orquestar"
+
+
+# --- #143: lo que encontró la prueba de punta a punta de #115 (los dos idiomas: el .md y su hermano .es.md si existe) ---
+# ambos <descripción> <regex> <archivo...>: el regex tiene que estar en cada archivo (y en su hermano en español, en la plantilla).
+ambos() {
+  local d="$1" re="$2" f x g r=0 vistos=" "; shift 2
+  for f in "$@"; do
+    x="${f/\/.claude\/agents\//\/.claude\/i18n\/agents\/}"   # los hermanos de los agentes viven en .claude/i18n/agents/
+    for g in "$f" "${f%.md}.es.md" "${x%.md}.es.md"; do
+      [ -f "$g" ] || continue
+      case "$vistos" in *" $g "*) continue ;; esac; vistos="$vistos$g "
+      grep -Eq -- "$re" "$g" || { r=1; echo "       falta en ${g#"$RAIZ"/}"; }
+    done
+  done
+  afirmar $r "$d"
+}
+SK="$RAIZ/.claude/skills"; AG="$RAIZ/.claude/agents"
+# 1. red.sh: el formato de las aserciones está dicho donde el implementador lo lee, con la sintaxis de red.sh.
+ambos "implement-issue (paso 3) dice qué reconoce red.sh en un test bash: FAIL - " 'starts with `FAIL - `|empieza con `FAIL - `' "$SK/implement-issue/SKILL.md"
+ambos "los implementadores nombran red.sh con su sintaxis (red.sh -- <test command>)" 'red\.sh -- <(test command|comando de test)>' "$AG/implementer.md" "$AG/implementer-light.md"
+ambos "los implementadores dicen el formato FAIL - (el que red.sh reconoce)" '`FAIL - `' "$AG/implementer.md" "$AG/implementer-light.md"
+for a in implementer implementer-light; do
+  grep -q 'red\.sh -- <' "$AG/$a.md" && grep -q 'FAIL - ' "$AG/$a.md" && ! grep -q 'FAIL: ' "$AG/$a.md"; afirmar $? "$a: la sintaxis red.sh -- <comando> y el formato FAIL - (sin prometer FAIL:)"
+done
+# 3. retro-template: agent_sha y skill_sha, que el contrato exige.
+for t in retro-template.md retro-template.es.md; do
+  [ -f "$SK/improve-skills/$t" ] || continue
+  grep -q '^agent_sha:' "$SK/improve-skills/$t" && grep -q '^skill_sha:' "$SK/improve-skills/$t"; afirmar $? "$t trae agent_sha y skill_sha"
+done
+# 4. La base del diff del /code-review es la del PR (o BASE), nunca origin/main fijo, y la rama va por nombre (no HEAD).
+! grep -Eq 'code-review[^`]*(origin/main|\.\.\.HEAD)' "$I" "$V" "$C" "$AG"/*.md "$RAIZ"/.claude/i18n/agents/*.md 2>/dev/null; afirmar $? "ninguna skill ni agente fija origin/main ni ...HEAD en el /code-review"
+grep -Eq 'code-review origin/<base>\.\.\.refs/(review|revision)/' "$R"; afirmar $? "revisor: /code-review sobre origin/<base>...refs/review/<pr>-<suffix> (su HEAD no es el de la sesión que lo lanzó)"
+# 5. Una sola regla para saltear /code-review, y qué poner en self-review:.
+ambos "una sola regla: /code-review se saltea solo si el comando no existe en la sesión, y se informa como 'no code-review: <reason>'" 'no code-review: <(reason|motivo)>' "$C" "$I" "$AG/implementer.md" "$AG/implementer-light.md"
+ambos "la regla de saltear /code-review dice 'no existe en tu sesión' en la skill, el contrato y los agentes" 'does not exist in your session|no existe en tu sesión' "$C" "$I" "$V" "$AG/implementer.md" "$AG/implementer-light.md"
+ambos "un diff vacío no es motivo para saltear /code-review (se arregla el rango)" 'empty diff|diff vacío' "$C" "$I"
+# 8. El revisor no corre código del PR salvo los tests: los scripts del kit salen del checkout de confianza.
+ambos "review-pr: agents_map.py y red.sh corren desde el checkout de confianza (<root>), no desde el worktree del PR" 'cd <root> && python3 scripts/agents/agents_map.py --pr <n>' "$V"
+ambos "review-pr: red.sh del checkout de confianza, y lo único del PR que corre son sus tests" '<root>/.claude/skills/implement-issue/red\.sh --' "$V"
+ambos "revisor: red.sh y agents_map.py del checkout del orquestador, no del worktree de revisión" '(root|raiz).*/\.claude/skills/implement-issue/red\.sh.*agents_map\.py' "$R"
+# 8 (aprobado por @lautioliver): una sola regla de lo que corre el revisor, igual en el revisor, review-pr y el contrato.
+ambos "revisor, review-pr y contrato: los scripts del kit (red.sh, agents_map.py, verify.py, retro.sh) salen del checkout de confianza, en la rama base" 'red\.sh.*agents_map\.py.*retro\.sh.*(trusted checkout, on the base branch|checkout de confianza, en la rama base)' "$R" "$V" "$C"
+ambos "revisor, review-pr y contrato: el commit en rojo puede tener tests, fixtures y stubs, y no corre otro código del PR" '(red commit may contain tests, fixtures and stubs|commit en rojo puede tener tests, fixtures y stubs).*(never runs any other PR code|[Nn]unca corre otro código del PR)' "$R" "$V" "$C"
+ambos "revisor, review-pr y contrato: los tests del PR corren en el worktree de revisión, en el commit en rojo y en la punta" '(red commit and at the tip|commit en rojo y en la punta)' "$R" "$V" "$C"
+! grep -Eq 'only runs .retro.sh. there|solo corre .retro.sh. ahí|only adds tests|apenas agrega|solo agrega tests' "$R" "$V" "$C" "${C%.md}.es.md" "$RAIZ/.claude/i18n/agents/reviewer.es.md" 2>/dev/null; afirmar $? "ya no quedan las frases viejas (el revisor solo corre retro.sh; el commit en rojo solo agrega tests)"
+ambos "revisor, review-pr y contrato: el revisor no corre verify.py (lo cubre el CI)" '(does not run `verify.py`|No corre `verify.py`)' "$R" "$V" "$C"
+! grep -Eq 'red\.sh.*agents_map\.py.*verify\.py.*retro\.sh' "$R" "$V" "$C" "${C%.md}.es.md" "${V%.md}.es.md" "$RAIZ/.claude/i18n/agents/reviewer.es.md" 2>/dev/null; afirmar $? "ningún texto del revisor lista verify.py entre los scripts que corre"
+grep -Eq 'checkout de confianza|trusted checkout' "$C" && grep -Eq 'run \(the reviewer is the exception|se corren \(el revisor es la excepción' "$C" "${C%.md}.es.md"; afirmar $? "contrato (viñeta 1): el revisor es la excepción de cd <worktree> && …"
+ambos "review-pr (Retro): retro.sh del checkout de confianza por ruta absoluta" '<root>/\.claude/skills/improve-skills/retro\.sh' "$V"
+ambos "implement-issue (paso 3): qué puede tener el commit en rojo" 'fixtures and stubs|fixtures y stubs' "$I"
+# 7. Restos en español en la instalación en inglés.
+CI="$SK/create-issue/SKILL.md"
+if [ -f "$SK/create-issue/SKILL.es.md" ]; then
+  ! grep -Eq 'Qué pasa|Qué debería' "$CI" && grep -q '## What happens' "$CI" && grep -q '## Qué pasa' "$SK/create-issue/SKILL.es.md"
+else  # proyecto instalado: un solo idioma, sin mezclar
+  grep -Eq '## (What happens|Qué pasa)' "$CI" && ! { grep -q 'What happens' "$CI" && grep -q 'Qué pasa' "$CI"; }
+fi
+afirmar $? "create-issue paso 6: los títulos del cuerpo salen de la plantilla en el idioma de la instalación"
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi

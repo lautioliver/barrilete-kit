@@ -6,16 +6,16 @@ body:
     attributes:
       value: "Título: el síntoma, descriptivo. Ej.: *El QR no valida sin conexión*."
   - type: textarea
-    id: que-pasa
+    id: what-happens
     attributes: { label: Qué pasa, description: Qué se ve y dónde. }
     validations: { required: true }
   - type: textarea
-    id: esperado
+    id: expected
     attributes: { label: Qué debería pasar, description: Con link al ADR o doc que lo define, si existe. }
     validations: { required: true }
   - type: textarea
-    id: pasos
+    id: steps
     attributes: { label: Cómo reproducirlo }
   - type: textarea
-    id: contexto
+    id: context
     attributes: { label: Contexto, description: Entorno, IDs, logs (sin secretos ni datos personales). }
