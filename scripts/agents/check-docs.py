@@ -161,8 +161,9 @@ for archivo in md_files():
             if num != "000" and num not in adrs and num not in adrs_kit:
                 errores.append(f"{archivo}:{n}: ADR-{num} does not exist in docs/decisions/ or docs/decisions/kit/")
 
-# In an installed repo (install.py) every ADR is the project's and its indices are the project's too: the kit does not require
-# them to list its ADRs. The ADRs of docs/decisions/kit/ are installed (ADR-002, D11) but they are the kit's, not the project's.
+# Not checked in a repo where install.py put the kit (INSTALADO): there every ADR is the project's and its indices are the project's
+# too. In a project created from the template the ADRs of docs/decisions/kit/ are installed (ADR-002, D11) and its indices are checked,
+# but a kit ADR missing from them is only a warning there (below).
 # The Spanish siblings (docs/README.es.md, docs/llms.es.txt) are the project's indices when it is installed with --lang es:
 # the parity check counts headings, not lines, so it would not notice an ADR missing from them.
 for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llms.es.txt"):
