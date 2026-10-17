@@ -1,5 +1,5 @@
 {
-  "_help": "Map for agents and CI. 'docs': which document to review when certain files change (used by update-docs, implement-issue and review-pr). 'sensitive': paths that must be asked about before changing them and that need /security-review (see AGENTS.md, Agent autonomy). 'verify': what to run before the PR according to what changed (scripts/agents/verify.py). 'required': documents that must exist (validated by scripts/agents/check-docs.py). 'ignore_check': paths that check-docs.py does not validate, such as historical logs that cite files that no longer exist. Git-style globs: ** any depth, * one level. A path that starts with ? is optional: check-docs does not fail if it matches no file (useful for stack alternatives, such as package.json or *.lock). 'parity': true|false, switch of the language-parity check (each X.md with its X.es.md): the template turns it on while its content is translated and the init turns it off in projects, which have a single language. 'parity_ignore': .md files that have no .es.md version (the language-parity check; ignore_check does not exempt them). The project's own paths go without ?: if they stop existing, the check fails. TODO: fill in with the project's paths.",
+  "_help": "Map for agents and CI. 'docs': which document to review when certain files change (used by update-docs, implement-issue and review-pr). 'sensitive': paths that must be asked about before changing them and that need /security-review (see AGENTS.md, Agent autonomy). 'verify': what to run before the PR according to what changed (scripts/agents/verify.py). 'red': how red.sh gets the structured report of each test stack (ADR-002 D2): name, when (globs of changed files), run (with {out}), format (junit|tap), optional timeout in seconds. 'required': documents that must exist (validated by scripts/agents/check-docs.py). 'ignore_check': paths that check-docs.py does not validate, such as historical logs that cite files that no longer exist. Git-style globs: ** any depth, * one level. A path that starts with ? is optional: check-docs does not fail if it matches no file (useful for stack alternatives, such as package.json or *.lock). 'parity': true|false, switch of the language-parity check (each X.md with its X.es.md): the template turns it on while its content is translated and the init turns it off in projects, which have a single language. 'parity_ignore': .md files that have no .es.md version (the language-parity check; ignore_check does not exempt them). The project's own paths go without ?: if they stop existing, the check fails. TODO: fill in with the project's paths.",
   "docs": [
     {
       "when": [
@@ -133,6 +133,17 @@
       ]
     }
   ],
+  "red": [
+    {
+      "name": "bash",
+      "when": [
+        "**/test-*.sh"
+      ],
+      "format": "tap",
+      "run": "rc=0; for t in $(git diff --name-only --diff-filter=AM HEAD^ HEAD -- '*test-*.sh'); do TAP_OUT={out} bash \"$t\" || rc=1; done; exit $rc",
+      "timeout": 1800
+    }
+  ],
   "verify": [
     {
       "name": "docs",
@@ -169,7 +180,9 @@
       "name": "red",
       "when": [
         ".claude/skills/implement-issue/red.sh",
-        ".claude/skills/implement-issue/test-red.sh"
+        ".claude/skills/implement-issue/test-red.sh",
+        ".claude/skills/implement-issue/corpus/**",
+        "scripts/agents/red_report.py"
       ],
       "run": "bash .claude/skills/implement-issue/test-red.sh"
     },

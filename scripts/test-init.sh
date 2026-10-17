@@ -18,7 +18,7 @@ unset BASE
 # Copia de la plantilla tal como está en el árbol (incluye lo nuevo sin commitear, sin lo ignorado).
 copiar() { # copiar <destino>
   mkdir -p "$1"
-  (cd "$RAIZ" && git ls-files -z -co --exclude-standard | xargs -0 tar -cf -) | (cd "$1" && tar -xf -)
+  (cd "$RAIZ" && git ls-files -z -co --exclude-standard | tar --null -T - -cf -) | (cd "$1" && tar -xf -)
   (cd "$1" && git init -q -b main && git add -A && git commit -qm plantilla)
 }
 

@@ -28,10 +28,10 @@ Valida que esté abierto, que no lo tenga otra persona y que no haya cambios sin
 Los tests salen de los **criterios de aceptación** del issue, antes de escribir el código. Si necesitan algo que no existe, solo la firma o un stub. Corrélos:
 
 ```bash
-.claude/skills/implement-issue/red.sh -- <comando de test de AGENTS.md>
+.claude/skills/implement-issue/red.sh [<stack>]
 ```
 
-Tienen que fallar **por una aserción** del criterio: si pasan, no prueban nada; si fallan por un import o un símbolo inexistente, completá el stub. **Bug** → skill `debug`: el test rojo reproduce el bug. Commiteá los tests en rojo (`test: …`) antes de implementar. Si una parte no se puede probar (concurrencia real, un proveedor externo), anotala en el PR como **`sin tests: <motivo>`**.
+Commiteá primero los tests en rojo: `red.sh` valida el commit de HEAD, y el comando de cada stack es una sección `red` (`name`, `when`, `run`, `format`) de un mapa de agentes que este modo no trae: creala como docs/agents-map.json con solo esa sección. Cada comando tiene que escribir un reporte JUnit o TAP en `{out}`; para un test bash usá `scripts/agents/tap.sh`. Tienen que fallar **por una aserción** del criterio: si pasan, no prueban nada; si fallan por un import o un símbolo inexistente, completá el stub. **Bug** → skill `debug`: el test rojo reproduce el bug. Commiteá los tests en rojo (`test: …`) antes de implementar. Si una parte no se puede probar (concurrencia real, un proveedor externo), anotala en el PR como **`sin tests: <motivo>`**.
 
 ## 4. Implementar (verde)
 

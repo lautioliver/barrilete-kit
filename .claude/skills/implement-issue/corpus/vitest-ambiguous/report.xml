@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="3" failures="2" errors="0" time="0.001">
+    <testsuite name="src/new.test.js" timestamp="2026-10-17T00:00:00" hostname="host" tests="2" failures="2" errors="0" skipped="0" time="0.001">
+        <testcase classname="src/new.test.js" name="A &gt; works" time="0.001">
+            <failure message="expected +0 to be 1 // Object.is equality" type="AssertionError">
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/new.test.js:3:62
+            </failure>
+        </testcase>
+        <testcase classname="src/new.test.js" name="B &gt; works" time="0.001">
+            <failure message="expected +0 to be 2 // Object.is equality" type="AssertionError">
+AssertionError: expected +0 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ src/new.test.js:4:62
+            </failure>
+        </testcase>
+    </testsuite>
+    <testsuite name="src/old.test.js" timestamp="2026-10-17T00:00:00" hostname="host" tests="1" failures="0" errors="0" skipped="0" time="0.001">
+        <testcase classname="src/old.test.js" name="passes" time="0.001">
+        </testcase>
+    </testsuite>
+</testsuites>

@@ -1,0 +1,23 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0
+rootdir: /private/work/p
+collected 1 item
+
+test_old.py F                                                            [100%]
+
+=================================== FAILURES ===================================
+__________________________________ test_total __________________________________
+
+tmp_path = PosixPath('/tmp/x')
+
+    def test_total(tmp_path):
+>       assert total([1, 2]) == 3
+E       assert 0 == 3
+E        +  where 0 = total([1, 2])
+
+test_old.py:4: AssertionError
+- generated xml file: /work/report.xml -
+=========================== short test summary info ============================
+FAILED test_old.py::test_total - assert 0 == 3
+ +  where 0 = total([1, 2])
+============================== 1 failed in 0.01s ===============================

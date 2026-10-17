@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites><testsuite name="pytest" tests="2" failures="1" errors="1"><testcase classname="test_new" name="test_new" file="test_new.py" time="0.001"><failure message="boom">boom</failure></testcase><testcase classname="test_new" name="test_err" file="test_new.py" time="0.001"><error message="boom">boom</error></testcase></testsuite></testsuites>

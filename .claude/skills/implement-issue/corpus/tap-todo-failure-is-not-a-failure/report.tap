@@ -1,0 +1,4 @@
+TAP version 14
+# file: scripts/new.test.sh
+not ok 1 - creates the branch # TODO not yet
+1..1

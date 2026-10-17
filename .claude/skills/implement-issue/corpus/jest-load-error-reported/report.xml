@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="1" failures="0" errors="1" time="0.001">
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2026-10-17T00:00:00" time="0.001" tests="1">
+    <testcase classname=" passes" name="passes" time="0.001" file="old.test.js">
+    </testcase>
+  </testsuite>
+  <testsuite name="new.test.js" errors="1" failures="0" skipped="0" timestamp="2026-10-17T00:00:00" time="0.001" tests="0">
+    <testcase classname="Test suite failed to run" name="new.test.js" time="0.001" file="new.test.js">
+      <error>  ● Test suite failed to run
+
+    Cannot find module &apos;./does-not-exist&apos; from &apos;new.test.js&apos;
+
+    &gt; 1 | const { nope } = require(&apos;./does-not-exist&apos;);
+        |                  ^
+      2 | it(&apos;x&apos;, () =&gt; { expect(nope()).toBe(1); });
+      3 |
+
+      at Resolver._throwModNotFoundError (../../../../../../../tmp/claude-501/-Users-lautioliver-orca-workspaces-agent-kit-template-jawfish/2465efc3-356d-4d4c-8622-b68d8982c3e6/scratchpad/rt/js/node_modules/jest-resolve/build/index.js:1031:11)
+      at Object.require (new.test.js:1:18)
+</error>
+    </testcase>
+    <testcase classname="Test suite failed to run" name="new.test.js" time="0.001" file="new.test.js">
+      <failure>&quot;Cannot find module &apos;./does-not-exist&apos; from &apos;new.test.js&apos;&quot;</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

@@ -229,9 +229,7 @@ has_bail4() { grep -q '^Bail out!' "$TMP/tap4" 2>/dev/null; }
 has_bail4 && nogrep '^1\.\.' "$TMP/tap4"; check $? "a bail out removes the plan an earlier script wrote"
 
 # 9. The kit's own tests use the helper (what the issue migrates).
-# test-red.sh is left out on purpose: it belongs to the rewrite of red.sh (#150), which migrates it to tap.sh.
-# Remove the exclusion when #150 lands (the hand-off is recorded on issue #150).
-SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh ! -name test-red.sh | sort)
+SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh | sort)
 n=0; sin=""
 for s in $SCRIPTS; do n=$((n + 1)); grep -q 'agents/tap\.sh' "$ROOT/$s" || sin="$sin $s"; done
 [ -z "$sin" ] && [ "$n" -ge 1 ]; check $? "every test-*.sh of the kit loads tap.sh" "missing:${sin:- none}"

@@ -1,0 +1,4 @@
+# file: scripts/calc.test.sh
+ok 1 - adds numbers
+not ok 2 - subtracts
+1..2

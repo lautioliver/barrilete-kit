@@ -1,0 +1,4 @@
+expect=0
+format=junit
+exit=1
+source=handwritten: JUnit XML edited to exercise the parser (ADR-002 D3)

@@ -1,0 +1,4 @@
+expect=0
+format=junit
+exit=100
+source=handwritten from the documented format of cargo nextest's JUnit output (nextest.rs/docs/machine-readable/junit): cargo is not installed here

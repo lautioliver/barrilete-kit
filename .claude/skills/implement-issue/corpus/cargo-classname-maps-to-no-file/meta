@@ -1,0 +1,6 @@
+expect=2
+format=junit
+exit=101
+source=handwritten from the documented format of cargo2junit (README) and cargo test output: cargo is not installed here
+says=configure the reporter
+note=the crate has neither src/lib.rs nor src/main.rs: the module path maps to no file

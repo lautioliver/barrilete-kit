@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="nextest-run" tests="2" failures="1" errors="0" time="0.005">
+    <testsuite name="demo" tests="2" disabled="0" errors="0" failures="1">
+        <testcase name="a::tests::passes" classname="demo" time="0.001"/>
+        <testcase name="a::more::adds" classname="demo" time="0.004">
+            <failure message="test failure" type="test failure"/>
+        </testcase>
+    </testsuite>
+</testsuites>

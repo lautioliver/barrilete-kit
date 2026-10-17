@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="2" failures="1" errors="0" time="0.001">
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2026-10-17T00:00:00" time="0.001" tests="1">
+    <testcase classname=" passes" name="passes" time="0.001" file="old.test.js">
+    </testcase>
+  </testsuite>
+  <testsuite name="undefined" errors="0" failures="1" skipped="0" timestamp="2026-10-17T00:00:00" time="0.001" tests="1">
+    <testcase classname=" reads the missing file" name="reads the missing file" time="0.001" file="new.test.js">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: &quot;OK&quot;
+Received: &quot;ENOENT&quot;
+    at Object.toBe (/private/work/p/new.test.js:6:15)
+    at Promise.finally.completed (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1834:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1774:10)
+    at _callCircusTest (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1167:40)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at _runTestInContext (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1103:3)
+    at runTestWithContext (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:996:5)
+    at _runTestsForDescribeBlockOnce (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1008:11)
+    at _runTestsForDescribeBlock (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at run (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:789:3)
+    at runAndTransformResultsToJestFormat (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:2300:21)
+    at jestAdapter (/rt/js/node_modules/jest-circus/build/runner.js:111:19)
+    at runTestInternal (/rt/js/node_modules/jest-runner/build/testWorker.js:247:16)
+    at runTest (/rt/js/node_modules/jest-runner/build/testWorker.js:315:7)
+    at Object.worker (/rt/js/node_modules/jest-runner/build/testWorker.js:479:12)</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

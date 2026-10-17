@@ -1,0 +1,17 @@
+running 1 test
+test a::async_tests::fetches ... FAILED
+
+failures:
+
+---- a::async_tests::fetches stdout ----
+thread 'a::async_tests::fetches' panicked at src/a.rs:9:9:
+assertion `left == right` failed
+  left: 0
+ right: 1
+
+failures:
+    a::async_tests::fetches
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+
+error: test failed, to rerun pass `--lib`

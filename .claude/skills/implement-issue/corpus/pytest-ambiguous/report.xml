@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="3" time="0.001" timestamp="2026-10-17T00:00:00" hostname="host"><testcase classname="test_new.TestA" name="test_x" file="test_new.py" line="3" time="0.001"><failure message="assert 0 == 1&#10; +  where 0 = total([1])">self = &lt;test_new.TestA object at 0x0&gt;
+
+    def test_x(self):
+&gt;       assert total([1]) == 1
+E       assert 0 == 1
+E        +  where 0 = total([1])
+
+test_new.py:5: AssertionError</failure></testcase><testcase classname="test_new.TestB" name="test_x" file="test_new.py" line="7" time="0.001"><failure message="assert 0 == 2&#10; +  where 0 = total([2])">self = &lt;test_new.TestB object at 0x0&gt;
+
+    def test_x(self):
+&gt;       assert total([2]) == 2
+E       assert 0 == 2
+E        +  where 0 = total([2])
+
+test_new.py:9: AssertionError</failure></testcase><testcase classname="test_old" name="test_old" file="test_old.py" line="2" time="0.001" /></testsuite></testsuites>

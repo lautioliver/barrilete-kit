@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+<testsuite name="example.com/m/calc" tests="2" failures="2" errors="0"><testcase classname="example.com/m/calc" name="TestTable" time="0.001"><failure message="boom">boom</failure></testcase><testcase classname="example.com/m/calc" name="TestTable/row" time="0.001"><failure message="boom">boom</failure></testcase></testsuite>
+</testsuites>

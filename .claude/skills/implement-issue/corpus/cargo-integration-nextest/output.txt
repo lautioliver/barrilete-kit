@@ -1,0 +1,8 @@
+    Starting 1 test across 1 binary
+        FAIL [   0.004s] demo::api it_calls
+
+--- STDERR: demo::api it_calls ---
+thread 'it_calls' panicked at tests/api.rs:3:5:
+
+     Summary [   0.005s] 1 test run: 0 passed, 1 failed, 0 skipped
+error: test run failed

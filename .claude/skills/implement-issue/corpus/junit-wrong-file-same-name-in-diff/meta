@@ -1,0 +1,6 @@
+expect=2
+format=junit
+exit=1
+source=handwritten: JUnit XML edited to exercise the parser (ADR-002 D3)
+says=configure the reporter
+note=a file attribute that two files end with is ambiguous: it is not mapped

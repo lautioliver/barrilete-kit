@@ -1,0 +1,6 @@
+expect=2
+format=tap
+exit=1
+source=real: scripts/agents/tap.sh (#163) run under TAP_OUT, the way red.sh runs it
+says="old broken" is not defined
+note=an added line that only mentions the id is not the case line: the id has to be the first argument of tap_ok, tap_fail or tap_check

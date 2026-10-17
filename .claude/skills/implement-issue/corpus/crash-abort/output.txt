@@ -1,0 +1,2 @@
+Assertion failed: (x > 0), function f, file calc.c, line 12.
+Abort trap: 6

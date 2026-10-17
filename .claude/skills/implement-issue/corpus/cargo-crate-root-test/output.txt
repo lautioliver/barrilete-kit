@@ -1,0 +1,17 @@
+running 1 test
+test at_root ... FAILED
+
+failures:
+
+---- at_root stdout ----
+thread 'at_root' panicked at src/a.rs:9:9:
+assertion `left == right` failed
+  left: 0
+ right: 1
+
+failures:
+    at_root
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+
+error: test failed, to rerun pass `--lib`

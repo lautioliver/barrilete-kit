@@ -1,0 +1,6 @@
+expect=2
+format=junit
+exit=101
+source=handwritten from the documented format of cargo2junit (README) and cargo test output: cargo is not installed here
+says="it_works" is not defined
+note=the attribute search stops at the line of another fn: the #[test] above belongs to `other`, not to the stub

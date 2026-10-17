@@ -1,0 +1,2 @@
+FAIL - init replaces the placeholders
+1 test(s) failed.

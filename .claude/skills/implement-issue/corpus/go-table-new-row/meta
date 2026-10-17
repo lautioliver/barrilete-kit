@@ -1,0 +1,5 @@
+expect=2
+format=junit
+exit=1
+source=handwritten from the documented format of gotestsum --junitfile (gotestsum 1.12, go 1.22): go is not installed here
+says="TestTable" is not defined

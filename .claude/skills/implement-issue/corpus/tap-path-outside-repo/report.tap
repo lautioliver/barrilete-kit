@@ -1,0 +1,4 @@
+TAP version 14
+# file: ../elsewhere/new.test.sh
+not ok 1 - creates the branch
+1..1

@@ -1,0 +1,3 @@
+# file: scripts/new.test.sh
+not ok 1 - ids with \# hash and \\ backslash
+1..1

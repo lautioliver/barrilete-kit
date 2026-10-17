@@ -1,0 +1,1 @@
+Bail out! unexpected error (status 1) at line 6 of scripts/new.test.sh

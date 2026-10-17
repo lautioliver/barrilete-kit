@@ -1,0 +1,4 @@
+expect=1
+format=tap
+exit=0
+source=real: scripts/agents/tap.sh (#163) run under TAP_OUT, the way red.sh runs it

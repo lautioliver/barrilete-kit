@@ -1,0 +1,7 @@
+expect=2
+format=tap
+exit=1
+source=handwritten: the message the shell or the runtime prints for that signal or error
+says=passed its timeout
+timeout=1
+sleep=30

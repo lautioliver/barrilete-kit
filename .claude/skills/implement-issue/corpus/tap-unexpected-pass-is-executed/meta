@@ -1,0 +1,4 @@
+expect=1
+format=tap
+exit=0
+source=handwritten from the TAP 14 of D6 (ADR-002): a malformed or hostile stream that tap.sh would not write

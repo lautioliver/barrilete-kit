@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+<testsuite name="test" tests="1" failures="1" errors="0" package="test"><testcase classname="a::b::tests" name="deep" time="0.001"><failure message="boom">boom</failure></testcase></testsuite>
+</testsuites>

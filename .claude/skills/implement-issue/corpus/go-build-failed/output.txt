@@ -1,0 +1,4 @@
+# example.com/m/calc [example.com/m/calc.test]
+calc/add_test.go:6:5: undefined: Sum
+FAIL	example.com/m/calc [build failed]
+FAIL
