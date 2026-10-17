@@ -151,7 +151,7 @@ s=$(check)
 grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un alias distinto entre los dos idiomas falla"
 copia; parity true
 perl -0pi -e 's/(- name: "type:feature"\n)(  color: "[0-9A-F]+"\n)/$1  description: "x"\n$2/' "$TMP/r/.github/labels.es.yml"
-perl -0pi -e 's/(- name: "type:bug"\n)  color: "7B61FF"\n/$1  color: "000000"\n/' "$TMP/r/.github/labels.es.yml"
+perl -0pi -e 's/(- name: "type:feature"\n  description: "x"\n)  color: "[0-9A-F]+"\n/$1  color: "000000"\n/' "$TMP/r/.github/labels.es.yml"
 s=$(check)
 grep -q '.github/labels.es.yml: .*differ' <<<"$s"; afirmar $? "labels: un color distinto se detecta aunque otra clave (description) quede entre name y color"
 copia; parity true
@@ -192,6 +192,37 @@ rm "$TMP/r/profiles/small/.github/labels.es.yml"
 s=$(check)
 grep -q 'profiles/small/.github/labels.yml: missing its Spanish sibling profiles/small/.github/labels.es.yml' <<<"$s"; afirmar $? "perfil chico: labels.yml sin su labels.es.yml falla con parity prendido"
 
+# formularios: required se asocia a su id (dos formularios que exigen campos distintos no son iguales) y una opción entre comillas
+# con una coma cuenta como una.
+copia; parity true
+perl -0pi -e 's/(id: que-pasa\n    attributes: \{[^\n]*\}\n)    validations: \{ required: true \}\n/$1/; s/(id: pasos\n    attributes: \{[^\n]*\}\n)/$1    validations: { required: true }\n/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
+s=$(check)
+grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; afirmar $? "formularios: el mismo número de required en otros campos (otro id) falla"
+copia; parity true
+perl -0pi -e 's/options: \[Full, /options: ["Full, with all", /' "$TMP/r/.github/ISSUE_TEMPLATE/5-trial.yml"
+perl -0pi -e 's/options: \[Completo, /options: ["Completo", /' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml"
+s=$(check)
+! grep -q '5-trial' <<<"$s"; afirmar $? "formularios: una opción entre comillas con una coma cuenta como una (sin falso positivo)"
+# labels: un formato de YAML que el parser no lee falla en vez de perder labels sin avisar (el mismo en los dos archivos no da diferencia).
+copia; parity true
+perl -0pi -e 's/^- name: "type:bug"/-   name: "type:bug"/m' "$TMP/r/.github/labels.yml" "$TMP/r/.github/labels.es.yml"
+s=$(check)
+grep -q '.github/labels.yml: .*items.*blocks' <<<"$s"; afirmar $? "labels: un ítem con formato que el parser no lee (-   name:) falla en vez de perderse"
+# ADRs: 'Ámbito: kit' en un idioma y no en el otro; con finales de línea CRLF el init tampoco lo borra.
+copia
+printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+s=$(check)
+grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*ADR-002-prueba.es.md' <<<"$s"; afirmar $? "un ADR con 'Ámbito: kit' en el .md y no en el .es.md avisa"
+printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+s=$(check)
+grep -q 'Warning: .*ADR-002-prueba.es.md.*Ámbito: kit.*ADR-002-prueba.md' <<<"$s"; afirmar $? "un ADR con 'Ámbito: kit' en el .es.md y no en el .md avisa"
+copia
+printf '# ADR-002 — Prueba\r\n\r\n## Status\r\n\r\nAccepted\r\n\r\nÁmbito: kit\r\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+s=$(check)
+grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar $? "un 'Ámbito: kit' con final de línea CRLF avisa que el init no lo borra"
+
 # Los índices de ADRs: los hermanos en español (docs/README.es.md, docs/llms.es.txt) también tienen que listar cada ADR.
 copia
 grep -v 'ADR-001-language' "$TMP/r/docs/README.es.md" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/docs/README.es.md"
@@ -221,13 +252,18 @@ s=$(check)
 ! grep -q 'Scope: kit' <<<"$s"; afirmar $? "sin init-template.sh (un proyecto) un ADR con 'Scope: kit' no da aviso"
 
 # Un ADR con hermano .es.md: el índice pide solo el .md, y 'Scope: kit' se detecta en el .md aunque el .es.md diga 'Ámbito: kit'
-# (no puede depender del orden en que el sistema de archivos lista los dos).
+# (no puede depender del orden en que el sistema de archivos lista los dos: el test fuerza los dos órdenes).
 for orden in 1 2; do
   copia
   printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
   printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
-  [ "$orden" = 2 ] && { touch -t 202001010000 "$TMP/r/docs/decisions/ADR-002-prueba.es.md"; touch -t 202501010000 "$TMP/r/docs/decisions/ADR-002-prueba.md"; }
-  s=$(check)
+  # touch -t no cambia el orden de os.listdir: se fuerza el orden con un os.listdir propio (ascendente en 1, descendente en 2).
+  s=$(cd "$TMP/r" && python3 -c "
+import os, runpy, sys
+real = os.listdir
+os.listdir = lambda p='.': sorted(real(p), reverse=($orden == 2))
+sys.argv = ['check-docs.py']
+runpy.run_path('scripts/agents/check-docs.py', run_name='__main__')" 2>&1)
   grep -q 'Warning: .*ADR-002-prueba.md .*Scope: kit' <<<"$s" && ! grep -q 'ADR-002-prueba.es.md is missing from the index' <<<"$s" && grep -q 'ADR-002-prueba.md is missing from the index' <<<"$s"
   afirmar $? "ADR con hermano .es.md (prueba $orden): avisa 'Scope: kit' del .md y el índice pide solo el .md"
 done
@@ -240,7 +276,8 @@ grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar 
 # README: sin la nota "Spanish-first"; el README en español muestra --lang es en los comandos de inicio.
 ! grep -qi 'spanish-first' "$RAIZ/README.md"; afirmar $? "README.md ya no dice que la plantilla es Spanish-first"
 grep -q 'init-template.sh "Nombre del proyecto" main --lang es' "$RAIZ/README.es.md"; afirmar $? "README.es.md: el comando de inicio lleva --lang es"
-! grep '^| `init-template.sh' "$RAIZ/README.es.md" | grep -qv -e '--lang es'; afirmar $? "README.es.md: los comandos de la tabla de modos llevan --lang es"
+filas=$(grep -c '^| `init-template.sh' "$RAIZ/README.es.md")
+[ "$filas" -ge 1 ] && ! grep '^| `init-template.sh' "$RAIZ/README.es.md" | grep -qv -e '--lang es'; afirmar $? "README.es.md: la tabla de modos tiene filas ($filas) y todas llevan --lang es"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 ! grep -q 'después `media`, `baja`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md" && grep -q 'después `medium`, `low`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md"; afirmar $? "perfil chico (es): implement-issue nombra los labels que existen (priority:medium y low)"
 # shellcheck disable=SC2016
