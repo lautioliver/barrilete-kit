@@ -2,6 +2,7 @@
 # Tests del par de idiomas X.md / X.es.md (#113): el check de paridad de check-docs.py y el aviso de agents_map.py.
 # Corre sobre una copia del repo, así no toca el working tree. Los pares son de ejemplo (el contenido real se traduce en #115).
 # Uso: bash scripts/agents/test-i18n.sh
+# shellcheck disable=SC2016  # los backticks y $ de los regex y del Markdown son literales
 set -uo pipefail
 RAIZ=$(cd "$(dirname "$0")/../.." && pwd)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-i18n-XXXXXX")
