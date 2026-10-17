@@ -278,8 +278,8 @@ for combinacion in "completo en English" "completo es español" "chico en Englis
   fi
   if [ "$modo" = completo ]; then
     # La línea que sigue al bloque DECIDED de la convención es en blanco (si no, la regla siguiente se vuelve parte de la cita).
-    n=$(grep -n 'DECID' "$p/docs/github-naming-convention.md" | tail -1 | cut -d: -f1)
-    if [ -z "$(sed -n "$((n + 1))p" "$p/docs/github-naming-convention.md")" ]; then r=0; else r=1; fi; afirmar $r "[$modo --lang $idioma R-6] después del bloque DECIDED de la convención queda una línea en blanco"
+    n=$(grep -nE '(is written in|se escribe en) ' "$p/docs/github-naming-convention.md" | head -1 | cut -d: -f1)
+    if [ -n "$n" ] && [ -z "$(sed -n "$((n + 1))p" "$p/docs/github-naming-convention.md")" ]; then r=0; else r=1; fi; afirmar $r "[$modo --lang $idioma R-6] después del bloque DECIDED de la convención queda una línea en blanco"
   fi
   ! grep -rq 'the template itself\|la plantilla misma' "$p/AGENTS.md" "$p/docs" "$p/.claude/skills" 2>/dev/null; afirmar $? "[$modo --lang $idioma R-6] el aviso del kit (descripciones en español en este repo) no llega al proyecto"
 done
@@ -295,15 +295,15 @@ copiar "$p"
 (cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1 && git add -A && git commit -qm init)
 grep -q '"parity": false' "$p/docs/agents-map.json"; afirmar $? "[completo] el init deja parity apagado en el mapa del proyecto"
 ! grep -q 'CLAUDE.md' <(python3 -c "import json; print(json.load(open('$p/docs/agents-map.json'))['parity_ignore'])"); afirmar $? "[completo] el init saca CLAUDE.md del parity_ignore del proyecto (es ruido de la plantilla)"
+printf '# Guía\n' >"$p/docs/manual.es.md"
+s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
+[ -f "$p/docs/manual.es.md" ] && ! grep -q 'manual' <<<"$s"; afirmar $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"
 # Un .yml del perfil chico gana a su hermano completo, cualquiera sea el archivo (no solo labels.yml).
 p="$TMP/yml-general"
 copiar "$p"
 echo "FULL-ES" >"$p/.github/foo.es.yml"; echo "FULL-EN" >"$p/.github/foo.yml"; echo "SMALL-EN" >"$p/profiles/small/.github/foo.yml"
 (cd "$p" && git add -A && git commit -qm foo && ./scripts/init-template.sh Demo main --small --lang es >/dev/null 2>&1)
 grep -qx SMALL-EN "$p/.github/foo.yml" && ! [ -e "$p/.github/foo.es.yml" ]; afirmar $? "[chico --lang es] un .yml del perfil gana a su hermano .es.yml completo (regla general, no solo labels.yml)"
-printf '# Guía\n' >"$p/docs/manual.es.md"
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
-! grep -q 'sibling\|headings\|code blocks' <<<"$s"; afirmar $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"
 p="$TMP/lang-default"
 copiar "$p"; con_pares "$p"
 (cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1); afirmar $? "[sin --lang] el init termina bien"

@@ -18,7 +18,7 @@ Checks:
   opus, sonnet or haiku, or that do not point to the common contract (docs/agents/subagent-contract.md).
 - Language siblings (ADR-001), only with "parity": true in the map: every X.md has its X.es.md (and the
   other way around; the Spanish sibling of an agent lives in .claude/i18n/agents/, and that of an issue form in
-  .github/i18n/ISSUE_TEMPLATE/, compared by type/id/labels) with the same number of headings and code blocks. "parity_ignore" in the map lists
+  .github/i18n/ISSUE_TEMPLATE/, compared by type/id/labels/required/options) with the same number of headings and code blocks. "parity_ignore" in the map lists
   the exceptions (globs). The ignore_check paths do NOT exempt: profiles/ has siblings too.
 - Members of .github/team.json that are repeated or have areas that are not in labels.yml.
 The paths in "ignore_check" of the map (for example, historical logs) are not validated.
@@ -93,6 +93,7 @@ if "--list" in sys.argv[1:]:
 MAPA = json.load(open("docs/agents-map.json", encoding="utf-8")) if os.path.exists("docs/agents-map.json") else {}
 IGNORAR = []
 avisos = []
+hermano_de_idioma = None  # small mode has no agents_map.py nor map: parity (the only user) is off there
 if MAPA:
     # Without a map (small mode) there are no paths to validate and agents_map.py is not needed.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -166,17 +167,31 @@ for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llm
 # The init only deletes the ADRs of the kit with the exact line "Ámbito: kit" (it is a literal, it is not translated): one written
 # with "Scope: kit" would be installed in every project. Warning, not error: a project may use that line for something else.
 # Only where the init is still there (the kit itself): in a project the ADRs are its own and there is nothing left to delete.
+KIT_AMBITO = re.compile(r"^Ámbito: kit[ \t\r]*$", re.M)
 for f in sorted(os.listdir("docs/decisions") if os.path.exists("scripts/init-template.sh") and os.path.isdir("docs/decisions") else []):
     if not re.match(r"ADR-\d{3}-.*\.md$", f):
         continue
-    with open(os.path.join("docs/decisions", f), encoding="utf-8") as fh:
+    with open(os.path.join("docs/decisions", f), encoding="utf-8", newline="") as fh:  # newline="": keep the \r of CRLF files
         texto = fh.read()
     if re.search(r"^Scope: kit\s*$", texto, re.M):
         avisos.append(f"docs/decisions/{f} has the line `Scope: kit`, but the init only deletes the ADRs with `Ámbito: kit` "
                       "(a literal that is not translated): this one would be installed in the projects.")
     if re.search(r"^Ámbito: kit[ \t\r]+$", texto, re.M):
-        avisos.append(f"docs/decisions/{f} has `Ámbito: kit` with trailing whitespace: the init matches the whole line, so it would "
-                      "not delete it (remove the trailing spaces).")
+        avisos.append(f"docs/decisions/{f} has `Ámbito: kit` with trailing whitespace or a CRLF line ending: the init matches the whole "
+                      "line, so it would not delete it (remove the trailing spaces or convert the file to LF).")
+    # The init keeps one of the two siblings (the .md with `en`; with `es` the .es.md is moved over the .md) and then deletes the
+    # ADRs whose remaining file has the exact `Ámbito: kit` line. If only one of the two has it, the ADR is deleted in one language
+    # and installed in the other. A sibling with `Scope: kit` is not compared: its own warning above already covers it.
+    hermano_es = os.path.join("docs/decisions", f[:-3] + ".es.md")
+    if not f.endswith(".es.md") and os.path.exists(hermano_es):
+        with open(hermano_es, encoding="utf-8", newline="") as fh:
+            texto_es = fh.read()
+        kit_en, kit_es = (bool(KIT_AMBITO.search(t)) for t in (texto, texto_es))
+        otro_scope = bool(re.search(r"^Scope: kit\s*$", texto if kit_es else texto_es, re.M))
+        if kit_en != kit_es and not otro_scope:
+            con, sin = (f, f[:-3] + ".es.md") if kit_en else (f[:-3] + ".es.md", f)
+            avisos.append(f"docs/decisions/{con} has `Ámbito: kit` but docs/decisions/{sin} does not: the two siblings must agree "
+                          "(the init would delete the ADR in one language and install it in the other).")
 
 
 def estructura(ruta):
@@ -222,11 +237,9 @@ if MAPA.get("parity"):
 # .github/i18n/ISSUE_TEMPLATE/<name>.es.yml (ADR-001, R-1; the rule is hermano_de_idioma() in agents_map.py). They are
 # compared by what does not carry prose: type, id, labels, required and the number of options.
 FORMS_EN, FORMS_ES = ".github/ISSUE_TEMPLATE", ".github/i18n/ISSUE_TEMPLATE"
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-try:
-    from agents_map import hermano_de_idioma as hermano  # noqa: E402
-except ImportError:  # small mode deletes agents_map.py (and has no forms nor map): nothing to compare
-    hermano = lambda ruta: None  # noqa: E731
+# hermano_de_idioma is imported at the top, with the map: small mode deletes agents_map.py and has no map, forms or parity.
+# One option of an inline list: a quoted string (it can carry a comma: "Yes, I did") or text up to the next comma.
+OPCION = re.compile(r"""\s*(?:"[^"]*"|'[^']*'|[^,"'][^,]*)\s*(?:,|$)""")
 
 
 def claves_de_formulario(ruta):
@@ -234,13 +247,19 @@ def claves_de_formulario(ruta):
     with open(ruta, encoding="utf-8") as fh:
         lineas = fh.read().splitlines()
     claves = [re.sub(r"\s+", " ", l).strip() for l in lineas if re.match(r"^\s*(?:- )?(?:type|id|labels):", l)]
-    claves += ["required" for l in lineas if re.search(r"\brequired: *true\b", l)]
+    actual = ""  # the id of the field the line belongs to: two forms that require different fields are not the same
+    for l in lineas:
+        m = re.match(r"^\s*(?:- )?id: *[\"']?([^\"'\s]+)", l)
+        if m:
+            actual = m.group(1)
+        if re.search(r"\brequired: *true\b", l):
+            claves.append(f"required:{actual}")
     for i, l in enumerate(lineas):
         m = re.match(r"^(\s*)options:\s*(.*)$", l)
         if not m:
             continue
         if m.group(2).startswith("["):
-            claves.append(f"options={len([x for x in m.group(2).strip('[]').split(',') if x.strip()])}")
+            claves.append(f"options={len(OPCION.findall(m.group(2).strip().strip('[]')))}")
         else:
             n = 0
             for sig in lineas[i + 1:]:
@@ -261,7 +280,7 @@ if MAPA.get("parity") and os.path.isdir(FORMS_EN):
     ya_vistos = set()
     for nombre in sorted(os.listdir(FORMS_EN)):
         en = f"{FORMS_EN}/{nombre}"
-        es = hermano(en)
+        es = hermano_de_idioma(en)
         if not es:  # config.yml, or a .es.yml (reported above)
             continue
         ya_vistos.add(es)
@@ -272,8 +291,8 @@ if MAPA.get("parity") and os.path.isdir(FORMS_EN):
     if os.path.isdir(FORMS_ES):
         for nombre in sorted(os.listdir(FORMS_ES)):
             es = f"{FORMS_ES}/{nombre}"
-            if hermano(es) and es not in ya_vistos:
-                errores.append(f"{es}: has no English sibling {hermano(es)}.")
+            if hermano_de_idioma(es) and es not in ya_vistos:
+                errores.append(f"{es}: has no English sibling {hermano_de_idioma(es)}.")
 
 # labels.yml and labels.es.yml: the same labels, colors and aliases (only the descriptions are translated); if one gets behind,
 # a --lang es install would sync a different set of labels and delete the missing ones (delete-other-labels), and a project
@@ -281,7 +300,23 @@ if MAPA.get("parity") and os.path.isdir(FORMS_EN):
 def etiquetas(ruta):
     """(name, color, aliases) of each label of a labels.yml, in order."""
     with open(ruta, encoding="utf-8") as fh:
-        bloques = re.split(r"^- name:", fh.read(), flags=re.M)[1:]
+        texto = fh.read()
+    bloques = re.split(r"^- name:", texto, flags=re.M)[1:]
+    # The parser reads only this shape: `- name: x` at the start of the line, `  key: value` lines and an `  aliases:` list of
+    # `    - "x"` lines. Any other line (inline aliases, an alias with a comment, a bare dash, an indented list, `-   name:`, flow
+    # items) would be dropped without a word, so it is an error: the first one is reported, with its line.
+    items = len(re.findall(r"^- ", texto, re.M))
+    if items != len(bloques) or not bloques:
+        errores.append(f"{ruta}: {items} items (`- ` at the start of a line) but {len(bloques)} blocks `- name:` were read: a YAML "
+                       "format not supported by this check (write each label as `- name: ...`).")
+    valida = (re.compile(r"^\s*(?:#.*)?$"), re.compile(r"^- name: *(?:\"[^\"]*\"|'[^']*'|[^\s#\"'{\[][^#]*?) *$"),
+              re.compile(r"^  (?!aliases:)[a-z_]+: *\S.*$"), re.compile(r"^  aliases: *$"),
+              re.compile(r"^    - *(?:\"[^\"]*\"|'[^']*'|[^\s#\"'{\[][^#]*?) *$"))
+    for n, linea in enumerate(texto.splitlines(), 1):
+        if not any(v.match(linea) for v in valida):
+            errores.append(f"{ruta}:{n}: format not supported by this check (it would be dropped without a word): {linea.strip()[:60]!r}. "
+                           "Use `- name:` at the start of the line, `  key: value` lines and `  aliases:` followed by `    - \"x\"` lines.")
+            break
     res = []
     for b in bloques:
         nombre = b.splitlines()[0].strip().strip("\"'")
@@ -295,7 +330,7 @@ if MAPA.get("parity"):
     for en in ("profiles/small/.github/labels.yml", ".github/labels.yml"):
         if not os.path.exists(en) or any(r.match(en) for r in EXENTOS):
             continue
-        es = hermano(en)
+        es = hermano_de_idioma(en)
         if not os.path.exists(es):
             errores.append(f"{en}: missing its Spanish sibling {es}.")
         elif etiquetas(en) != etiquetas(es):
