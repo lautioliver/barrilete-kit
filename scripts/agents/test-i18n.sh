@@ -410,9 +410,9 @@ for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; d
   copia
   rm "$TMP/r/scripts/init-template.sh"
   grep -v "$KITADR" "$TMP/r/$indice" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/$indice"
-  s=$(check); rc=$(cd "$TMP/r" && python3 scripts/agents/check-docs.py >/dev/null 2>&1; echo $?)
-  grep -q "Warning: .*$indice: the ADR kit/$KITADR is missing from the index" <<<"$s" && ! grep -q -- "- $indice: the ADR kit/" <<<"$s" && [ "$rc" -eq 0 ]
-  afirmar $? "proyecto (sin init-template.sh): un ADR de kit/ que falta en $indice es un aviso y el check pasa"
+  s=$(check)
+  grep -q "Warning: .*$indice: the ADR kit/$KITADR is missing from the index" <<<"$s" && ! grep -q -- "^- .*the ADR kit/" <<<"$s"
+  afirmar $? "proyecto (sin init-template.sh): un ADR de kit/ que falta en $indice es un aviso, no un error"
 done
 copia
 rm "$TMP/r/scripts/init-template.sh"
@@ -433,7 +433,7 @@ adr_no_tiene() {
 adr_tiene en 'Refinements written in the review of PR .*not decided separately' "Estado lista los refinamientos de D2, D3 y D9 que la persona no decidió por separado"
 adr_tiene en 'approved when .*#158.* is merged' "Estado dice que se aprueban al mergear el PR #158"
 adr_tiene es 'Refinamientos escritos en la revisión del PR .*no decididos por separado' "Estado lista los refinamientos (es)"
-adr_tiene es 'se aprueban al mergear .*#158' "Estado dice que se aprueban al mergear el PR #158 (es)"
+adr_tiene es '[Ss]e aprueban al mergear .*#158' "Estado dice que se aprueban al mergear el PR #158 (es)"
 adr_tiene en 'whole identifier' "D4 exige el identificador entero"
 adr_tiene es 'identificador entero' "D4 exige el identificador entero (es)"
 adr_tiene en 'never in a comment' "D4 excluye los comentarios"

@@ -161,8 +161,8 @@ for archivo in md_files():
             if num != "000" and num not in adrs and num not in adrs_kit:
                 errores.append(f"{archivo}:{n}: ADR-{num} does not exist in docs/decisions/ or docs/decisions/kit/")
 
-# In an installed repo every ADR is the project's (the kit's own are not installed) and its indices are the
-# project's too: the kit does not require them to list its ADRs.
+# In an installed repo (install.py) every ADR is the project's and its indices are the project's too: the kit does not require
+# them to list its ADRs. The ADRs of docs/decisions/kit/ are installed (ADR-002, D11) but they are the kit's, not the project's.
 # The Spanish siblings (docs/README.es.md, docs/llms.es.txt) are the project's indices when it is installed with --lang es:
 # the parity check counts headings, not lines, so it would not notice an ADR missing from them.
 for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llms.es.txt"):
@@ -175,7 +175,13 @@ for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llm
                 errores.append(f"{indice}: the ADR {f} is missing from the index")
         for f in adrs_kit.values():
             if f"decisions/kit/{f}" not in contenido:
-                errores.append(f"{indice}: the ADR kit/{f} is missing from the index")
+                mensaje = f"{indice}: the ADR kit/{f} is missing from the index"
+                # Only the kit itself (where the init is still there) requires it as an error. In a project, a three-way merge of
+                # update.py can leave the index without the line of a kit ADR: that must not turn its docs CI red after a routine update.
+                if os.path.exists("scripts/init-template.sh"):
+                    errores.append(mensaje)
+                else:
+                    avisos.append(mensaje + " (add its line: the update of the kit brings the ADR but may not merge the index)")
 
 # The init only deletes the ADRs of the kit with the exact line "Ámbito: kit" (it is a literal, it is not translated): one written
 # with "Scope: kit" would be installed in every project. Warning, not error: a project may use that line for something else.

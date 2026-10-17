@@ -45,7 +45,7 @@ gh issue list --state open --label "priority:critical" --limit 20 --json number,
 
 echo
 echo "## Recent decisions"
-recientes=$(git log --since="60 days ago" --diff-filter=AM --name-only --format= "origin/$DEFAULT" -- 'docs/decisions/ADR-*.md' 2>/dev/null | sort -u | grep -v ADR-000)
+recientes=$(git log --since="60 days ago" --diff-filter=AM --name-only --format= "origin/$DEFAULT" -- 'docs/decisions/ADR-*.md' 'docs/decisions/kit/ADR-*.md' 2>/dev/null | sort -u | grep -v ADR-000)
 if [ -z "$recientes" ]; then echo "_No new or amended ADR in 60 days._"; else
   for f in $recientes; do [ -f "$f" ] && echo "- $(head -1 "$f" | sed 's/^# //') ($(git log -1 --format=%cr -- "$f"))"; done
 fi
