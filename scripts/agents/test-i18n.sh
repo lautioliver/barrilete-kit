@@ -285,6 +285,13 @@ printf '# ADR-002 — Otro\n\n## Status\n\nAccepted\n' >"$TMP/r/docs/decisions/A
 for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do printf -- '- [ADR-002 otro](decisions/ADR-002-otro.md)\n' >>"$TMP/r/$indice"; done
 s=$(check)
 ! grep -q 'missing from the index' <<<"$s"; afirmar $? "mismo número 002 en las dos carpetas, cada uno con su línea en los cuatro índices: no falla"
+# Un ADR de kit/ es de los que el proyecto instala: con 'Ámbito: kit' (o 'Scope: kit') se contradice (el init borra solo los de docs/decisions/).
+for linea in 'Ámbito: kit' 'Scope: kit'; do
+  copia
+  printf '\n%s\n' "$linea" >>"$TMP/r/docs/decisions/kit/$KITADR"
+  s=$(check)
+  grep -q "Warning: .*kit/$KITADR.*$linea.*installed" <<<"$s"; afirmar $? "un ADR de kit/ con '$linea' avisa que se instala igual (el init solo borra los de docs/decisions/)"
+done
 # Una mención ADR-NNN se resuelve contra las dos carpetas: la de kit/ existe, una inexistente no.
 copia
 printf '\nSee ADR-002 and ADR-077.\n' >>"$TMP/r/docs/README.md"

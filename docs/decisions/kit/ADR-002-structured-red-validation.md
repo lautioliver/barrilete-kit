@@ -6,6 +6,8 @@ Accepted (2026-10-17)
 
 Origin: epic lautioliver/agent-kit-template#148 and issue lautioliver/agent-kit-template#149. Decisions D1–D10 approved by @lautioliver in the chat (2026-10-17): D1–D7 and D10 as recommended, D8 option (a) and D9 approved. Amendments of the review of PR lautioliver/agent-kit-template#156, decided by @lautioliver in chat, 2026-10-17: D11 (this ADR lives in `docs/decisions/kit/`), the `--small` profile in D2, the per-case rule of D4 and the trusted `red` section of D7. Where a rule below says "decided by @lautioliver in chat, 2026-10-17", that is the approval.
 
+Implementation state: this ADR records the target. Until the issues of the epic land, `red.sh` keeps working with the text rules it has today, and no `red` section, `tap.sh`, `red_report.py` or structured PR block exists yet.
+
 ## Context
 
 - `red.sh` (step 3 of `implement-issue`, the TDD table of `review-pr`) decides whether a test fails "for the right reason" by matching regexes over the runner's output: a list of load errors, a list of assertion patterns, and everything else is rejected.
@@ -37,8 +39,8 @@ Origin: epic lautioliver/agent-kit-template#148 and issue lautioliver/agent-kit-
 
    The exit code alone is never enough. Definitions:
    - **Failure and error, JUnit.** A `testcase` with a `failure` child is a failure. One with an `error` child is an error.
-   - **Failure and error, TAP.** A `not ok` is a failure. A `Bail out!` is an error. `not ok … # TODO` is not a failure: it is an expected failure. `ok … # TODO` counts as a passing case.
-   - **Executed.** A case is executed if it is not skipped: a `skipped` child (JUnit), `# SKIP` or `# TODO` (TAP). A report with only skipped cases has no executed case: exit 2.
+   - **Failure and error, TAP.** A `not ok` is a failure. A `Bail out!` is an error. `not ok … # TODO` is not a failure: it is an expected failure. `ok … # TODO` is an unexpected pass and counts as an executed, passing case.
+   - **Executed.** A case is executed if it is not skipped. Skipped: a `skipped` child (JUnit), `# SKIP` or `not ok … # TODO` (TAP). A report with only skipped cases has no executed case: exit 2.
    - **Aborted.** JUnit: the XML is truncated or does not parse, or the `tests` attribute of a `testsuite` does not match the `testcase` elements it contains. TAP: there is no plan (`1..N` at the start or at the end), the plan does not match the number of cases, or the stream ends without the plan.
    - **Parser safety.** The report is rejected if it has a `<!DOCTYPE` (JUnit never needs one; this also closes internal entity expansion on old expat versions), if it is larger than 20 MB, or if it is not UTF-8.
    - **Exit codes of `red.sh`.** 0: valid red. 1: the tests pass (exit code 0 and a report with no failure or error). 2: rejected for any other reason, including a `run` that exits 0 with failures in the report (inconsistent) and any internal error. 64: wrong usage. `implement-issue`, `review-pr` and the tests of `red.sh` depend on this contract.
@@ -71,8 +73,10 @@ Origin: epic lautioliver/agent-kit-template#148 and issue lautioliver/agent-kit-
      ```
      <details><summary>Red before implementing</summary>
 
-     format: junit
      red commit: <sha of the red commit>
+
+     stack: <name of the red entry>
+     format: junit
      failing cases:
      - <file>::<name>
      - <file>::<name>
@@ -80,14 +84,14 @@ Origin: epic lautioliver/agent-kit-template#148 and issue lautioliver/agent-kit-
      </details>
      ```
 
-     `<file>` is the file of D4 (or the `classname` when the report gives no file), `<name>` is the name of the case, one case per line.
-   - **The check.** The reviewer runs the `red.sh` of the **trusted checkout** (the base branch) on that commit, in its review worktree, and compares the list of failing cases with the one in the block as a set: order and repeats do not matter. If they do not match, it is a finding to fix.
+     `red commit:` appears once. Then there is one group (`stack:`, `format:`, `failing cases:`) per `red` entry that ran (D2), so a red commit that touches two stacks has two groups. `<file>` is the file of D4 (or the `classname` when the report gives no file), `<name>` is the name of the case, one case per line.
+   - **The check.** The reviewer runs the `red.sh` of the **trusted checkout** (the base branch) on that commit, in its review worktree, and compares, group by group (by `stack`), the list of failing cases with the one in the block as a set: order and repeats do not matter. A stack with no group, or a group of a stack that did not run, is a mismatch. If they do not match, it is a finding to fix.
    - **Where `red` comes from.** The reviewer's `red.sh` reads the `red` section from the trusted checkout on the base branch, never from the PR (decided by @lautioliver in chat, 2026-10-17). If it read it from the red commit, a PR could set `run` to any command and the reviewer would run it. A PR that changes the `red` section is a sensitive change: it needs the approval of a person, like CI, and the reviewer validates with the base's section meanwhile. When the base has no `red` yet, there is nothing to trust and the person decides.
    - This keeps the rule of point 8 approved in lautioliver/agent-kit-template#146: the reviewer runs only the PR's tests, not other code from the PR.
 
 8. **D8. It lands before v1.0, as a breaking change, with no text mode.** Epic lautioliver/agent-kit-template#148 blocks lautioliver/agent-kit-template#91. A project without a `red` section gets a rejection with a guide on how to add it; there is no transition mode. Changing this after `v1.0.0` would be a break.
 
-9. **D9. The CI check also requires structure.** Besides the `Red before implementing` title (or `Rojo antes de implementar`: the check accepts both), `labels.yml` requires the `format:` line (`junit` or `tap`), the `red commit:` line (a hexadecimal sha) and under `failing cases:` at least one line `- <file>::<name>`. It goes in the same PR as D7. CI is a sensitive path: approved by @lautioliver in the chat (2026-10-17).
+9. **D9. The CI check also requires structure.** Besides the `Red before implementing` title (or `Rojo antes de implementar`: the check accepts both), `labels.yml` requires the `red commit:` line (a hexadecimal sha) and at least one group with a `stack:` line, a `format:` line (`junit` or `tap`) and, under `failing cases:`, at least one line `- <file>::<name>`. It goes in the same PR as D7. CI is a sensitive path: approved by @lautioliver in the chat (2026-10-17).
 
 10. **D10. Reference runners:** bash (TAP), pytest (`--junitxml`), vitest and jest (`junit` reporter), go (`gotestsum --junitfile`) and cargo (`cargo2junit` or `nextest`). They are documented and tested in the corpus. Any other runner follows the generic rules of D1–D5. They are the ones with a documented JUnit or TAP reporter in the stacks the kit's users have today.
 

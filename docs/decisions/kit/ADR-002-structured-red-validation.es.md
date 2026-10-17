@@ -6,6 +6,8 @@ Aceptado (2026-10-17)
 
 Origen: épica lautioliver/agent-kit-template#148 e issue lautioliver/agent-kit-template#149. Decisiones D1–D10 aprobadas por @lautioliver en el chat (2026-10-17): D1–D7 y D10 según la recomendación, D8 opción (a) y D9 aprobada. Enmiendas de la revisión del PR lautioliver/agent-kit-template#156, decididas por @lautioliver en el chat, 2026-10-17: D11 (este ADR vive en `docs/decisions/kit/`), el perfil `--small` en D2, la regla por caso de D4 y la sección `red` confiable de D7. Donde una regla de abajo dice "decidido por @lautioliver en el chat, 2026-10-17", esa es la aprobación.
 
+Estado de la implementación: este ADR registra el objetivo. Hasta que entren los issues de la épica, `red.sh` sigue funcionando con las reglas de texto que tiene hoy, y todavía no existen la sección `red`, `tap.sh`, `red_report.py` ni el bloque estructurado del PR.
+
 ## Contexto
 
 - `red.sh` (paso 3 de `implement-issue`, la tabla de TDD de `review-pr`) decide si un test falla "por la razón correcta" con regex sobre la salida del runner: una lista de errores de carga, una lista de patrones de aserción, y todo lo demás se rechaza.
@@ -37,8 +39,8 @@ Origen: épica lautioliver/agent-kit-template#148 e issue lautioliver/agent-kit-
 
    El exit code solo nunca alcanza. Definiciones:
    - **Failure y error, JUnit.** Un `testcase` con un hijo `failure` es una falla. Uno con un hijo `error` es un error.
-   - **Failure y error, TAP.** Un `not ok` es una falla. Un `Bail out!` es un error. `not ok … # TODO` no es una falla: es una falla esperada. `ok … # TODO` cuenta como caso que pasa.
-   - **Ejecutado.** Un caso se ejecutó si no está salteado: un hijo `skipped` (JUnit), `# SKIP` o `# TODO` (TAP). Un reporte con solo casos salteados no tiene ningún caso ejecutado: sale con 2.
+   - **Failure y error, TAP.** Un `not ok` es una falla. Un `Bail out!` es un error. `not ok … # TODO` no es una falla: es una falla esperada. `ok … # TODO` es un pase inesperado y cuenta como caso ejecutado que pasa.
+   - **Ejecutado.** Un caso se ejecutó si no está salteado. Salteado: un hijo `skipped` (JUnit), `# SKIP` o `not ok … # TODO` (TAP). Un reporte con solo casos salteados no tiene ningún caso ejecutado: sale con 2.
    - **Abortado.** JUnit: el XML está truncado o no se parsea, o el atributo `tests` de un `testsuite` no coincide con los `testcase` que contiene. TAP: no hay plan (`1..N` al principio o al final), el plan no coincide con la cantidad de casos, o el flujo termina sin el plan.
    - **Seguridad del parser.** Se rechaza el reporte si tiene un `<!DOCTYPE` (JUnit nunca lo necesita; también cierra la expansión de entidades internas en versiones viejas de expat), si pesa más de 20 MB o si no es UTF-8.
    - **Exit codes de `red.sh`.** 0: rojo válido. 1: los tests pasan (exit code 0 y un reporte sin falla ni error). 2: rechazado por cualquier otro motivo, incluido un `run` que sale con 0 con fallas en el reporte (inconsistente) y cualquier error interno. 64: uso incorrecto. `implement-issue`, `review-pr` y los tests de `red.sh` dependen de este contrato.
@@ -71,8 +73,10 @@ Origen: épica lautioliver/agent-kit-template#148 e issue lautioliver/agent-kit-
      ```
      <details><summary>Red before implementing</summary>
 
-     format: junit
      red commit: <sha del commit en rojo>
+
+     stack: <nombre de la entrada de red>
+     format: junit
      failing cases:
      - <file>::<name>
      - <file>::<name>
@@ -80,14 +84,14 @@ Origen: épica lautioliver/agent-kit-template#148 e issue lautioliver/agent-kit-
      </details>
      ```
 
-     `<file>` es el archivo de D4 (o el `classname` cuando el reporte no da archivo), `<name>` es el nombre del caso, un caso por línea.
-   - **El control.** El revisor corre el `red.sh` del **checkout confiable** (la rama base) en ese commit, en su worktree de revisión, y compara la lista de casos fallidos con la del bloque como conjunto: no importan el orden ni las repeticiones. Si no coinciden, es un hallazgo a corregir.
+     `red commit:` aparece una vez. Después hay un grupo (`stack:`, `format:`, `failing cases:`) por cada entrada de `red` que corrió (D2), así que un commit en rojo que toca dos stacks tiene dos grupos. `<file>` es el archivo de D4 (o el `classname` cuando el reporte no da archivo), `<name>` es el nombre del caso, un caso por línea.
+   - **El control.** El revisor corre el `red.sh` del **checkout confiable** (la rama base) en ese commit, en su worktree de revisión, y compara, grupo por grupo (por `stack`), la lista de casos fallidos con la del bloque como conjunto: no importan el orden ni las repeticiones. Un stack sin grupo, o un grupo de un stack que no corrió, es una diferencia. Si no coinciden, es un hallazgo a corregir.
    - **De dónde sale `red`.** El `red.sh` del revisor lee la sección `red` del checkout confiable en la rama base, nunca del PR (decidido por @lautioliver en el chat, 2026-10-17). Si la leyera del commit en rojo, un PR podría poner en `run` cualquier comando y el revisor lo correría. Un PR que cambia la sección `red` es un cambio sensible: necesita la aprobación de una persona, como el CI, y mientras tanto el revisor valida con la sección de la base. Si la base todavía no tiene `red`, no hay nada en qué confiar y decide la persona.
    - Esto mantiene la regla del punto 8 aprobada en lautioliver/agent-kit-template#146: el revisor corre solo los tests del PR, no otro código del PR.
 
 8. **D8. Entra antes de v1.0, como cambio que rompe compatibilidad, sin modo texto.** La épica lautioliver/agent-kit-template#148 bloquea lautioliver/agent-kit-template#91. Un proyecto sin sección `red` recibe un rechazo con una guía para agregarla; no hay modo de transición. Cambiarlo después de `v1.0.0` sería una ruptura.
 
-9. **D9. El check del CI también exige estructura.** Además del título `Red before implementing` (o `Rojo antes de implementar`: el check acepta los dos), `labels.yml` exige la línea `format:` (`junit` o `tap`), la línea `red commit:` (un sha hexadecimal) y, bajo `failing cases:`, al menos una línea `- <file>::<name>`. Va en el mismo PR que D7. El CI es ruta sensible: aprobado por @lautioliver en el chat (2026-10-17).
+9. **D9. El check del CI también exige estructura.** Además del título `Red before implementing` (o `Rojo antes de implementar`: el check acepta los dos), `labels.yml` exige la línea `red commit:` (un sha hexadecimal) y al menos un grupo con una línea `stack:`, una línea `format:` (`junit` o `tap`) y, bajo `failing cases:`, al menos una línea `- <file>::<name>`. Va en el mismo PR que D7. El CI es ruta sensible: aprobado por @lautioliver en el chat (2026-10-17).
 
 10. **D10. Runners de referencia:** bash (TAP), pytest (`--junitxml`), vitest y jest (reporter `junit`), go (`gotestsum --junitfile`) y cargo (`cargo2junit` o `nextest`). Se documentan y prueban en el corpus. Cualquier otro runner sigue las reglas genéricas de D1–D5. Son los que tienen un reporter JUnit o TAP documentado en los stacks que usan hoy quienes usan el kit.
 

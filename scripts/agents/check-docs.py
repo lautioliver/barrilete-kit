@@ -206,6 +206,18 @@ for f in sorted(os.listdir("docs/decisions") if os.path.exists("scripts/init-tem
             avisos.append(f"docs/decisions/{con} has `Ámbito: kit` but docs/decisions/{sin} does not: the two siblings must agree "
                           "(the init would delete the ADR in one language and install it in the other).")
 
+# docs/decisions/kit/ holds the kit ADRs that the projects install (ADR-002, D11): the init deletes only the `Ámbito: kit` ones of
+# docs/decisions/, so one in kit/ that carries the line (or `Scope: kit`) contradicts itself and would be installed anyway.
+for f in sorted(os.listdir("docs/decisions/kit") if os.path.exists("scripts/init-template.sh") and os.path.isdir("docs/decisions/kit") else []):
+    if not re.match(r"ADR-\d{3}-.*\.md$", f):
+        continue
+    with open(os.path.join("docs/decisions/kit", f), encoding="utf-8", newline="") as fh:
+        texto = fh.read()
+    marca = re.search(r"^(Ámbito|Scope): kit\s*$", texto, re.M)
+    if marca:
+        avisos.append(f"docs/decisions/kit/{f} has the line `{marca.group(0).strip()}`, but the ADRs of docs/decisions/kit/ are the ones the projects install "
+                      "(the init only deletes the ones of docs/decisions/), so this one would be installed anyway: remove the line, or move the ADR out of kit/.")
+
 
 def estructura(ruta):
     """(number of headings, number of code blocks) outside the ``` blocks: a "# comment" inside one is not a heading."""
