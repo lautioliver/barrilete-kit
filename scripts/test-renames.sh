@@ -152,5 +152,4 @@ for h in .claude/settings.json .codex/hooks.json .cursor/hooks.json .github/hook
   [ "$p" = "scripts/agents/guardrails.py" ] && [ -f "$p" ]; tap_check $? "<h> points to scripts/agents/guardrails.py" "$h points to scripts/agents/guardrails.py (found: ${p:-nothing})"
 done
 
-echo
 tap_done

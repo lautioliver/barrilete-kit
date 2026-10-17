@@ -63,6 +63,4 @@ s=$(cd "$TMP/p" && python3 -c 'import sys; sys.path.insert(0, "scripts/agents");
 print("\n".join(archivos_cambiados(["--base", "trunk"])))' 2>&1)
 grep -qx "carpeta nueva/sub/a.txt" <<<"$s" && ! grep -q '/$' <<<"$s"; tap_check $? "archivos_cambiados lista los archivos de una carpeta nueva sin trackear"
 
-echo
 tap_done
-echo "Todos los tests pasan."

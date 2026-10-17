@@ -426,6 +426,4 @@ s=$(check)
 grep -q -- '- docs/README.md: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"
 tap_check $? "proyecto: un ADR propio (docs/decisions/) que falta en el índice sigue siendo un error"
 
-echo
 tap_done
-echo "Todos los tests pasan."

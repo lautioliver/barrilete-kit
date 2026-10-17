@@ -521,6 +521,4 @@ proyecto "$D" chico
 s=$(cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1); c=$?
 [ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && grep -q "update.py" <<<"$s" && grep -qi "download" <<<"$s" && ! grep -q Traceback <<<"$s"; tap_check $? "grow.py con las claves viejas de .agent-kit.json explica que es de 0.9, cómo bajar update.py y sale con error, sin traceback"
 
-echo
 tap_done
-echo "Todos los tests pasan."

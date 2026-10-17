@@ -156,6 +156,4 @@ PY
 ); tap_check $? "verify: renames corre cuando cambian scripts, docs, skills, el mapa o los workflows"
 fi
 
-echo
 tap_done
-echo "Todos los tests pasan."

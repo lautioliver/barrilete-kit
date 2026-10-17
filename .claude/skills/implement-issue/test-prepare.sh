@@ -238,6 +238,4 @@ tap_check $c "--help termina bien"
 grep -q "git worktree remove" <<<"$s" && grep -q "fails without assigning" <<<"$s" && grep -q "git -C" <<<"$s"; tap_check $? "--help explica cómo trabajar en el worktree"
 ! [ -s "$GH_LOG" ]; tap_check $? "--help no llama a gh"
 
-echo
 tap_done
-echo "Todos los tests pasan."

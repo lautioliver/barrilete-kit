@@ -360,7 +360,7 @@ for combinacion in "completo main" "chico main" "completo develop" "chico develo
   while read -r t; do
     if ! salida=$(cd "$p" && bash "$t" 2>&1); then
       rotos+="$t "
-      grep -E '^FAIL|^not ok|fallaron' <<<"$salida" | sed "s|^|       [$modo, base $base] $t: |"
+      grep -E '^FAIL|^ {7}[^ ]|fallaron' <<<"$salida" | sed "s|^|       [$modo, base $base] $t: |"
     fi
   done < <(cd "$p" && git ls-files '*test-*.sh')
   es -z "$rotos"; tap_check $? "[<modo>, base <base>] los test-*.sh del proyecto pasan<rotos>" "[$modo, base $base] los test-*.sh del proyecto pasan${rotos:+ (fallan: $rotos)}"
@@ -409,6 +409,4 @@ Están ignorados: `.env*`.
 Ignored: `.env*`.
 FRASES
 
-echo
 tap_done
-echo "Todos los tests pasan."

@@ -23,7 +23,7 @@
 # on fd 8, and unsets the variable, so the test does not see the path and what it prints on stdout
 # cannot inject cases. Without TAP_OUT (a person running the test, the docs CI) the TAP goes to
 # stdout. Several scripts can write the same file: the numbering continues and the plan is rewritten
-# at the end so the stream keeps a single 1..N. In file mode each failing case is also printed on
+# at the end so the stream keeps a single 1..N. Each failing case is also printed on
 # stderr as "FAIL - <id>", so a CI log shows it.
 #
 # Unexpected errors: with set -e a failing command emits "Bail out!" (ERR trap) and exits 1; leaving
@@ -140,7 +140,7 @@ _tap_case() {
       _TAP_FAILED=$((_TAP_FAILED + 1))
     fi
     [ -z "$desc" ] || _TAP_DESCS[found]="${_TAP_DESCS[$found]:+${_TAP_DESCS[$found]}$'\n'}$desc"
-    [ -z "$_TAP_PATH" ] || { echo "FAIL - $id"; [ -z "$desc" ] || echo "       $desc"; } >&2
+    { echo "FAIL - $id"; [ -z "$desc" ] || echo "       $desc"; } >&2
   elif [ "${_TAP_VERDICTS[$found]}" = "ok" ] && [ -z "${_TAP_DESCS[$found]}" ]; then
     _TAP_DESCS[found]=$desc
   fi
@@ -178,7 +178,7 @@ tap_done() {
   _tap_flush
   _tap_plan
   if [ "$_TAP_FAILED" -ne 0 ]; then
-    [ -z "$_TAP_PATH" ] || echo "$_TAP_FAILED test(s) failed." >&2
+    echo "$_TAP_FAILED test(s) failed." >&2
     exit 1
   fi
   exit 0

@@ -307,6 +307,4 @@ else  # proyecto instalado: un solo idioma, sin mezclar
 fi
 tap_check $? "create-issue paso 6: los títulos del cuerpo salen de la plantilla en el idioma de la instalación"
 
-echo
 tap_done
-echo "Todos los tests pasan."

@@ -93,6 +93,10 @@ run_tap 'tap_ok "by hand"
 tap_done'
 has "ok 1 - by hand" "$TMP/stdout" && has "1..1" "$TMP/stdout"; check $? "without TAP_OUT, writes the TAP to stdout"
 
+run_tap 'tap_fail "by hand failing" "input 7"
+tap_done'
+has "FAIL - by hand failing" "$TMP/stderr"; check $? "without TAP_OUT a failing case is also reported on stderr as FAIL - id"
+
 # 5. The path stays out of the test's reach, and its stdout cannot inject cases.
 run_tap 'echo "path=[${TAP_OUT:-unset}]" >&2
 echo "ok 99 - injected"

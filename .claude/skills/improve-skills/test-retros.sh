@@ -358,6 +358,4 @@ printf -- '---\nskill: implement-issue\nissue: 79\npr: 99\nmodel: sonnet\nrole: 
 c3=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-79\.md$')" 2>/dev/null)
 grep -q "^agent_sha: $h64\$" <<<"$c3" && grep -q "^skill_sha: $h64b\$" <<<"$c3"; tap_check $? "agent_sha y skill_sha de 64 caracteres (SHA-256) se conservan"
 
-echo
 tap_done
-echo "Todos los tests pasan."

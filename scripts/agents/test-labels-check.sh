@@ -146,6 +146,4 @@ tap_check $? "the labels check reports the unfilled reasons (full script, fake G
 jobs=$(awk '/^jobs:/{j=1;next} j && /^  [a-z-]+:$/{n++} END{print n+0}' "$ROOT/.github/workflows/labels.yml")
 tm=$(grep -cE '^    timeout-minutes: 2( |$)' "$ROOT/.github/workflows/labels.yml")
 [ "$((jobs - 0))" -ge 1 ] && [ "$jobs" -eq "$tm" ]; tap_check $? "each job of labels.yml has timeout-minutes: 2" "each job of labels.yml has timeout-minutes: 2 ($tm of $jobs)"
-echo
 tap_done
-echo "All tests pass."
