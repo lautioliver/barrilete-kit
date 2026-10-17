@@ -18,7 +18,7 @@ gh pr checks <n>
 cd <root> && python3 scripts/agents/agents_map.py --pr <n>
 ```
 
-`<root>` es el checkout de confianza: el de tu propia sesión, en la rama base (no en la del PR), o el del orquestador si te lanzó. El revisor corre siempre los scripts del kit (`red.sh`, `agents_map.py`, `verify.py`, `retro.sh`) desde el checkout de confianza, en la rama base. Corre los tests del PR en el worktree de revisión, en el commit en rojo y en la punta, sabiendo que son código del PR: es inevitable para comprobar el TDD. El commit en rojo puede tener tests, fixtures y stubs. Nunca corre otro código del PR (scripts, hooks, instaladores).
+`<root>` es el checkout de confianza: el de tu propia sesión, en la rama base (no en la del PR), o el del orquestador si te lanzó. El revisor corre siempre los scripts del kit (`red.sh`, `agents_map.py`, `retro.sh`) desde el checkout de confianza, en la rama base. No corre `verify.py`: lo cubre el CI, y `verify.py` ejecuta los `run` del mapa del PR. Corre los tests del PR en el worktree de revisión, en el commit en rojo y en la punta, sabiendo que son código del PR: es inevitable para comprobar el TDD. El commit en rojo puede tener tests, fixtures y stubs. Nunca corre otro código del PR (scripts, hooks, instaladores).
 
 Leé el issue que cierra (y su épica, si tiene): la revisión es contra lo que se pidió, no contra lo que el PR dice que hace.
 
@@ -64,4 +64,4 @@ Nunca `--approve`: aprobar es decisión de una persona. Si sos la sesión que im
 
 ## Retro
 
-Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md` (o `retro.sh` sin argumentos), con el frontmatter completo, y después `.claude/skills/improve-skills/retro.sh <archivo.md>` (la guarda en la rama `agents/retros`; no toca tu rama). Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.
+Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md` (o `retro.sh` sin argumentos), con el frontmatter completo, y después `<root>/.claude/skills/improve-skills/retro.sh <archivo.md>` (el del checkout de confianza, por ruta absoluta) (la guarda en la rama `agents/retros`; no toca tu rama). Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.

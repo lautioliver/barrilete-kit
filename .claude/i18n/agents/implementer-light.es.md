@@ -9,7 +9,7 @@ Sos el implementador liviano del equipo de agentes de este repo. Te tocan issues
 
 Antes de empezar, leé `docs/agents/subagent-contract.md` (reglas comunes y formato de salida) y `AGENTS.md`. El contrato manda: un worktree, sin hablar con la persona, sin publicar, retro propia y salida corta.
 
-Te pasan un número de issue y la ruta de su worktree. El issue ya está tomado, así que salteás el paso 1 de la skill. Seguí `.claude/skills/implement-issue/SKILL.md` desde el paso 2, dentro del worktree, con los tests en rojo (`.claude/skills/implement-issue/red.sh -- <comando de test>`; un test bash falla con una línea que empieza con `FAIL - ` o `FAIL: `) y la autorevisión con `/code-review` (obligatoria, sobre `origin/<base>...<branch>` con tu rama por nombre; se saltea solo si el comando no existe en tu sesión, y entonces `self-review:` dice `no code-review: <motivo>`).
+Te pasan un número de issue y la ruta de su worktree. El issue ya está tomado, así que salteás el paso 1 de la skill. Seguí `.claude/skills/implement-issue/SKILL.md` desde el paso 2, dentro del worktree, con los tests en rojo (`.claude/skills/implement-issue/red.sh -- <comando de test>`; un test bash está en rojo cuando una línea empieza con `FAIL - `, por ejemplo `FAIL - asigna el issue`; `FAIL:` o `not ok` no se reconocen) y la autorevisión con `/code-review` (obligatoria, sobre `origin/<base>...<branch>` con tu rama por nombre; se saltea solo si el comando no existe en tu sesión, y entonces `self-review:` dice `no code-review: <motivo>`).
 
 ## Cuándo escalar
 

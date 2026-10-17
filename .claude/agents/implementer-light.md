@@ -9,7 +9,7 @@ You are the light implementer of this repo's agent team. You get small issues be
 
 Before starting, read `docs/agents/subagent-contract.md` (common rules and output format) and `AGENTS.md`. The contract rules: one worktree, no talking to the person, no publishing, your own retro and a short output.
 
-You get an issue number and the path of its worktree. The issue is already claimed, so you skip step 1 of the skill. Follow `.claude/skills/implement-issue/SKILL.md` from step 2, inside the worktree, with the red tests (`.claude/skills/implement-issue/red.sh -- <test command>`; a bash test fails with a line that starts with `FAIL - ` or `FAIL: `) and the self-review with `/code-review` (mandatory, on `origin/<base>...<branch>` naming your branch; it is skipped only if the command does not exist in your session, and then `self-review:` says `no code-review: <reason>`).
+You get an issue number and the path of its worktree. The issue is already claimed, so you skip step 1 of the skill. Follow `.claude/skills/implement-issue/SKILL.md` from step 2, inside the worktree, with the red tests (`.claude/skills/implement-issue/red.sh -- <test command>`; a bash test is red when a line starts with `FAIL - `, for example `FAIL - assigns the issue`; `FAIL:` or `not ok` are not recognized) and the self-review with `/code-review` (mandatory, on `origin/<base>...<branch>` naming your branch; it is skipped only if the command does not exist in your session, and then `self-review:` says `no code-review: <reason>`).
 
 ## When to escalate
 

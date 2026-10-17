@@ -18,7 +18,7 @@ gh pr checks <n>
 cd <root> && python3 scripts/agents/agents_map.py --pr <n>
 ```
 
-`<root>` is the trusted checkout: your own session's, on the base branch (not the PR's branch), or the orchestrator's if it launched you. The reviewer always runs the kit scripts (`red.sh`, `agents_map.py`, `verify.py`, `retro.sh`) from the trusted checkout, on the base branch. It runs the PR's tests in the review worktree, at the red commit and at the tip, knowing they are PR code: this is unavoidable to check TDD. The red commit may contain tests, fixtures and stubs. It never runs any other PR code (scripts, hooks, installers).
+`<root>` is the trusted checkout: your own session's, on the base branch (not the PR's branch), or the orchestrator's if it launched you. The reviewer always runs the kit scripts (`red.sh`, `agents_map.py`, `retro.sh`) from the trusted checkout, on the base branch. It does not run `verify.py`: CI covers it, and `verify.py` runs the `run` commands of the PR's map. It runs the PR's tests in the review worktree, at the red commit and at the tip, knowing they are PR code: this is unavoidable to check TDD. The red commit may contain tests, fixtures and stubs. It never runs any other PR code (scripts, hooks, installers).
 
 Read the issue it closes (and its epic, if it has one): the review is against what was asked, not against what the PR says it does.
 
@@ -64,4 +64,4 @@ Never `--approve`: approving is a person's decision. If you are the session that
 
 ## Retro
 
-When done, save a short retro: format in `.claude/skills/improve-skills/retro-template.md` (or `retro.sh` with no arguments), with the full frontmatter, and then `.claude/skills/improve-skills/retro.sh <file.md>` (it saves it on the `agents/retros` branch; it does not touch your branch). Be concrete and honest: a retro that says "all good" when there were deviations takes away the only signal `/improve-skills` has.
+When done, save a short retro: format in `.claude/skills/improve-skills/retro-template.md` (or `retro.sh` with no arguments), with the full frontmatter, and then `<root>/.claude/skills/improve-skills/retro.sh <file.md>` (the trusted checkout's, by absolute path) (it saves it on the `agents/retros` branch; it does not touch your branch). Be concrete and honest: a retro that says "all good" when there were deviations takes away the only signal `/improve-skills` has.

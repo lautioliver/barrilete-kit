@@ -2,14 +2,14 @@
 # TDD: runs the freshly written tests BEFORE implementing and requires them to fail,
 # for the right reason (a behavior assertion, not a broken import).
 # Leaves a block ready to paste into "How to test it" of the PR.
-# Uso: red.sh -- <comando de test>
-#   ej.: red.sh -- npx vitest run src/modulo
+# Usage: red.sh -- <test command>
+#   e.g.: red.sh -- npx vitest run src/module
 # Exits with 0 if it is red because of an assertion; 1 if the tests pass; 2 if they fail
 # for another reason (the command did not run, loading, syntax, missing symbol) or for
 # a failure it does not recognize as an assertion.
 set -uo pipefail
 [ "${1:-}" = "--" ] && shift
-[ $# -gt 0 ] || { echo "Uso: $0 -- <comando de test>" >&2; exit 64; }
+[ $# -gt 0 ] || { echo "Usage: $0 -- <test command>" >&2; exit 64; }
 
 salida=$(mktemp "${TMPDIR:-/tmp}/rojo-XXXXXX")
 "$@" >"$salida" 2>&1
