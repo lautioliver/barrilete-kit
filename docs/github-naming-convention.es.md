@@ -201,7 +201,7 @@ Epic     →  Vista de usuario unificada
 ### 4.4 Tipo propio: auditoría
 Como el proyecto genera auditorías, se propone un tipo/label `audit` para los issues que nacen de una auditoría, con título:
 
-`Auditoría <área>: <hallazgo>` → `Auditoría pagos: el webhook no es idempotente`
+`Auditoría <área>: <hallazgo>` → `Auditoría pagos: el webhook no es idempotente` (también vale la forma en inglés, `Audit <area>: <finding>`)
 
 Y en el cuerpo el link al documento de auditoría correspondiente.
 

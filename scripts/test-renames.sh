@@ -89,7 +89,7 @@ hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/t
 if [ -z "$hits" ]; then ok "no file mentions an old file, path or flag name"
 else fail "no file mentions an old file, path or flag name (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi
 # labels.yml keeps the old names as `aliases` (label-sync renames them without losing the ones set on issues).
-hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|scripts/test-update\.sh|scripts/update\.py|scripts/agents/test_labels\.py|.*/improve-skills/(test-retros|legacy-names)\.sh|.*\.github/labels\.yml)$' \
+hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|scripts/test-update\.sh|scripts/update\.py|scripts/agents/test_labels\.py|.*/improve-skills/(test-retros|legacy-names)\.sh|.*\.github/labels(\.es)?\.yml)$' \
   | while read -r f; do [ -f "$f" ] && grep -IHnE "$LABELS_OLD" "$f"; done | head -5 || true)
 if [ -z "$hits" ]; then ok "no file mentions an old label"
 else fail "no file mentions an old label (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi

@@ -39,4 +39,4 @@ Do them in order and note what happened in each one. If something doesn't work, 
 
 ## How to report it
 
-Open an issue with the [**Reporte de prueba**](https://github.com/lautioliver/barrilete-kit/issues/new?template=5-trial.yml) form (`.github/ISSUE_TEMPLATE/5-trial.yml`; its name and text are in Spanish for now). Use one report per trial, even if you got stuck in several steps. Paste the exact errors and **remove secrets and personal data** before pasting.
+Open an issue with the [**Trial report**](https://github.com/lautioliver/barrilete-kit/issues/new?template=5-trial.yml) form (`.github/ISSUE_TEMPLATE/5-trial.yml`; its Spanish version is `.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml`). Use one report per trial, even if you got stuck in several steps. Paste the exact errors and **remove secrets and personal data** before pasting.

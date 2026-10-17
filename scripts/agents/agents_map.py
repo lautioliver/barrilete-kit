@@ -105,15 +105,26 @@ def archivos_cambiados(args):
 # next to it (two agents with the same name): it lives in .claude/i18n/agents/<name>.es.md (ADR-001, R-1).
 AGENTES_EN, AGENTES_ES = ".claude/agents/", ".claude/i18n/agents/"
 LLMS = re.compile(r"^(profiles/small/)?(docs/)?llms(\.es)?\.txt$")
+# GitHub offers every .yml of .github/ISSUE_TEMPLATE as a form: the same rule as the agents (R-1). config.yml has no prose.
+FORMS_EN, FORMS_ES = ".github/ISSUE_TEMPLATE/", ".github/i18n/ISSUE_TEMPLATE/"
 
 
 def hermano_de_idioma(ruta):
     """X.md ↔ X.es.md (ADR-001; llms.txt ↔ llms.es.txt), or None if it is not a prose file. The agents are the exception:
-    .claude/agents/<name>.md ↔ .claude/i18n/agents/<name>.es.md."""
+    .claude/agents/<name>.md ↔ .claude/i18n/agents/<name>.es.md, and so are the issue forms (.yml):
+    .github/ISSUE_TEMPLATE/<name>.yml ↔ .github/i18n/ISSUE_TEMPLATE/<name>.es.yml."""
     if LLMS.match(ruta):  # llms.txt is not Markdown: its sibling is llms.es.txt
         if ruta.endswith(".es.txt"):
             return ruta[:-len(".es.txt")] + ".txt"
         return ruta[:-len(".txt")] + ".es.txt"
+    m = re.match(r"^((?:profiles/small/)?\.github/labels)(\.es)?\.yml$", ruta)  # the labels: same descriptions, other language
+    if m:
+        return m.group(1) + (".yml" if m.group(2) else ".es.yml")
+    if ruta.endswith(".yml") and ruta.startswith((FORMS_EN, FORMS_ES)) and "/" not in ruta.rsplit("ISSUE_TEMPLATE/", 1)[1]:
+        nombre = ruta.rsplit("/", 1)[1]
+        if ruta.startswith(FORMS_ES):
+            return FORMS_EN + nombre[:-len(".es.yml")] + ".yml" if nombre.endswith(".es.yml") else None
+        return None if nombre == "config.yml" or nombre.endswith(".es.yml") else FORMS_ES + nombre[:-len(".yml")] + ".es.yml"
     if ruta.endswith(".es.md"):
         if ruta.startswith(AGENTES_ES) and "/" not in ruta[len(AGENTES_ES):]:
             return AGENTES_EN + ruta[len(AGENTES_ES):-len(".es.md")] + ".md"

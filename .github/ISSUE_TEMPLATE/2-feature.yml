@@ -1,20 +1,20 @@
 name: Feature
-description: Funcionalidad nueva o cambio de comportamiento visible
+description: New functionality or a change in visible behavior
 labels: ["type:feature", "status:triage"]
 body:
   - type: markdown
     attributes:
-      value: "Título en imperativo, sin prefijo. Ej.: *Unificar cuentas por email*."
+      value: "Title in the imperative, no prefix. E.g.: *Unify accounts by email*."
   - type: textarea
     id: objetivo
-    attributes: { label: Objetivo, description: Qué hay que lograr y para quién. }
+    attributes: { label: Goal, description: What has to be achieved and for whom. }
     validations: { required: true }
   - type: textarea
     id: alcance
-    attributes: { label: Alcance, description: Qué entra y qué queda afuera. }
+    attributes: { label: Scope, description: What is in and what is left out. }
   - type: textarea
     id: criterios
-    attributes: { label: Criterios de aceptación, value: "- [ ] " }
+    attributes: { label: Acceptance criteria, value: "- [ ] " }
   - type: textarea
     id: negocio
-    attributes: { label: Lógica de negocio afectada, description: "¿Cambia una regla ya definida? ADR o doc." }
+    attributes: { label: Business logic affected, description: "Does it change a rule already defined? ADR or doc." }

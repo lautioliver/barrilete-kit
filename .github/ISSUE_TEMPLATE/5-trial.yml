@@ -1,60 +1,60 @@
-name: Reporte de prueba
-description: Probaste la plantilla en tu repo y querés contar dónde te trabaste
+name: Trial report
+description: You tried the template in your repo and want to tell where you got stuck
 labels: ["type:task", "status:triage"]
 body:
   - type: markdown
     attributes:
-      value: "Gracias por probarla. La guía está en `docs/try-the-template.es.md`. No pegues secretos ni datos personales."
+      value: "Thanks for trying it. The guide is in `docs/try-the-template.md`. Do not paste secrets or personal data."
   - type: dropdown
     id: herramienta
     attributes:
-      label: Herramienta
-      options: [Claude Code, Codex, GitHub Copilot, Cursor, Otra]
+      label: Tool
+      options: [Claude Code, Codex, GitHub Copilot, Cursor, Other]
     validations: { required: true }
   - type: dropdown
     id: modo
     attributes:
-      label: Modo
-      options: [Completo, Chico, No llegué a inicializar]
+      label: Mode
+      options: [Full, Small, I did not get to initialize]
     validations: { required: true }
   - type: dropdown
     id: hasta
     attributes:
-      label: Hasta dónde llegaste
-      description: "El último paso de la guía que terminaste. En modo chico no hay paso 7 (revisión) ni orchestrate: si llegaste al merge, elegí 8."
+      label: How far you got
+      description: "The last step of the guide you finished. In small mode there is no step 7 (review) or orchestrate: if you reached the merge, pick 8."
       options:
-        - 1. Crear el repo
-        - 2. Inicializar
-        - 3. Completar lo mínimo
-        - 4. Labels y equipo
-        - 5. Un issue desde el chat
-        - 6. Del issue al PR
-        - 7. Revisión
+        - 1. Create the repo
+        - 2. Initialize
+        - 3. Fill in the minimum
+        - 4. Labels and team
+        - 5. An issue from the chat
+        - 6. From issue to PR
+        - 7. Review
         - 8. Merge
-        - 9. Si te queda tiempo
+        - 9. If you have time left
     validations: { required: true }
   - type: textarea
     id: trabas
     attributes:
-      label: Dónde te trabaste
-      description: Un ítem por traba, con el paso, qué hiciste y el error textual. Si no te trabaste, poné "ninguna".
-      placeholder: "- Paso 3: no encontré dónde van los comandos de test. Error: …"
+      label: Where you got stuck
+      description: One item per snag, with the step, what you did and the exact error. If you did not get stuck, write "none".
+      placeholder: "- Step 3: I did not find where the test commands go. Error: …"
     validations: { required: true }
   - type: textarea
     id: dudas
     attributes:
-      label: Qué leíste dos veces o no entendiste
+      label: What you read twice or did not understand
   - type: textarea
     id: agente
     attributes:
-      label: Qué hizo el agente que no esperabas
-      description: Se frenó, preguntó de más, se salteó algo, tocó lo que no debía, o lo hiciste vos a mano.
+      label: What the agent did that you did not expect
+      description: It stopped, asked too much, skipped something, touched what it should not have, or you did it by hand.
   - type: input
     id: tiempo
     attributes:
-      label: Tiempo hasta el primer PR
-      placeholder: "por ejemplo: 50 minutos"
+      label: Time to the first PR
+      placeholder: "for example: 50 minutes"
   - type: textarea
     id: cambiaria
     attributes:
-      label: ¿La volverías a usar? ¿Qué cambiarías primero?
+      label: Would you use it again? What would you change first?

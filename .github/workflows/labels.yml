@@ -77,7 +77,7 @@ jobs:
 
   labels:
     needs: [labeler]
-    # always(): corre aunque labeler se haya salteado (labeled/unlabeled/edited).
+    # always(): runs even if labeler was skipped (labeled/unlabeled/edited).
     if: ${{ always() && github.event_name == 'pull_request_target' }}
     runs-on: ubuntu-latest
     permissions:
@@ -98,19 +98,23 @@ jobs:
             if (count('area:') === 0)    core.warning('No area: detected. If the PR touches the product, set it by hand.');
             if (count('area:') > 2)      core.warning(`${count('area:')} area: labels (the convention asks for 1–2). Check whether the PR should be split.`);
             if (names.includes('business-logic')) {
-              core.notice('business-logic: requires review by the whole team and the "Lógica de negocio afectada" section filled in.');
+              core.notice('business-logic: requires review by the whole team and the "Business logic affected" section filled in.');
               // If it changes a defined rule, the ADR that defines it is amended in the same PR.
-              // Explicit exception: an "ADR sin cambios: <motivo>" line in the body.
+              // Explicit exception: an "ADR unchanged: <reason>" line in the body ("ADR sin cambios:" is the
+              // old Spanish literal, still accepted so open PRs and projects in Spanish do not break).
               const archivos = await github.paginate(github.rest.pulls.listFiles, {
                 ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100,
               });
               const tocaAdr = archivos.some(f => f.filename.startsWith('docs/decisions/'));
-              const explica = /ADR sin cambios:\s*\S/i.test(pr.body || '');
-              if (!tocaAdr && !explica) errors.push('business-logic without changes in docs/decisions/: amend the ADR that defines the rule, or add "ADR sin cambios: <motivo>" to the body.');
+              // Without the <!-- … --> comments of the template (they quote "ADR unchanged: <reason>"), and the reason on
+              // the same line: a blank line followed by the next heading is not a reason.
+              const cuerpo = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '');
+              const explica = /ADR (?:unchanged|sin cambios):[^\S\n]*\S/i.test(cuerpo);
+              if (!tocaAdr && !explica) errors.push('business-logic without changes in docs/decisions/: amend the ADR that defines the rule, or add "ADR unchanged: <reason>" to the body.');
             }
             // Agent branches: what implement-issue asks for in the body, validated here instead of in the skill.
             if (/^claude\//.test(pr.head.ref)) {
-              // Without the <!-- … --> comments of the template: they mention "Rojo antes de implementar" and "sin test".
+              // Without the <!-- … --> comments of the template: they mention "Red before implementing" and "no tests".
               const body = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '');
               // Refs #n, on its own line: the PR is part of the issue but does not close it (a diagnosis,
               // one step of several). A passing "ref #38" in the text does not count.
@@ -118,8 +122,10 @@ jobs:
               const refiere = /^\s*refs?:?\s+#\d+/im;
               if (!cierra.test(body) && !refiere.test(body))
                 errors.push('the body neither closes nor references any issue: add "Closes #<n>" (or "Refs #<n>" if it does not close it).');
-              if (!/<summary>Rojo antes de implementar<\/summary>|sin tests?\b[^\S\n]*:?[^\S\n]*\n?[^\S\n]*\S/i.test(body))
-                errors.push('the "Rojo antes de implementar" block from red.sh is missing in "Cómo probarlo" (or "sin test" with the reason).');
+              // The English literals are the current ones; the Spanish ones ("Rojo antes de implementar", "sin test")
+              // stay as aliases. "no test" needs the colon: without it, any "there is no test coverage" would pass.
+              if (!/<summary>(?:Red before implementing|Rojo antes de implementar)<\/summary>|\bno tests?:[^\S\n]*\n?[^\S\n]*\S|sin tests?\b[^\S\n]*:?[^\S\n]*\n?[^\S\n]*\S/i.test(body))
+                errors.push('the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
             }
             if (errors.length) core.setFailed('PR out of convention:\n- ' + errors.join('\n- '));
             else core.info('PR OK. Labels: ' + names.join(', '));

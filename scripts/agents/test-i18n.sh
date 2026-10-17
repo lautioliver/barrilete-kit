@@ -19,7 +19,7 @@ copia() {
   (cd "$TMP/r" && git init -q -b main && git add -A && git commit -qm base)
 }
 check() { (cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>&1); }
-# El interruptor "parity" del mapa: la plantilla lo trae apagado; los tests lo prenden en la copia.
+# El interruptor "parity" del mapa: la plantilla lo trae prendido; los tests lo fijan en la copia según el caso.
 parity() { python3 - "$TMP/r/docs/agents-map.json" "$1" <<'PY'
 import json, sys
 m = json.load(open(sys.argv[1], encoding="utf-8")); m["parity"] = sys.argv[2] == "true"
@@ -37,8 +37,11 @@ par() { # par <ruta sin extensión> <encabezados extra en .es.md> <bloques extra
   return 0
 }
 
-grep -q '"parity": false' "$RAIZ/docs/agents-map.json"; afirmar $? "la plantilla trae el interruptor parity apagado en el mapa (#115 lo prende)"
-copia; par docs/sample 1 0
+grep -q '"parity": true' "$RAIZ/docs/agents-map.json"; afirmar $? "la plantilla trae el interruptor parity prendido en el mapa (el init lo apaga en los proyectos)"
+python3 -c "import json,sys; sys.exit(0 if 'CLAUDE.md' in json.load(open('$RAIZ/docs/agents-map.json'))['parity_ignore'] else 1)"; afirmar $? "CLAUDE.md (solo trae @AGENTS.md) está en parity_ignore"
+copia; s=$(check)
+! grep -q 'sibling\|headings\|code blocks' <<<"$s"; afirmar $? "con parity prendido, la plantilla tal como está no da errores de paridad"
+copia; parity false; par docs/sample 1 0
 s=$(check)
 ! grep -q 'sibling\|headings' <<<"$s"; afirmar $? "con parity apagado, un par distinto y todos los demás X.md sin hermano no dan errores"
 copia; parity true; par docs/sample
@@ -47,6 +50,7 @@ s=$(check)
 rm "$TMP/r/docs/guides/README.es.md"; s=$(check)
 grep -q 'docs/guides/README.md: missing its Spanish sibling docs/guides/README.es.md' <<<"$s"; afirmar $? "con parity prendido, un X.md sin su X.es.md falla con el archivo en el mensaje"
 copia; parity true
+find "$TMP/r" -name '*.es.md' -not -path '*/.git/*' -delete
 s=$(check)
 grep -q 'missing its Spanish sibling' <<<"$s"; afirmar $? "con parity prendido, falla aunque no exista ningún .es.md"
 
@@ -102,6 +106,77 @@ grep -q 'docs/llms.es.txt: 2 headings, but docs/llms.txt has 1' <<<"$s"; afirmar
 printf '# T\n\n- [a](a.md)\n' >"$TMP/r/docs/llms.es.txt"
 s=$(check)
 ! grep '^- docs/llms' <<<"$s" | grep -Eq 'sibling|headings|code blocks'; afirmar $? "llms.txt: el par con la misma estructura no da errores de paridad"
+
+# Los formularios de issue (.yml): GitHub carga todo .yml de ISSUE_TEMPLATE, así que el español vive en .github/i18n/ISSUE_TEMPLATE/ (#115).
+copia; parity true
+rm "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
+s=$(check)
+grep -q '.github/ISSUE_TEMPLATE/1-bug.yml: missing its Spanish sibling .github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; afirmar $? "formularios: sin su hermano en .github/i18n/ISSUE_TEMPLATE/ falla con esa ruta"
+copia; parity true
+sed -i.bak 's/id: esperado/id: otro/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
+s=$(check)
+grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; afirmar $? "formularios: ids distintos entre los dos idiomas fallan con los dos archivos"
+copia; parity true
+cp "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml" "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.es.yml"
+s=$(check)
+grep -q '.github/ISSUE_TEMPLATE/1-bug.es.yml.*second' <<<"$s"; afirmar $? "formularios: un .es.yml dentro de ISSUE_TEMPLATE falla (GitHub lo ofrecería como otro formulario)"
+copia
+(cd "$TMP/r" && git checkout -qb feat && echo "# More" >>.github/ISSUE_TEMPLATE/1-bug.yml && git commit -qam cambio)
+s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
+grep -q 'UNPAIRED' <<<"$s" && grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; afirmar $? "agents_map.py avisa si cambia un formulario sin su hermano de .github/i18n/ISSUE_TEMPLATE/"
+
+# labels.yml y labels.es.yml: mismos labels y colores (cambian solo las descripciones); si no, un --lang es instalaría labels que faltan.
+copia; parity true
+s=$(check)
+! grep -q 'labels' <<<"$s"; afirmar $? "labels: el par labels.yml / labels.es.yml tal como está no da errores"
+sed -i.bak 's/name: "priority:low"/name: "priority:lowest"/' "$TMP/r/.github/labels.es.yml"
+s=$(check)
+grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un label distinto entre los dos idiomas falla con los dos archivos"
+copia; parity true
+perl -0pi -e 's/color: "7B61FF"/color: "000000"/' "$TMP/r/.github/labels.es.yml"
+s=$(check)
+grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un color distinto entre los dos idiomas falla"
+copia; parity true
+rm "$TMP/r/.github/labels.es.yml"
+s=$(check)
+grep -q '.github/labels.yml: missing its Spanish sibling .github/labels.es.yml' <<<"$s"; afirmar $? "labels: sin labels.es.yml falla"
+
+# AGENTS.md dice el literal que el check de labels acepta: el inglés vigente (el español sigue valiendo como alias).
+grep -q 'ADR unchanged: <reason>' "$RAIZ/AGENTS.md" && ! grep -q 'looks for that exact Spanish text' "$RAIZ/AGENTS.md"; afirmar $? "AGENTS.md nombra 'ADR unchanged: <reason>' como el literal del check, sin decir que busca el texto en español"
+grep -q 'ADR sin cambios: <motivo>' "$RAIZ/AGENTS.es.md"; afirmar $? "AGENTS.es.md conserva 'ADR sin cambios: <motivo>'"
+# labels: también los aliases (sin ellos, un proyecto de 0.9 perdería los renombres) y sin depender del orden de las claves.
+copia; parity true
+perl -0pi -e 's/"\x74ipo:feature"/"x:feat"/' "$TMP/r/.github/labels.es.yml"
+s=$(check)
+grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un alias distinto entre los dos idiomas falla"
+copia; parity true
+perl -0pi -e 's/(- name: "type:feature"\n)(  color: "[0-9A-F]+"\n)/$1  description: "x"\n$2/' "$TMP/r/.github/labels.es.yml"
+perl -0pi -e 's/(- name: "type:bug"\n)  color: "7B61FF"\n/$1  color: "000000"\n/' "$TMP/r/.github/labels.es.yml"
+s=$(check)
+grep -q '.github/labels.es.yml: .*differ' <<<"$s"; afirmar $? "labels: un color distinto se detecta aunque otra clave (description) quede entre name y color"
+copia; parity true
+python3 - "$TMP/r/.github/labels.es.yml" <<'PY'
+import re, sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+s = re.sub(r'(- name: "type:task"\n)(  color: "[0-9A-F]+"\n)(  description: "[^"\n]*"\n)', r'\1\3\2', s)  # descripción antes que el color
+open(p, "w", encoding="utf-8").write(s)
+PY
+s=$(check)
+! grep -q 'labels' <<<"$s"; afirmar $? "labels: otro orden de claves dentro de un label no da diferencias falsas"
+# formularios: también required y la cantidad de options.
+copia; parity true
+perl -0pi -e 's/\n    validations: \{ required: true \}//' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
+s=$(check)
+grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; afirmar $? "formularios: un required que falta en un idioma falla"
+copia; parity true
+perl -0pi -e 's/Otra\]/Otra, Más]/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml"
+s=$(check)
+grep -q '.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml: .*differ' <<<"$s"; afirmar $? "formularios: otra cantidad de options falla"
+# agents_map.py: labels.yml y su hermano también avisan.
+copia
+(cd "$TMP/r" && git checkout -qb feat2 && echo "# More" >>.github/labels.yml && git commit -qam cambio)
+s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
+grep -q 'UNPAIRED' <<<"$s" && grep -q '.github/labels.es.yml' <<<"$s"; afirmar $? "agents_map.py avisa si cambia labels.yml sin labels.es.yml"
 
 # Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).
 copia; parity true

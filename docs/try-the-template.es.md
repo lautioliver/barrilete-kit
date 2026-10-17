@@ -39,4 +39,4 @@ Hacelos en orden y anotá qué pasó en cada uno. Si algo no anda, no lo arregle
 
 ## Cómo contarlo
 
-Abrí un issue con el formulario [**Reporte de prueba**](https://github.com/lautioliver/barrilete-kit/issues/new?template=5-trial.yml) (`.github/ISSUE_TEMPLATE/5-trial.yml`). Usá un reporte por prueba, aunque te hayas trabado en varios pasos. Pegá los errores textuales y **sacá los secretos y los datos personales** antes de pegar.
+Abrí un issue con el formulario [**Trial report**](https://github.com/lautioliver/barrilete-kit/issues/new?template=5-trial.yml) (`.github/ISSUE_TEMPLATE/5-trial.yml`, que en el repo de la plantilla está en inglés; su versión en español es `.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml`). Usá un reporte por prueba, aunque te hayas trabado en varios pasos. Pegá los errores textuales y **sacá los secretos y los datos personales** antes de pegar.

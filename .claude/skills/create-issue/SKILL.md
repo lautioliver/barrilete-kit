@@ -39,7 +39,7 @@ It is not for:
 4. **Write the title.**
    - Imperative, no prefix or brackets, no final period, understandable months later: `Unify accounts by email`.
    - Bug: the symptom is accepted: `The QR does not validate offline`.
-   - Audit: the format `AGENTS.md` sets for audit titles (today `Auditoría <área>: <hallazgo>`).
+   - Audit: the format `AGENTS.md` sets for audit titles (`Audit <area>: <finding>`; the Spanish form `Auditoría <área>: <hallazgo>` is still accepted).
 
 5. **Pick the rest of the labels** (only from `labels.yml`):
    - `area:` — 1 or 2, depending on which part of the product it touches. If you are not sure, none.
@@ -77,7 +77,7 @@ It is not for:
 ## Audit → issues
 
 When the request is "turn audit X into issues":
-- One issue per finding, with `type:audit` and the audit title that `AGENTS.md` sets (`Auditoría <área>: <hallazgo>`).
+- One issue per finding, with `type:audit` and the audit title that `AGENTS.md` sets (`Audit <area>: <finding>`).
 - The body links `docs/development/<audit>.md` and the finding ID (`AUD-07`).
 - If the document has no IDs, propose adding them before opening the issues.
 - After creating them, offer to note the issue number next to each finding in the document.
