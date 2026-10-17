@@ -309,38 +309,41 @@ bash -c 'test "$1" -eq 2 && grep -q "not safe" "$2" && test -z "$(ls "$3")"' _ "
 # ---------------------------------------------------------------- the kit's own `red` entry (docs/agents-map.json)
 # The real entry, run on a repo with two changed tests: a script that dies before it sources tap.sh writes no TAP
 # and must not hide behind the valid failure of the other one (D3: 0 errors); a script that is not a test is not run.
-kit_repo() { # kit_repo <dir>: the kit's red entry, tap.sh and a base commit
-  new_repo "$1"; install_kit "$1"
-  cp "$KIT/scripts/agents/tap.sh" "$1/scripts/agents/"
-  python3 - "$KIT/docs/agents-map.json" "$1/docs/agents-map.json" <<'PY'
+# The small profile installs this test with a map that has no red entry of the kit's: nothing to check there.
+if python3 -c 'import json,sys; sys.exit(0 if any(e.get("name") == "bash" for e in json.load(open(sys.argv[1])).get("red", [])) else 1)' "$KIT/docs/agents-map.json" 2>/dev/null; then
+  kit_repo() { # kit_repo <dir>: the kit's red entry, tap.sh and a base commit
+    new_repo "$1"; install_kit "$1"
+    cp "$KIT/scripts/agents/tap.sh" "$1/scripts/agents/"
+    python3 - "$KIT/docs/agents-map.json" "$1/docs/agents-map.json" <<'PY'
 import json, sys
 json.dump({"red": json.load(open(sys.argv[1]))["red"]}, open(sys.argv[2], "w"))
 PY
-  printf 'old\n' >"$1/README"; commit_all "$1" base
-}
-good_test='ROOT=$(cd "$(dirname "$0")/../.." && pwd); . "$ROOT/scripts/agents/tap.sh"; tap_begin "$0"; test 2 -eq 3; tap_check $? "two equals three"; tap_done'
-dies_test='set -e; ROOT=$(cd "$(dirname "$0")/../.." && pwd); . "$ROOT/scripts/agents/new-helper.sh"; . "$ROOT/scripts/agents/tap.sh"; tap_begin "$0"; tap_done'
-r="$TMP/w/kit-two-scripts"; kit_repo "$r"
-printf '%s\n' "$good_test" >"$r/scripts/agents/test-foo.sh"; printf '%s\n' "$dies_test" >"$r/scripts/agents/test-bar.sh"
-commit_all "$r" red
-run_red "$r"
-test "$code" -eq 2; tap_check $? "kit red entry: a script that dies before tap.sh makes the run invalid even if another one fails"
-r="$TMP/w/kit-one-script"; kit_repo "$r"
-printf '%s\n' "$good_test" >"$r/scripts/agents/test-foo.sh"
-commit_all "$r" red
-run_red "$r"
-test "$code" -eq 0; tap_check $? "kit red entry: a test that fails with an assertion is a valid red"
-r="$TMP/w/kit-not-a-test"; kit_repo "$r"
-printf '%s\n' "$good_test" >"$r/scripts/agents/test-foo.sh"
-printf 'touch "%s/ran-fetch"\n' "$TMP" >"$r/scripts/fetch-latest-tag.sh"
-commit_all "$r" red
-run_red "$r"
-bash -c 'test "$1" -eq 0 && ! test -e "$2/ran-fetch"' _ "$code" "$TMP"; tap_check $? "kit red entry: a script that is not a test-*.sh is never run"
-r="$TMP/w/kit-spaces"; kit_repo "$r"; mkdir -p "$r/scripts/my dir"
-printf '%s\n' "$good_test" >"$r/scripts/my dir/test-foo.sh"
-commit_all "$r" red
-run_red "$r"
-test "$code" -eq 0; tap_check $? "kit red entry: a test in a path with spaces is run"
+    printf 'old\n' >"$1/README"; commit_all "$1" base
+  }
+  good_test='ROOT=$(cd "$(dirname "$0")/../.." && pwd); . "$ROOT/scripts/agents/tap.sh"; tap_begin "$0"; test 2 -eq 3; tap_check $? "two equals three"; tap_done'
+  dies_test='set -e; ROOT=$(cd "$(dirname "$0")/../.." && pwd); . "$ROOT/scripts/agents/new-helper.sh"; . "$ROOT/scripts/agents/tap.sh"; tap_begin "$0"; tap_done'
+  r="$TMP/w/kit-two-scripts"; kit_repo "$r"
+  printf '%s\n' "$good_test" >"$r/scripts/agents/test-foo.sh"; printf '%s\n' "$dies_test" >"$r/scripts/agents/test-bar.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 2; tap_check $? "kit red entry: a script that dies before tap.sh makes the run invalid even if another one fails"
+  r="$TMP/w/kit-one-script"; kit_repo "$r"
+  printf '%s\n' "$good_test" >"$r/scripts/agents/test-foo.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 0; tap_check $? "kit red entry: a test that fails with an assertion is a valid red"
+  r="$TMP/w/kit-not-a-test"; kit_repo "$r"
+  printf '%s\n' "$good_test" >"$r/scripts/agents/test-foo.sh"
+  printf 'touch "%s/ran-fetch"\n' "$TMP" >"$r/scripts/fetch-latest-tag.sh"
+  commit_all "$r" red
+  run_red "$r"
+  bash -c 'test "$1" -eq 0 && ! test -e "$2/ran-fetch"' _ "$code" "$TMP"; tap_check $? "kit red entry: a script that is not a test-*.sh is never run"
+  r="$TMP/w/kit-spaces"; kit_repo "$r"; mkdir -p "$r/scripts/my dir"
+  printf '%s\n' "$good_test" >"$r/scripts/my dir/test-foo.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 0; tap_check $? "kit red entry: a test in a path with spaces is run"
+fi
 
 # ---------------------------------------------------------------- the files of red.sh are in English
 bash -c 'cd "$1" && .claude/skills/implement-issue/red.sh a b 2>&1 | grep -q "^Usage: red.sh"' _ "$TMP/w/pytest-assert"; tap_check $? "red.sh prints its usage in English"
