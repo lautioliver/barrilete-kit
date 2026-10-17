@@ -4,12 +4,11 @@
 # Usage: bash scripts/test-renames.sh
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+# shellcheck source=/dev/null
+. "$ROOT/scripts/agents/tap.sh"
+tap_begin "$0"
 cd "$ROOT" || exit 1
-fails=0
-ok() { echo "ok   - $1"; }
-fail() { echo "FAIL - $1"; fails=$((fails + 1)); }
-# Usage: <condition>; check $? "description"
-check() { if [ "$1" -eq 0 ]; then ok "$2"; else fail "$2"; fi; }
+# Usage: <condition>; tap_check $? "description"
 
 # old path|new path
 RENAMES='
@@ -76,7 +75,7 @@ scripts/agentes/test-base.sh|scripts/agents/test-base.sh
 while IFS='|' read -r old new; do
   [ -n "$old" ] || continue
   [ "$old" = "$new" ] && continue
-  if [ ! -e "$old" ] && [ -e "$new" ]; then ok "$old -> $new"; else fail "$old -> $new"; fi
+  if [ ! -e "$old" ] && [ -e "$new" ]; then tap_ok "<old> -> <new>" "$old -> $new"; else tap_fail "<old> -> <new>" "$old -> $new"; fi
 done <<<"$RENAMES"
 
 # Old names in the content of any file (except this test, the CHANGELOG, ADR-001 and the tests that
@@ -86,21 +85,21 @@ OLD_NAMES='scripts/agentes|docs/agentes|barandas\.py|test_barandas|hooks/baranda
 LABELS_OLD='tipo:(feature|bug|task|audit|docs)|prioridad:(critica|alta|media|baja)|estado:(a-triar|necesita-info|bloqueado)|logica-negocio'
 hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|scripts/test-update\.sh|scripts/update\.py|scripts/agents/test_labels\.py|.*/improve-skills/(test-retros|legacy-names)\.sh)$' \
   | while read -r f; do [ -f "$f" ] && grep -IHnE "$OLD_NAMES" "$f"; done | head -5 || true)
-if [ -z "$hits" ]; then ok "no file mentions an old file, path or flag name"
-else fail "no file mentions an old file, path or flag name (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi
+if [ -z "$hits" ]; then tap_ok "no file mentions an old file, path or flag name"
+else tap_fail "no file mentions an old file, path or flag name" "no file mentions an old file, path or flag name (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi
 # labels.yml keeps the old names as `aliases` (label-sync renames them without losing the ones set on issues).
 hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|scripts/test-update\.sh|scripts/update\.py|scripts/agents/test_labels\.py|.*/improve-skills/(test-retros|legacy-names)\.sh|.*\.github/labels(\.es)?\.yml)$' \
   | while read -r f; do [ -f "$f" ] && grep -IHnE "$LABELS_OLD" "$f"; done | head -5 || true)
-if [ -z "$hits" ]; then ok "no file mentions an old label"
-else fail "no file mentions an old label (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi
+if [ -z "$hits" ]; then tap_ok "no file mentions an old label"
+else tap_fail "no file mentions an old label" "no file mentions an old label (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi
 
 # The marker agents_map.py prints is the one the skills tell agents to look for.
 for f in .claude/skills/review-pr/SKILL.md .claude/skills/update-docs/SKILL.md; do
-  grep -q 'NOT MODIFIED' "$f"; check $? "$f quotes the NOT MODIFIED marker of agents_map.py"
+  grep -q 'NOT MODIFIED' "$f"; tap_check $? "<f> quotes the NOT MODIFIED marker of agents_map.py" "$f quotes the NOT MODIFIED marker of agents_map.py"
 done
 
 # JSON keys of agents-map.json and team.json.
-python3 - <<'PY'
+python3 - >&2 <<'PY'
 import json, sys
 old = {"cuando", "revisar", "motivo", "sensibles", "rutas", "verificar", "nombre", "siempre", "correr",
        "obligatorios", "ignorar_check", "_ayuda", "tipo", "integrantes", "activo"}
@@ -131,27 +130,26 @@ falta = new_map - usadas
 print(("ok   - " if not falta else "FAIL - ") + "agents-map.json uses the English keys" + (f" (missing {sorted(falta)})" if falta else ""))
 sys.exit(1 if bad or falta else 0)
 PY
-check $? "JSON keys are in English"
+tap_check $? "JSON keys are in English"
 
 # Labels: type:, priority:, status:, business-logic, with aliases so label-sync keeps the old ones.
 for f in .github/labels.yml profiles/small/.github/labels.yml; do
-  grep -q 'name: "type:feature"' "$f" && grep -q 'name: "priority:high"' "$f"; check $? "$f uses type: and priority:"
+  grep -q 'name: "type:feature"' "$f" && grep -q 'name: "priority:high"' "$f"; tap_check $? "<f> uses type: and priority:" "$f uses type: and priority:"
 done
 l=.github/labels.yml
 for n in priority:critical priority:high priority:medium priority:low status:triage status:needs-info status:blocked business-logic breaking-change; do
-  grep -q "name: \"$n\"" "$l"; check $? "labels.yml defines $n"
+  grep -q "name: \"$n\"" "$l"; tap_check $? "labels.yml defines <n>" "labels.yml defines $n"
 done
 for a in prioridad:critica prioridad:alta prioridad:media prioridad:baja estado:a-triar estado:necesita-info estado:bloqueado logica-negocio tipo:feature tipo:bug tipo:task tipo:audit tipo:docs; do
-  grep -qE "^ +- \"?$a\"?\$" "$l"; check $? "labels.yml keeps $a as an alias"
+  grep -qE "^ +- \"?$a\"?\$" "$l"; tap_check $? "labels.yml keeps <a> as an alias" "labels.yml keeps $a as an alias"
 done
-grep -q '^  aliases:' "$l"; check $? "labels.yml declares aliases"
+grep -q '^  aliases:' "$l"; tap_check $? "labels.yml declares aliases"
 
 # Hooks: the four registrations must point to a script that exists (the hook exits 0 if it does not find it).
 for h in .claude/settings.json .codex/hooks.json .cursor/hooks.json .github/hooks/guardrails.json; do
-  [ -f "$h" ] || { fail "$h does not exist"; continue; }
+  [ -f "$h" ] || { tap_fail "<h> does not exist" "$h does not exist"; continue; }
   p=$(grep -o 'scripts/[a-z]*/[a-z_]*\.py' "$h" | sort -u)
-  [ "$p" = "scripts/agents/guardrails.py" ] && [ -f "$p" ]; check $? "$h points to scripts/agents/guardrails.py (found: ${p:-nothing})"
+  [ "$p" = "scripts/agents/guardrails.py" ] && [ -f "$p" ]; tap_check $? "<h> points to scripts/agents/guardrails.py" "$h points to scripts/agents/guardrails.py (found: ${p:-nothing})"
 done
 
-echo
-if [ "$fails" -eq 0 ]; then echo "All renames are consistent."; else echo "$fails check(s) failed."; exit 1; fi
+tap_done
