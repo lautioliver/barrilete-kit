@@ -216,10 +216,10 @@ while IFS='|' read -r nombre buscar poner cambio_es; do
   s=$(check)
   grep -Eq '.github/labels.yml(:[0-9]+)?: .*format not supported' <<<"$s" && grep -Eq '.github/labels.es.yml(:[0-9]+)?: .*format not supported' <<<"$s"; afirmar $? "labels: $nombre falla en vez de perderse"
 done <<'FORMATOS'
-aliases en una línea|aliases:\n    - "tipo:bug"|aliases: ["tipo:bug"]|\["tipo:bug"\]/["tipo:otro"]
-alias con comentario|- "tipo:bug"|- "tipo:bug"  # old|"tipo:bug"  # old/"tipo:otro"  # old
+aliases en una línea|aliases:\n    - "\x74ipo:bug"|aliases: ["\x74ipo:bug"]|\["\x74ipo:bug"\]/["\x74ipo:otro"]
+alias con comentario|- "\x74ipo:bug"|- "\x74ipo:bug"  # old|"\x74ipo:bug"  # old/"\x74ipo:otro"  # old
 guion solo en su línea|^- name: "type:bug"|-\n  name: "type:bug"|name: "type:bug"\n  color: "7B61FF"/name: "type:bug"\n  color: "000000"
-lista indentada|^- name: "type:bug"|  - name: "type:bug"|"tipo:bug"/"tipo:otro"
+lista indentada|^- name: "type:bug"|  - name: "type:bug"|"\x74ipo:bug"/"\x74ipo:otro"
 FORMATOS
 copia
 printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
