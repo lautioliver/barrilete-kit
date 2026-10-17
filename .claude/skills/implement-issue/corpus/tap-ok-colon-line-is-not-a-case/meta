@@ -1,0 +1,5 @@
+expect=0
+format=tap
+exit=1
+source=handwritten: the TAP 14 stream of the helper of D6 (ADR-002) as scripts/agents/tap.sh (issue #151) writes it
+note=only `ok` or `not ok` followed by a space or the end of the line is a case

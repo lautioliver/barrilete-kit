@@ -145,6 +145,8 @@ bad_map "map: no when is rejected" '[{"name":"t","run":"true {out}","format":"ta
 bad_map "map: timeout must be a positive number" '[{"name":"t","when":["**"],"run":"true {out}","format":"tap","timeout":"soon"}]' '`timeout`'
 bad_map "map: zero timeout is rejected" '[{"name":"t","when":["**"],"run":"true {out}","format":"tap","timeout":0}]' '`timeout`'
 bad_map "map: duplicate names are rejected" '[{"name":"t","when":["**"],"run":"true {out}","format":"tap"},{"name":"t","when":["**"],"run":"true {out}","format":"tap"}]' 'unique `name`'
+bad_map "map: a stack name with a space is rejected (it ends up in the path of {out})" '[{"name":"my tests","when":["**"],"run":"true {out}","format":"tap"}]' 'letters, digits'
+bad_map "map: a stack name with a shell metacharacter is rejected" '[{"name":"a;b","when":["**"],"run":"true {out}","format":"tap"}]' 'letters, digits'
 bad_map "map: a stack that matches no changed file" '[{"name":"t","when":["src/**"],"run":"true {out}","format":"tap"}]' 'no `red` entry matches'
 
 # ---------------------------------------------------------------- the commit
@@ -277,6 +279,18 @@ commit_all "$r" red
 (cd "$r" && "$trusted/.claude/skills/implement-issue/red.sh") >"$TMP/out" 2>&1; code=$?
 [ "$code" -eq 0 ] || show
 check "trusted checkout: red.sh runs the red section of its own checkout, never the PR's" bash -c 'test "$1" -eq 0 && grep -q "stack \"trusted\"" "$2" && ! test -e "$3/pwned"' _ "$code" "$TMP/out" "$TMP"
+
+# an unsafe TMPDIR is rejected before anything is created in it
+r="$TMP/w/unsafe-tmpdir"; case_repo "$r" "echo '$GOOD_XML' > {out}; exit 1"; mkdir -p "$TMP/un safe"
+(cd "$r" && TMPDIR="$TMP/un safe" .claude/skills/implement-issue/red.sh) >"$TMP/out" 2>&1; code=$?
+check "an unsafe TMPDIR is rejected and leaves nothing behind" bash -c 'test "$1" -eq 2 && grep -q "not safe" "$2" && test -z "$(ls "$3")"' _ "$code" "$TMP/out" "$TMP/un safe"
+
+# the verify entry of the kit runs these tests when the parser or the corpus change
+check "agents-map.json: the verify entry red also watches red_report.py and the corpus" python3 -c '
+import json, sys
+m = json.load(open(sys.argv[1]))
+w = [e["when"] for e in m.get("verify", []) if e["name"] == "red"]
+sys.exit(0 if not w or ("scripts/agents/red_report.py" in w[0] and any("corpus" in g for g in w[0])) else 1)' "$KIT/docs/agents-map.json"
 
 # ---------------------------------------------------------------- the files of red.sh are in English
 check "red.sh prints its usage in English" bash -c 'cd "$1" && .claude/skills/implement-issue/red.sh a b 2>&1 | grep -q "^Usage: red.sh"' _ "$TMP/w/pytest-assert"

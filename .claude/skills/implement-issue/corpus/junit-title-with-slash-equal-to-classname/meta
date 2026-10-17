@@ -1,0 +1,5 @@
+expect=0
+format=junit
+exit=1
+source=handwritten: JUnit XML edited to exercise the parser (ADR-002 D3)
+note=a failing test titled like its classname with a slash is not a file that failed to load: only a name that is a file of the repository is
