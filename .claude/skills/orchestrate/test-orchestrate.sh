@@ -246,7 +246,9 @@ const ok=b=>eval(m[1]).test(b);
 const casos=[
  ["<summary>Red before implementing</summary>",1],["no tests: docs only",1],["No tests: it is config",1],["no test: only docs",1],["No tests:\nonly docs",1],
  ["there is no test coverage here",0],["no tests were added",0],["no test",0],["no tests:",0],["no tests: ",0],["nonetheless no testing",0],
- ["sin test: es solo docs",1],["sin tests: es config",1],["Sin test\nes solo docs",1],["<summary>Rojo antes de implementar</summary>",1],["sin test",0],["testear sin testigo",0]];
+ ["sin test: es solo docs",1],["sin tests: es config",1],["Sin tests:\nes solo docs",1],["<summary>Rojo antes de implementar</summary>",1],["sin test",0],["testear sin testigo",0],
+ ["Sin test\nes solo docs",0],["esto no queda sin tests porque lo cubre otro",0],["sin tests es config",0],["sin test es solo docs",0],
+ ["no tests: <reason>",0],["no tests:\n<reason>",0],["sin tests: <motivo>",0],["sin test: <motivo>",0],["no tests: <reason> ",0],["sin tests:   <motivo>  ",0],["no tests: <reason> only docs",1],["sin test: <motivo> es config",1]];
 const malos=casos.filter(([b,e])=>ok(b)!==!!e).map(c=>JSON.stringify(c[0]));
 if(malos.length){console.error("mal:",malos.join(" | "));process.exit(1);}' "$L"; afirmar $? "check de labels: acepta 'Red before implementing' y 'no tests: <motivo>' (y los alias sin test / Rojo antes de implementar), no una frase suelta con 'no test'"
 node -e '
@@ -255,7 +257,7 @@ const a=src.match(/const cuerpo = .*;/), b=src.match(/const explica = .*;/);
 if(!a||!b) process.exit(1);
 const ok=body=>new Function("pr","return (()=>{"+a[0]+b[0]+" return explica; })()")({body});
 const casos=[["ADR unchanged: the rule is not touched",1],["adr unchanged: x",1],["ADR sin cambios: no toca la regla",1],["ADR unchanged:",0],["ADR unchanged: ",0],["ADR sin cambios:",0],["the ADR is unchanged",0],["ADR unchanged because",0],
- ["ADR unchanged:\n\n## How to test it",0],["ADR sin cambios:\n## Por qué",0],["<!-- ADR unchanged: <reason> -->",0],["<!-- ADR sin cambios: <motivo> -->",0],["x <!-- c --> ADR unchanged: real reason",1]];
+ ["ADR unchanged:\n\n## How to test it",0],["ADR unchanged: <reason>",0],["ADR sin cambios: <motivo>",0],["ADR unchanged:  <reason>  ",0],["ADR unchanged: <reason> the rule is not touched",1],["ADR sin cambios: <motivo>\n## Por qué",0],["ADR sin cambios:\n## Por qué",0],["<!-- ADR unchanged: <reason> -->",0],["<!-- ADR sin cambios: <motivo> -->",0],["x <!-- c --> ADR unchanged: real reason",1]];
 const malos=casos.filter(([b,e])=>ok(b)!==!!e).map(c=>JSON.stringify(c[0]));
 if(malos.length){console.error("mal:",malos.join(" | "));process.exit(1);}' "$L"; afirmar $? "check de labels: 'ADR unchanged: <motivo>' (o 'ADR sin cambios:') exime al business-logic sin cambios en docs/decisions/; sin motivo en la misma línea, o dentro de un comentario <!-- --> de la plantilla, no"
 if [ -d "$RAIZ/profiles/small" ]; then
