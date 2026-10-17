@@ -195,7 +195,7 @@ grep -q 'profiles/small/.github/labels.yml: missing its Spanish sibling profiles
 # formularios: required se asocia a su id (dos formularios que exigen campos distintos no son iguales) y una opción entre comillas
 # con una coma cuenta como una.
 copia; parity true
-perl -0pi -e 's/(id: que-pasa\n    attributes: \{[^\n]*\}\n)    validations: \{ required: true \}\n/$1/; s/(id: pasos\n    attributes: \{[^\n]*\}\n)/$1    validations: { required: true }\n/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
+perl -0pi -e 's/(id: what-happens\n    attributes: \{[^\n]*\}\n)    validations: \{ required: true \}\n/$1/; s/(id: steps\n    attributes: \{[^\n]*\}\n)/$1    validations: { required: true }\n/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
 s=$(check)
 grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; afirmar $? "formularios: el mismo número de required en otros campos (otro id) falla"
 copia; parity true
@@ -218,6 +218,8 @@ while IFS='|' read -r nombre buscar poner cambio_es; do
 done <<'FORMATOS'
 aliases en una línea|aliases:\n    - "\x74ipo:bug"|aliases: ["\x74ipo:bug"]|\["\x74ipo:bug"\]/["\x74ipo:otro"]
 alias con comentario|- "\x74ipo:bug"|- "\x74ipo:bug"  # old|"\x74ipo:bug"  # old/"\x74ipo:otro"  # old
+alias sin espacio tras el guion|^    - "\x74ipo:bug"|    -"\x74ipo:bug"|"\x74ipo:bug"/"\x74ipo:otro"
+alias suelto fuera de aliases|^- name: "type:bug"|- name: "type:bug"\n    - "suelto"|"\x74ipo:bug"/"\x74ipo:otro"
 guion solo en su línea|^- name: "type:bug"|-\n  name: "type:bug"|name: "type:bug"\n  color: "7B61FF"/name: "type:bug"\n  color: "000000"
 lista indentada|^- name: "type:bug"|  - name: "type:bug"|"\x74ipo:bug"/"\x74ipo:otro"
 FORMATOS
@@ -291,6 +293,19 @@ copia
 printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit \n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
 s=$(check)
 grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar $? "un 'Ámbito: kit' con espacios al final avisa que el init no lo borra"
+
+# Un 'Ámbito: kit ' con espacios al final en un idioma y nada en el otro: el init no borra ninguno, así que no hay diferencia que avisar.
+copia
+printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nÁmbito: kit \n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+s=$(check)
+grep -q 'Warning: .*ADR-002-prueba.md.*Ámbito: kit.*trailing' <<<"$s" && ! grep -q 'the two siblings must agree' <<<"$s"; afirmar $? "un 'Ámbito: kit ' con espacios al final no se cuenta como kit en la comparación de hermanos (no dice algo falso)"
+# formularios: un campo sin id después de otro con id no hereda su id (required va con el campo al que pertenece).
+copia; parity true
+printf 'name: X\ndescription: x\nbody:\n  - type: textarea\n    id: aaa\n    validations: { required: true }\n  - type: textarea\n    attributes: { label: B }\n' >"$TMP/r/.github/ISSUE_TEMPLATE/9-x.yml"
+printf 'name: X\ndescription: x\nbody:\n  - type: textarea\n    id: aaa\n  - type: textarea\n    attributes: { label: B }\n    validations: { required: true }\n' >"$TMP/r/.github/i18n/ISSUE_TEMPLATE/9-x.es.yml"
+s=$(check)
+grep -q '9-x.es.yml: .*differ.*9-x.yml' <<<"$s"; afirmar $? "formularios: un required en un campo sin id no se le atribuye al id anterior"
 
 # README: sin la nota "Spanish-first"; el README en español muestra --lang es en los comandos de inicio.
 ! grep -qi 'spanish-first' "$RAIZ/README.md"; afirmar $? "README.md ya no dice que la plantilla es Spanish-first"

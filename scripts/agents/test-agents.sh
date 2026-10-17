@@ -116,6 +116,12 @@ if [ -f "$RAIZ/profiles/small/DELETE" ]; then
   grep -qx "scripts/agents/test-agents.sh" "$RAIZ/profiles/small/DELETE"; afirmar $? "el modo chico borra test-agents.sh (sin agentes no tiene qué probar)"
 fi
 
+# 7. Sin restos en español en lo que no tiene hermano en otro idioma (#143): el `_help` y los `reason` del mapa, el `_help` del
+# equipo y los `id:` de los formularios (los hermanos de los formularios usan los mismos ids).
+! grep -Eq 'Mapa para agentes|Integrantes del equipo|cambió|cambiaron|Se edita con|qué documento' "$RAIZ/docs/agents-map.json" "$RAIZ/.github/team.json" 2>/dev/null; afirmar $? "el _help y los reason de docs/agents-map.json y de .github/team.json están en inglés"
+ids_viejos='que-pasa|esperado|pasos|contexto|que|porque|criterios|objetivo|alcance|negocio|documento|hallazgo|riesgo|propuesta|herramienta|modo|hasta|trabas|dudas|agente|tiempo|cambiaria'
+! grep -rEq "^ *(- )?id: *($ids_viejos) *$" "$RAIZ/.github/ISSUE_TEMPLATE" "$RAIZ/.github/i18n" 2>/dev/null; afirmar $? "los id: de los formularios de issues (y de sus hermanos en español) están en inglés"
+
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
 echo "Todos los tests pasan."

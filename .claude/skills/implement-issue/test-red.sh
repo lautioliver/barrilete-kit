@@ -108,6 +108,16 @@ FAIL - asigna el issue
 
 1 test(s) fallaron."
 
+# Otros formatos de test-*.sh (#143): "FAIL: msg" en inglés y "FALLA - msg" / "FALLO: msg" en español.
+rojo 0 "test-*.sh: FAIL: con dos puntos" 1 "ok   - crea la rama
+FAIL: asigna el issue"
+rojo 0 "test-*.sh: FALLA - en español" 1 "ok   - crea la rama
+FALLA - asigna el issue"
+rojo 0 "test-*.sh: FALLO: en español con dos puntos" 1 "FALLO: asigna el issue"
+rojo 2 "test-*.sh: FAIL sin separador no se da por buena" 1 "FAIL asigna el issue"
+rojo 2 "una línea FAIL: con un error de carga no es una aserción" 1 "FAIL: asigna el issue
+ModuleNotFoundError: No module named 'x'"
+
 # Cualquier herramienta
 rojo 2 "comando inexistente (exit 127)" 127 "bash: comando-que-no-existe: command not found"
 rojo 2 "comando sin permiso de ejecución (exit 126)" 126 "bash: ./test.sh: Permission denied"
@@ -117,6 +127,11 @@ rojo 1 "los tests pasan: no prueban nada" 0 "1 passed in 0.01s"
 printf '%s\n' "Segmentation fault" >"$TMP/salida.txt"
 s=$("$AQUI/red.sh" -- bash -c "cat '$TMP/salida.txt'; exit 1" 2>&1)
 if grep -q "I do not recognize this failure as an assertion" <<<"$s"; then ok "una falla desconocida explica qué hacer"; else falla "una falla desconocida explica qué hacer"; fi
+
+# La instalación en inglés no trae español en el uso ni en los comentarios de red.sh (#143).
+s=$("$AQUI/red.sh" 2>&1); if grep -q '^Usage: .*red.sh -- <test command>' <<<"$s"; then ok "red.sh sin argumentos imprime el uso en inglés"; else falla "red.sh sin argumentos imprime el uso en inglés"; fi
+if ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$AQUI/red.sh"; then ok "red.sh no tiene español en su uso ni en sus comentarios"; else falla "red.sh no tiene español en su uso ni en sus comentarios"; grep -Ein 'Uso:|ej\.:|comando de test|módulo' "$AQUI/red.sh"; fi
+if compgen -G "$TMP/red-*" >/dev/null; then ok "los archivos temporales de red.sh se llaman red-*"; else falla "los archivos temporales de red.sh se llaman red-*"; fi
 
 # El bloque para el PR lleva el literal inglés que lee el CI (#115): "Red before implementing".
 bloque=$(cat "$TMP"/*.md 2>/dev/null)
