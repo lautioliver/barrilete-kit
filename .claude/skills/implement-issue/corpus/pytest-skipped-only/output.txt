@@ -1,10 +1,9 @@
 ============================= test session starts ==============================
 platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0
 rootdir: /private/work/p
-collected 2 items
+collected 1 item
 
-test_new.py s                                                            [ 50%]
-test_old.py .                                                            [100%]
+test_new.py s                                                            [100%]
 
 - generated xml file: /work/report.xml -
-========================= 1 passed, 1 skipped in 0.01s =========================
+============================== 1 skipped in 0.01s ==============================

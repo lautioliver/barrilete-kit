@@ -11,7 +11,7 @@ AssertionError: expected +0 to be 2 // Object.is equality
 - 2
 + 0
 
- ❯ src/new.test.js:3:79
+ ❯ src/new.test.js:7:22
             </failure>
         </testcase>
         <testcase classname="src/new.test.js" name="adds 2 to get 3" time="0.001">
@@ -24,7 +24,7 @@ AssertionError: expected +0 to be 3 // Object.is equality
 - 3
 + 0
 
- ❯ src/new.test.js:3:79
+ ❯ src/new.test.js:7:22
             </failure>
         </testcase>
     </testsuite>

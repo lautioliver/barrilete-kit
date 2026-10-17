@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016  # the bodies of bash -c are single-quoted on purpose: they expand inside the child shell
 # Tests of red.sh (ADR-002): every case of corpus/ is run through red.sh, and so are the cases that
 # the corpus cannot express (usage, the `red` section, the report path, timeouts, the trusted checkout).
 #
@@ -17,7 +18,7 @@ set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 KIT=$(cd "$HERE/../../.." && pwd)
 CORPUS="$HERE/corpus"
-TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-red-XXXXXX")
+TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-red-XXXXXX")" && pwd)
 trap 'rm -rf "$TMP"' EXIT
 export TMPDIR="$TMP/tmp"
 mkdir -p "$TMPDIR"
@@ -45,7 +46,7 @@ EOF
 install_kit() {
   mkdir -p "$1/.claude/skills/implement-issue" "$1/scripts/agents" "$1/docs"
   cp "$HERE/red.sh" "$1/.claude/skills/implement-issue/red.sh"
-  cp "$KIT/scripts/agents/red_report.py" "$KIT/scripts/agents/agents_map.py" "$1/scripts/agents/"
+  cp "$KIT/scripts/agents/red_report.py" "$1/scripts/agents/"
 }
 
 # write_map <repo> <json of the red section>
@@ -59,42 +60,48 @@ commit_all() { git -C "$1" add -A && git -C "$1" commit -q --allow-empty -m "$2"
 # run_red <repo> [args]: red.sh of that repo, output in $TMP/out, exit code in $code
 run_red() {
   local repo=$1; shift
-  (cd "$repo" && "$repo/.claude/skills/implement-issue/red.sh" "$@") >"$TMP/out" 2>&1
+  (cd "$repo" && "$repo/.claude/skills/implement-issue/red.sh" "$@") >"${OUT:-$TMP/out}" 2>&1
   code=$?
 }
-show() { sed 's/^/       /' "$TMP/out"; }
+show() { sed 's/^/       /' "${OUT:-$TMP/out}"; }
 meta() { grep "^$2=" "$1/meta" | head -1 | cut -d= -f2-; }
 
 # ---------------------------------------------------------------- the corpus
-n=0
-for c in "$CORPUS"/*/; do
-  c=${c%/}; name=$(basename "$c"); n=$((n + 1))
+# One case: its lines (ok / FAIL) go to $TMP/res/<name>.txt, so that the cases can run in parallel.
+run_case() {
+  local c=$1 name expect fmt rc says tmo pause repo code
+  name=$(basename "$c")
   expect=$(meta "$c" expect); fmt=$(meta "$c" format); rc=$(meta "$c" exit)
   says=$(meta "$c" says); tmo=$(meta "$c" timeout); pause=$(meta "$c" sleep)
   repo="$TMP/w/$name"
   new_repo "$repo"
   [ -d "$c/base" ] && cp -R "$c/base/." "$repo/"
   install_kit "$repo"
-  python3 - "$repo/docs/agents-map.json" "$fmt" "$TMP/fake-run.sh" "$c" "$rc" "${pause:-0}" "${tmo:-}" <<'EOF'
-import json, sys
-out, fmt, fake, case, rc, pause, tmo = sys.argv[1:8]
-entry = {"name": "tests", "when": ["**"], "format": fmt, "run": f"bash {fake} {case} {{out}} {rc} {pause}"}
-if tmo:
-    entry["timeout"] = int(tmo)
-json.dump({"red": [entry]}, open(out, "w"))
-EOF
+  printf '{"red": [{"name": "tests", "when": ["**"], "format": "%s", "run": "bash %s %s {out} %s %s"%s}]}\n' \
+    "$fmt" "$TMP/fake-run.sh" "$c" "$rc" "${pause:-0}" "${tmo:+, \"timeout\": $tmo}" >"$repo/docs/agents-map.json"
   commit_all "$repo" base
   [ -d "$c/red" ] && cp -R "$c/red/." "$repo/"
   commit_all "$repo" red
+  local OUT="$TMP/res/$name.out"
   run_red "$repo"
   if [ "$code" -ne "$expect" ]; then
-    fail "corpus $name: red.sh exited with $code, expected $expect"; show
-  elif [ -n "$says" ] && ! grep -qF -- "$says" "$TMP/out"; then
-    fail "corpus $name: the output lacks the text of its says= line"; show
+    echo "FAIL - corpus $name: red.sh exited with $code, expected $expect"; show
+  elif [ -n "$says" ] && ! grep -qF -- "$says" "$OUT"; then
+    echo "FAIL - corpus $name: the output lacks the text of its says= line"; show
   else
-    ok "corpus $name -> $expect"
+    echo "ok   - corpus $name -> $expect"
   fi
+}
+mkdir -p "$TMP/res"
+n=0
+for c in "$CORPUS"/*/; do
+  c=${c%/}; n=$((n + 1))
+  run_case "$c" >"$TMP/res/$(basename "$c").txt" 2>&1 &
+  [ $((n % 8)) -eq 0 ] && wait
 done
+wait
+for c in "$CORPUS"/*/; do cat "$TMP/res/$(basename "${c%/}").txt"; done
+failures=$((failures + $(cat "$TMP"/res/*.txt | grep -c '^FAIL - ')))
 check "the corpus has cases ($n)" test "$n" -ge 100
 
 # ---------------------------------------------------------------- the PR block
@@ -205,7 +212,7 @@ check "report path: it is different in each run" test "$(grep -c '^/' "$log")" -
 check "report path: it is under TMPDIR, not in the repo" bash -c 'grep "^/" "$1" | grep -q "^$2/"' _ "$log" "$TMPDIR"
 
 # an old report left by a previous run cannot be reused
-r="$TMP/w/stale"; case_repo "$r" "exit 1"
+r="$TMP/w/stale"; case_repo "$r" "exit 1 # {out}"
 run_red "$r"
 check "a run that writes no report is rejected even if an old one exists elsewhere" bash -c 'test "$1" -eq 2 && grep -q "not created in this run" "$2"' _ "$code" "$TMP/out"
 
@@ -258,13 +265,17 @@ check "pipefail: a failing pipeline still counts as failing" test "$code" -eq 0
 
 # ---------------------------------------------------------------- the red section comes from where red.sh lives (D7: the trusted checkout)
 trusted="$TMP/trusted"; mkdir -p "$trusted"; install_kit "$trusted"
-write_map "$trusted" "[{\"name\":\"trusted\",\"when\":[\"**/*.py\"],\"format\":\"junit\",\"run\":\"echo '$GOOD_XML' > {out}; exit 1\"}]"
+python3 - "$trusted/docs/agents-map.json" "$GOOD_XML" <<'EOF'
+import json, sys
+json.dump({"red": [{"name": "trusted", "when": ["**/*.py"], "format": "junit", "run": f"echo '{sys.argv[2]}' > {{out}}; exit 1"}]}, open(sys.argv[1], "w"))
+EOF
 r="$TMP/w/pr"; new_repo "$r"; mkdir -p "$r/docs"
 printf 'def test_old():\n    assert True\n' >"$r/test_old.py"; commit_all "$r" base
 printf 'def test_new():\n    assert False\n' >"$r/test_new.py"
 printf '{"red":[{"name":"pr","when":["**"],"format":"tap","run":"touch %s/pwned; echo {out}"}]}\n' "$TMP" >"$r/docs/agents-map.json"
 commit_all "$r" red
 (cd "$r" && "$trusted/.claude/skills/implement-issue/red.sh") >"$TMP/out" 2>&1; code=$?
+[ "$code" -eq 0 ] || show
 check "trusted checkout: red.sh runs the red section of its own checkout, never the PR's" bash -c 'test "$1" -eq 0 && grep -q "stack \"trusted\"" "$2" && ! test -e "$3/pwned"' _ "$code" "$TMP/out" "$TMP"
 
 # ---------------------------------------------------------------- the files of red.sh are in English
