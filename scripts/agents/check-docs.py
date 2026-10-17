@@ -6,7 +6,8 @@ Checks:
 - Paths in backticks (`dir/file.ext`) whose first directory exists but the file does not.
 - Mentions of ADR-NNN with no file in docs/decisions/ or docs/decisions/kit/.
 - ADRs missing from docs/README.md or docs/llms.txt (and from their Spanish siblings, if they exist); a kit ADR with
-  `Scope: kit` (the init only deletes `Ámbito: kit`) is a warning.
+  `Scope: kit` (the init only deletes `Ámbito: kit`) is a warning, and so is a docs/decisions/kit/ ADR missing from an
+  index in a project (no scripts/init-template.sh).
 - Required documents and paths of docs/agents-map.json that do not exist.
 - Example paths (TODO/...) and checks without a command left in docs/agents-map.json
   after the init.
@@ -161,8 +162,9 @@ for archivo in md_files():
             if num != "000" and num not in adrs and num not in adrs_kit:
                 errores.append(f"{archivo}:{n}: ADR-{num} does not exist in docs/decisions/ or docs/decisions/kit/")
 
-# In an installed repo every ADR is the project's (the kit's own are not installed) and its indices are the
-# project's too: the kit does not require them to list its ADRs.
+# Not checked in a repo where install.py put the kit (INSTALADO): there every ADR is the project's and its indices are the project's
+# too. In a project created from the template the ADRs of docs/decisions/kit/ are installed (kit/ADR-002, D11) and its indices are checked,
+# but a kit ADR missing from them is only a warning there (below).
 # The Spanish siblings (docs/README.es.md, docs/llms.es.txt) are the project's indices when it is installed with --lang es:
 # the parity check counts headings, not lines, so it would not notice an ADR missing from them.
 for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llms.es.txt"):
@@ -175,7 +177,13 @@ for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llm
                 errores.append(f"{indice}: the ADR {f} is missing from the index")
         for f in adrs_kit.values():
             if f"decisions/kit/{f}" not in contenido:
-                errores.append(f"{indice}: the ADR kit/{f} is missing from the index")
+                mensaje = f"{indice}: the ADR kit/{f} is missing from the index"
+                # Only the kit itself (where the init is still there) requires it as an error. In a project, a three-way merge of
+                # update.py can leave the index without the line of a kit ADR: that must not turn its docs CI red after a routine update.
+                if os.path.exists("scripts/init-template.sh"):
+                    errores.append(mensaje)
+                else:
+                    avisos.append(mensaje + " (add its line: the update of the kit brings the ADR but may not merge the index)")
 
 # The init only deletes the ADRs of the kit with the exact line "Ámbito: kit" (it is a literal, it is not translated): one written
 # with "Scope: kit" would be installed in every project. Warning, not error: a project may use that line for something else.
@@ -206,7 +214,7 @@ for f in sorted(os.listdir("docs/decisions") if os.path.exists("scripts/init-tem
             avisos.append(f"docs/decisions/{con} has `Ámbito: kit` but docs/decisions/{sin} does not: the two siblings must agree "
                           "(the init would delete the ADR in one language and install it in the other).")
 
-# docs/decisions/kit/ holds the kit ADRs that the projects install (ADR-002, D11): the init deletes only the `Ámbito: kit` ones of
+# docs/decisions/kit/ holds the kit ADRs that the projects install (kit/ADR-002, D11): the init deletes only the `Ámbito: kit` ones of
 # docs/decisions/, so one in kit/ that carries the line (or `Scope: kit`) contradicts itself and would be installed anyway.
 for f in sorted(os.listdir("docs/decisions/kit") if os.path.exists("scripts/init-template.sh") and os.path.isdir("docs/decisions/kit") else []):
     if not re.match(r"ADR-\d{3}-.*\.md$", f):

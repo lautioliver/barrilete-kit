@@ -2,6 +2,7 @@
 # Tests del par de idiomas X.md / X.es.md (#113): el check de paridad de check-docs.py y el aviso de agents_map.py.
 # Corre sobre una copia del repo, así no toca el working tree. Los pares son de ejemplo (el contenido real se traduce en #115).
 # Uso: bash scripts/agents/test-i18n.sh
+# shellcheck disable=SC2016  # los backticks y $ de los regex y del Markdown son literales
 set -uo pipefail
 RAIZ=$(cd "$(dirname "$0")/../.." && pwd)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-i18n-XXXXXX")
@@ -403,6 +404,28 @@ perl -0pi -e 's/"reason": "[^"]*"/"reason": "cambió el modelo de pagos"/' "$TMP
 perl -pi -e 's/^(\s*id: )context$/$1contexto/' "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.yml"
 grep -q 'cambió el modelo de pagos' "$TMP/r/docs/agents-map.json" && grep -q 'id: contexto' "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.yml"; afirmar $? "(preparación) el proyecto en español tiene un reason y un id: en español"
 (cd "$TMP/r" && bash scripts/agents/test-agents.sh >"$TMP/es-test.log" 2>&1); afirmar $? "con --lang es, test-agents.sh pasa aunque el mapa y los formularios del proyecto estén en español"
+
+# #158: en un proyecto (sin scripts/init-template.sh) un ADR de kit/ que falta en un índice es un aviso, no un error: un update.py
+# que deja un conflicto en docs/README.md no puede dejar en rojo el CI de docs. En el kit mismo sigue siendo un error (arriba).
+# Sin init-template.sh el mapa de la copia conserva sus TODO de plantilla (errores que no son de este caso) y el check sale con 1
+# antes y después: lo que se compara es que el índice no agrega ningún error, que es lo que decide si el CI de docs se pone en rojo.
+copia
+rm "$TMP/r/scripts/init-template.sh"
+base=$(check | grep '^- ' | sort)
+for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do
+  copia
+  rm "$TMP/r/scripts/init-template.sh"
+  grep -v "$KITADR" "$TMP/r/$indice" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/$indice"
+  s=$(check)
+  grep -q "Warning: .*$indice: the ADR kit/$KITADR is missing from the index" <<<"$s" && [ "$(grep '^- ' <<<"$s" | sort)" = "$base" ]
+  afirmar $? "proyecto (sin init-template.sh): un ADR de kit/ que falta en $indice es un aviso y no agrega ningún error"
+done
+copia
+rm "$TMP/r/scripts/init-template.sh"
+grep -v "decisions/ADR-001-" "$TMP/r/docs/README.md" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/docs/README.md"
+s=$(check)
+grep -q -- '- docs/README.md: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"
+afirmar $? "proyecto: un ADR propio (docs/decisions/) que falta en el índice sigue siendo un error"
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
