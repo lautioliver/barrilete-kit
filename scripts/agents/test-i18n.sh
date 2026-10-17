@@ -6,11 +6,10 @@
 set -uo pipefail
 RAIZ=$(cd "$(dirname "$0")/../.." && pwd)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-i18n-XXXXXX")
-trap 'rm -rf "$TMP"' EXIT
-fallas=0
-ok() { echo "ok   - $1"; }
-falla() { echo "FAIL - $1"; fallas=$((fallas + 1)); }
-afirmar() { if [ "$1" -eq 0 ]; then ok "$2"; else falla "$2"; fi; }
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/tap.sh"
+tap_begin "$0"
+tap_at_exit "rm -rf \"\$TMP\""
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 unset BASE
 
@@ -38,38 +37,38 @@ par() { # par <ruta sin extensión> <encabezados extra en .es.md> <bloques extra
   return 0
 }
 
-grep -q '"parity": true' "$RAIZ/docs/agents-map.json"; afirmar $? "la plantilla trae el interruptor parity prendido en el mapa (el init lo apaga en los proyectos)"
-python3 -c "import json,sys; sys.exit(0 if 'CLAUDE.md' in json.load(open('$RAIZ/docs/agents-map.json'))['parity_ignore'] else 1)"; afirmar $? "CLAUDE.md (solo trae @AGENTS.md) está en parity_ignore"
+grep -q '"parity": true' "$RAIZ/docs/agents-map.json"; tap_check $? "la plantilla trae el interruptor parity prendido en el mapa (el init lo apaga en los proyectos)"
+python3 -c "import json,sys; sys.exit(0 if 'CLAUDE.md' in json.load(open('$RAIZ/docs/agents-map.json'))['parity_ignore'] else 1)"; tap_check $? "CLAUDE.md (solo trae @AGENTS.md) está en parity_ignore"
 copia; s=$(check)
-! grep -q 'sibling\|headings\|code blocks' <<<"$s"; afirmar $? "con parity prendido, la plantilla tal como está no da errores de paridad"
+! grep -q 'sibling\|headings\|code blocks' <<<"$s"; tap_check $? "con parity prendido, la plantilla tal como está no da errores de paridad"
 copia; parity false; par docs/sample 1 0
 s=$(check)
-! grep -q 'sibling\|headings' <<<"$s"; afirmar $? "con parity apagado, un par distinto y todos los demás X.md sin hermano no dan errores"
+! grep -q 'sibling\|headings' <<<"$s"; tap_check $? "con parity apagado, un par distinto y todos los demás X.md sin hermano no dan errores"
 copia; parity true; par docs/sample
 s=$(check)
-! grep -q 'sample' <<<"$s" ; afirmar $? "un par con la misma estructura no da errores"
+! grep -q 'sample' <<<"$s" ; tap_check $? "un par con la misma estructura no da errores"
 rm "$TMP/r/docs/guides/README.es.md"; s=$(check)
-grep -q 'docs/guides/README.md: missing its Spanish sibling docs/guides/README.es.md' <<<"$s"; afirmar $? "con parity prendido, un X.md sin su X.es.md falla con el archivo en el mensaje"
+grep -q 'docs/guides/README.md: missing its Spanish sibling docs/guides/README.es.md' <<<"$s"; tap_check $? "con parity prendido, un X.md sin su X.es.md falla con el archivo en el mensaje"
 copia; parity true
 find "$TMP/r" -name '*.es.md' -not -path '*/.git/*' -delete
 s=$(check)
-grep -q 'missing its Spanish sibling' <<<"$s"; afirmar $? "con parity prendido, falla aunque no exista ningún .es.md"
+grep -q 'missing its Spanish sibling' <<<"$s"; tap_check $? "con parity prendido, falla aunque no exista ningún .es.md"
 
 copia; parity true; par docs/sample 1 0
 s=$(check)
-grep -q 'docs/sample.es.md.*3 headings.*docs/sample.md.*2' <<<"$s"; afirmar $? "encabezados distintos: falla con ambos archivos y los conteos"
+grep -q 'docs/sample.es.md.*3 headings.*docs/sample.md.*2' <<<"$s"; tap_check $? "encabezados distintos: falla con ambos archivos y los conteos"
 
 copia; parity true; par docs/sample 0 1
 s=$(check)
-grep -q 'docs/sample.es.md.*2 code blocks.*docs/sample.md.*1' <<<"$s"; afirmar $? "bloques de código distintos: falla con ambos archivos y los conteos"
+grep -q 'docs/sample.es.md.*2 code blocks.*docs/sample.md.*1' <<<"$s"; tap_check $? "bloques de código distintos: falla con ambos archivos y los conteos"
 
 copia; parity true; par docs/sample; rm "$TMP/r/docs/sample.md"
 s=$(check)
-grep -q 'docs/sample.es.md.*docs/sample.md' <<<"$s"; afirmar $? "un X.es.md sin su X.md falla"
+grep -q 'docs/sample.es.md.*docs/sample.md' <<<"$s"; tap_check $? "un X.es.md sin su X.md falla"
 
 copia; parity true; par docs/sample
 s=$(check)
-! grep -q Traceback <<<"$s"; afirmar $? "el check de paridad no deja un Traceback"
+! grep -q Traceback <<<"$s"; tap_check $? "el check de paridad no deja un Traceback"
 
 # Cercos de código: uno de cuatro backticks que envuelve uno de tres, y uno con ~~~, cuentan como un bloque cada uno.
 copia
@@ -79,82 +78,82 @@ printf '# T\n\n````md\n```bash\nls\n```\n````\n\n~~~\n# not a heading\n~~~\n' >"
 # shellcheck disable=SC2016
 printf '# T\n\n````md\n```bash\nls\n```\n````\n\n~~~\n# no es encabezado\n~~~\n' >"$TMP/r/docs/fences.es.md"
 s=$(check)
-! grep -q 'fences' <<<"$s"; afirmar $? "cercos de cuatro backticks y de ~~~: el mismo contenido en los dos idiomas no da diferencias"
+! grep -q 'fences' <<<"$s"; tap_check $? "cercos de cuatro backticks y de ~~~: el mismo contenido en los dos idiomas no da diferencias"
 printf '\n~~~\nx\n~~~\n' >>"$TMP/r/docs/fences.es.md"
 s=$(check)
-grep -q 'docs/fences.es.md.*3 code blocks.*docs/fences.md.*2' <<<"$s"; afirmar $? "un bloque ~~~ de más en un idioma se cuenta"
+grep -q 'docs/fences.es.md.*3 code blocks.*docs/fences.md.*2' <<<"$s"; tap_check $? "un bloque ~~~ de más en un idioma se cuenta"
 
 # Aviso del PR: agents_map.py dice qué par cambió de un solo lado.
 copia; par docs/sample
 (cd "$TMP/r" && git add -A && git commit -qm pares && git checkout -qb feat && echo "More." >>docs/sample.md && git commit -qam cambio)
 s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
 grep -q 'UNPAIRED' <<<"$s" && grep -q 'docs/sample.md' <<<"$s" && grep -q 'docs/sample.es.md' <<<"$s"
-afirmar $? "agents_map.py avisa si cambia un idioma sin el otro, nombrando los dos archivos"
+tap_check $? "agents_map.py avisa si cambia un idioma sin el otro, nombrando los dos archivos"
 (cd "$TMP/r" && echo "Más." >>docs/sample.es.md && git commit -qam hermano)
 s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
-! grep -q 'UNPAIRED' <<<"$s"; afirmar $? "agents_map.py no avisa si cambiaron los dos"
-grep -q 'UNPAIRED' "$RAIZ/.github/workflows/docs.yml"; afirmar $? "docs.yml convierte el aviso del mapa en un ::warning::"
+! grep -q 'UNPAIRED' <<<"$s"; tap_check $? "agents_map.py no avisa si cambiaron los dos"
+grep -q 'UNPAIRED' "$RAIZ/.github/workflows/docs.yml"; tap_check $? "docs.yml convierte el aviso del mapa en un ::warning::"
 
 # llms.txt no es Markdown pero también se instala en dos idiomas: su hermano es llms.es.txt (#115).
 copia; parity true
 rm -f "$TMP/r/docs/llms.es.txt"
 printf '# T\n\n- [a](a.md)\n' >"$TMP/r/docs/llms.txt"
 s=$(check)
-grep -q 'docs/llms.txt: missing its Spanish sibling docs/llms.es.txt' <<<"$s"; afirmar $? "llms.txt sin su llms.es.txt falla con parity prendido"
+grep -q 'docs/llms.txt: missing its Spanish sibling docs/llms.es.txt' <<<"$s"; tap_check $? "llms.txt sin su llms.es.txt falla con parity prendido"
 printf '# T\n\n## Extra\n- [a](a.md)\n' >"$TMP/r/docs/llms.es.txt"
 s=$(check)
-grep -q 'docs/llms.es.txt: 2 headings, but docs/llms.txt has 1' <<<"$s"; afirmar $? "llms.txt: encabezados distintos entre los dos idiomas fallan"
+grep -q 'docs/llms.es.txt: 2 headings, but docs/llms.txt has 1' <<<"$s"; tap_check $? "llms.txt: encabezados distintos entre los dos idiomas fallan"
 printf '# T\n\n- [a](a.md)\n' >"$TMP/r/docs/llms.es.txt"
 s=$(check)
-! grep '^- docs/llms' <<<"$s" | grep -Eq 'sibling|headings|code blocks'; afirmar $? "llms.txt: el par con la misma estructura no da errores de paridad"
+! grep '^- docs/llms' <<<"$s" | grep -Eq 'sibling|headings|code blocks'; tap_check $? "llms.txt: el par con la misma estructura no da errores de paridad"
 
 # Los formularios de issue (.yml): GitHub carga todo .yml de ISSUE_TEMPLATE, así que el español vive en .github/i18n/ISSUE_TEMPLATE/ (#115).
 copia; parity true
 rm "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
 s=$(check)
-grep -q '.github/ISSUE_TEMPLATE/1-bug.yml: missing its Spanish sibling .github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; afirmar $? "formularios: sin su hermano en .github/i18n/ISSUE_TEMPLATE/ falla con esa ruta"
+grep -q '.github/ISSUE_TEMPLATE/1-bug.yml: missing its Spanish sibling .github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; tap_check $? "formularios: sin su hermano en .github/i18n/ISSUE_TEMPLATE/ falla con esa ruta"
 copia; parity true
 sed -i.bak 's/id: expected/id: otro/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
 s=$(check)
-grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; afirmar $? "formularios: ids distintos entre los dos idiomas fallan con los dos archivos"
+grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; tap_check $? "formularios: ids distintos entre los dos idiomas fallan con los dos archivos"
 copia; parity true
 cp "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml" "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.es.yml"
 s=$(check)
-grep -q '.github/ISSUE_TEMPLATE/1-bug.es.yml.*second' <<<"$s"; afirmar $? "formularios: un .es.yml dentro de ISSUE_TEMPLATE falla (GitHub lo ofrecería como otro formulario)"
+grep -q '.github/ISSUE_TEMPLATE/1-bug.es.yml.*second' <<<"$s"; tap_check $? "formularios: un .es.yml dentro de ISSUE_TEMPLATE falla (GitHub lo ofrecería como otro formulario)"
 copia
 (cd "$TMP/r" && git checkout -qb feat && echo "# More" >>.github/ISSUE_TEMPLATE/1-bug.yml && git commit -qam cambio)
 s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
-grep -q 'UNPAIRED' <<<"$s" && grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; afirmar $? "agents_map.py avisa si cambia un formulario sin su hermano de .github/i18n/ISSUE_TEMPLATE/"
+grep -q 'UNPAIRED' <<<"$s" && grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml' <<<"$s"; tap_check $? "agents_map.py avisa si cambia un formulario sin su hermano de .github/i18n/ISSUE_TEMPLATE/"
 
 # labels.yml y labels.es.yml: mismos labels y colores (cambian solo las descripciones); si no, un --lang es instalaría labels que faltan.
 copia; parity true
 s=$(check)
-! grep -q 'labels' <<<"$s"; afirmar $? "labels: el par labels.yml / labels.es.yml tal como está no da errores"
+! grep -q 'labels' <<<"$s"; tap_check $? "labels: el par labels.yml / labels.es.yml tal como está no da errores"
 sed -i.bak 's/name: "priority:low"/name: "priority:lowest"/' "$TMP/r/.github/labels.es.yml"
 s=$(check)
-grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un label distinto entre los dos idiomas falla con los dos archivos"
+grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; tap_check $? "labels: un label distinto entre los dos idiomas falla con los dos archivos"
 copia; parity true
 perl -0pi -e 's/color: "7B61FF"/color: "000000"/' "$TMP/r/.github/labels.es.yml"
 s=$(check)
-grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un color distinto entre los dos idiomas falla"
+grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; tap_check $? "labels: un color distinto entre los dos idiomas falla"
 copia; parity true
 rm "$TMP/r/.github/labels.es.yml"
 s=$(check)
-grep -q '.github/labels.yml: missing its Spanish sibling .github/labels.es.yml' <<<"$s"; afirmar $? "labels: sin labels.es.yml falla"
+grep -q '.github/labels.yml: missing its Spanish sibling .github/labels.es.yml' <<<"$s"; tap_check $? "labels: sin labels.es.yml falla"
 
 # AGENTS.md dice el literal que el check de labels acepta: el inglés vigente (el español sigue valiendo como alias).
-grep -q 'ADR unchanged: <reason>' "$RAIZ/AGENTS.md" && ! grep -q 'looks for that exact Spanish text' "$RAIZ/AGENTS.md"; afirmar $? "AGENTS.md nombra 'ADR unchanged: <reason>' como el literal del check, sin decir que busca el texto en español"
-grep -q 'ADR sin cambios: <motivo>' "$RAIZ/AGENTS.es.md"; afirmar $? "AGENTS.es.md conserva 'ADR sin cambios: <motivo>'"
+grep -q 'ADR unchanged: <reason>' "$RAIZ/AGENTS.md" && ! grep -q 'looks for that exact Spanish text' "$RAIZ/AGENTS.md"; tap_check $? "AGENTS.md nombra 'ADR unchanged: <reason>' como el literal del check, sin decir que busca el texto en español"
+grep -q 'ADR sin cambios: <motivo>' "$RAIZ/AGENTS.es.md"; tap_check $? "AGENTS.es.md conserva 'ADR sin cambios: <motivo>'"
 # labels: también los aliases (sin ellos, un proyecto de 0.9 perdería los renombres) y sin depender del orden de las claves.
 copia; parity true
 perl -0pi -e 's/"\x74ipo:feature"/"x:feat"/' "$TMP/r/.github/labels.es.yml"
 s=$(check)
-grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; afirmar $? "labels: un alias distinto entre los dos idiomas falla"
+grep -q '.github/labels.es.yml: .*differ.*.github/labels.yml' <<<"$s"; tap_check $? "labels: un alias distinto entre los dos idiomas falla"
 copia; parity true
 perl -0pi -e 's/(- name: "type:feature"\n)(  color: "[0-9A-F]+"\n)/$1  description: "x"\n$2/' "$TMP/r/.github/labels.es.yml"
 perl -0pi -e 's/(- name: "type:feature"\n  description: "x"\n)  color: "[0-9A-F]+"\n/$1  color: "000000"\n/' "$TMP/r/.github/labels.es.yml"
 s=$(check)
-grep -q '.github/labels.es.yml: .*differ' <<<"$s"; afirmar $? "labels: un color distinto se detecta aunque otra clave (description) quede entre name y color"
+grep -q '.github/labels.es.yml: .*differ' <<<"$s"; tap_check $? "labels: un color distinto se detecta aunque otra clave (description) quede entre name y color"
 copia; parity true
 python3 - "$TMP/r/.github/labels.es.yml" <<'PY'
 import re, sys
@@ -163,59 +162,59 @@ s = re.sub(r'(- name: "type:task"\n)(  color: "[0-9A-F]+"\n)(  description: "[^"
 open(p, "w", encoding="utf-8").write(s)
 PY
 s=$(check)
-! grep -q 'labels' <<<"$s"; afirmar $? "labels: otro orden de claves dentro de un label no da diferencias falsas"
+! grep -q 'labels' <<<"$s"; tap_check $? "labels: otro orden de claves dentro de un label no da diferencias falsas"
 # formularios: también required y la cantidad de options.
 copia; parity true
 perl -0pi -e 's/\n    validations: \{ required: true \}//' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
 s=$(check)
-grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; afirmar $? "formularios: un required que falta en un idioma falla"
+grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; tap_check $? "formularios: un required que falta en un idioma falla"
 copia; parity true
 perl -0pi -e 's/Otra\]/Otra, Más]/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml"
 s=$(check)
-grep -q '.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml: .*differ' <<<"$s"; afirmar $? "formularios: otra cantidad de options falla"
+grep -q '.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml: .*differ' <<<"$s"; tap_check $? "formularios: otra cantidad de options falla"
 # agents_map.py: labels.yml y su hermano también avisan.
 copia
 (cd "$TMP/r" && git checkout -qb feat2 && echo "# More" >>.github/labels.yml && git commit -qam cambio)
 s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
-grep -q 'UNPAIRED' <<<"$s" && grep -q '.github/labels.es.yml' <<<"$s"; afirmar $? "agents_map.py avisa si cambia labels.yml sin labels.es.yml"
+grep -q 'UNPAIRED' <<<"$s" && grep -q '.github/labels.es.yml' <<<"$s"; tap_check $? "agents_map.py avisa si cambia labels.yml sin labels.es.yml"
 # El perfil chico también tiene hermanos (#115, parte 3): la plantilla ya no lo exime de la paridad.
-! grep -q 'profiles/small' <(python3 -c "import json; print(json.load(open('$RAIZ/docs/agents-map.json'))['parity_ignore'])"); afirmar $? "profiles/small ya no está en parity_ignore (el perfil chico tiene sus hermanos)"
+! grep -q 'profiles/small' <(python3 -c "import json; print(json.load(open('$RAIZ/docs/agents-map.json'))['parity_ignore'])"); tap_check $? "profiles/small ya no está en parity_ignore (el perfil chico tiene sus hermanos)"
 copia; parity true
 rm "$TMP/r/profiles/small/AGENTS.es.md"
 s=$(check)
-grep -q 'profiles/small/AGENTS.md: missing its Spanish sibling profiles/small/AGENTS.es.md' <<<"$s"; afirmar $? "perfil chico: sin su hermano en español falla con parity prendido"
+grep -q 'profiles/small/AGENTS.md: missing its Spanish sibling profiles/small/AGENTS.es.md' <<<"$s"; tap_check $? "perfil chico: sin su hermano en español falla con parity prendido"
 copia; parity true
 rm "$TMP/r/profiles/small/docs/llms.es.txt"
 s=$(check)
-grep -q 'profiles/small/docs/llms.txt: missing its Spanish sibling profiles/small/docs/llms.es.txt' <<<"$s"; afirmar $? "perfil chico: llms.txt sin su llms.es.txt falla con parity prendido"
+grep -q 'profiles/small/docs/llms.txt: missing its Spanish sibling profiles/small/docs/llms.es.txt' <<<"$s"; tap_check $? "perfil chico: llms.txt sin su llms.es.txt falla con parity prendido"
 copia; parity true
 rm "$TMP/r/profiles/small/.github/labels.es.yml"
 s=$(check)
-grep -q 'profiles/small/.github/labels.yml: missing its Spanish sibling profiles/small/.github/labels.es.yml' <<<"$s"; afirmar $? "perfil chico: labels.yml sin su labels.es.yml falla con parity prendido"
+grep -q 'profiles/small/.github/labels.yml: missing its Spanish sibling profiles/small/.github/labels.es.yml' <<<"$s"; tap_check $? "perfil chico: labels.yml sin su labels.es.yml falla con parity prendido"
 
 # formularios: required se asocia a su id (dos formularios que exigen campos distintos no son iguales) y una opción entre comillas
 # con una coma cuenta como una.
 copia; parity true
 perl -0pi -e 's/(id: what-happens\n    attributes: \{[^\n]*\}\n)    validations: \{ required: true \}\n/$1/; s/(id: steps\n    attributes: \{[^\n]*\}\n)/$1    validations: { required: true }\n/' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml"
 s=$(check)
-grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; afirmar $? "formularios: el mismo número de required en otros campos (otro id) falla"
+grep -q '.github/i18n/ISSUE_TEMPLATE/1-bug.es.yml: .*differ.*.github/ISSUE_TEMPLATE/1-bug.yml' <<<"$s"; tap_check $? "formularios: el mismo número de required en otros campos (otro id) falla"
 copia; parity true
 perl -0pi -e 's/options: \[Full, /options: ["Full, with all", /' "$TMP/r/.github/ISSUE_TEMPLATE/5-trial.yml"
 perl -0pi -e 's/options: \[Completo, /options: ["Completo", /' "$TMP/r/.github/i18n/ISSUE_TEMPLATE/5-trial.es.yml"
 s=$(check)
-! grep -q '5-trial' <<<"$s"; afirmar $? "formularios: una opción entre comillas con una coma cuenta como una (sin falso positivo)"
+! grep -q '5-trial' <<<"$s"; tap_check $? "formularios: una opción entre comillas con una coma cuenta como una (sin falso positivo)"
 # labels: un formato de YAML que el parser no lee falla en vez de perder labels sin avisar (el mismo en los dos archivos no da diferencia).
 copia; parity true
 perl -0pi -e 's/^- name: "type:bug"/-   name: "type:bug"/m' "$TMP/r/.github/labels.yml" "$TMP/r/.github/labels.es.yml"
 s=$(check)
-grep -q '.github/labels.yml: .*items.*blocks' <<<"$s"; afirmar $? "labels: un ítem con formato que el parser no lee (-   name:) falla en vez de perderse"
+grep -q '.github/labels.yml: .*items.*blocks' <<<"$s"; tap_check $? "labels: un ítem con formato que el parser no lee (-   name:) falla en vez de perderse"
 # labels: cada formato que el parser no lee falla (el mismo cambio en los dos archivos y después una diferencia solo en el .es.yml).
 while IFS='|' read -r nombre buscar poner cambio_es; do
   copia; parity true
   perl -0pi -e "s/$buscar/$poner/mg" "$TMP/r/.github/labels.yml" "$TMP/r/.github/labels.es.yml"
   perl -0pi -e "s/$cambio_es/g" "$TMP/r/.github/labels.es.yml"
   s=$(check)
-  grep -Eq '.github/labels.yml(:[0-9]+)?: .*format not supported' <<<"$s" && grep -Eq '.github/labels.es.yml(:[0-9]+)?: .*format not supported' <<<"$s"; afirmar $? "labels: $nombre falla en vez de perderse"
+  grep -Eq '.github/labels.yml(:[0-9]+)?: .*format not supported' <<<"$s" && grep -Eq '.github/labels.es.yml(:[0-9]+)?: .*format not supported' <<<"$s"; tap_check $? "labels: <nombre> falla en vez de perderse" "labels: $nombre falla en vez de perderse"
 done <<'FORMATOS'
 aliases en una línea|aliases:\n    - "\x74ipo:bug"|aliases: ["\x74ipo:bug"]|\["\x74ipo:bug"\]/["\x74ipo:otro"]
 alias con comentario|- "\x74ipo:bug"|- "\x74ipo:bug"  # old|"\x74ipo:bug"  # old/"\x74ipo:otro"  # old
@@ -230,89 +229,89 @@ printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/
 printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
 s=$(check)
 # shellcheck disable=SC2016  # backticks literales del mensaje
-grep -q 'Warning: .*ADR-099-prueba.md.*Scope: kit' <<<"$s" && ! grep -q 'has `Ámbito: kit` but' <<<"$s"; afirmar $? "un ADR con 'Scope: kit' y su hermano sin ámbito: un solo aviso, el del Scope (no dice que tiene 'Ámbito: kit')"
+grep -q 'Warning: .*ADR-099-prueba.md.*Scope: kit' <<<"$s" && ! grep -q 'has `Ámbito: kit` but' <<<"$s"; tap_check $? "un ADR con 'Scope: kit' y su hermano sin ámbito: un solo aviso, el del Scope (no dice que tiene 'Ámbito: kit')"
 # ADRs: 'Ámbito: kit' en un idioma y no en el otro; con finales de línea CRLF el init tampoco lo borra.
 copia
 printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
 s=$(check)
-grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*ADR-099-prueba.es.md' <<<"$s"; afirmar $? "un ADR con 'Ámbito: kit' en el .md y no en el .es.md avisa"
+grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*ADR-099-prueba.es.md' <<<"$s"; tap_check $? "un ADR con 'Ámbito: kit' en el .md y no en el .es.md avisa"
 printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
 s=$(check)
-grep -q 'Warning: .*ADR-099-prueba.es.md.*Ámbito: kit.*ADR-099-prueba.md' <<<"$s"; afirmar $? "un ADR con 'Ámbito: kit' en el .es.md y no en el .md avisa"
+grep -q 'Warning: .*ADR-099-prueba.es.md.*Ámbito: kit.*ADR-099-prueba.md' <<<"$s"; tap_check $? "un ADR con 'Ámbito: kit' en el .es.md y no en el .md avisa"
 copia
 printf '# ADR-099 — Prueba\r\n\r\n## Status\r\n\r\nAccepted\r\n\r\nÁmbito: kit\r\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 s=$(check)
-grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar $? "un 'Ámbito: kit' con final de línea CRLF avisa que el init no lo borra"
+grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; tap_check $? "un 'Ámbito: kit' con final de línea CRLF avisa que el init no lo borra"
 
 # Los índices de ADRs: los hermanos en español (docs/README.es.md, docs/llms.es.txt) también tienen que listar cada ADR.
 copia
 grep -v 'ADR-001-language' "$TMP/r/docs/README.es.md" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/docs/README.es.md"
 s=$(check)
-grep -q 'docs/README.es.md: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"; afirmar $? "índices: un ADR que falta en docs/README.es.md falla"
+grep -q 'docs/README.es.md: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"; tap_check $? "índices: un ADR que falta en docs/README.es.md falla"
 copia
 grep -v 'ADR-001-language' "$TMP/r/docs/llms.es.txt" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/docs/llms.es.txt"
 s=$(check)
-grep -q 'docs/llms.es.txt: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"; afirmar $? "índices: un ADR que falta en docs/llms.es.txt falla"
+grep -q 'docs/llms.es.txt: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"; tap_check $? "índices: un ADR que falta en docs/llms.es.txt falla"
 copia
 s=$(check)
-! grep -q 'missing from the index' <<<"$s"; afirmar $? "índices: la plantilla tal como está lista el ADR en los cuatro (README, llms, y sus hermanos)"
+! grep -q 'missing from the index' <<<"$s"; tap_check $? "índices: la plantilla tal como está lista el ADR en los cuatro (README, llms, y sus hermanos)"
 
 # Los ADRs del kit que los proyectos instalan viven en docs/decisions/kit/ (decidido por @lautioliver, 2026-10-17): la numeración
 # del proyecto en docs/decisions/ queda libre. check-docs los lee, y dos ADRs con el mismo número en carpetas distintas no se pisan.
 KITADR=ADR-002-structured-red-validation.md
 [ -f "$RAIZ/docs/decisions/kit/$KITADR" ] && [ -f "$RAIZ/docs/decisions/kit/${KITADR%.md}.es.md" ] && ! ls "$RAIZ"/docs/decisions/ADR-002-* >/dev/null 2>&1
-afirmar $? "el ADR-002 (en y es) vive en docs/decisions/kit/ y no queda uno suelto en docs/decisions/"
+tap_check $? "el ADR-002 (en y es) vive en docs/decisions/kit/ y no queda uno suelto en docs/decisions/"
 for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do
   copia
   grep -v "$KITADR" "$TMP/r/$indice" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/$indice"
   s=$(check)
-  grep -q "$indice: the ADR kit/$KITADR is missing from the index" <<<"$s"; afirmar $? "índices: un ADR de kit/ que falta en $indice falla (con su ruta kit/)"
+  grep -q "$indice: the ADR kit/$KITADR is missing from the index" <<<"$s"; tap_check $? "índices: un ADR de kit/ que falta en <indice> falla (con su ruta kit/)" "índices: un ADR de kit/ que falta en $indice falla (con su ruta kit/)"
 done
 # Mismo número en las dos carpetas: cada uno se pide por su ruta; el índice del de kit/ no cubre al de afuera (ni al revés).
 copia
 printf '# ADR-002 — Otro\n\n## Status\n\nAccepted\n' >"$TMP/r/docs/decisions/ADR-002-otro.md"
 s=$(check)
 grep -q 'docs/README.md: the ADR ADR-002-otro.md is missing from the index' <<<"$s" && ! grep -q "the ADR kit/$KITADR is missing" <<<"$s"
-afirmar $? "mismo número 002 en docs/decisions/ y en kit/: el índice del de kit/ no tapa al otro"
+tap_check $? "mismo número 002 en docs/decisions/ y en kit/: el índice del de kit/ no tapa al otro"
 copia
 cp "$TMP/r/docs/decisions/kit/$KITADR" "$TMP/r/docs/decisions/$KITADR"
 s=$(check)
 grep -q "docs/README.md: the ADR $KITADR is missing from the index" <<<"$s" && ! grep -q "the ADR kit/$KITADR is missing" <<<"$s"
-afirmar $? "mismo nombre en docs/decisions/ y en kit/: el índice del de kit/ no cubre al de afuera"
+tap_check $? "mismo nombre en docs/decisions/ y en kit/: el índice del de kit/ no cubre al de afuera"
 copia
 printf '# ADR-002 — Otro\n\n## Status\n\nAccepted\n' >"$TMP/r/docs/decisions/ADR-002-otro.md"
 for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do printf -- '- [ADR-002 otro](decisions/ADR-002-otro.md)\n' >>"$TMP/r/$indice"; done
 s=$(check)
-! grep -q 'missing from the index' <<<"$s"; afirmar $? "mismo número 002 en las dos carpetas, cada uno con su línea en los cuatro índices: no falla"
+! grep -q 'missing from the index' <<<"$s"; tap_check $? "mismo número 002 en las dos carpetas, cada uno con su línea en los cuatro índices: no falla"
 # Un ADR de kit/ es de los que el proyecto instala: con 'Ámbito: kit' (o 'Scope: kit') se contradice (el init borra solo los de docs/decisions/).
 for linea in 'Ámbito: kit' 'Scope: kit'; do
   copia
   printf '\n%s\n' "$linea" >>"$TMP/r/docs/decisions/kit/$KITADR"
   s=$(check)
-  grep -q "Warning: .*kit/$KITADR.*$linea.*installed" <<<"$s"; afirmar $? "un ADR de kit/ con '$linea' avisa que se instala igual (el init solo borra los de docs/decisions/)"
+  grep -q "Warning: .*kit/$KITADR.*$linea.*installed" <<<"$s"; tap_check $? "un ADR de kit/ con '<linea>' avisa que se instala igual (el init solo borra los de docs/decisions/)" "un ADR de kit/ con '$linea' avisa que se instala igual (el init solo borra los de docs/decisions/)"
 done
 # Una mención ADR-NNN se resuelve contra las dos carpetas: la de kit/ existe, una inexistente no.
 copia
 printf '\nSee ADR-002 and ADR-077.\n' >>"$TMP/r/docs/README.md"
 s=$(check)
-grep -q 'ADR-077 does not exist' <<<"$s" && ! grep -q 'ADR-002 does not exist' <<<"$s"; afirmar $? "una mención ADR-002 se resuelve con el de kit/; ADR-077 no existe y falla"
+grep -q 'ADR-077 does not exist' <<<"$s" && ! grep -q 'ADR-002 does not exist' <<<"$s"; tap_check $? "una mención ADR-002 se resuelve con el de kit/; ADR-077 no existe y falla"
 
 # "Scope: kit" no lo borra el init (solo "Ámbito: kit"): check-docs avisa, sin fallar.
 copia
 printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 s=$(check)
-grep -q 'Warning: .*ADR-099-prueba.md.*Scope: kit.*Ámbito: kit' <<<"$s"; afirmar $? "un ADR con 'Scope: kit' da un aviso que dice que el init solo borra 'Ámbito: kit'"
+grep -q 'Warning: .*ADR-099-prueba.md.*Scope: kit.*Ámbito: kit' <<<"$s"; tap_check $? "un ADR con 'Scope: kit' da un aviso que dice que el init solo borra 'Ámbito: kit'"
 copia
 s=$(check)
-! grep -q 'Scope: kit' <<<"$s"; afirmar $? "sin 'Scope: kit' en ningún ADR no hay aviso"
+! grep -q 'Scope: kit' <<<"$s"; tap_check $? "sin 'Scope: kit' en ningún ADR no hay aviso"
 # En un proyecto (sin init-template.sh) un ADR propio con esa línea es suyo: no hay nada que borrar, no hay aviso.
 copia
 rm "$TMP/r/scripts/init-template.sh"
 printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 s=$(check)
-! grep -q 'Scope: kit' <<<"$s"; afirmar $? "sin init-template.sh (un proyecto) un ADR con 'Scope: kit' no da aviso"
+! grep -q 'Scope: kit' <<<"$s"; tap_check $? "sin init-template.sh (un proyecto) un ADR con 'Scope: kit' no da aviso"
 
 # Un ADR con hermano .es.md: el índice pide solo el .md, y 'Scope: kit' se detecta en el .md aunque el .es.md diga 'Ámbito: kit'
 # (no puede depender del orden en que el sistema de archivos lista los dos: el test fuerza los dos órdenes).
@@ -328,73 +327,73 @@ os.listdir = lambda p='.': sorted(real(p), reverse=($orden == 2))
 sys.argv = ['check-docs.py']
 runpy.run_path('scripts/agents/check-docs.py', run_name='__main__')" 2>&1)
   grep -q 'Warning: .*ADR-099-prueba.md .*Scope: kit' <<<"$s" && ! grep -q 'ADR-099-prueba.es.md is missing from the index' <<<"$s" && grep -q 'ADR-099-prueba.md is missing from the index' <<<"$s"
-  afirmar $? "ADR con hermano .es.md (prueba $orden): avisa 'Scope: kit' del .md y el índice pide solo el .md"
+  tap_check $? "ADR con hermano .es.md (prueba <orden>): avisa 'Scope: kit' del .md y el índice pide solo el .md" "ADR con hermano .es.md (prueba $orden): avisa 'Scope: kit' del .md y el índice pide solo el .md"
 done
 # Un 'Ámbito: kit ' con espacio al final tampoco lo borra el init (grep -x exacto): avisa.
 copia
 printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit \n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 s=$(check)
-grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; afirmar $? "un 'Ámbito: kit' con espacios al final avisa que el init no lo borra"
+grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*trailing' <<<"$s"; tap_check $? "un 'Ámbito: kit' con espacios al final avisa que el init no lo borra"
 
 # Un 'Ámbito: kit ' con espacios al final en un idioma y nada en el otro: el init no borra ninguno, así que no hay diferencia que avisar.
 copia
 printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nÁmbito: kit \n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
 printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
 s=$(check)
-grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*trailing' <<<"$s" && ! grep -q 'the two siblings must agree' <<<"$s"; afirmar $? "un 'Ámbito: kit ' con espacios al final no se cuenta como kit en la comparación de hermanos (no dice algo falso)"
+grep -q 'Warning: .*ADR-099-prueba.md.*Ámbito: kit.*trailing' <<<"$s" && ! grep -q 'the two siblings must agree' <<<"$s"; tap_check $? "un 'Ámbito: kit ' con espacios al final no se cuenta como kit en la comparación de hermanos (no dice algo falso)"
 # formularios: un campo sin id después de otro con id no hereda su id (required va con el campo al que pertenece).
 copia; parity true
 printf 'name: X\ndescription: x\nbody:\n  - type: textarea\n    id: aaa\n    validations: { required: true }\n  - type: textarea\n    attributes: { label: B }\n' >"$TMP/r/.github/ISSUE_TEMPLATE/9-x.yml"
 printf 'name: X\ndescription: x\nbody:\n  - type: textarea\n    id: aaa\n  - type: textarea\n    attributes: { label: B }\n    validations: { required: true }\n' >"$TMP/r/.github/i18n/ISSUE_TEMPLATE/9-x.es.yml"
 s=$(check)
-grep -q '9-x.es.yml: .*differ.*9-x.yml' <<<"$s"; afirmar $? "formularios: un required en un campo sin id no se le atribuye al id anterior"
+grep -q '9-x.es.yml: .*differ.*9-x.yml' <<<"$s"; tap_check $? "formularios: un required en un campo sin id no se le atribuye al id anterior"
 
 # README: sin la nota "Spanish-first"; el README en español muestra --lang es en los comandos de inicio.
-! grep -qi 'spanish-first' "$RAIZ/README.md"; afirmar $? "README.md ya no dice que la plantilla es Spanish-first"
-grep -q 'init-template.sh "Nombre del proyecto" main --lang es' "$RAIZ/README.es.md"; afirmar $? "README.es.md: el comando de inicio lleva --lang es"
+! grep -qi 'spanish-first' "$RAIZ/README.md"; tap_check $? "README.md ya no dice que la plantilla es Spanish-first"
+grep -q 'init-template.sh "Nombre del proyecto" main --lang es' "$RAIZ/README.es.md"; tap_check $? "README.es.md: el comando de inicio lleva --lang es"
 filas=$(grep -c '^| `init-template.sh' "$RAIZ/README.es.md")
-[ "$filas" -ge 1 ] && ! grep '^| `init-template.sh' "$RAIZ/README.es.md" | grep -qv -e '--lang es'; afirmar $? "README.es.md: la tabla de modos tiene filas ($filas) y todas llevan --lang es"
+[ "$filas" -ge 1 ] && ! grep '^| `init-template.sh' "$RAIZ/README.es.md" | grep -qv -e '--lang es'; tap_check $? "README.es.md: la tabla de modos tiene filas (<filas>) y todas llevan --lang es" "README.es.md: la tabla de modos tiene filas ($filas) y todas llevan --lang es"
 # shellcheck disable=SC2016  # backticks de Markdown literales
-! grep -q 'después `media`, `baja`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md" && grep -q 'después `medium`, `low`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md"; afirmar $? "perfil chico (es): implement-issue nombra los labels que existen (priority:medium y low)"
+! grep -q 'después `media`, `baja`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md" && grep -q 'después `medium`, `low`' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.es.md"; tap_check $? "perfil chico (es): implement-issue nombra los labels que existen (priority:medium y low)"
 # shellcheck disable=SC2016
-grep -q 'sin `"language": "es"`' "$RAIZ/CHANGELOG.md" || grep -q 'descripción de los commits.*language' "$RAIZ/CHANGELOG.md"; afirmar $? "CHANGELOG: avisa que sin language es también el idioma de las descripciones de commits pasa a inglés"
-grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.md" && grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.es.md"; afirmar $? "los README avisan a dónde se mudaron los docs con nombre en español (tabla de renombres del CHANGELOG)"
+grep -q 'sin `"language": "es"`' "$RAIZ/CHANGELOG.md" || grep -q 'descripción de los commits.*language' "$RAIZ/CHANGELOG.md"; tap_check $? "CHANGELOG: avisa que sin language es también el idioma de las descripciones de commits pasa a inglés"
+grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.md" && grep -q 'CHANGELOG.md#tabla-de-renombres' "$RAIZ/README.es.md"; tap_check $? "los README avisan a dónde se mudaron los docs con nombre en español (tabla de renombres del CHANGELOG)"
 
 # Los agentes (ADR-001, R-1): su versión en español vive en .claude/i18n/agents/, no al lado (Claude Code carga todo .md).
 copia; parity true
 s=$(check)
-! grep -q 'Traceback' <<<"$s" && ! grep -v 'profiles/' <<<"$s" | grep -q '\.claude/'; afirmar $? "agentes: el par .claude/agents/X.md + .claude/i18n/agents/X.es.md no da errores (ni Traceback) fuera del perfil chico"
+! grep -q 'Traceback' <<<"$s" && ! grep -v 'profiles/' <<<"$s" | grep -q '\.claude/'; tap_check $? "agentes: el par .claude/agents/X.md + .claude/i18n/agents/X.es.md no da errores (ni Traceback) fuera del perfil chico"
 rm "$TMP/r/.claude/i18n/agents/reviewer.es.md"
 s=$(check)
-grep -q 'reviewer.md: missing its Spanish sibling .claude/i18n/agents/reviewer.es.md' <<<"$s"; afirmar $? "agentes: sin su hermano en .claude/i18n/agents/ falla con esa ruta"
+grep -q 'reviewer.md: missing its Spanish sibling .claude/i18n/agents/reviewer.es.md' <<<"$s"; tap_check $? "agentes: sin su hermano en .claude/i18n/agents/ falla con esa ruta"
 copia
 sed -i.bak 's#docs/agents/subagent-contract.md#docs/otro.md#g; s/^model: opus/model: gpt/' "$TMP/r/.claude/i18n/agents/reviewer.es.md"
 s=$(check)
 grep -q '.claude/i18n/agents/reviewer.es.md: does not point to the common contract' <<<"$s" && grep -q ".claude/i18n/agents/reviewer.es.md: model 'gpt'" <<<"$s" && grep -q "reviewer.es.md: 'model:' is 'gpt' but .claude/agents/reviewer.md has 'opus'" <<<"$s"
-afirmar $? "agentes: el hermano en español se valida como agente (contrato, model) y debe coincidir con el inglés"
+tap_check $? "agentes: el hermano en español se valida como agente (contrato, model) y debe coincidir con el inglés"
 copia; parity true
 printf '\n## Extra\n' >>"$TMP/r/.claude/i18n/agents/reviewer.es.md"
 s=$(check)
-grep -q '.claude/i18n/agents/reviewer.es.md.*headings.*.claude/agents/reviewer.md' <<<"$s"; afirmar $? "agentes: encabezados distintos entre el agente y su hermano: falla con los dos archivos"
+grep -q '.claude/i18n/agents/reviewer.es.md.*headings.*.claude/agents/reviewer.md' <<<"$s"; tap_check $? "agentes: encabezados distintos entre el agente y su hermano: falla con los dos archivos"
 copia
 cp "$TMP/r/.claude/i18n/agents/reviewer.es.md" "$TMP/r/.claude/agents/reviewer.es.md"
 s=$(check)
-grep -q '.claude/agents/reviewer.es.md.*second agent' <<<"$s"; afirmar $? "agentes: un .es.md dentro de .claude/agents/ falla (sería un segundo agente con el mismo name)"
+grep -q '.claude/agents/reviewer.es.md.*second agent' <<<"$s"; tap_check $? "agentes: un .es.md dentro de .claude/agents/ falla (sería un segundo agente con el mismo name)"
 copia; parity true
 rm -rf "$TMP/r/.claude/i18n"
 s=$(check)
-grep -q '.claude/agents/implementer.md: missing its Spanish sibling .claude/i18n/agents/implementer.es.md' <<<"$s"; afirmar $? "agentes: sin .claude/i18n el check de paridad pide los hermanos"
+grep -q '.claude/agents/implementer.md: missing its Spanish sibling .claude/i18n/agents/implementer.es.md' <<<"$s"; tap_check $? "agentes: sin .claude/i18n el check de paridad pide los hermanos"
 copia
 (cd "$TMP/r" && git checkout -qb feat && echo "More." >>.claude/agents/implementer.md && git commit -qam cambio)
 s=$(cd "$TMP/r" && python3 scripts/agents/agents_map.py --base main 2>&1)
-grep -q 'UNPAIRED' <<<"$s" && grep -q '.claude/i18n/agents/implementer.es.md' <<<"$s"; afirmar $? "agents_map.py avisa si cambia un agente sin su hermano de .claude/i18n/agents/"
+grep -q 'UNPAIRED' <<<"$s" && grep -q '.claude/i18n/agents/implementer.es.md' <<<"$s"; tap_check $? "agents_map.py avisa si cambia un agente sin su hermano de .claude/i18n/agents/"
 
 # Los tests que dependen del texto de las skills y de los agentes pasan también con --lang es (el init deja el español como X.md
 # y esos tests viajan al proyecto): se corren en una copia inicializada en español.
 copia
-(cd "$TMP/r" && ./scripts/init-template.sh Demo main --lang es >/dev/null 2>&1); afirmar $? "init --lang es sobre la copia termina bien"
+(cd "$TMP/r" && ./scripts/init-template.sh Demo main --lang es >/dev/null 2>&1); tap_check $? "init --lang es sobre la copia termina bien"
 for t in scripts/agents/test-agents.sh .claude/skills/orchestrate/test-orchestrate.sh .claude/skills/improve-skills/test-retros.sh; do
-  (cd "$TMP/r" && bash "$t" >"$TMP/es-test.log" 2>&1); afirmar $? "con --lang es pasa $t"
+  (cd "$TMP/r" && bash "$t" >"$TMP/es-test.log" 2>&1); tap_check $? "con --lang es pasa <t>" "con --lang es pasa $t"
 done
 
 # #143: un proyecto instalado en español escribe los reason del mapa y los ids de sus formularios en español: test-agents.sh no puede fallarle.
@@ -402,8 +401,8 @@ copia
 (cd "$TMP/r" && ./scripts/init-template.sh Demo main --lang es >/dev/null 2>&1)
 perl -0pi -e 's/"reason": "[^"]*"/"reason": "cambió el modelo de pagos"/' "$TMP/r/docs/agents-map.json"
 perl -pi -e 's/^(\s*id: )context$/$1contexto/' "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.yml"
-grep -q 'cambió el modelo de pagos' "$TMP/r/docs/agents-map.json" && grep -q 'id: contexto' "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.yml"; afirmar $? "(preparación) el proyecto en español tiene un reason y un id: en español"
-(cd "$TMP/r" && bash scripts/agents/test-agents.sh >"$TMP/es-test.log" 2>&1); afirmar $? "con --lang es, test-agents.sh pasa aunque el mapa y los formularios del proyecto estén en español"
+grep -q 'cambió el modelo de pagos' "$TMP/r/docs/agents-map.json" && grep -q 'id: contexto' "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.yml"; tap_check $? "(preparación) el proyecto en español tiene un reason y un id: en español"
+(cd "$TMP/r" && bash scripts/agents/test-agents.sh >"$TMP/es-test.log" 2>&1); tap_check $? "con --lang es, test-agents.sh pasa aunque el mapa y los formularios del proyecto estén en español"
 
 # #158: en un proyecto (sin scripts/init-template.sh) un ADR de kit/ que falta en un índice es un aviso, no un error: un update.py
 # que deja un conflicto en docs/README.md no puede dejar en rojo el CI de docs. En el kit mismo sigue siendo un error (arriba).
@@ -418,15 +417,13 @@ for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; d
   grep -v "$KITADR" "$TMP/r/$indice" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/$indice"
   s=$(check)
   grep -q "Warning: .*$indice: the ADR kit/$KITADR is missing from the index" <<<"$s" && [ "$(grep '^- ' <<<"$s" | sort)" = "$base" ]
-  afirmar $? "proyecto (sin init-template.sh): un ADR de kit/ que falta en $indice es un aviso y no agrega ningún error"
+  tap_check $? "proyecto (sin init-template.sh): un ADR de kit/ que falta en <indice> es un aviso y no agrega ningún error" "proyecto (sin init-template.sh): un ADR de kit/ que falta en $indice es un aviso y no agrega ningún error"
 done
 copia
 rm "$TMP/r/scripts/init-template.sh"
 grep -v "decisions/ADR-001-" "$TMP/r/docs/README.md" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/docs/README.md"
 s=$(check)
 grep -q -- '- docs/README.md: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"
-afirmar $? "proyecto: un ADR propio (docs/decisions/) que falta en el índice sigue siendo un error"
+tap_check $? "proyecto: un ADR propio (docs/decisions/) que falta en el índice sigue siendo un error"
 
-echo
-if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
-echo "Todos los tests pasan."
+tap_done

@@ -222,6 +222,15 @@
       "run": "bash scripts/agents/test-i18n.sh"
     },
     {
+      "name": "tap",
+      "when": [
+        "scripts/agents/tap.sh",
+        "scripts/agents/test-tap.sh",
+        "**/test-*.sh"
+      ],
+      "run": "bash scripts/agents/test-tap.sh"
+    },
+    {
       "name": "base",
       "when": [
         "scripts/agents/**"
