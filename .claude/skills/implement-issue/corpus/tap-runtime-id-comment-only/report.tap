@@ -1,4 +1,5 @@
-TAP version 14
 # file: scripts/i18n.test.sh
-not ok 1 - lang-installs # installs es
+not ok 1 - lang-installs
+# desc: installs es
+# desc: installs fr
 1..1

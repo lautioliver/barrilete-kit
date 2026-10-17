@@ -1,0 +1,6 @@
+expect=2
+format=junit
+exit=1
+source=handwritten: JUnit XML edited to exercise the parser (ADR-002 D3)
+says=NUL
+note=UTF-16 without a BOM is valid UTF-8 (the NUL bytes are legal) and expat would detect it by itself: the DOCTYPE and entity checks must not be skippable that way

@@ -1,3 +1,2 @@
-ok   - init exists
 FAIL - init replaces the placeholders
-grep: scripts/init.sh: No such file or directory
+1 test(s) failed.

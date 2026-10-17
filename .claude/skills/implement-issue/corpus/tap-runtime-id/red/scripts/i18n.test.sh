@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck source=/dev/null
-source scripts/tap.sh
+. "$(dirname "$0")/agents/tap.sh"
+tap_begin "$0"
 for lang in en es fr; do
-  check "lang-installs" "installs $lang" test "$lang" = en
+  [ "$lang" = en ]; tap_check $? "lang-installs" "installs $lang"
 done
-finish
+tap_done

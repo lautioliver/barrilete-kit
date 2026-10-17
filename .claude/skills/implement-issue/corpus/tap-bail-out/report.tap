@@ -1,4 +1,2 @@
-TAP version 14
 # file: scripts/new.test.sh
-ok 1 - creates the branch
-Bail out! unexpected error at line 4
+Bail out! unexpected error (status 1) at line 6 of scripts/new.test.sh

@@ -1,1 +1,5 @@
-x
+FAIL - lang-installs
+       installs es
+FAIL - lang-installs
+       installs fr
+1 test(s) failed.

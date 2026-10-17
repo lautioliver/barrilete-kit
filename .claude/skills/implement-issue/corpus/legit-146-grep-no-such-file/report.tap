@@ -1,4 +1,3 @@
-TAP version 14
 # file: scripts/x.test.sh
 not ok 1 - the log says finished
 1..1

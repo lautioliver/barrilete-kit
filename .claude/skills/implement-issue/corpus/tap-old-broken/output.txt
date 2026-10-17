@@ -1,1 +1,2 @@
-old broken
+FAIL - old broken
+1 test(s) failed.

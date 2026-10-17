@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck source=/dev/null
-source scripts/tap.sh
-check "adds numbers" test "$(( 1 + 1 ))" = 2
-check "old broken" test 1 = 2
-check "subtracts" test 3 = 2
-finish
+. "$(dirname "$0")/agents/tap.sh"
+tap_begin "$0"
+tap_ok "adds numbers"
+false; tap_check $? "old broken"
+false; tap_check $? "subtracts"
+tap_done

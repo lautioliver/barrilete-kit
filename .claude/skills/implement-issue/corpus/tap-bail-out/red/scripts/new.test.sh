@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck source=/dev/null
-source scripts/tap.sh
-check "creates the branch" test 1 = 2
-finish
+. "$(dirname "$0")/agents/tap.sh"
+set -e
+tap_begin "$0"
+false
+tap_ok "never reached"
+tap_done

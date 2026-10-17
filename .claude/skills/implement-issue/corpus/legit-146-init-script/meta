@@ -1,5 +1,5 @@
 expect=0
 format=tap
 exit=1
-source=handwritten: the TAP 14 stream of the helper of D6 (ADR-002) as scripts/agents/tap.sh (issue #151) writes it
+source=real: scripts/agents/tap.sh (#163) run under TAP_OUT, the way red.sh runs it
 note=test-init.sh at 083a475: a legitimate red that the text rules of #146 rejected

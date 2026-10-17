@@ -55,6 +55,8 @@ write_map() { printf '{"red": %s}\n' "$2" >"$1/docs/agents-map.json"; }
 new_repo() { # new_repo <dir>
   rm -rf "$1"; mkdir -p "$1"; git -C "$1" init -q; git -C "$1" config commit.gpgsign false
 }
+# The JS fixtures of the corpus end in .fixture so that no project runner collects them: the test gives them back their name.
+restore_fixtures() { find "$1" -name '*.fixture' -type f | while IFS= read -r f; do mv "$f" "${f%.fixture}"; done; }
 commit_all() { git -C "$1" add -A && git -C "$1" commit -q --allow-empty -m "$2"; }
 
 # run_red <repo> [args]: red.sh of that repo, output in $TMP/out, exit code in $code
@@ -76,11 +78,13 @@ run_case() {
   repo="$TMP/w/$name"
   new_repo "$repo"
   [ -d "$c/base" ] && cp -R "$c/base/." "$repo/"
+  restore_fixtures "$repo"
   install_kit "$repo"
   printf '{"red": [{"name": "tests", "when": ["**"], "format": "%s", "run": "bash %s %s {out} %s %s"%s}]}\n' \
     "$fmt" "$TMP/fake-run.sh" "$c" "$rc" "${pause:-0}" "${tmo:+, \"timeout\": $tmo}" >"$repo/docs/agents-map.json"
   commit_all "$repo" base
   [ -d "$c/red" ] && cp -R "$c/red/." "$repo/"
+  restore_fixtures "$repo"
   commit_all "$repo" red
   local OUT="$TMP/res/$name.out"
   run_red "$repo"
@@ -259,6 +263,17 @@ EOF
 echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
 run_red "$r"
 check "stdout of the run is not parsed: only {out} counts" bash -c 'test "$1" -eq 2 && grep -q "no failure" "$2"' _ "$code" "$TMP/out"
+
+# D6: for format tap, TAP_OUT is the file red.sh created, so a helper that reads it writes there and not to stdout
+r="$TMP/w/tapout"; new_repo "$r"; install_kit "$r"; rm -f "$TMP/tapout.flag"
+python3 - "$r/docs/agents-map.json" "$TMP/tapout.flag" <<'EOF'
+import json, sys
+run = 'test "$TAP_OUT" = {out} && echo yes > ' + sys.argv[2] + "; printf 'TAP version 14\\n# file: a\\nnot ok 1 - x\\n1..1\\n' > {out}; exit 1"
+json.dump({"red": [{"name": "t", "when": ["**"], "format": "tap", "run": run}]}, open(sys.argv[1], "w"))
+EOF
+echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
+run_red "$r"
+check "format tap: TAP_OUT is exported with the path of {out}" test -f "$TMP/tapout.flag"
 
 # D2: pipefail keeps the failing exit code of a pipeline
 r="$TMP/w/pipefail"; case_repo "$r" "{ echo '$GOOD_XML' > {out}; exit 1; } | cat"

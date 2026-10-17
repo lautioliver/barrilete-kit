@@ -1,0 +1,5 @@
+# file: scripts/new.test.sh
+not ok 1 - creates the branch
+# file: scripts/other.test.sh
+not ok 2 - other case
+1..2

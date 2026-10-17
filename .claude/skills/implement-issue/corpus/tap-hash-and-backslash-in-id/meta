@@ -1,0 +1,5 @@
+expect=0
+format=tap
+exit=1
+source=real: scripts/agents/tap.sh (#163) run under TAP_OUT, the way red.sh runs it
+note=tap.sh writes # as \# and \ as \\ in the id (TAP 14): red.sh unescapes them before comparing with the literal of the source

@@ -1,5 +1,5 @@
 expect=0
 format=tap
 exit=1
-source=handwritten: the TAP 14 stream of the helper of D6 (ADR-002) as scripts/agents/tap.sh (issue #151) writes it
-note=the id is the literal first argument of the helper; the part after ' # ' is a description that is not compared (D4)
+source=real: scripts/agents/tap.sh (#163) run under TAP_OUT, the way red.sh runs it
+note=the id is the literal first argument of the helper; the loop variable goes in the description (a # desc: line), which is not compared, and the repeated id is one case
