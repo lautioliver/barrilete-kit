@@ -1,4 +1,4 @@
 TAP version 14
-# file: scripts/test-i18n.sh
+# file: scripts/i18n.test.sh
 not ok 1 - lang-installs # installs es
 1..1

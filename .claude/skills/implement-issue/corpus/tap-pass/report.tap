@@ -1,4 +1,4 @@
 TAP version 14
-# file: scripts/test-new.sh
+# file: scripts/new.test.sh
 ok 1 - creates the branch
 1..1

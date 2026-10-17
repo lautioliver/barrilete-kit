@@ -1,5 +1,5 @@
 TAP version 14
-# file: scripts/test-i18n.sh
+# file: scripts/i18n.test.sh
 ok 1 - lang-installs # installs en
 not ok 2 - lang-installs # installs es
 not ok 3 - lang-installs # installs fr

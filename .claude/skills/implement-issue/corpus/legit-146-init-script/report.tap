@@ -1,5 +1,5 @@
 TAP version 14
-# file: scripts/test-init.sh
+# file: scripts/init.test.sh
 ok 1 - init exists
 not ok 2 - init replaces the placeholders
 1..2

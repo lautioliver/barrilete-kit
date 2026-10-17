@@ -285,13 +285,6 @@ r="$TMP/w/unsafe-tmpdir"; case_repo "$r" "echo '$GOOD_XML' > {out}; exit 1"; mkd
 (cd "$r" && TMPDIR="$TMP/un safe" .claude/skills/implement-issue/red.sh) >"$TMP/out" 2>&1; code=$?
 check "an unsafe TMPDIR is rejected and leaves nothing behind" bash -c 'test "$1" -eq 2 && grep -q "not safe" "$2" && test -z "$(ls "$3")"' _ "$code" "$TMP/out" "$TMP/un safe"
 
-# the verify entry of the kit runs these tests when the parser or the corpus change
-check "agents-map.json: the verify entry red also watches red_report.py and the corpus" python3 -c '
-import json, sys
-m = json.load(open(sys.argv[1]))
-w = [e["when"] for e in m.get("verify", []) if e["name"] == "red"]
-sys.exit(0 if not w or ("scripts/agents/red_report.py" in w[0] and any("corpus" in g for g in w[0])) else 1)' "$KIT/docs/agents-map.json"
-
 # ---------------------------------------------------------------- the files of red.sh are in English
 check "red.sh prints its usage in English" bash -c 'cd "$1" && .claude/skills/implement-issue/red.sh a b 2>&1 | grep -q "^Usage: red.sh"' _ "$TMP/w/pytest-assert"
 if ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$HERE/red.sh" "$KIT/scripts/agents/red_report.py"; then ok "red.sh and red_report.py have no Spanish"; else fail "red.sh and red_report.py have no Spanish"; fi

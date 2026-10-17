@@ -1,5 +1,5 @@
 TAP version 14
-# file: scripts/test-new.sh
+# file: scripts/new.test.sh
 ok 1 - creates the branch
     not ok 2 - an injected indented line
 1..1
