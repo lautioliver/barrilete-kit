@@ -119,14 +119,16 @@ fi
 # 7. verify.py corre antes del PR cada test-*.sh que corre el CI (#143): si no, el error recién aparece en CI.
 # Para cada script, hay una verificación del mapa que lo corre y que se dispara cuando cambia el propio script.
 mapa_verify=$(cd "$RAIZ" && python3 - <<'PY'
-import json, subprocess, sys
+import json, re, subprocess, sys
 sys.path.insert(0, "scripts/agents")
 from agents_map import coincide
 reglas = json.load(open("docs/agents-map.json", encoding="utf-8"))["verify"]
-tests = subprocess.run(["python3", "scripts/agents/check-docs.py", "--list", "*test-*.sh"],
-                       capture_output=True, text=True).stdout.split()
+lista = subprocess.run(["python3", "scripts/agents/check-docs.py", "--list", "*test-*.sh"], capture_output=True, text=True)
+tests = lista.stdout.split()
+if lista.returncode != 0 or not tests:
+    print("check-docs.py --list failed or listed nothing")
 for t in tests:
-    if not any(f"bash {t}" in r["run"] and coincide(t, r.get("when", [])) for r in reglas):
+    if not any(re.search(r"(?:^|[;&| ])bash " + re.escape(t) + r"(?: |$)", r["run"]) and coincide(t, r.get("when", [])) for r in reglas):
         print(t)
 PY
 )

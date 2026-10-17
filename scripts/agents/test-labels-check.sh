@@ -47,13 +47,23 @@ const cases = [
   ['sin tests: with a reason passes', 'Closes #1\nsin tests: es solo docs', {}, null],
   ['the red block passes', base, {}, null],
   // Guards: comments, headings, CRLF and the old shapes that must keep their result.
-  ['a placeholder inside an <!-- --> comment does not count as an ADR reason', '<!-- ADR unchanged: a real reason -->', BL, /ADR unchanged/],
+  ['an ADR exception inside an <!-- --> comment does not count', '<!-- ADR unchanged: a real reason -->', BL, /ADR unchanged/],
   ['ADR unchanged: <reason> followed by a heading fails', 'ADR unchanged: <reason>\n## How to test it', BL, /placeholder/i],
   ['ADR unchanged: <reason> with CRLF line endings fails', 'ADR unchanged: <reason>\r\n## Why\r\n', BL, /placeholder/i],
   ['ADR unchanged: <reason> with a real reason after it, CRLF, passes', 'ADR unchanged: <reason> the rule is not touched\r\n', BL, null],
   ['no tests: <reason> with CRLF line endings fails', 'Closes #1\r\nno tests: <reason>\r\n', {}, /placeholder/i],
   ['no tests: <reason> inside an <!-- --> comment is ignored', 'Closes #1\n<!-- no tests: <reason> -->', {}, /Red before implementing/],
   ['"sin test" without a colon fails', 'Closes #1\nSin test automatizado: es documentación', {}, /Red before implementing/],
+  // The literals as the docs show them: in quotes, backticks or bold, with the placeholder still unfilled.
+  ['"ADR unchanged: <reason>" (quoted, as AGENTS.md shows it) fails', '"ADR unchanged: <reason>"', BL, /placeholder/i],
+  ['`ADR sin cambios: <motivo>` (backticks) fails', '`ADR sin cambios: <motivo>`', BL, /placeholder/i],
+  ['**ADR unchanged:** <reason> (bold after the colon) fails', '**ADR unchanged:** <reason>', BL, /placeholder/i],
+  ['"no tests: <reason>" (quoted, as the PR template shows it) fails', 'Closes #1\n"no tests: <reason>"', {}, /placeholder/i],
+  ['**`no tests: <reason>`** (as implement-issue shows it) fails', 'Closes #1\n**`no tests: <reason>`**', {}, /placeholder/i],
+  ['`sin tests: <motivo>` (backticks) fails', 'Closes #1\n`sin tests: <motivo>`', {}, /placeholder/i],
+  ['**sin tests:** <motivo> (bold after the colon) fails', 'Closes #1\n**sin tests:** <motivo>', {}, /placeholder/i],
+  ['a wrapped real reason passes', 'Closes #1\n`no tests: docs only`', {}, null],
+  ['a wrapped real ADR reason passes', '**ADR unchanged:** the rule is not touched', BL, null],
   ['no tests: on its own line, reason on the next one, passes', 'Closes #1\nno tests:\nonly docs', {}, null],
 ];
 (async () => {
