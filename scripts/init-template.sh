@@ -129,6 +129,7 @@ apply_language
 rm -rf profiles
 # The kit ADRs ("Ámbito: kit" line, see docs/decisions/README.md) explain how the template is,
 # not the project: the project numbers its own from ADR-001. Their index lines go in template: blocks.
+# Only docs/decisions/ADR-*.md: the ADRs of docs/decisions/kit/ are the ones the project installs, and stay (ADR-002, D11).
 { grep -lx 'Ámbito: kit' docs/decisions/ADR-*.md 2>/dev/null || true; } | while read -r f; do rm -f -- "$f"; done
 # The brand (Barrilete) and the trial guide belong to the template, not to the new project.
 rm -rf .github/brand

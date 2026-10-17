@@ -54,6 +54,9 @@ for modo in completo chico; do
   [ -f "$p/docs/decisions/README.md" ] && ! ls "$p"/docs/decisions/ADR-001-* >/dev/null 2>&1 && ! grep -rq 'ADR-001-language-labels' "$p/docs" "$p/README.md"
   afirmar $? "[$modo] el init no instala los ADRs del kit (Ámbito: kit) ni sus líneas en los índices"
   grep -q 'TODO:.*ADR-001' "$p/docs/README.md"; afirmar $? "[$modo] docs/README.md conserva el TODO del primer ADR del proyecto"
+  # Los ADRs del kit que se instalan (ADR-002) viven en docs/decisions/kit/: la numeración del proyecto en docs/decisions/ queda libre.
+  [ -f "$p/docs/decisions/kit/ADR-002-structured-red-validation.md" ] && ! ls "$p"/docs/decisions/kit/*.es.md >/dev/null 2>&1 && ! ls "$p"/docs/decisions/ADR-002-* >/dev/null 2>&1
+  afirmar $? "[$modo] el init conserva docs/decisions/kit/ADR-002 (sin hermano .es.md) y no deja ADRs sueltos en docs/decisions/"
   # #143: con base main, "neither to `main` nor to `main`" / "ni a `main` ni a `main`" no puede quedar: el reemplazo cambia la frase entera.
   # shellcheck disable=SC2016  # backticks de Markdown, literales
   ! grep -rEq 'nor to `main`|ni a `main` ni a `main`|neither to `main`|ni a `main` ni' --exclude-dir=.git "$p"; afirmar $? "[$modo] con base main no queda 'ni a main ni a main' (ni 'neither to main nor to main')"
@@ -291,6 +294,10 @@ for combinacion in "completo en English" "completo es español" "chico en Englis
   (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); afirmar $? "[$modo --lang $idioma R-6] el init termina bien"
   ! grep -rq '<COMMIT_LANG>' "$p" --exclude-dir=.git; afirmar $? "[$modo --lang $idioma R-6] no queda ningún <COMMIT_LANG> sin reemplazar"
   grep -Eq "(description in|descripción en|descripcion en) $lengua" "$p/AGENTS.md"; afirmar $? "[$modo --lang $idioma R-6] AGENTS.md fija la descripción de los commits en $lengua"
+  if [ "$idioma" = en ]; then titulo='Structured validation of the red test'; else titulo='Validación estructurada del test en rojo'; fi
+  k="$p/docs/decisions/kit/ADR-002-structured-red-validation.md"
+  [ -f "$k" ] && grep -qF "$titulo" "$k" && ! ls "$p"/docs/decisions/kit/*.es.md >/dev/null 2>&1
+  afirmar $? "[$modo --lang $idioma] docs/decisions/kit/ADR-002 queda en el idioma de la instalación y sin .es.md"
   if [ "$modo" = completo ]; then
     grep -Eq "(is written in|se escribe en) $lengua" "$p/docs/github-naming-convention.md" && grep -Eq "(the description in|descripción en) $lengua" "$p/.claude/skills/git-workflow/SKILL.md"
     afirmar $? "[$modo --lang $idioma R-6] la convención y la skill git-workflow dicen $lengua"
