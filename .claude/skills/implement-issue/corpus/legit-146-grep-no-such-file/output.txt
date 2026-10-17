@@ -1,2 +1,2 @@
 grep: out.log: No such file or directory
-FAIL - the log says done
+FAIL - the log says finished

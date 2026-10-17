@@ -1,4 +1,4 @@
 TAP version 14
 # file: scripts/test-x.sh
-not ok 1 - the log says done
+not ok 1 - the log says finished
 1..1
