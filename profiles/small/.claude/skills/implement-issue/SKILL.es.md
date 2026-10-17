@@ -31,7 +31,7 @@ Los tests salen de los **criterios de aceptación** del issue, antes de escribir
 .claude/skills/implement-issue/red.sh -- <comando de test de AGENTS.md>
 ```
 
-Tienen que fallar **por una aserción** del criterio: si pasan, no prueban nada; si fallan por un import o un símbolo inexistente, completá el stub. **Bug** → skill `debug`: el test rojo reproduce el bug. Commiteá los tests en rojo (`test: …`) antes de implementar. Si una parte no se puede probar (concurrencia real, un proveedor externo), anotala en el PR como **sin test**.
+Tienen que fallar **por una aserción** del criterio: si pasan, no prueban nada; si fallan por un import o un símbolo inexistente, completá el stub. **Bug** → skill `debug`: el test rojo reproduce el bug. Commiteá los tests en rojo (`test: …`) antes de implementar. Si una parte no se puede probar (concurrencia real, un proveedor externo), anotala en el PR como **`sin tests: <motivo>`**.
 
 ## 4. Implementar (verde)
 

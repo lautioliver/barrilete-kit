@@ -38,9 +38,9 @@ TDD: the tests come from the issue's **acceptance criteria**, not from the code 
   .claude/skills/implement-issue/red.sh -- <test command, the one from `AGENTS.md`, narrowed to what you test>
   ```
   If they pass, they prove nothing: rewrite them. If they fail on an import or a missing symbol, it does not count: complete the stub. Each failure has to be an assertion of a criterion.
-- What `red.sh` accepts as an assertion: the assertion output of the tool (`AssertionError`, `E   assert`, `Expected`/`Received`…) or, in a bash test (`test-*.sh`), a line that **starts with `FAIL - <description>` or `FAIL: <description>`** (`FALLA - …`/`FALLO: …` also work). Any other shape (`not ok`, `Error: …`, a message of your own) exits with 2: make the test's assertion helper print one of those lines.
-- **Commit the red tests** before implementing (`test(<scope>): …`), so the reviewer can go back to that commit and see them fail. That commit may contain tests, fixtures and stubs, and nothing else (no scripts, hooks, installers, CI or build config): the reviewer runs it. Keep the block `red.sh` leaves for the PR.
-- No behavior to test (docs, config) or with a part that cannot be tested here (real concurrency, an external provider): say so in the PR as **`no tests: <reason>`** (the literal the CI check accepts; the old `sin test` also works).
+- What `red.sh` recognizes as an assertion: the assertion output of the tool (`AssertionError`, `E   assert`, `Expected`/`Received`, `DID NOT RAISE`…) or, in a bash test (`test-*.sh`), a line that **starts with `FAIL - `**, as the tests of this repo print them: `FAIL - assigns the issue`. Nothing else counts (`FAIL: …`, `not ok`, `Error: …` or a message of your own exit with 2): make the test's assertion helper print `FAIL - <description>`.
+- **Commit the red tests** before implementing (`test(<scope>): …`), so the reviewer can go back to that commit and see them fail. That commit may contain tests, fixtures and stubs, and nothing else (no scripts other than the tests themselves, hooks, installers, CI or build config): the reviewer runs it. Keep the block `red.sh` leaves for the PR.
+- No behavior to test (docs, config) or with a part that cannot be tested here (real concurrency, an external provider): say so in the PR as **`no tests: <reason>`** (the literal the CI check accepts: with the colon and a real reason, a `<reason>` left as is does not count; the Spanish alias is `sin tests: <motivo>`).
 
 ## 4. Implement (green)
 

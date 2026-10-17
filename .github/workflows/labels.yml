@@ -20,6 +20,7 @@ jobs:
   sync:
     if: github.event_name != 'pull_request_target'
     runs-on: ubuntu-latest
+    timeout-minutes: 2   # a runaway job (a hostile PR body) must not hold a runner for the 6-hour default
     permissions:
       contents: read
       issues: write
@@ -33,6 +34,7 @@ jobs:
   labeler:
     if: github.event_name == 'pull_request_target' && contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)
     runs-on: ubuntu-latest
+    timeout-minutes: 2   # a runaway job (a hostile PR body) must not hold a runner for the 6-hour default
     permissions:
       contents: read
       issues: read
@@ -80,6 +82,7 @@ jobs:
     # always(): runs even if labeler was skipped (labeled/unlabeled/edited).
     if: ${{ always() && github.event_name == 'pull_request_target' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 2   # a runaway job (a hostile PR body) must not hold a runner for the 6-hour default
     permissions:
       pull-requests: read
     steps:
@@ -92,6 +95,34 @@ jobs:
             const names = pr.labels.map(l => l.name);
             const count = p => names.filter(n => n.startsWith(p)).length;
             const errors = [];
+            // Text helpers for the body checks. The author controls the body, so none of the regexes here has two quantifiers that can
+            // split the same run of characters (a hostile body must not make the job run for minutes): the body is cut into lines and
+            // each marker is read with one simple regex per line.
+            const sinComentarios = t => {
+              let out = '', i = 0;
+              for (;;) {
+                const a = t.indexOf('<!--', i), b = a < 0 ? -1 : t.indexOf('-->', a + 4);
+                if (b < 0) return out + t.slice(i);
+                out += t.slice(i, a); i = b + 3;
+              }
+            };
+            const lineas = t => t.split('\n').map(l => l.replace(/\r$/, ''));
+            // A reason is real if a letter or a digit is left once the wrappers (quotes, backticks, * and _) and the <placeholders> are gone.
+            const motivoReal = t => /[\p{L}\p{N}]/u.test(t.replace(/[`"'*_]/g, '').replace(/<[^<>]*>/g, ''));
+            // Looks for `marcador` line by line. ok: some line has a real reason (on its line or, if `enSiguiente` says so, on the next one).
+            // placeholder: a marker was found whose reason was only <…>.
+            const hayMotivo = (texto, marcador, enSiguiente) => {
+              const ls = lineas(texto);
+              let placeholder = false;
+              for (let i = 0; i < ls.length; i++) {
+                const m = marcador.exec(ls[i]);
+                if (!m) continue;
+                if (motivoReal(m[1])) return { ok: true, placeholder };
+                if (/<[^<>]*>/.test(m[1])) placeholder = true;
+                if (i + 1 < ls.length && motivoReal(ls[i + 1]) && enSiguiente(m[1], ls[i + 1])) return { ok: true, placeholder };
+              }
+              return { ok: false, placeholder };
+            };
             if (count('type:') !== 1)    errors.push(`type: there must be exactly 1 (there are ${count('type:')}). claude/, cursor/ and release/ branches carry it by hand.`);
             if (count('priority:') > 0) errors.push('priority: is not used on PRs (only on issues).');
             if (count('status:') > 1)    errors.push(`status: at most 1 (there are ${count('status:')}).`);
@@ -106,26 +137,34 @@ jobs:
                 ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100,
               });
               const tocaAdr = archivos.some(f => f.filename.startsWith('docs/decisions/'));
-              // Without the <!-- … --> comments, which GitHub does not show (an exception written inside one does not count),
-              // and the reason on the same line: a blank line followed by the next heading is not a reason.
-              const cuerpo = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '');
-              const explica = /ADR (?:unchanged|sin cambios):[^\S\n]*\S/i.test(cuerpo);
-              if (!tocaAdr && !explica) errors.push('business-logic without changes in docs/decisions/: amend the ADR that defines the rule, or add "ADR unchanged: <reason>" to the body.');
+              // The body without the <!-- … --> comments, which GitHub does not show (an exception written inside one does not count).
+              const cuerpo = sinComentarios(pr.body || '');
+              // The reason on the same line (or, after a bold `**ADR unchanged:**`, on the next one, if it is not a heading):
+              // a blank line followed by the next heading is not a reason. A reason that is only <…> is not one either.
+              const adr = hayMotivo(cuerpo, /ADR (?:unchanged|sin cambios):([^\n]*)$/i,
+                (resto, sig) => /^[\s`"'*_]*$/.test(resto) && /[`"'*_]/.test(resto) && !sig.trimStart().startsWith('#'));
+              if (!tocaAdr && !adr.ok) errors.push(adr.placeholder
+                ? 'business-logic: the reason of "ADR unchanged:" is still the <reason> placeholder (or "<motivo>"): write why the ADR does not change.'
+                : 'business-logic without changes in docs/decisions/: amend the ADR that defines the rule, or add "ADR unchanged: <reason>" to the body.');
             }
             // Agent branches: what implement-issue asks for in the body, validated here instead of in the skill.
             if (/^claude\//.test(pr.head.ref)) {
               // Without the <!-- … --> comments of the template: they mention "Red before implementing" and "no tests".
-              const body = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '');
+              const body = sinComentarios(pr.body || '');
               // Refs #n, on its own line: the PR is part of the issue but does not close it (a diagnosis,
               // one step of several). A passing "ref #38" in the text does not count.
               const cierra = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#\d+/i;
-              const refiere = /^\s*refs?:?\s+#\d+/im;
+              const refiere = /^[^\S\n]*refs?:?\s+#\d+/im;
               if (!cierra.test(body) && !refiere.test(body))
                 errors.push('the body neither closes nor references any issue: add "Closes #<n>" (or "Refs #<n>" if it does not close it).');
-              // The English literals are the current ones; the Spanish ones ("Rojo antes de implementar", "sin test")
-              // stay as aliases. "no test" needs the colon: without it, any "there is no test coverage" would pass.
-              if (!/<summary>(?:Red before implementing|Rojo antes de implementar)<\/summary>|\bno tests?:[^\S\n]*\n?[^\S\n]*\S|sin tests?\b[^\S\n]*:?[^\S\n]*\n?[^\S\n]*\S/i.test(body))
-                errors.push('the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
+              // The English literals are the current ones; the Spanish ones ("Rojo antes de implementar", "sin tests:")
+              // stay as aliases. "no tests"/"sin tests" need the colon and a reason (on the same line or the next one): without it,
+              // any "there is no test coverage" would pass. A reason that is only <…> (the placeholder copied as is) does not count.
+              const sinTests = hayMotivo(body, /(?:^|[^A-Za-z0-9])(?:no|sin) tests?:([^\n]*)$/i, () => true);
+              if (!/<summary>(?:Red before implementing|Rojo antes de implementar)<\/summary>/i.test(body) && !sinTests.ok)
+                errors.push(sinTests.placeholder
+                  ? 'the reason of "no tests:" is still the <reason> placeholder (or "<motivo>"): write why there are no tests.'
+                  : 'the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
             }
             if (errors.length) core.setFailed('PR out of convention:\n- ' + errors.join('\n- '));
             else core.info('PR OK. Labels: ' + names.join(', '));
