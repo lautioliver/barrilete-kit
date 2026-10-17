@@ -297,7 +297,7 @@ grep -q '"parity": false' "$p/docs/agents-map.json"; afirmar $? "[completo] el i
 ! grep -q 'CLAUDE.md' <(python3 -c "import json; print(json.load(open('$p/docs/agents-map.json'))['parity_ignore'])"); afirmar $? "[completo] el init saca CLAUDE.md del parity_ignore del proyecto (es ruido de la plantilla)"
 printf '# Guía\n' >"$p/docs/manual.es.md"
 s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
-! grep -q 'sibling\|headings\|code blocks' <<<"$s"; afirmar $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"
+[ -f "$p/docs/manual.es.md" ] && ! grep -q 'manual' <<<"$s"; afirmar $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"
 # Un .yml del perfil chico gana a su hermano completo, cualquiera sea el archivo (no solo labels.yml).
 p="$TMP/yml-general"
 copiar "$p"

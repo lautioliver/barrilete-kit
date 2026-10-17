@@ -208,6 +208,24 @@ copia; parity true
 perl -0pi -e 's/^- name: "type:bug"/-   name: "type:bug"/m' "$TMP/r/.github/labels.yml" "$TMP/r/.github/labels.es.yml"
 s=$(check)
 grep -q '.github/labels.yml: .*items.*blocks' <<<"$s"; afirmar $? "labels: un ítem con formato que el parser no lee (-   name:) falla en vez de perderse"
+# labels: cada formato que el parser no lee falla (el mismo cambio en los dos archivos y después una diferencia solo en el .es.yml).
+while IFS='|' read -r nombre buscar poner cambio_es; do
+  copia; parity true
+  perl -0pi -e "s/$buscar/$poner/g" "$TMP/r/.github/labels.yml" "$TMP/r/.github/labels.es.yml"
+  perl -0pi -e "s/$cambio_es/g" "$TMP/r/.github/labels.es.yml"
+  s=$(check)
+  grep -q '.github/labels.yml: .*format not supported' <<<"$s" && grep -q '.github/labels.es.yml: .*format not supported' <<<"$s"; afirmar $? "labels: $nombre falla en vez de perderse"
+done <<'FORMATOS'
+aliases en una línea|aliases:\n    - "tipo:bug"|aliases: ["tipo:bug"]|\["tipo:bug"\]/["tipo:otro"]
+alias con comentario|- "tipo:bug"|- "tipo:bug"  # old|"tipo:bug"  # old/"tipo:otro"  # old
+guion solo en su línea|^- name: "type:bug"|-\n  name: "type:bug"|name: "type:bug"\n  color: "7B61FF"/name: "type:bug"\n  color: "000000"
+lista indentada|^- name: "type:bug"|  - name: "type:bug"|"tipo:bug"/"tipo:otro"
+FORMATOS
+copia
+printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
+printf '# ADR-002 — Prueba\n\n## Estado\n\nAceptado\n' >"$TMP/r/docs/decisions/ADR-002-prueba.es.md"
+s=$(check)
+grep -q 'Warning: .*ADR-002-prueba.md.*Scope: kit' <<<"$s" && ! grep -q 'has `Ámbito: kit` but' <<<"$s"; afirmar $? "un ADR con 'Scope: kit' y su hermano sin ámbito: un solo aviso, el del Scope (no dice que tiene 'Ámbito: kit')"
 # ADRs: 'Ámbito: kit' en un idioma y no en el otro; con finales de línea CRLF el init tampoco lo borra.
 copia
 printf '# ADR-002 — Prueba\n\n## Status\n\nAccepted\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-002-prueba.md"
