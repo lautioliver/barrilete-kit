@@ -118,6 +118,9 @@ tap_begin() { _tap_line "# file: $(_tap_rel "${1:?tap_begin needs the path of th
 
 tap_at_exit() { _TAP_AT_EXIT=$1; }
 
+# Stub (issue #165, red): declares the functions of a test whose failing status is an assertion.
+tap_assertions() { :; }
+
 # Usage: _tap_flush: writes the held cases (numbered after the ones already in the file) and forgets them.
 _tap_flush() {
   local i n=0 esc d

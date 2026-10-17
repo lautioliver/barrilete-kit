@@ -48,6 +48,8 @@ nogrep() { ! grep -q -- "$1" "$2" 2>/dev/null; }
 has_msg() { grep -q -- "$1" "$TMP/stderr" 2>/dev/null; }
 has_bail() { grep -q "^Bail out!" "$TMP/tap" 2>/dev/null; }
 has_cleaned() { grep -q "^cleaned" "$TMP/stderr" 2>/dev/null; }
+# The helpers above are assertions: a failing status of theirs is a failed case, not a crash (tap.sh, "Unexpected errors").
+tap_assertions rc_is rc_not count_is has before_cases empty nonempty nogrep has_msg has_bail has_cleaned
 
 # 1. Format and plan, in the file.
 run_tap 'tap_ok "creates the branch"
@@ -70,7 +72,7 @@ rc_is 1; check $? "exits with 1 when a case fails"
 has "FAIL - second" "$TMP/stderr"; check $? "reports a failing case on stderr as FAIL - id, for the CI log"
 
 run_tap 'true; tap_check $? "passes by status"
-false; tap_check $? "fails by status"
+[ 1 -eq 0 ]; tap_check $? "fails by status"
 tap_done' file
 has "ok 1 - passes by status" "$TMP/tap" && has "not ok 2 - fails by status" "$TMP/tap"; check $? "tap_check turns a status into ok or not ok"
 rc_is 1; check $? "a failing command that the test checks with its status is not an unexpected error"
@@ -226,7 +228,71 @@ nogrep "input a" "$TMP/tap" && has "# desc: only one" "$TMP/tap"; check $? "a pa
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_ok "d"\nexit 4\n' "$ROOT" >"$TMP/three.sh"
 rm -f "$TMP/tap4"; (cd "$ROOT" && TAP_OUT="$TMP/tap4" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap4" bash "$TMP/three.sh") 2>/dev/null
 has_bail4() { grep -q '^Bail out!' "$TMP/tap4" 2>/dev/null; }
+tap_assertions has_bail4
 has_bail4 && nogrep '^1\.\.' "$TMP/tap4"; check $? "a bail out removes the plan an earlier script wrote"
+
+# 8f. A crash is never an assertion (ADR-002 D6, issue #165). Without set -e a command that fails with 1 or 2 looks
+# like a status the test checks on purpose, so the helper looks at what consumes the status: an assertion
+# (test, [, [[, grep, diff, cmp, or a function declared with tap_assertions) may fail a case; anything else
+# that fails and is read straight by tap_check, or not read at all, is a Bail out!.
+run_tap 'python3 -c "raise SystemExit(1)" 2>/dev/null
+tap_check $? "a setup step that crashes with status 1"
+tap_done' file
+has_bail && rc_not 0 && nogrep '^not ok' "$TMP/tap"; tap_check $? "a program that crashes with 1 and is read by tap_check emits Bail out!, not a failed case"
+run_tap 'python3 /nonexistent/missing-script.py 2>/dev/null
+tap_check $? "a script that does not exist yet"
+tap_done' file
+has_bail && rc_not 0 && nogrep '^not ok' "$TMP/tap"; tap_check $? "a program that crashes with 2 and is read by tap_check emits Bail out!, not a failed case"
+run_tap 's=$(python3 -c "raise SystemExit(1)" 2>/dev/null)
+[ "$s" = expected ]
+tap_check $? "compares the output of a step that crashed"
+tap_done' file
+has_bail && rc_not 0 && nogrep '^not ok' "$TMP/tap"; tap_check $? "a setup step that crashes and nobody checks emits Bail out! before the assertion"
+run_tap 'tap_ok "before"
+python3 -c "raise SystemExit(1)" 2>/dev/null
+tap_done' file
+has_bail && rc_not 0; tap_check $? "a failing command right before tap_done emits Bail out!"
+run_tap 'tap_ok "before"
+python3 -c "raise SystemExit(1)" 2>/dev/null
+tap_ok "after"
+tap_done' file
+has_bail && nogrep '^1\.\.' "$TMP/tap"; tap_check $? "a failing command that nothing reads emits Bail out! and leaves no plan"
+
+run_tap '[ a = b ]; tap_check $? "test fails"
+grep -q zzz /dev/null; tap_check $? "grep finds nothing"
+[[ a = b ]]; tap_check $? "double brackets fail"
+tap_done' file
+has "not ok 1 - test fails" "$TMP/tap" && has "not ok 2 - grep finds nothing" "$TMP/tap" && has "not ok 3 - double brackets fail" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a failing test, grep or [[ is a failed case, not a Bail out!"
+rc_is 1; tap_check $? "a failed assertion still exits with 1"
+run_tap 'test 1 -eq abc 2>/dev/null
+tap_check $? "syntax error of test"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap"; tap_check $? "test failing with status 2 (a usage error) emits Bail out!"
+run_tap 'grep -q x /nonexistent/file 2>/dev/null
+tap_check $? "grep on a missing file"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap"; tap_check $? "grep failing with status 2 (it could not read) emits Bail out!"
+
+run_tap 'is_there() { [ -f "$1" ]; }
+tap_assertions is_there
+is_there /nonexistent/file; tap_check $? "a declared assertion function fails"
+tap_done' file
+has "not ok 1 - a declared assertion function fails" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a function declared with tap_assertions can fail a case"
+run_tap 'crashes() { python3 -c "raise SystemExit(1)" 2>/dev/null; }
+crashes; tap_check $? "an undeclared function"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap"; tap_check $? "a function that is not declared as an assertion emits Bail out! when it fails"
+
+run_tap 'python3 -c "raise SystemExit(3)" 2>/dev/null; [ $? -eq 3 ]; tap_check $? "exits with 3"
+python3 -c "raise SystemExit(3)" 2>/dev/null; rc=$?; [ "$rc" -eq 3 ]; tap_check $? "keeps the status in a variable"
+python3 -c "raise SystemExit(1)" 2>/dev/null || true
+tap_ok "a failure the test declares expected with || true"
+tap_done' file
+has "ok 1 - exits with 3" "$TMP/tap" && has "ok 2 - keeps the status in a variable" "$TMP/tap" && has "ok 3 - a failure the test declares expected with || true" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a status the test reads itself with its status variable, or declares expected with a trailing true, is not an error"
+rc_is 0; tap_check $? "a run whose failures are all declared exits with 0"
+run_tap 'if python3 -c "raise SystemExit(1)" 2>/dev/null; then tap_fail "x"; else tap_ok "else branch"; fi
+tap_done' file
+has "ok 1 - else branch" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a command in an if condition is the test's own business"
 
 # 9. The kit's own tests use the helper (what the issue migrates).
 SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh | sort)
