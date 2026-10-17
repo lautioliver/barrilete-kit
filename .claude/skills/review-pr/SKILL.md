@@ -18,7 +18,7 @@ gh pr checks <n>
 cd <root> && python3 scripts/agents/agents_map.py --pr <n>
 ```
 
-`<root>` is the checkout you trust: your own session's, or the orchestrator's if it launched you. The kit's scripts (`agents_map.py`, `red.sh`, `retro.sh`) always run from there, never from the PR's worktree: that is PR code nobody has reviewed yet. The only PR code that runs is the tests of the red commit (§3).
+`<root>` is the checkout you trust: your own session's, or the orchestrator's if it launched you. The kit's scripts (`agents_map.py`, `red.sh`, `retro.sh`) always run from there, never from the PR's worktree: that is PR code nobody has reviewed yet. The only PR code that runs is the tests of the red commit (§3), and that is still PR code: first check that the red commit only adds tests (not scripts, `package.json`, CI or build config); if it does more, do not run it and say so in the review.
 
 Read the issue it closes (and its epic, if it has one): the review is against what was asked, not against what the PR says it does.
 

@@ -343,6 +343,10 @@ s=$(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/signals.sh" 2>&1)
 
 # #143: el template trae agent_sha y skill_sha; si se copia sin completar (<...>), retro.sh los reemplaza por los reales en vez de guardar el texto.
 printf -- '---\nskill: implement-issue\nissue: 77\npr: 99\nmodel: sonnet\nrole: implementer\nagent_sha: <the agent_sha the orchestrator gave you>\nskill_sha: <the skill_sha the orchestrator gave you>\n---\n**Desvíos:** plantilla sin completar\n' >"$TMP/ph.md"
+printf -- '---\nskill: implement-issue\nissue: 78\npr: 99\nmodel: sonnet\nrole: implementer\nagent_sha:\nskill_sha: (orchestrator value)\n---\n**Desvíos:** vacío y basura\n' >"$TMP/ph2.md"
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/ph2.md" >/dev/null 2>&1)
+c2=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-78\.md$')" 2>/dev/null)
+grep -Eq '^agent_sha: ([0-9a-f]{40}|unknown)$' <<<"$c2" && grep -Eq '^skill_sha: ([0-9a-f]{40}|unknown)$' <<<"$c2"; afirmar $? "agent_sha vacío y skill_sha que no es un sha (texto suelto) tampoco se guardan: retro.sh pone los reales"
 (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/ph.md" >"$TMP/ph.out" 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-77\.md$')" 2>/dev/null)
 grep -Eq '^agent_sha: [0-9a-f]{40}$|^agent_sha: unknown$' <<<"$c" && grep -Eq '^skill_sha: [0-9a-f]{40}$|^skill_sha: unknown$' <<<"$c" && ! grep -Eq '^(agent_sha|skill_sha): <' <<<"$c"; afirmar $? "agent_sha y skill_sha sin completar (<...>) no se guardan: retro.sh pone los reales"
