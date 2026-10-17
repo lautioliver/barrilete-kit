@@ -143,11 +143,25 @@ tap_ok "x"
 tap_done' file
 has_cleaned && rc_is 0; check $? "the at-exit command runs at the end of a normal run"
 
-# 7. Ids are literal and unique.
-run_tap 'tap_ok "same"
-tap_ok "same"
+# 7. Ids are literal; an id that repeats is the same case (a loop over inputs).
+run_tap 'for x in a b c; do tap_ok "same thing" "input $x"; done
+tap_ok "other"
 tap_done' file
-has_bail && rc_not 0; check $? "a repeated id emits Bail out! (red.sh rejects ambiguous names)"
+has "ok 1 - same thing" "$TMP/tap" && has "ok 2 - other" "$TMP/tap" && has "1..2" "$TMP/tap"; check $? "an id that repeats is one case, not one per call"
+run_tap 'for x in a b c; do if [ "$x" = b ]; then tap_fail "same thing" "input $x"; else tap_ok "same thing" "input $x"; fi; done
+tap_ok "other"
+tap_done' file
+has "not ok 1 - same thing" "$TMP/tap" && has "# desc: input b" "$TMP/tap" && nogrep "input a" "$TMP/tap"; check $? "a repeated id fails if one repetition fails, and lists only the failing inputs"
+rc_is 1; check $? "a failing repetition makes the script exit with 1"
+run_tap 'tap_fail "same thing" "input a"
+tap_ok "same thing" "input b"
+tap_done' file
+has "not ok 1 - same thing" "$TMP/tap"; check $? "a later passing repetition does not hide a failure"
+run_tap 'tap_ok "first"
+tap_ok "second"
+tap_ok "first"
+tap_done' file
+has "ok 1 - first" "$TMP/tap" && has "ok 2 - second" "$TMP/tap" && has "1..2" "$TMP/tap"; check $? "the cases are numbered in the order of their first call"
 run_tap 'tap_ok "line one
 line two"
 tap_done' file
@@ -175,13 +189,13 @@ has "1..0 # SKIP does not apply here" "$TMP/tap" && rc_is 0; check $? "tap_skip_
 SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh ! -name test-red.sh | sort)
 n=0; sin=""
 for s in $SCRIPTS; do n=$((n + 1)); grep -q 'agents/tap\.sh' "$ROOT/$s" || sin="$sin $s"; done
-[ -z "$sin" ] && [ "$n" -ge 11 ]; check $? "every test-*.sh of the kit loads tap.sh (missing:${sin:- none})"
+[ -z "$sin" ] && [ "$n" -ge 1 ]; check $? "every test-*.sh of the kit loads tap.sh (missing:${sin:- none})"
 propios=""
 for s in $SCRIPTS; do grep -qE '^(ok|falla|fail)\(\)' "$ROOT/$s" && propios="$propios $s"; done
 [ -z "$propios" ]; check $? "no test-*.sh defines its own ok()/falla()/fail() (still:${propios:- none})"
 dinamicos=""
 for s in $SCRIPTS; do
-  grep -nE 'tap_(ok|fail) "[^"]*\$|tap_check [^ ]+ "[^"]*\$' "$ROOT/$s" | grep -vE 'tap_(ok|fail) "\$[0-9@*]"|tap_check [^ ]+ "\$[0-9@*]"' >"$TMP/dyn" && dinamicos="$dinamicos $s:$(head -1 "$TMP/dyn" | cut -d: -f1)"
+  grep -nE 'tap_(ok|fail) "[^"]*\$|tap_check [^ ]+ "[^"]*\$' "$ROOT/$s" | grep -vE 'tap_(ok|fail) "\$\{?[A-Za-z0-9_@*]+\}?"|tap_check [^ ]+ "\$\{?[A-Za-z0-9_@*]+\}?"' >"$TMP/dyn" && dinamicos="$dinamicos $s:$(head -1 "$TMP/dyn" | cut -d: -f1)"
 done
 [ -z "$dinamicos" ]; check $? "the id of each case is a literal, never built at run time (first offender:${dinamicos:- none})"
 

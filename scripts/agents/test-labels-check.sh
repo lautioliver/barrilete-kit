@@ -4,14 +4,13 @@
 # Usage: bash scripts/agents/test-labels-check.sh
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-fails=0
-ok() { echo "ok   - $1"; }
-fail() { echo "FAIL - $1"; fails=$((fails + 1)); }
-# Usage: <condition>; check $? "description"
-check() { if [ "$1" -eq 0 ]; then ok "$2"; else fail "$2"; fi; }
+# shellcheck source=/dev/null
+. "$ROOT/scripts/agents/tap.sh"
+tap_begin "$0"
+# Usage: <condition>; tap_check $? "description"
 
-command -v node >/dev/null || { echo "FAIL - node is missing"; exit 1; }
-node - "$ROOT/.github/workflows/labels.yml" <<'JS'
+command -v node >/dev/null || { tap_fail "node is installed"; tap_done; }
+node - "$ROOT/.github/workflows/labels.yml" >&2 <<'JS'
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[2], 'utf8');
 // The script of the `labels:` job: the block after its `script: |`, up to the end of the file.
@@ -142,11 +141,11 @@ const more = [
   process.exit(bad ? 1 : 0);
 })();
 JS
-check $? "the labels check reports the unfilled reasons (full script, fake GitHub)"
+tap_check $? "the labels check reports the unfilled reasons (full script, fake GitHub)"
 # Every job of the workflow has a short timeout (a runaway job must not hold a runner for the 6-hour default).
 jobs=$(awk '/^jobs:/{j=1;next} j && /^  [a-z-]+:$/{n++} END{print n+0}' "$ROOT/.github/workflows/labels.yml")
 tm=$(grep -cE '^    timeout-minutes: 2( |$)' "$ROOT/.github/workflows/labels.yml")
-[ "$((jobs - 0))" -ge 1 ] && [ "$jobs" -eq "$tm" ]; check $? "each job of labels.yml has timeout-minutes: 2 ($tm of $jobs)"
+[ "$((jobs - 0))" -ge 1 ] && [ "$jobs" -eq "$tm" ]; tap_check $? "each job of labels.yml has timeout-minutes: 2" "each job of labels.yml has timeout-minutes: 2 ($tm of $jobs)"
 echo
-if [ "$fails" -ne 0 ]; then echo "$fails test(s) failed."; exit 1; fi
+tap_done
 echo "All tests pass."

@@ -5,12 +5,11 @@
 set -uo pipefail
 RAIZ=$(cd "$(dirname "$0")/.." && pwd)
 TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-update-XXXXXX")" && pwd -P)
-trap 'rm -rf "$TMP"' EXIT
-fallas=0
-ok() { echo "ok   - $1"; }
-falla() { echo "FAIL - $1"; fallas=$((fallas + 1)); }
-# Uso: <condición>; afirmar $? "descripción"
-afirmar() { if [ "$1" -eq 0 ]; then ok "$2"; else falla "$2"; fi; }
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/tap.sh"
+tap_begin "$0"
+tap_at_exit "rm -rf \"\$TMP\""
+# Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
@@ -64,9 +63,9 @@ proyecto() {
 
 D="$TMP/completo"
 proyecto "$D" completo
-grep -q '"version": "0.1.0"' "$D/.agent-kit.json"; afirmar $? "el init registra la versión de la plantilla en .agent-kit.json"
-! [ -e "$D/VERSION" ] && ! [ -e "$D/CHANGELOG.md" ]; afirmar $? "el init borra VERSION y CHANGELOG.md (son de la plantilla)"
-es -f "$D/scripts/update.py"; afirmar $? "el proyecto completo trae update.py"
+grep -q '"version": "0.1.0"' "$D/.agent-kit.json"; tap_check $? "el init registra la versión de la plantilla en .agent-kit.json"
+! [ -e "$D/VERSION" ] && ! [ -e "$D/CHANGELOG.md" ]; tap_check $? "el init borra VERSION y CHANGELOG.md (son de la plantilla)"
+es -f "$D/scripts/update.py"; tap_check $? "el proyecto completo trae update.py"
 (
   cd "$D" || exit 1
   perl -pi -e 's/^# .*/# AGENTS.md — Demo (editado)/ if $. == 1' AGENTS.md
@@ -78,85 +77,85 @@ es -f "$D/scripts/update.py"; afirmar $? "el proyecto completo trae update.py"
 
 echo sucio >>"$D/AGENTS.md"
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
-[ "$c" -ne 0 ] && grep -qi "uncommitted" <<<"$s"; afirmar $? "no actualiza con cambios sin commitear"
+[ "$c" -ne 0 ] && grep -qi "uncommitted" <<<"$s"; tap_check $? "no actualiza con cambios sin commitear"
 (cd "$D" && git checkout -q AGENTS.md)
 
 antes=$(git -C "$D" rev-parse HEAD)
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
-afirmar "$c" "actualiza de v0.1.0 a la última versión (v0.2.0)"
-grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md"; afirmar $? "reemplaza un archivo que el proyecto no tocó"
+tap_check "$c" "actualiza de v0.1.0 a la última versión (v0.2.0)"
+grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md"; tap_check $? "reemplaza un archivo que el proyecto no tocó"
 grep -q "Demo (editado)" "$D/AGENTS.md" && grep -q "Línea nueva de la plantilla v0.2." "$D/AGENTS.md"
-afirmar $? "fusiona un archivo que tocaron los dos lados en lugares distintos"
+tap_check $? "fusiona un archivo que tocaron los dos lados en lugares distintos"
 head -1 "$D/docs/github-naming-convention.md" | grep -q "Convención del proyecto" \
   && grep -q '^<<<<<<<' "$D/.agent-kit/pending/docs/github-naming-convention.md"
-afirmar $? "con conflicto no pisa el archivo: deja la fusión con marcas en .agent-kit/pending/"
-es -f "$D/.claude/skills/debug/nuevo.md"; afirmar $? "agrega un archivo nuevo de la plantilla"
-! [ -e "$D/.claude/skills/debug/viejo.md" ]; afirmar $? "borra un archivo que la plantilla sacó y el proyecto no tocó"
+tap_check $? "con conflicto no pisa el archivo: deja la fusión con marcas en .agent-kit/pending/"
+es -f "$D/.claude/skills/debug/nuevo.md"; tap_check $? "agrega un archivo nuevo de la plantilla"
+! [ -e "$D/.claude/skills/debug/viejo.md" ]; tap_check $? "borra un archivo que la plantilla sacó y el proyecto no tocó"
 [ -f "$D/.claude/skills/debug/viejo2.md" ] && grep -q "viejo2.md" <<<"$s"
-afirmar $? "conserva y avisa un archivo que la plantilla sacó pero el proyecto modificó"
-! [ -e "$D/.claude/skills/debug/borrado.md" ]; afirmar $? "no vuelve a traer un archivo que el proyecto borró"
-grep -q '"version": "0.2.0"' "$D/.agent-kit.json"; afirmar $? "registra la versión nueva en .agent-kit.json"
-es -x "$D/.claude/skills/debug/modo.sh"; afirmar $? "aplica un cambio de permisos (ejecutable) aunque el contenido sea igual"
-grep -qi "integrate" <<<"$s" && grep -qi "next update" <<<"$s"; afirmar $? "con conflictos, avisa que hay que integrarlos ahora (la próxima actualización parte de la versión nueva)"
-grep -q "Cambio de prueba" <<<"$s"; afirmar $? "muestra el changelog de las versiones nuevas"
+tap_check $? "conserva y avisa un archivo que la plantilla sacó pero el proyecto modificó"
+! [ -e "$D/.claude/skills/debug/borrado.md" ]; tap_check $? "no vuelve a traer un archivo que el proyecto borró"
+grep -q '"version": "0.2.0"' "$D/.agent-kit.json"; tap_check $? "registra la versión nueva en .agent-kit.json"
+es -x "$D/.claude/skills/debug/modo.sh"; tap_check $? "aplica un cambio de permisos (ejecutable) aunque el contenido sea igual"
+grep -qi "integrate" <<<"$s" && grep -qi "next update" <<<"$s"; tap_check $? "con conflictos, avisa que hay que integrarlos ahora (la próxima actualización parte de la versión nueva)"
+grep -q "Cambio de prueba" <<<"$s"; tap_check $? "muestra el changelog de las versiones nuevas"
 es "$(git -C "$D" rev-parse HEAD)" = "$antes" && es -n "$(git -C "$D" status --porcelain)"
-afirmar $? "no commitea: los cambios quedan en el working tree"
+tap_check $? "no commitea: los cambios quedan en el working tree"
 ! grep -rq '<PROJECT>\|<BASE_BRANCH>' "$D/.claude/skills/debug/SKILL.md" "$D/AGENTS.md"
-afirmar $? "los archivos traídos tienen los datos del proyecto, no los marcadores"
+tap_check $? "los archivos traídos tienen los datos del proyecto, no los marcadores"
 
 (cd "$D" && rm -rf .agent-kit && git checkout -q docs/github-naming-convention.md && git add -A && git commit -qm actualizar) >/dev/null 2>&1
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -qi "already at" <<<"$s" && [ -z "$(git -C "$D" status --porcelain)" ]
-afirmar $? "si ya está en la última versión, no cambia nada"
+tap_check $? "si ya está en la última versión, no cambia nada"
 
 # Lo que la revisión marcó: versiones más viejas, pendientes viejos, rutas relativas, versiones raras.
 s=$(cd "$D" && python3 scripts/update.py --template "$P" --version v0.1.0 2>&1); c=$?
 [ "$c" -ne 0 ] && grep -qi "older than" <<<"$s" && grep -q '"version": "0.2.0"' "$D/.agent-kit.json"
-afirmar $? "no vuelve a una versión más vieja"
+tap_check $? "no vuelve a una versión más vieja"
 s=$(cd "$D" && python3 scripts/update.py --template 2>&1); c=$?
-[ "$c" -ne 0 ] && grep -q "Usage:" <<<"$s"; afirmar $? "una opción sin valor muestra el uso, sin traceback"
+[ "$c" -ne 0 ] && grep -q "Usage:" <<<"$s"; tap_check $? "una opción sin valor muestra el uso, sin traceback"
 
 D="$TMP/pendientes"
 proyecto "$D" completo
 mkdir -p "$D/.agent-kit/pending" && echo viejo >"$D/.agent-kit/pending/x.md"
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
 [ "$c" -ne 0 ] && grep -q "pending" <<<"$s" && ! grep -q "Línea nueva" "$D/.claude/skills/debug/SKILL.md"
-afirmar $? "no actualiza si quedan pendientes de una actualización anterior"
+tap_check $? "no actualiza si quedan pendientes de una actualización anterior"
 
 D="$TMP/relativa"
 proyecto "$D" completo
 s=$(cd "$D/scripts" && python3 update.py --template "../../plantilla" 2>&1); c=$?
-afirmar "$c" "--template relativa se resuelve desde donde se corre"
+tap_check "$c" "--template relativa se resuelve desde donde se corre"
 
 D="$TMP/rara"
 proyecto "$D" completo
 (cd "$D" && perl -pi -e 's/"version": "0.1.0"/"version": "0.1.0-rc.1"/' .agent-kit.json && git commit -qam rc) >/dev/null 2>&1
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
-[ "$c" -eq 0 ] && grep -q '"version": "0.2.0"' "$D/.agent-kit.json"; afirmar $? "una versión con sufijo (0.1.0-rc.1) no rompe a mitad de camino"
+[ "$c" -eq 0 ] && grep -q '"version": "0.2.0"' "$D/.agent-kit.json"; tap_check $? "una versión con sufijo (0.1.0-rc.1) no rompe a mitad de camino"
 
 D="$TMP/posterior"
 proyecto "$D" completo posterior
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
 grep -q "cambiado v0.2" "$D/.claude/skills/debug/cambiado.md" && ! [ -e "$D/.agent-kit/pending/.claude/skills/debug/cambiado.md" ]
-afirmar $? "un proyecto creado desde main después del tag: lo que no tocó se reemplaza, no va a pendientes"
+tap_check $? "un proyecto creado desde main después del tag: lo que no tocó se reemplaza, no va a pendientes"
 
 # --lang (#113): update.py y grow.py reproducen el init en el idioma registrado.
 for modo in completo chico; do
   D="$TMP/es-$modo"
   proyecto "$D" "$modo" v0.1.0 es
   grep -qx "Hola v0.1" "$D/.claude/skills/debug/lang.md" && grep -q '"language": "es"' "$D/.agent-kit.json"
-  afirmar $? "[$modo --lang es] el init instala la versión .es.md y registra language: es"
+  tap_check $? "[<modo> --lang es] el init instala la versión .es.md y registra language: es" "[$modo --lang es] el init instala la versión .es.md y registra language: es"
   s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
   [ "$c" -eq 0 ] && grep -qx "Hola v0.2" "$D/.claude/skills/debug/lang.md" && ! [ -e "$D/.claude/skills/debug/lang.es.md" ] \
     && grep -q '"language": "es"' "$D/.agent-kit.json"
-  afirmar $? "[$modo --lang es] update.py reinstala en español, sin traer los .es.md"
+  tap_check $? "[<modo> --lang es] update.py reinstala en español, sin traer los .es.md" "[$modo --lang es] update.py reinstala en español, sin traer los .es.md"
 done
 D="$TMP/crece-es"
 proyecto "$D" chico v0.1.0 es
 s=$(cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -qx "Hola v0.2" "$D/.claude/skills/debug/lang.md" && ! [ -e "$D/.claude/skills/debug/lang.es.md" ] \
   && grep -q '"language": "es"' "$D/.agent-kit.json"
-afirmar $? "grow.py mantiene el idioma del proyecto (es)"
+tap_check $? "grow.py mantiene el idioma del proyecto (es)"
 
 # Modo chico.
 D="$TMP/chico"
@@ -164,14 +163,14 @@ proyecto "$D" chico
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md" \
   && grep -q '"mode": "small"' "$D/.agent-kit.json" && ! [ -e "$D/.claude/skills/review-pr" ]
-afirmar $? "[chico] actualiza sin traer lo del modo completo"
+tap_check $? "[chico] actualiza sin traer lo del modo completo"
 
 # grow.py (chico → completo) también registra la versión de la plantilla que trae.
 D="$TMP/crece"
 proyecto "$D" chico
 s=$(cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q '"version": "0.2.0"' "$D/.agent-kit.json" && grep -q '"mode": "full"' "$D/.agent-kit.json"
-afirmar $? "grow.py registra la versión de la plantilla que trajo"
+tap_check $? "grow.py registra la versión de la plantilla que trajo"
 
 # Proyecto anterior a las versiones: sin "version" en .agent-kit.json.
 D="$TMP/anterior"
@@ -185,16 +184,16 @@ proyecto "$D" completo
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md" \
   && grep -q "Demo (editado)" "$D/AGENTS.md" && [ -f "$D/.agent-kit/pending/AGENTS.md" ]
-afirmar $? "[sin versión] reemplaza lo no tocado y deja lo modificado en pendientes, sin fusionar"
+tap_check $? "[sin versión] reemplaza lo no tocado y deja lo modificado en pendientes, sin fusionar"
 
 # La versión de origen solo trae el init viejo: update.py usa el init que exista en ese tag.
 D="$TMP/origen-viejo"
 mkdir -p "$D"; git -C "$P" archive v0.0.5 | tar -xf - -C "$D"
 (cd "$D" && git init -q -b main && git add -A && git commit -qm plantilla && ./scripts/init-plantilla.sh Demo main && git add -A && git commit -qm init) >/dev/null 2>&1
-grep -q '"version": "0.0.5"' "$D/.agent-kit.json"; afirmar $? "[origen viejo] el proyecto parte de un tag que solo tiene init-plantilla.sh"
+grep -q '"version": "0.0.5"' "$D/.agent-kit.json"; tap_check $? "[origen viejo] el proyecto parte de un tag que solo tiene init-plantilla.sh"
 s=$(cd "$D" && python3 scripts/update.py --template "$P" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q '"version": "0.2.0"' "$D/.agent-kit.json" && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md"
-afirmar $? "[origen viejo] actualiza usando el init que tiene el tag de origen"
+tap_check $? "[origen viejo] actualiza usando el init que tiene el tag de origen"
 
 # Proyectos 0.9.0 (#116): update.py los migra a los nombres, claves y labels nuevos sin perder cambios propios.
 # La plantilla 0.9.0 se arma desde el árbol actual con los nombres viejos (la tabla de test-renames.sh, que es la
@@ -308,10 +307,10 @@ mkdir -p "$P09"
     && git add -A && git commit -qm v0.10.0 && git tag v0.10.0
 ) >/dev/null 2>&1
 git -C "$P09" rev-parse -q --verify v0.9.0 >/dev/null && git -C "$P09" rev-parse -q --verify v0.10.0 >/dev/null
-afirmar $? "[0.9] la plantilla de prueba tiene los tags v0.9.0 (nombres viejos) y v0.10.0"
+tap_check $? "[0.9] la plantilla de prueba tiene los tags v0.9.0 (nombres viejos) y v0.10.0"
 git -C "$P09" show v0.9.0:docs/mapa-agentes.json | grep -q '"sensibles"' && git -C "$P09" show v0.9.0:scripts/agentes/verificar.py >/dev/null 2>&1 \
   && git -C "$P09" show v0.9.0:scripts/init-plantilla.sh >/dev/null 2>&1 && ! git -C "$P09" show v0.9.0:scripts/init-template.sh >/dev/null 2>&1
-afirmar $? "[0.9] v0.9.0 tiene el init, las rutas y las claves viejas"
+tap_check $? "[0.9] v0.9.0 tiene el init, las rutas y las claves viejas"
 
 NUEVO_UPDATE="$TMP/update-nuevo.py"   # lo que baja un proyecto 0.9: no tiene update.py, tiene actualizar.py
 cp "$RAIZ/scripts/update.py" "$NUEVO_UPDATE"
@@ -353,22 +352,22 @@ PY
 D="$TMP/p09"
 proyecto09 "$D" completo
 grep -q '"archivos"' "$D/.agent-kit.json" && es -f "$D/scripts/actualizar.py" && es -f "$D/scripts/agentes/verificar.py" && ! [ -e "$D/scripts/update.py" ]
-afirmar $? "[0.9] el proyecto de partida tiene la forma de 0.9: claves y archivos en español, sin update.py"
+tap_check $? "[0.9] el proyecto de partida tiene la forma de 0.9: claves y archivos en español, sin update.py"
 cambios09 "$D"
 antes=$(git -C "$D" rev-parse HEAD)
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
-[ "$c" -eq 0 ] && ! grep -q Traceback <<<"$s"; afirmar $? "[0.9] update.py actualiza un proyecto 0.9.0 a la versión nueva (salida: $(tail -1 <<<"$s" | cut -c1-80))"
+[ "$c" -eq 0 ] && ! grep -q Traceback <<<"$s"; tap_check $? "[0.9] update.py actualiza un proyecto 0.9.0 a la versión nueva" "[0.9] update.py actualiza un proyecto 0.9.0 a la versión nueva (salida: $(tail -1 <<<"$s" | cut -c1-80))"
 ! [ -e "$D/scripts/agentes" ] && ! [ -e "$D/docs/agentes" ] && ! [ -e "$D/scripts/actualizar.py" ] && ! [ -e "$D/docs/mapa-agentes.json" ] \
   && ! [ -e "$D/.github/equipo.json" ] && ! [ -e "$D/.claude/skills/crear-issue" ]
-afirmar $? "[0.9] no quedan archivos ni carpetas con el nombre viejo"
+tap_check $? "[0.9] no quedan archivos ni carpetas con el nombre viejo"
 es -f "$D/scripts/update.py" && es -f "$D/scripts/agents/guardrails.py" && es -f "$D/docs/agents-map.json" && es -f "$D/.claude/skills/improve-skills/retro.sh"
-afirmar $? "[0.9] los archivos renombrados están en su ruta nueva"
+tap_check $? "[0.9] los archivos renombrados están en su ruta nueva"
 grep -q "^# del proyecto" "$D/scripts/agents/verify.py" && grep -q "^# nuevo en 0.10" "$D/scripts/agents/verify.py"
-afirmar $? "[0.9] un archivo renombrado con cambios del proyecto y de la plantilla se fusiona (no se pierde ninguno)"
-grep -q "Lección del proyecto." "$D/docs/agents/lessons.md"; afirmar $? "[0.9] un archivo renombrado con cambios solo del proyecto los conserva en la ruta nueva"
-grep -q "Línea nueva de la plantilla 0.10." "$D/.claude/skills/create-issue/SKILL.md"; afirmar $? "[0.9] un archivo renombrado que el proyecto no tocó se reemplaza por la versión nueva"
+tap_check $? "[0.9] un archivo renombrado con cambios del proyecto y de la plantilla se fusiona (no se pierde ninguno)"
+grep -q "Lección del proyecto." "$D/docs/agents/lessons.md"; tap_check $? "[0.9] un archivo renombrado con cambios solo del proyecto los conserva en la ruta nueva"
+grep -q "Línea nueva de la plantilla 0.10." "$D/.claude/skills/create-issue/SKILL.md"; tap_check $? "[0.9] un archivo renombrado que el proyecto no tocó se reemplaza por la versión nueva"
 head -1 "$D/docs/github-naming-convention.md" | grep -q "Convención del proyecto" && grep -q '^<<<<<<<' "$D/.agent-kit/pending/docs/github-naming-convention.md"
-afirmar $? "[0.9] un conflicto en un archivo renombrado no lo pisa: la fusión con marcas queda en .agent-kit/pending/ con la ruta nueva"
+tap_check $? "[0.9] un conflicto en un archivo renombrado no lo pisa: la fusión con marcas queda en .agent-kit/pending/ con la ruta nueva"
 python3 - "$D/.agent-kit.json" <<'PY'
 import json, sys
 k = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -378,7 +377,7 @@ ok = (not viejas and k.get("project") == "Demo" and k.get("base_branch") == "mai
       and not any(r.startswith(("scripts/agentes/", "docs/agentes/")) for r in k["files"]) and "scripts/agents/verify.py" in k["files"])
 sys.exit(0 if ok else 1)
 PY
-afirmar $? "[0.9] .agent-kit.json pasa a las claves nuevas (project, base_branch, mode: full, date, files con las rutas nuevas) y registra la versión nueva"
+tap_check $? "[0.9] .agent-kit.json pasa a las claves nuevas (project, base_branch, mode: full, date, files con las rutas nuevas) y registra la versión nueva"
 python3 - "$D/docs/agents-map.json" "$D/.github/team.json" <<'PY'
 import json, sys
 def claves(o):
@@ -401,36 +400,36 @@ ok = (not viejas & (set(claves(m)) | set(claves(t))) and pagos and pagos[0]["pat
       and "money" in {x.get("type") for x in m["sensitive"]} and t["members"][0] == {"login": "ana", "name": "Ana", "areas": ["infra"], "active": True})
 sys.exit(0 if ok else 1)
 PY
-afirmar $? "[0.9] migra las claves y los valores de agents-map.json y team.json conservando lo que agregó el proyecto"
+tap_check $? "[0.9] migra las claves y los valores de agents-map.json y team.json conservando lo que agregó el proyecto"
 grep -q 'name: "type:feature"' "$D/.github/labels.yml" && grep -q '^ *- "tipo:feature"' "$D/.github/labels.yml" && grep -q 'name: "area:pagos"' "$D/.github/labels.yml"
-afirmar $? "[0.9] labels.yml queda con los labels nuevos y los viejos como aliases, y conserva el label propio"
+tap_check $? "[0.9] labels.yml queda con los labels nuevos y los viejos como aliases, y conserva el label propio"
 grep -q "0.9" <<<"$s" && grep -q '"language": "en"' "$D/.agent-kit.json" && grep -q 'language' <<<"$s" && grep -q '"language": "es"' <<<"$s"
-afirmar $? "[0.9] sin language trata el proyecto como en y lo avisa en el resumen (con cómo pasar a es)"
-grep -q "Cambio de prueba 0.10" <<<"$s"; afirmar $? "[0.9] muestra el changelog de la versión nueva"
-es "$(git -C "$D" rev-parse HEAD)" = "$antes" && es -n "$(git -C "$D" status --porcelain)"; afirmar $? "[0.9] no commitea: los cambios quedan en el working tree"
+tap_check $? "[0.9] sin language trata el proyecto como en y lo avisa en el resumen (con cómo pasar a es)"
+grep -q "Cambio de prueba 0.10" <<<"$s"; tap_check $? "[0.9] muestra el changelog de la versión nueva"
+es "$(git -C "$D" rev-parse HEAD)" = "$antes" && es -n "$(git -C "$D" status --porcelain)"; tap_check $? "[0.9] no commitea: los cambios quedan en el working tree"
 (cd "$D" && rm -rf .agent-kit && git checkout -q docs/convencion-nombres-github.md 2>/dev/null; git add -A && git commit -qm migrar) >/dev/null 2>&1
 s=$(cd "$D" && python3 scripts/update.py --template "$P09" 2>&1); c=$?
-[ "$c" -eq 0 ] && grep -qi "already at" <<<"$s"; afirmar $? "[0.9] después de migrar, el update.py del proyecto dice que ya está en la última versión"
+[ "$c" -eq 0 ] && grep -qi "already at" <<<"$s"; tap_check $? "[0.9] después de migrar, el update.py del proyecto dice que ya está en la última versión"
 
 # El proyecto en español agrega "language": "es" antes de actualizar: la migración lo respeta.
 D="$TMP/p09-es"
 proyecto09 "$D" completo es
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q '"language": "es"' "$D/.agent-kit.json" && ! grep -q 'treated as English' <<<"$s"
-afirmar $? "[0.9] con language: es en el proyecto, la migración lo conserva y no avisa del idioma por defecto"
+tap_check $? "[0.9] con language: es en el proyecto, la migración lo conserva y no avisa del idioma por defecto"
 
 # Proyecto chico de 0.9: crecer.py pasa a grow.py y perfiles/chico a profiles/small.
 D="$TMP/p09-chico"
 proyecto09 "$D" chico
-es -f "$D/scripts/crecer.py" && grep -q '"modo": "chico"' "$D/.agent-kit.json"; afirmar $? "[0.9 chico] el proyecto de partida es chico, con crecer.py"
+es -f "$D/scripts/crecer.py" && grep -q '"modo": "chico"' "$D/.agent-kit.json"; tap_check $? "[0.9 chico] el proyecto de partida es chico, con crecer.py"
 perl -pi -e 's/^# .*/# Convención del proyecto/ if $. == 1' "$D/docs/convencion-nombres-github.md"
 (cd "$D" && git add -A && git commit -qm cambios) >/dev/null 2>&1
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q '"mode": "small"' "$D/.agent-kit.json" && grep -q '"version": "0.10.0"' "$D/.agent-kit.json" \
   && es -f "$D/scripts/grow.py" && ! [ -e "$D/scripts/crecer.py" ] && ! grep -q '"modo"' "$D/.agent-kit.json"
-afirmar $? "[0.9 chico] migra a mode: small y mueve crecer.py a grow.py"
+tap_check $? "[0.9 chico] migra a mode: small y mueve crecer.py a grow.py"
 head -1 "$D/docs/github-naming-convention.md" | grep -q "Convención del proyecto" && ! [ -e "$D/docs/convencion-nombres-github.md" ]
-afirmar $? "[0.9 chico] la convención del perfil chico, con cambios del proyecto, queda en su ruta nueva"
+tap_check $? "[0.9 chico] la convención del perfil chico, con cambios del proyecto, queda en su ruta nueva"
 
 # La ruta nueva ya existe (alguien bajó update.py al proyecto): no se pisa, se avisa, y lo viejo sin cambios se borra.
 D="$TMP/p09-choque"
@@ -438,8 +437,8 @@ proyecto09 "$D" completo
 (cd "$D" && cp "$NUEVO_UPDATE" scripts/update.py && git add -A && git commit -qm "update.py nuevo") >/dev/null 2>&1
 s=$(cd "$D" && python3 scripts/update.py --template "$P09" 2>&1); c=$?
 [ "$c" -eq 0 ] && es -f "$D/scripts/update.py" && grep -q "actualizar.py" <<<"$s" && ! grep -q Traceback <<<"$s"
-afirmar $? "[0.9] si la ruta nueva ya existe no la pisa, lo avisa y sigue con el resto"
-es -f "$D/scripts/actualizar.py"; afirmar $? "[0.9] la ruta vieja que no se pudo mover queda para comparar a mano: no se borra"
+tap_check $? "[0.9] si la ruta nueva ya existe no la pisa, lo avisa y sigue con el resto"
+es -f "$D/scripts/actualizar.py"; tap_check $? "[0.9] la ruta vieja que no se pudo mover queda para comparar a mano: no se borra"
 
 # Ronda de corrección del PR: rutas propias con un nombre viejo, volver atrás por el idioma, restos generados y el orden de check-docs.
 D="$TMP/p09-rutas"
@@ -467,18 +466,18 @@ sys.exit(0 if pii and pii[0]["paths"] == ["app/perfiles/**", "?src/scripts/agent
          and cmd and cmd[0]["run"] == "bash tools/scripts/crecer.py.sh"
          and [x["run"] for x in m["verify"] if x.get("name") == "relativa"] == ["python3 ./scripts/agents/verify.py && python3 ../scripts/grow.py"] else 1)
 PY
-afirmar $? "[0.9] solo renombra las rutas del kit en el mapa (app/perfiles/** queda intacta), también si empiezan con ./ o ../"
+tap_check $? "[0.9] solo renombra las rutas del kit en el mapa (app/perfiles/** queda intacta), también si empiezan con ./ o ../"
 ! [ -e "$D/scripts/agentes" ] && ! grep -q "own files" <<<"$s"
-afirmar $? "[0.9] un __pycache__ de la carpeta vieja no cuenta como archivo propio: se borra con la carpeta"
+tap_check $? "[0.9] un __pycache__ de la carpeta vieja no cuenta como archivo propio: se borra con la carpeta"
 grep -Eq 'git add -A.*check-docs|check-docs.*git add -A' <<<"$s" && ! grep -Eq '^ +2\. python3 scripts/agents/check-docs.py' <<<"$s"
-afirmar $? "[0.9] el resumen pide git add -A antes de check-docs.py (usa el índice de git)"
+tap_check $? "[0.9] el resumen pide git add -A antes de check-docs.py (usa el índice de git)"
 
 # El aviso del idioma indica cómo volver atrás, y eso funciona.
 D="$TMP/p09-volver"
 proyecto09 "$D" completo
 cambios09 "$D"
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
-grep -q "rm -rf .agent-kit" <<<"$s" && grep -q "git reset --hard && git clean -fd" <<<"$s"; afirmar $? "[0.9] el aviso del idioma indica descartar la corrida, borrar .agent-kit/ y commitear el cambio"
+grep -q "rm -rf .agent-kit" <<<"$s" && grep -q "git reset --hard && git clean -fd" <<<"$s"; tap_check $? "[0.9] el aviso del idioma indica descartar la corrida, borrar .agent-kit/ y commitear el cambio"
 (
   cd "$D" || exit 1
   git add -A  # el resumen pide stagear antes de check-docs: la vuelta atrás tiene que andar con todo en el índice
@@ -488,7 +487,7 @@ grep -q "rm -rf .agent-kit" <<<"$s" && grep -q "git reset --hard && git clean -f
 ) >/dev/null 2>&1
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
 [ "$c" -eq 0 ] && grep -q '"language": "es"' "$D/.agent-kit.json" && es -f "$D/scripts/agents/verify.py" && ! [ -e "$D/scripts/agentes" ]
-afirmar $? "[0.9] siguiendo el aviso (descartar con todo stageado, borrar .agent-kit/, agregar language y commitear) la segunda corrida migra en español"
+tap_check $? "[0.9] siguiendo el aviso (descartar con todo stageado, borrar .agent-kit/, agregar language y commitear) la segunda corrida migra en español"
 
 # Lo que marcó la revisión: nombres de personas, carpetas viejas con archivos propios, claves a medias, sin fecha.
 D="$TMP/p09-revision"
@@ -508,20 +507,20 @@ PY
   git add -A && git commit -qm revision
 ) >/dev/null 2>&1
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
-[ "$c" -eq 0 ] && ! grep -q Traceback <<<"$s"; afirmar $? "[0.9] un .agent-kit.json con solo algunas claves viejas se migra igual, sin traceback"
+[ "$c" -eq 0 ] && ! grep -q Traceback <<<"$s"; tap_check $? "[0.9] un .agent-kit.json con solo algunas claves viejas se migra igual, sin traceback"
 python3 -c "import json,sys; k=json.load(open('$D/.agent-kit.json')); sys.exit(0 if k.get('language')=='en' and k.get('project')=='Demo' else 1)"
-afirmar $? "[0.9] sin fecha en las claves viejas, igual queda language: en"
+tap_check $? "[0.9] sin fecha en las claves viejas, igual queda language: en"
 python3 -c "import json,sys; t=json.load(open('$D/.github/team.json')); sys.exit(0 if t['members'][0]['name']=='rojo' else 1)"
-afirmar $? "[0.9] no traduce los nombres de las personas de team.json"
+tap_check $? "[0.9] no traduce los nombres de las personas de team.json"
 es -f "$D/docs/agentes/mi-guia.md" && grep -q "docs/agentes" <<<"$s" && grep -qi "own files\|your own" <<<"$s"
-afirmar $? "[0.9] una carpeta vieja con archivos propios no se mueve y el resumen lo avisa"
+tap_check $? "[0.9] una carpeta vieja con archivos propios no se mueve y el resumen lo avisa"
 
 D="$TMP/claves-viejas-chico"
 proyecto "$D" chico
 (cd "$D" && python3 -c "import json; k=json.load(open('.agent-kit.json')); json.dump({'proyecto': 'Demo', 'rama_base': 'main', 'modo': 'chico', 'fecha': k['date'], 'archivos': k['files']}, open('.agent-kit.json', 'w'))" && git commit -qam claves) >/dev/null 2>&1
 s=$(cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1); c=$?
-[ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && grep -q "update.py" <<<"$s" && grep -qi "download" <<<"$s" && ! grep -q Traceback <<<"$s"; afirmar $? "grow.py con las claves viejas de .agent-kit.json explica que es de 0.9, cómo bajar update.py y sale con error, sin traceback"
+[ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && grep -q "update.py" <<<"$s" && grep -qi "download" <<<"$s" && ! grep -q Traceback <<<"$s"; tap_check $? "grow.py con las claves viejas de .agent-kit.json explica que es de 0.9, cómo bajar update.py y sale con error, sin traceback"
 
 echo
-if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
+tap_done
 echo "Todos los tests pasan."

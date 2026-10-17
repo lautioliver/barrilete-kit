@@ -7,12 +7,11 @@
 set -uo pipefail
 RAIZ=$(cd "$(dirname "$0")/.." && pwd)
 TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-install-XXXXXX")" && pwd -P)
-trap 'rm -rf "$TMP"' EXIT
-fallas=0
-ok() { echo "ok   - $1"; }
-falla() { echo "FAIL - $1"; fallas=$((fallas + 1)); }
-# Uso: <condición>; afirmar $? "descripción"
-afirmar() { if [ "$1" -eq 0 ]; then ok "$2"; else falla "$2"; fi; }
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/tap.sh"
+tap_begin "$0"
+tap_at_exit "rm -rf \"\$TMP\""
+# Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
@@ -87,51 +86,51 @@ instalar() { (cd "$U" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py
 echo sucio >>"$U/README.md"
 s=$(instalar Demo main --template "$P"); c=$?
 [ "$c" -ne 0 ] && grep -qi "uncommitted" <<<"$s" && ! [ -e "$U/.agent-kit.json" ]
-afirmar $? "no instala con cambios sin commitear"
+tap_check $? "no instala con cambios sin commitear"
 git -C "$U" checkout -q README.md
 
 s=$(instalar Demo main --template "$P" --opcion-rara); c=$?
 [ "$c" -ne 0 ] && grep -qi "unknown option" <<<"$s" && es -z "$(git -C "$U" status --porcelain)"
-afirmar $? "una opción desconocida falla (para pasarle opciones al init va después de --)"
+tap_check $? "una opción desconocida falla (para pasarle opciones al init va después de --)"
 
 mv "$FAKE_LABELS" "$FAKE_LABELS.off"
 s=$(instalar Demo main --template "$P"); c=$?
 [ "$c" -ne 0 ] && grep -qi "label" <<<"$s" && es -z "$(git -C "$U" status --porcelain)"
-afirmar $? "si no puede leer los labels del repo (gh falla) no instala: el sync los borraría"
+tap_check $? "si no puede leer los labels del repo (gh falla) no instala: el sync los borraría"
 mv "$FAKE_LABELS.off" "$FAKE_LABELS"
 
 # --- --draft: muestra el plan y no escribe. ---
 s=$(instalar Demo main --template "$P" --draft); c=$?
 es "$c" -eq 0 && es -z "$(git -C "$U" status --porcelain)" && ! [ -e "$U/.agent-kit" ] && ! [ -e "$U/.agent-kit.json" ]
-afirmar $? "--draft no escribe nada"
+tap_check $? "--draft no escribe nada"
 grep -q 'barrilete-docs.yml' <<<"$s" && grep -q 'AGENTS.md' <<<"$s"
-afirmar $? "--draft muestra el plan (el workflow renombrado y lo que queda pendiente)"
+tap_check $? "--draft muestra el plan (el workflow renombrado y lo que queda pendiente)"
 
 # --- Instalación. ---
 s=$(instalar Demo main --template "$P"); c=$?
-es "$c" -eq 0; afirmar $? "instala en un repo existente (salida: $(tail -1 <<<"$s"))"
-es "$(git -C "$U" rev-parse HEAD)" = "$HEAD0"; afirmar $? "no commitea"
+es "$c" -eq 0; tap_check $? "instala en un repo existente" "instala en un repo existente (salida: $(tail -1 <<<"$s"))"
+es "$(git -C "$U" rev-parse HEAD)" = "$HEAD0"; tap_check $? "no commitea"
 es "$(cat "$U/README.md")" = "# Mi app" && es "$(cat "$U/LICENSE")" = "MIT mía"
-afirmar $? "README y LICENSE quedan como estaban"
-es "$(cat "$U/AGENTS.md")" = "$(printf '# Reglas de mi app\n\nusar tabs')"; afirmar $? "AGENTS.md del proyecto no se toca"
+tap_check $? "README y LICENSE quedan como estaban"
+es "$(cat "$U/AGENTS.md")" = "$(printf '# Reglas de mi app\n\nusar tabs')"; tap_check $? "AGENTS.md del proyecto no se toca"
 for f in AGENTS.md docs/README.md .github/pull_request_template.md .github/ISSUE_TEMPLATE/config.yml; do
   es -f "$U/.agent-kit/pending/$f" && ! cmp -s "$U/$f" "$U/.agent-kit/pending/$f"
-  afirmar $? "la versión del kit de $f queda en .agent-kit/pending/ y la del proyecto no se toca"
+  tap_check $? "la versión del kit de <f> queda en .agent-kit/pending/ y la del proyecto no se toca" "la versión del kit de $f queda en .agent-kit/pending/ y la del proyecto no se toca"
 done
 grep -q 'blank_issues_enabled: true' "$U/.github/ISSUE_TEMPLATE/config.yml" && grep -q 'mi plantilla de PR' "$U/.github/pull_request_template.md"
-afirmar $? "la plantilla de PR y config.yml del proyecto siguen siendo las suyas"
+tap_check $? "la plantilla de PR y config.yml del proyecto siguen siendo las suyas"
 grep -q 'AGENTS.md' <<<"$s" && grep -q '.agent-kit/pending' <<<"$s"
-afirmar $? "el resumen dice qué quedó pendiente de integrar"
+tap_check $? "el resumen dice qué quedó pendiente de integrar"
 
 grep -qi 'just before merging' <<<"$s" && grep -q 'labels.py' <<<"$s"
-afirmar $? "el resumen dice que hay que volver a correr labels.py justo antes de mergear (los labels creados en el medio)"
+tap_check $? "el resumen dice que hay que volver a correr labels.py justo antes de mergear (los labels creados en el medio)"
 
 # .gitignore y CLAUDE.md.
 es "$(grep -cxF '.env' "$U/.gitignore")" = 1 && grep -qxF 'node_modules' "$U/.gitignore" \
   && grep -qxF '# barrilete' "$U/.gitignore" && grep -qxF '.agent-kit/' "$U/.gitignore" && grep -qxF '__pycache__' "$U/.gitignore"
-afirmar $? ".gitignore conserva lo suyo y agrega solo lo que falta en un bloque # barrilete"
+tap_check $? ".gitignore conserva lo suyo y agrega solo lo que falta en un bloque # barrilete"
 grep -q 'regla propia' "$U/CLAUDE.md" && grep -qx '@AGENTS.md' "$U/CLAUDE.md"
-afirmar $? "CLAUDE.md conserva lo suyo y agrega @AGENTS.md"
+tap_check $? "CLAUDE.md conserva lo suyo y agrega @AGENTS.md"
 
 # settings.json: fusión JSON.
 python3 - "$U/.claude/settings.json" <<'PY'
@@ -144,14 +143,14 @@ assert sum("guardrails.py" in c for c in cmds) == 1, cmds
 assert s["hooks"]["PostToolUse"][0]["hooks"][0]["command"] == "echo post"
 assert s["model"] == "sonnet"
 PY
-afirmar $? "settings.json conserva sus hooks y su configuración, y agrega el hook de guardrails una vez"
+tap_check $? "settings.json conserva sus hooks y su configuración, y agrega el hook de guardrails una vez"
 
 # Workflows.
 grep -q 'CI propio' "$U/.github/workflows/docs.yml" && grep -q 'Docs' "$U/.github/workflows/barrilete-docs.yml" \
   && es -f "$U/.github/workflows/ci.yml"
-afirmar $? "el docs.yml propio no se pisa: el del kit va como barrilete-docs.yml"
+tap_check $? "el docs.yml propio no se pisa: el del kit va como barrilete-docs.yml"
 es -f "$U/.github/workflows/labels.yml" && ! [ -e "$U/.github/workflows/barrilete-labels.yml" ]
-afirmar $? "un workflow que no choca conserva su nombre"
+tap_check $? "un workflow que no choca conserva su nombre"
 
 # Labels.
 python3 - "$U/.github/labels.yml" <<'PY'
@@ -161,9 +160,9 @@ bajos = [n.lower() for n in nombres]
 assert len(bajos) == len(set(bajos)), "repetidos: %s" % nombres
 assert "mi-label" in nombres and "bug" in nombres and "type:bug" in bajos, nombres
 PY
-afirmar $? "labels.yml = labels del kit + los del repo, sin repetir (ni por mayúsculas)"
+tap_check $? "labels.yml = labels del kit + los del repo, sin repetir (ni por mayúsculas)"
 grep -q 'mi-label' <<<"$s" && grep -qi 'github default\|default' <<<"$s"
-afirmar $? "el resumen cuenta los labels del repo que conservó (y avisa de los por defecto de GitHub)"
+tap_check $? "el resumen cuenta los labels del repo que conservó (y avisa de los por defecto de GitHub)"
 
 # .agent-kit.json: solo lo del kit.
 python3 - "$U" <<'PY'
@@ -181,9 +180,9 @@ for kit in (".github/workflows/barrilete-docs.yml", ".claude/skills/debug/SKILL.
 assert k["project"] == "Demo" and k["base_branch"] == "main" and k["version"] == "0.1.0", k
 assert k["renames"] == {".github/workflows/docs.yml": ".github/workflows/barrilete-docs.yml"}, k.get("renames")
 PY
-afirmar $? ".agent-kit.json tiene solo los archivos del kit, con los renombres"
+tap_check $? ".agent-kit.json tiene solo los archivos del kit, con los renombres"
 ! [ -e "$U/scripts/install.py" ] && ! [ -e "$U/scripts/test-install.sh" ] && ! [ -e "$U/scripts/init-template.sh" ]
-afirmar $? "no instala el instalador ni el init (son de la plantilla)"
+tap_check $? "no instala el instalador ni el init (son de la plantilla)"
 
 # El CI del kit pasa con el código del usuario (con lo instalado ya commiteado: los scripts miran `git ls-files`).
 (cd "$U" \
@@ -192,18 +191,18 @@ s2=$(cd "$U" && python3 scripts/agents/check-docs.py 2>&1); c=$?
 # Con el mapa de ejemplo (TODO) el check falla a propósito hasta que el proyecto lo completa: lo que no
 # puede fallar son los .md del usuario, ni las rutas del kit que acaba de instalar.
 ! grep -q 'roto.md\|NOTAS.md\|guia.md\|ADR-001-mio' <<<"$s2" && ! grep -q 'Traceback\|matches no file\|broken link\|missing path' <<<"$s2"
-afirmar $? "en un repo instalado check-docs.py no revisa los .md del usuario (NOTAS.md, docs/guia.md) y no marca rutas ni links rotos del kit"
+tap_check $? "en un repo instalado check-docs.py no revisa los .md del usuario (NOTAS.md, docs/guia.md) y no marca rutas ni links rotos del kit"
 lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh')
 ! grep -q '^src/' <<<"$lista" && grep -q 'scripts/agents/test-base.sh' <<<"$lista"
-afirmar $? "la lista de scripts del CI no incluye los .sh del usuario"
+tap_check $? "la lista de scripts del CI no incluye los .sh del usuario"
 lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*test-*.sh')
-! grep -q 'src/test-propio.sh' <<<"$lista"; afirmar $? "el CI no corre los test-*.sh del usuario"
+! grep -q 'src/test-propio.sh' <<<"$lista"; tap_check $? "el CI no corre los test-*.sh del usuario"
 (cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh' | xargs shellcheck) >/dev/null 2>&1
-afirmar $? "shellcheck pasa sobre los scripts del kit instalados"
+tap_check $? "shellcheck pasa sobre los scripts del kit instalados"
 
 # Reinstalar: se frena (ya hay .agent-kit.json).
 s=$(instalar Demo main --template "$P"); c=$?
-[ "$c" -ne 0 ] && grep -q 'update.py' <<<"$s"; afirmar $? "en un repo ya instalado falla y apunta a update.py"
+[ "$c" -ne 0 ] && grep -q 'update.py' <<<"$s"; tap_check $? "en un repo ya instalado falla y apunta a update.py"
 
 # update.py después de instalar: respeta los renombres y no pisa lo del usuario.
 (
@@ -212,12 +211,12 @@ s=$(instalar Demo main --template "$P"); c=$?
 ) >/dev/null 2>&1
 rm -rf "$U/.agent-kit/pending"
 s=$(cd "$U" && python3 scripts/update.py --template "$P" 2>&1); c=$?
-es "$c" -eq 0; afirmar $? "update.py funciona después de instalar (salida: $(tail -1 <<<"$s"))"
+es "$c" -eq 0; tap_check $? "update.py funciona después de instalar" "update.py funciona después de instalar (salida: $(tail -1 <<<"$s"))"
 grep -q 'cambio de la plantilla v0.2' "$U/.github/workflows/barrilete-docs.yml" && grep -q 'CI propio' "$U/.github/workflows/docs.yml" \
   && ! grep -q 'cambio de la plantilla' "$U/.github/workflows/docs.yml"
-afirmar $? "update.py actualiza barrilete-docs.yml y no toca el docs.yml del usuario"
+tap_check $? "update.py actualiza barrilete-docs.yml y no toca el docs.yml del usuario"
 grep -q 'Línea nueva v0.2.' "$U/.claude/skills/debug/SKILL.md" && es "$(head -1 "$U/AGENTS.md")" = "# Reglas de mi app"
-afirmar $? "update.py trae lo nuevo del kit y deja el AGENTS.md del usuario"
+tap_check $? "update.py trae lo nuevo del kit y deja el AGENTS.md del usuario"
 
 # Opciones para el init, después de --: se las pasa sin conocerlas (--small, y --lang cuando se mergee #113).
 # Una plantilla sin tags (el instalador usa la rama por defecto): no hay base para update.py, así que no registra versión.
@@ -227,16 +226,16 @@ U2="$TMP/usuario-chico"
 (repo "$U2") >/dev/null 2>&1
 s=$(cd "$U2" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P2" -- --small 2>&1); c=$?
 es "$c" -eq 0 && grep -q '"mode": "small"' "$U2/.agent-kit.json"
-afirmar $? "lo que va después de -- llega al init (--small deja mode small)"
+tap_check $? "lo que va después de -- llega al init (--small deja mode small)"
 grep -q '"version": null' "$U2/.agent-kit.json"
-afirmar $? "instalado desde la rama por defecto (sin tag) no registra una versión que no es la suya"
+tap_check $? "instalado desde la rama por defecto (sin tag) no registra una versión que no es la suya"
 # grow.py también aplica los renombres: no deja el docs.yml del kit en pending ni toca el del usuario.
 (cd "$U2" && rm -rf .agent-kit/pending && git add -A && git commit -qm "instala barrilete chico") >/dev/null 2>&1
 s=$(cd "$U2" && python3 scripts/grow.py --template "$P2" 2>&1); c=$?
 es "$c" -eq 0 && ! [ -e "$U2/.agent-kit/pending/.github/workflows/docs.yml" ] && grep -q 'CI propio' "$U2/.github/workflows/docs.yml"
-afirmar $? "grow.py respeta los renombres del instalador (el docs.yml del kit no va a pending)"
+tap_check $? "grow.py respeta los renombres del instalador (el docs.yml del kit no va a pending)"
 s=$(cd "$U2" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" -- --nada 2>&1); c=$?
-es "$c" -ne 0; afirmar $? "una opción que el init rechaza hace fallar la instalación"
+es "$c" -ne 0; tap_check $? "una opción que el init rechaza hace fallar la instalación"
 
 # Casos borde (revisión): un archivo donde el kit espera una carpeta, un workflow con la otra extensión,
 # un labels.yml propio, un hook de barandas que ya está con otro comando, y la rama base inválida.
@@ -251,19 +250,19 @@ JSON
   git add -A && git commit -qm borde
 ) >/dev/null 2>&1
 s=$(cd "$U3" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
-es "$c" -eq 0 && es -f "$U3/.agent-kit.json"; afirmar $? "[borde] un archivo donde el kit espera una carpeta no deja la instalación a medias (salida: $(tail -1 <<<"$s"))"
+es "$c" -eq 0 && es -f "$U3/.agent-kit.json"; tap_check $? "[borde] un archivo donde el kit espera una carpeta no deja la instalación a medias" "[borde] un archivo donde el kit espera una carpeta no deja la instalación a medias (salida: $(tail -1 <<<"$s"))"
 es "$(cat "$U3/scripts")" = "no soy una carpeta" && es -f "$U3/.agent-kit/pending/scripts/update.py"
-afirmar $? "[borde] lo que no cabe queda en .agent-kit/pending/ y el archivo del proyecto no se toca"
+tap_check $? "[borde] lo que no cabe queda en .agent-kit/pending/ y el archivo del proyecto no se toca"
 es -f "$U3/.github/workflows/barrilete-unblock.yml" && es -f "$U3/.github/workflows/unblock.yaml" && ! [ -e "$U3/.github/workflows/unblock.yml" ]
-afirmar $? "[borde] un workflow con la otra extensión (.yaml) cuenta como el mismo nombre"
+tap_check $? "[borde] un workflow con la otra extensión (.yaml) cuenta como el mismo nombre"
 es "$(grep -c 'solo-mio' "$U3/.github/labels.yml")" = 1 && grep -q 'mi-label' "$U3/.agent-kit/pending/.github/labels.yml" \
   && grep -q 'labels.yml' <<<"$s" && grep -qi 'before the first sync' <<<"$s"
-afirmar $? "[borde] con un labels.yml propio, el combinado queda en pending y el resumen avisa que hay que integrarlo antes del primer sync"
+tap_check $? "[borde] con un labels.yml propio, el combinado queda en pending y el resumen avisa que hay que integrarlo antes del primer sync"
 es "$(grep -c 'guardrails.py' "$U3/.claude/settings.json")" = 1
-afirmar $? "[borde] el hook de barandas que ya estaba (con otro comando) no se duplica"
+tap_check $? "[borde] el hook de barandas que ya estaba (con otro comando) no se duplica"
 ! [ -e "$U3/.github/workflows/labels.yml" ] && ! [ -e "$U3/.github/workflows/barrilete-labels.yml" ] \
   && es -f "$U3/.agent-kit/pending/.github/workflows/labels.yml" && grep -qi 'not installed' <<<"$s"
-afirmar $? "[borde] con un labels.yml propio el workflow de sync (delete-other-labels) no se instala activo: va a pending y el resumen lo explica"
+tap_check $? "[borde] con un labels.yml propio el workflow de sync (delete-other-labels) no se instala activo: va a pending y el resumen lo explica"
 # LICENSE: un proyecto sin LICENSE no recibe la del kit en el siguiente update.
 U5="$TMP/usuario-sin-licencia"
 (repo "$U5" && git rm -q LICENSE && git commit -qm "sin licencia") >/dev/null 2>&1
@@ -272,33 +271,33 @@ s=$(cd "$U5" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo ma
 (cd "$P" && echo 0.3.0 >VERSION && echo "# v0.3" >>.claude/skills/debug/SKILL.md && git add -A && git commit -qm v0.3.0 && git tag v0.3.0) >/dev/null 2>&1
 s=$(cd "$U5" && python3 scripts/update.py --template "$P" 2>&1); c2=$?
 es "$c" -eq 0 && es "$c2" -eq 0 && ! [ -e "$U5/LICENSE" ]
-afirmar $? "update.py no agrega el LICENSE del kit a un proyecto instalado que no lo tenía"
+tap_check $? "update.py no agrega el LICENSE del kit a un proyecto instalado que no lo tenía"
 # CLAUDE.md como symlink a AGENTS.md: no se escribe a través del link.
 U6="$TMP/usuario-symlink"
 (repo "$U6" && rm CLAUDE.md && ln -s AGENTS.md CLAUDE.md && git add -A && git commit -qm link) >/dev/null 2>&1
 s=$(cd "$U6" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
 es "$c" -eq 0 && [ -L "$U6/CLAUDE.md" ] && ! grep -q '@AGENTS.md' "$U6/AGENTS.md" && grep -qi 'symlink' <<<"$s"
-afirmar $? "CLAUDE.md symlink: no se escribe a través del link y el resumen lo avisa"
+tap_check $? "CLAUDE.md symlink: no se escribe a través del link y el resumen lo avisa"
 # .github es un archivo: la instalación no queda a medias (también para labels.yml).
 U7="$TMP/usuario-github-archivo"
 (mkdir -p "$U7" && cd "$U7" && git init -q -b main && echo x >.github && echo hi >a.txt && git add -A && git commit -qm x) >/dev/null 2>&1
 s=$(cd "$U7" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
 es "$c" -eq 0 && es -f "$U7/.agent-kit.json" && es "$(cat "$U7/.github")" = x
-afirmar $? "[borde] .github como archivo no deja la instalación a medias (salida: $(tail -1 <<<"$s"))"
+tap_check $? "[borde] .github como archivo no deja la instalación a medias" "[borde] .github como archivo no deja la instalación a medias (salida: $(tail -1 <<<"$s"))"
 U4="$TMP/usuario-base"
 (repo "$U4") >/dev/null 2>&1
 s=$(cd "$U4" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo releases --template "$P" 2>&1); c=$?
 es "$c" -ne 0 && grep -qi "base branch" <<<"$s" && es -z "$(git -C "$U4" status --porcelain)"
-afirmar $? "[borde] una rama base que no es main ni develop falla antes de tocar nada"
+tap_check $? "[borde] una rama base que no es main ni develop falla antes de tocar nada"
 s=$(cd "$U4" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "--upload-pack=touch $TMP/inyectado" 2>&1); c=$?
-es "$c" -ne 0 && ! [ -e "$TMP/inyectado" ]; afirmar $? "[borde] un --template que empieza con - no se toma como opción de git"
+es "$c" -ne 0 && ! [ -e "$TMP/inyectado" ]; tap_check $? "[borde] un --template que empieza con - no se toma como opción de git"
 
 # .gitignore con una negación del proyecto: el bloque no la anula.
 U8="$TMP/usuario-gitignore"
 (mkdir -p "$U8" && cd "$U8" && git init -q -b main && printf '.env*\n!.env.example\n' >.gitignore && echo hi >a.txt && git add -A && git commit -qm x) >/dev/null 2>&1
 s=$(cd "$U8" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
 es "$c" -eq 0 && ! (cd "$U8" && git check-ignore -q .env.example) && (cd "$U8" && git check-ignore -q .env)
-afirmar $? ".gitignore: el bloque # barrilete no anula el !.env.example del proyecto (y .env sigue ignorado)"
+tap_check $? ".gitignore: el bloque # barrilete no anula el !.env.example del proyecto (y .env sigue ignorado)"
 
 # Lo que el instalador deja afuera a propósito no vuelve con update.py ni grow.py, y desde qué commit se instaló
 # manda: no se baja a un tag más viejo. Plantilla con un tag viejo (sin instalador) y HEAD más nuevo.
@@ -323,14 +322,14 @@ k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
 assert k["ref"] == sys.argv[2] and k["version"] is None, k
 assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
 PY
-afirmar $? "el instalador registra el commit (ref) y lo que dejó afuera a propósito (withheld)"
-grep -q 'withheld\|not installed' <<<"$s"; afirmar $? "el resumen nombra lo que dejó afuera a propósito"
+tap_check $? "el instalador registra el commit (ref) y lo que dejó afuera a propósito (withheld)"
+grep -q 'withheld\|not installed' <<<"$s"; tap_check $? "el resumen nombra lo que dejó afuera a propósito"
 (cd "$U9" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 s=$(cd "$U10" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" -- --small 2>&1)
 (cd "$U10" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 s=$(cd "$U9" && python3 scripts/update.py --template "$P5" 2>&1); c=$?
 es "$c" -ne 0 && grep -qi 'does not contain' <<<"$s" && es -z "$(git -C "$U9" status --porcelain)"
-afirmar $? "update.py no baja a un tag más viejo que el commit instalado (mensaje claro, no toca nada)"
+tap_check $? "update.py no baja a un tag más viejo que el commit instalado (mensaje claro, no toca nada)"
 (
   cd "$P5" && echo 1.0.0 >VERSION && echo "# v1" >>.claude/skills/debug/SKILL.md && git add -A && git commit -qm v1 && git tag v1.0.0
 ) >/dev/null 2>&1
@@ -338,19 +337,19 @@ SHA3=$(git -C "$P5" rev-parse HEAD)
 s=$(cd "$U9" && python3 scripts/update.py --template "$P5" 2>&1); c=$?
 es "$c" -eq 0 && grep -q '# v1' "$U9/.claude/skills/debug/SKILL.md" && es -f "$U9/scripts/agents/labels.py" \
   && grep -q "\"ref\": \"$SHA3\"" "$U9/.agent-kit.json"
-afirmar $? "update.py desde un tag que contiene el commit instalado actualiza sin borrar nada y registra el commit nuevo (salida: $(tail -1 <<<"$s"))"
+tap_check $? "update.py desde un tag que contiene el commit instalado actualiza sin borrar nada y registra el commit nuevo" "update.py desde un tag que contiene el commit instalado actualiza sin borrar nada y registra el commit nuevo (salida: $(tail -1 <<<"$s"))"
 ! [ -e "$U9/.github/workflows/labels.yml" ] && grep -q 'workflows/labels.yml' <<<"$s"
-afirmar $? "update.py no instala el workflow de labels que el instalador dejó afuera, y lo nombra"
+tap_check $? "update.py no instala el workflow de labels que el instalador dejó afuera, y lo nombra"
 s=$(cd "$U10" && python3 scripts/grow.py --template "$P5" 2>&1); c=$?
 es "$c" -eq 0 && ! [ -e "$U10/.github/workflows/labels.yml" ]
-afirmar $? "grow.py no instala el workflow de labels que el instalador dejó afuera"
+tap_check $? "grow.py no instala el workflow de labels que el instalador dejó afuera"
 python3 - "$U10" "$SHA3" <<'PY'
 import json, sys
 k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
 assert k["ref"] == sys.argv[2] and k["version"] == "1.0.0", k
 assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
 PY
-afirmar $? "grow.py registra el commit clonado como ref con la versión de su tag (v1.0.0), y conserva withheld"
+tap_check $? "grow.py registra el commit clonado como ref con la versión de su tag (v1.0.0), y conserva withheld"
 
 # grow.py trae los archivos del HEAD de la plantilla (C), que va por delante del último tag (B): el registro
 # tiene que quedar en C, no en el commit de la instalación (A). Si no, update.py baja lo que trajo grow.py a B.
@@ -372,17 +371,17 @@ import json, sys
 k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
 assert k["ref"] == sys.argv[2] and k["version"] is None, k
 PY
-afirmar $? "grow.py registra el commit desde el que trajo los archivos (C) como ref, con version null (salida: $(tail -1 <<<"$s"))"
+tap_check $? "grow.py registra el commit desde el que trajo los archivos (C) como ref, con version null" "grow.py registra el commit desde el que trajo los archivos (C) como ref, con version null (salida: $(tail -1 <<<"$s"))"
 (cd "$U12" && rm -rf .agent-kit/pending && git add -A && git commit -qm grow) >/dev/null 2>&1
 s=$(cd "$U12" && python3 scripts/update.py --template "$P6" 2>&1); c=$?
 grep -q '# C' "$U12/.claude/skills/debug/SKILL.md" && es -f "$U12/scripts/nuevo-c.sh" && es -z "$(git -C "$U12" status --porcelain)" && es "$c" -ne 0 \
   && grep -q 'does not contain the commit' <<<"$s" && ! grep -q Traceback <<<"$s"
-afirmar $? "grow.py + update.py: el tag B no contiene C, así que update.py no degrada ni borra lo que trajo grow.py"
+tap_check $? "grow.py + update.py: el tag B no contiene C, así que update.py no degrada ni borra lo que trajo grow.py"
 (cd "$P6" && echo 1.1.0 >VERSION && git add -A && git commit -qm v1.1.0 && git tag v1.1.0) >/dev/null 2>&1
 s=$(cd "$U12" && python3 scripts/update.py --template "$P6" 2>&1); c=$?
 es "$c" -eq 0 && grep -q '# C' "$U12/.claude/skills/debug/SKILL.md" && es -f "$U12/scripts/nuevo-c.sh" \
   && grep -q '"version": "1.1.0"' "$U12/.agent-kit.json"
-afirmar $? "grow.py + update.py: con un tag que sí contiene C, update.py vuelve a andar (salida: $(tail -1 <<<"$s"))"
+tap_check $? "grow.py + update.py: con un tag que sí contiene C, update.py vuelve a andar" "grow.py + update.py: con un tag que sí contiene C, update.py vuelve a andar (salida: $(tail -1 <<<"$s"))"
 
 # Un ref que no está en la plantilla clonada (otro --template, un fork con otra historia): update.py frena sin tocar nada.
 U13="$TMP/usuario-ref-ajeno"; (repo "$U13") >/dev/null 2>&1
@@ -392,18 +391,18 @@ REF13=$(python3 -c "import json; print(json.load(open('$U13/.agent-kit.json'))['
 s=$(cd "$U13" && python3 scripts/update.py --template "$P5" 2>&1); c=$?
 es "$c" -ne 0 && grep -qi 'does not have the commit' <<<"$s" && ! grep -q Traceback <<<"$s" && es -z "$(git -C "$U13" status --porcelain)" \
   && grep -q "\"ref\": \"$REF13\"" "$U13/.agent-kit.json"
-afirmar $? "update.py frena sin tocar nada si el ref instalado no está en la plantilla clonada (salida: $(tail -1 <<<"$s"))"
+tap_check $? "update.py frena sin tocar nada si el ref instalado no está en la plantilla clonada" "update.py frena sin tocar nada si el ref instalado no está en la plantilla clonada (salida: $(tail -1 <<<"$s"))"
 
 # --lang es llega al init: el registro guarda el idioma.
 U11="$TMP/usuario-lang"
 (repo "$U11") >/dev/null 2>&1
 s=$(cd "$U11" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" --lang es 2>&1); c=$?
 es "$c" -eq 0 && grep -q '"language": "es"' "$U11/.agent-kit.json"
-afirmar $? "--lang es llega al init y queda en .agent-kit.json (salida: $(tail -1 <<<"$s"))"
+tap_check $? "--lang es llega al init y queda en .agent-kit.json" "--lang es llega al init y queda en .agent-kit.json (salida: $(tail -1 <<<"$s"))"
 
 # Fuera de un repo git, o dentro de la plantilla: error claro.
 mkdir -p "$TMP/vacio"
 s=$(cd "$TMP/vacio" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1); c=$?
-[ "$c" -ne 0 ] && grep -qi "git repo" <<<"$s"; afirmar $? "fuera de un repo git falla con un mensaje claro"
+[ "$c" -ne 0 ] && grep -qi "git repo" <<<"$s"; tap_check $? "fuera de un repo git falla con un mensaje claro"
 
-if [ "$fallas" -eq 0 ]; then echo "Todos los tests pasan."; else echo "$fallas fallas."; exit 1; fi
+tap_done
