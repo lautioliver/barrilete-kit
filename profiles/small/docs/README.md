@@ -14,4 +14,5 @@ Rules:
 
 ## Decisions
 
+- [ADR-002](decisions/ADR-002-structured-red-validation.md) — red tests are validated only with a structured report (JUnit or TAP)
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — one-line summary`

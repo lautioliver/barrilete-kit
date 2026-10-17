@@ -9,4 +9,5 @@ Instrucciones para modelos: leer AGENTS.md (convenciones y autonomía). Qué cor
 - [Índice](README.md)
 - [Convención de GitHub](github-naming-convention.md)
 - [Decisiones (ADRs)](decisions/README.md)
+- [ADR-002: validación estructurada del test en rojo](decisions/ADR-002-structured-red-validation.md)
 - [AGENTS.md](../AGENTS.md)
