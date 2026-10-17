@@ -118,6 +118,29 @@ rojo 2 "test-*.sh: FAIL sin separador no se da por buena" 1 "FAIL asigna el issu
 rojo 2 "una línea FAIL: con un error de carga no es una aserción" 1 "FAIL: asigna el issue
 ModuleNotFoundError: No module named 'x'"
 
+# #143 (revisión): un FAIL: pelado lo imprimen automake y Bazel para cualquier falla (un crash, un error de carga): no es una aserción.
+rojo 2 "automake: FAIL: <test> con el resumen de make check" 1 "FAIL: test_parser
+============================================================================
+# TOTAL: 1
+# PASS:  0
+# FAIL:  1"
+rojo 2 "Bazel: FAIL: //src:parser_test (see test.log)" 1 "FAIL: //src:parser_test (see /x/testlogs/test.log)"
+rojo 2 "un segfault con FAIL:" 1 "Segmentation fault (core dumped)
+FAIL: test_parser"
+# Errores de carga de un test bash (con cualquiera de los formatos): el script no corrió, no hay aserción.
+for e in "bash: ./scripts/new.sh: No such file or directory" "./test.sh: line 4: foo: command not found" "./test.sh: line 4: syntax error near unexpected token" "./test.sh: line 9: x: unbound variable"; do
+  rojo 2 "bash: '$e' con FAIL: no es rojo" 1 "$e
+FAIL: asigna el issue"
+  rojo 2 "bash: '$e' con FAIL - no es rojo" 1 "$e
+FAIL - asigna el issue"
+  rojo 2 "bash: '$e' con FALLÓ: no es rojo" 1 "$e
+FALLÓ: asigna el issue"
+done
+# El resumen no se llena con palabras que empiezan con FALL (FALLBACK…): la falla real entra en el bloque.
+{ for _ in $(seq 1 45); do echo "FALLBACK paso"; done; echo "FAIL - la falla real"; } >"$TMP/salida.txt"
+s=$("$AQUI/red.sh" -- bash -c "cat '$TMP/salida.txt'; exit 1" 2>&1)
+if grep -q 'la falla real' <<<"$s"; then ok "FALLBACK no desplaza la falla real del resumen"; else falla "FALLBACK no desplaza la falla real del resumen"; fi
+
 # Cualquier herramienta
 rojo 2 "comando inexistente (exit 127)" 127 "bash: comando-que-no-existe: command not found"
 rojo 2 "comando sin permiso de ejecución (exit 126)" 126 "bash: ./test.sh: Permission denied"

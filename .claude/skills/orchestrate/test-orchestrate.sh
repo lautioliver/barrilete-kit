@@ -284,7 +284,8 @@ ambos() {
 SK="$RAIZ/.claude/skills"; AG="$RAIZ/.claude/agents"
 # 1. red.sh: el formato de las aserciones está dicho donde el implementador lo lee, con la sintaxis de red.sh.
 ambos "implement-issue (paso 3) dice qué líneas reconoce red.sh: FAIL - y FAIL:" 'FAIL - .*FAIL: ' "$SK/implement-issue/SKILL.md"
-ambos "los implementadores nombran red.sh con su sintaxis (red.sh -- <test command>) y el formato FAIL - / FAIL:" 'red\.sh -- <test command>.*|FAIL - ' "$AG/implementer.md" "$AG/implementer-light.md"
+ambos "los implementadores nombran red.sh con su sintaxis (red.sh -- <test command>)" 'red\.sh -- <(test command|comando de test)>' "$AG/implementer.md" "$AG/implementer-light.md"
+ambos "los implementadores dicen el formato FAIL - / FAIL:" 'FAIL - .*FAIL: ' "$AG/implementer.md" "$AG/implementer-light.md"
 for a in implementer implementer-light; do
   grep -q 'red\.sh -- <' "$AG/$a.md" && grep -q 'FAIL - ' "$AG/$a.md" && grep -q 'FAIL: ' "$AG/$a.md"; afirmar $? "$a: la sintaxis red.sh -- <comando> y el formato FAIL - / FAIL:"
 done
@@ -294,7 +295,7 @@ for t in retro-template.md retro-template.es.md; do
   grep -q '^agent_sha:' "$SK/improve-skills/$t" && grep -q '^skill_sha:' "$SK/improve-skills/$t"; afirmar $? "$t trae agent_sha y skill_sha"
 done
 # 4. La base del diff del /code-review es la del PR (o BASE), nunca origin/main fijo, y la rama va por nombre (no HEAD).
-! grep -Eq 'code-review[^`]*(origin/main|\.\.\.HEAD)' "$I" "$V" "$C" "$AG"/*.md; afirmar $? "ninguna skill ni agente fija origin/main ni ...HEAD en el /code-review"
+! grep -Eq 'code-review[^`]*(origin/main|\.\.\.HEAD)' "$I" "$V" "$C" "$AG"/*.md "$RAIZ"/.claude/i18n/agents/*.md 2>/dev/null; afirmar $? "ninguna skill ni agente fija origin/main ni ...HEAD en el /code-review"
 grep -Eq 'code-review origin/<base>\.\.\.refs/(review|revision)/' "$R"; afirmar $? "revisor: /code-review sobre origin/<base>...refs/review/<pr>-<suffix> (su HEAD no es el de la sesión que lo lanzó)"
 # 5. Una sola regla para saltear /code-review, y qué poner en self-review:.
 ambos "una sola regla: /code-review se saltea solo si el comando no existe en la sesión, y se informa como 'no code-review: <reason>'" 'no code-review: <(reason|motivo)>' "$C" "$I" "$AG/implementer.md" "$AG/implementer-light.md"
@@ -304,6 +305,12 @@ ambos "un diff vacío no es motivo para saltear /code-review (se arregla el rang
 ambos "review-pr: agents_map.py y red.sh corren desde el checkout de confianza (<root>), no desde el worktree del PR" 'cd <root> && python3 scripts/agents/agents_map.py --pr <n>' "$V"
 ambos "review-pr: red.sh del checkout de confianza, y lo único del PR que corre son sus tests" '<root>/.claude/skills/implement-issue/red\.sh --' "$V"
 ambos "revisor: red.sh y agents_map.py del checkout del orquestador, no del worktree de revisión" '(root|raiz).*/\.claude/skills/implement-issue/red\.sh.*agents_map\.py' "$R"
+# 8 (aprobado por @lautioliver): una sola regla de lo que corre el revisor, igual en el revisor, review-pr y el contrato.
+ambos "revisor, review-pr y contrato: los scripts del kit (red.sh, agents_map.py, verify.py, retro.sh) salen del checkout de confianza, en la rama base" 'red\.sh.*agents_map\.py.*verify\.py.*retro\.sh.*(trusted checkout, on the base branch|checkout de confianza, en la rama base)' "$R" "$V" "$C"
+ambos "revisor, review-pr y contrato: el commit en rojo puede tener tests, fixtures y stubs, y no corre otro código del PR" '(red commit may contain tests, fixtures and stubs|commit en rojo puede tener tests, fixtures y stubs).*(never runs any other PR code|nunca corre otro código del PR)' "$R" "$V" "$C"
+ambos "revisor, review-pr y contrato: los tests del PR corren en el worktree de revisión, en el commit en rojo y en la punta" '(red commit and at the tip|commit en rojo y en la punta)' "$R" "$V" "$C"
+! grep -Eq 'only runs .retro.sh. there|solo corre .retro.sh. ahí|only adds tests|apenas agrega|solo agrega tests' "$R" "$V" "$C" "${C%.md}.es.md" "$RAIZ/.claude/i18n/agents/reviewer.es.md" 2>/dev/null; afirmar $? "ya no quedan las frases viejas (el revisor solo corre retro.sh; el commit en rojo solo agrega tests)"
+ambos "implement-issue (paso 3): qué puede tener el commit en rojo" 'fixtures and stubs|fixtures y stubs' "$I"
 # 7. Restos en español en la instalación en inglés.
 CI="$SK/create-issue/SKILL.md"
 if [ -f "$SK/create-issue/SKILL.es.md" ]; then

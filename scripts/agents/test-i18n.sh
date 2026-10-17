@@ -219,6 +219,7 @@ done <<'FORMATOS'
 aliases en una línea|aliases:\n    - "\x74ipo:bug"|aliases: ["\x74ipo:bug"]|\["\x74ipo:bug"\]/["\x74ipo:otro"]
 alias con comentario|- "\x74ipo:bug"|- "\x74ipo:bug"  # old|"\x74ipo:bug"  # old/"\x74ipo:otro"  # old
 alias sin espacio tras el guion|^    - "\x74ipo:bug"|    -"\x74ipo:bug"|"\x74ipo:bug"/"\x74ipo:otro"
+alias con varios espacios tras el guion|^    - "\x74ipo:bug"|    -   "\x74ipo:bug"|"\x74ipo:bug"/"\x74ipo:otro"
 alias suelto fuera de aliases|^- name: "type:bug"|- name: "type:bug"\n    - "suelto"|"\x74ipo:bug"/"\x74ipo:otro"
 guion solo en su línea|^- name: "type:bug"|-\n  name: "type:bug"|name: "type:bug"\n  color: "7B61FF"/name: "type:bug"\n  color: "000000"
 lista indentada|^- name: "type:bug"|  - name: "type:bug"|"\x74ipo:bug"/"\x74ipo:otro"
@@ -354,6 +355,14 @@ copia
 for t in scripts/agents/test-agents.sh .claude/skills/orchestrate/test-orchestrate.sh .claude/skills/improve-skills/test-retros.sh; do
   (cd "$TMP/r" && bash "$t" >"$TMP/es-test.log" 2>&1); afirmar $? "con --lang es pasa $t"
 done
+
+# #143: un proyecto instalado en español escribe los reason del mapa y los ids de sus formularios en español: test-agents.sh no puede fallarle.
+copia
+(cd "$TMP/r" && ./scripts/init-template.sh Demo main --lang es >/dev/null 2>&1)
+perl -0pi -e 's/"reason": "[^"]*"/"reason": "cambió el modelo de pagos"/' "$TMP/r/docs/agents-map.json"
+perl -pi -e 's/^(\s*id: )context$/$1contexto/' "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.yml"
+grep -q 'cambió el modelo de pagos' "$TMP/r/docs/agents-map.json" && grep -q 'id: contexto' "$TMP/r/.github/ISSUE_TEMPLATE/1-bug.yml"; afirmar $? "(preparación) el proyecto en español tiene un reason y un id: en español"
+(cd "$TMP/r" && bash scripts/agents/test-agents.sh >"$TMP/es-test.log" 2>&1); afirmar $? "con --lang es, test-agents.sh pasa aunque el mapa y los formularios del proyecto estén en español"
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
