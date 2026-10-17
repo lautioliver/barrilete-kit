@@ -126,7 +126,7 @@ reglas = json.load(open("docs/agents-map.json", encoding="utf-8"))["verify"]
 tests = subprocess.run(["python3", "scripts/agents/check-docs.py", "--list", "*test-*.sh"],
                        capture_output=True, text=True).stdout.split()
 for t in tests:
-    if not any(t in r["run"] and coincide(t, r.get("when", [])) for r in reglas):
+    if not any(f"bash {t}" in r["run"] and coincide(t, r.get("when", [])) for r in reglas):
         print(t)
 PY
 )

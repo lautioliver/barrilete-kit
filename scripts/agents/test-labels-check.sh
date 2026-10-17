@@ -15,7 +15,9 @@ node - "$ROOT/.github/workflows/labels.yml" <<'JS'
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[2], 'utf8');
 // The script of the `labels:` job: the block after its `script: |`, up to the end of the file.
-const job = src.slice(src.indexOf('\n  labels:\n'));
+const from = src.indexOf('\n  labels:\n');
+const next = src.slice(from + 1).search(/\n  [a-z-]+:\n/);  // the next job, if any is added after this one
+const job = next < 0 ? src.slice(from) : src.slice(from, from + 1 + next);
 const start = job.indexOf('script: |\n') + 'script: |\n'.length;
 const script = job.slice(start).split('\n').map(l => l.replace(/^ {12}/, '')).join('\n');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
@@ -44,6 +46,15 @@ const cases = [
   ['a loose "sin tests" fails with the old message', 'Closes #1\nesto no queda sin tests porque lo cubre otro', {}, /Red before implementing/],
   ['sin tests: with a reason passes', 'Closes #1\nsin tests: es solo docs', {}, null],
   ['the red block passes', base, {}, null],
+  // Guards: comments, headings, CRLF and the old shapes that must keep their result.
+  ['a placeholder inside an <!-- --> comment does not count as an ADR reason', '<!-- ADR unchanged: a real reason -->', BL, /ADR unchanged/],
+  ['ADR unchanged: <reason> followed by a heading fails', 'ADR unchanged: <reason>\n## How to test it', BL, /placeholder/i],
+  ['ADR unchanged: <reason> with CRLF line endings fails', 'ADR unchanged: <reason>\r\n## Why\r\n', BL, /placeholder/i],
+  ['ADR unchanged: <reason> with a real reason after it, CRLF, passes', 'ADR unchanged: <reason> the rule is not touched\r\n', BL, null],
+  ['no tests: <reason> with CRLF line endings fails', 'Closes #1\r\nno tests: <reason>\r\n', {}, /placeholder/i],
+  ['no tests: <reason> inside an <!-- --> comment is ignored', 'Closes #1\n<!-- no tests: <reason> -->', {}, /Red before implementing/],
+  ['"sin test" without a colon fails', 'Closes #1\nSin test automatizado: es documentación', {}, /Red before implementing/],
+  ['no tests: on its own line, reason on the next one, passes', 'Closes #1\nno tests:\nonly docs', {}, null],
 ];
 (async () => {
   let bad = 0;
