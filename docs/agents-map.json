@@ -140,7 +140,7 @@
         "**/test-*.sh"
       ],
       "format": "tap",
-      "run": "rc=0; for t in $(git diff --name-only --diff-filter=AM HEAD^ HEAD -- '*test-*.sh'); do TAP_OUT={out} bash \"$t\" || rc=1; done; exit $rc",
+      "run": "rc=0; while IFS= read -r -d '' t; do TAP_OUT={out} bash \"$t\" || rc=1; grep -qxF \"# file: $t\" {out} || echo \"Bail out! $t wrote no TAP\" >>{out}; done < <(git diff -z --name-only --diff-filter=AM HEAD^ HEAD -- ':(glob)**/test-*.sh'); exit $rc",
       "timeout": 1800
     }
   ],
