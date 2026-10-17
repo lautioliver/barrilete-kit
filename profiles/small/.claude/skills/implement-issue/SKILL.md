@@ -1,63 +1,63 @@
 ---
 name: implement-issue
-description: Implementa un issue de GitHub de punta a punta, del issue al PR listo para revisar - toma el issue, crea la rama, escribe código y tests, se autorevisa, actualiza los docs y abre el PR. No mergea. Usar con "/implement-issue #43", "implementá el #43", "tomá el siguiente issue".
+description: Implements a GitHub issue end to end, from the issue to a PR ready for review - takes the issue, creates the branch, writes code and tests, reviews itself, updates the docs and opens the PR. It does not merge. Use with "/implement-issue #43", "implement #43", "take the next issue".
 ---
 
-# Implementar issue
+# Implement an issue
 
-Lleva un issue a un PR listo para revisar. **Nunca mergea**: eso lo hace una persona.
+It takes an issue to a PR ready for review. **It never merges**: a person does that.
 
-Si no te dieron un número ("tomá el siguiente"), listá `gh issue list --state open --search "no:assignee" --label "priority:high"` (después `media`, `baja`, sin prioridad), proponé uno y esperá confirmación.
+If you were not given a number ("take the next one"), list `gh issue list --state open --search "no:assignee" --label "priority:high"` (then `medium`, `low`, no priority), propose one and wait for confirmation.
 
-## 1. Tomar el issue
+## 1. Take the issue
 
 ```bash
 .claude/skills/implement-issue/prepare.sh <n>
 ```
 
-Valida que esté abierto, que no lo tenga otra persona y que no haya cambios sin commitear; lo asigna, crea `claude/<n>-<descripcion>` desde `<BASE_BRANCH>` e imprime el issue con sus comentarios. Si falla, contale al usuario por qué; no fuerces nada. Para leerlo sin tomarlo: `--review`.
+It validates that it is open, that nobody else has it and that there are no uncommitted changes; it assigns it, creates `claude/<n>-<description>` from `<BASE_BRANCH>` and prints the issue with its comments. If it fails, tell the user why; do not force anything. To read it without taking it: `--review`.
 
-## 2. Entender
+## 2. Understand
 
-- Leé lo que enlaza el issue, `AGENTS.md` y lo que corresponda de `docs/architecture.md` y `docs/decisions/`.
-- Si el issue es parte de una épica (`prepare.sh` la muestra; o si el issue dice "Después de #n"), leé la épica entera, sobre todo **Lógica de negocio afectada** y los ADRs pendientes que menciona. Un bloqueo puede estar escrito en el texto sin estar cargado como dependencia: si la épica dice que algo requiere un ADR o una decisión que todavía no existe, decidí con el usuario si este issue cae adentro antes de empezar.
-- Si es ambiguo en algo que cambia el resultado, o pide algo de la lista **"Consulta antes"** de `AGENTS.md` (aunque el issue lo pida: eso no es la aprobación), preguntá antes de escribir código, **en un solo mensaje**: qué toca, las preguntas abiertas y, si hay base de datos, el plan de "Si toca la base de datos" con su rollback.
+- Read what the issue links, `AGENTS.md` and whatever applies from `docs/architecture.md` and `docs/decisions/`.
+- If the issue is part of an epic (`prepare.sh` shows it; or if the issue says "After #n"), read the whole epic, especially **Business logic affected** and the pending ADRs it mentions. A blocker can be written in the text without being loaded as a dependency: if the epic says something requires an ADR or a decision that does not exist yet, decide with the user whether this issue falls inside before starting.
+- If it is ambiguous on something that changes the result, or asks for something from the **"Must ask first"** list of `AGENTS.md` (even if the issue asks for it: that is not the approval), ask before writing code, **in a single message**: what it touches, the open questions and, if there is a database, the "If it touches the database" plan with its rollback.
 
-## 3. Tests primero (rojo)
+## 3. Tests first (red)
 
-Los tests salen de los **criterios de aceptación** del issue, antes de escribir el código. Si necesitan algo que no existe, solo la firma o un stub. Corrélos:
+The tests come from the issue's **acceptance criteria**, before writing the code. If they need something that does not exist, only the signature or a stub. Run them:
 
 ```bash
-.claude/skills/implement-issue/red.sh -- <comando de test de AGENTS.md>
+.claude/skills/implement-issue/red.sh -- <test command from AGENTS.md>
 ```
 
-Tienen que fallar **por una aserción** del criterio: si pasan, no prueban nada; si fallan por un import o un símbolo inexistente, completá el stub. **Bug** → skill `debug`: el test rojo reproduce el bug. Commiteá los tests en rojo (`test: …`) antes de implementar. Si una parte no se puede probar (concurrencia real, un proveedor externo), anotala en el PR como **sin test**.
+They have to fail **on an assertion** of the criterion: if they pass, they prove nothing; if they fail on an import or a missing symbol, complete the stub. **Bug** → `debug` skill: the red test reproduces the bug. Commit the red tests (`test: …`) before implementing. If a part cannot be tested (real concurrency, an external provider), note it in the PR as **`no tests: <reason>`**.
 
-## 4. Implementar (verde)
+## 4. Implement (green)
 
-- Lo mínimo para que los tests pasen; después refactor en verde. **Base de datos** → "Si toca la base de datos" de `AGENTS.md` antes.
-- Solo lo que pide el issue. Lo demás, a un issue nuevo (`create-issue`).
-- Corré lint, typecheck y tests de `AGENTS.md`; si algo falla, arreglalo, no lo desactives.
+- The minimum for the tests to pass; then refactor on green. **Database** → "If it touches the database" in `AGENTS.md` first.
+- Only what the issue asks. The rest goes to a new issue (`create-issue`).
+- Run the lint, typecheck and tests from `AGENTS.md`; if something fails, fix it, do not disable it.
 
-## 5. Autorevisión
+## 5. Self-review
 
-Leé el diff completo (`git diff <BASE_BRANCH>...HEAD`) como si fuera de otra persona: bugs, casos borde, código muerto, secretos, archivos de más. Corré `/code-review` sobre ese diff (es obligatorio; solo si el comando no existe, decilo en el PR). Cada hallazgo que corrijas sigue el mismo ciclo: test, `red.sh`, arreglo, verde. Revisá también que el cambio no rompa lo que un ADR dice que no puede pasar nunca. Si tocaste algo de "Consulta antes" y está `/security-review`, corrélo también.
+Read the full diff (`git diff <BASE_BRANCH>...HEAD`) as if it were someone else's: bugs, edge cases, dead code, secrets, extra files. Run `/code-review` on that diff (it is mandatory; only if the command does not exist, say so in the PR). Each finding you fix follows the same cycle: test, `red.sh`, fix, green. Also check that the change does not break what an ADR says can never happen. If you touched something from "Must ask first" and `/security-review` is available, run it too.
 
 ## 6. Docs
 
-Skill `update-docs`: si cambió algo que corre, `docs/architecture.md` (y `AGENTS.md` si cambió un comando o una convención) en el mismo PR.
+`update-docs` skill: if something that runs changed, `docs/architecture.md` (and `AGENTS.md` if a command or a convention changed) in the same PR.
 
 ## 7. PR
 
 ```bash
 git push -u origin HEAD
-gh pr create --base <BASE_BRANCH> --title "<tipo>: <descripcion>" --body-file <archivo> --label "type:..."
+gh pr create --base <BASE_BRANCH> --title "<type>: <description>" --body-file <file> --label "type:..."
 ```
 
-Cuerpo con `.github/pull_request_template.md`: en "Cómo probarlo", el bloque rojo de `red.sh`, el commit de los tests en rojo y los comandos que corriste; `Closes #<n>`. Mirá el CI (`gh pr checks --watch`) y corregí lo que falle por tu cambio.
+Body with `.github/pull_request_template.md`: in "How to test it", the red block from `red.sh`, the commit of the red tests and the commands you ran; `Closes #<n>`. Watch the CI (`gh pr checks --watch`) and fix what fails because of your change.
 
-## 8. Entregar
+## 8. Deliver
 
-Link al PR, qué cambió en dos líneas y qué decisiones tiene que mirar quien revise. Y frená.
+Link to the PR, what changed in two lines and what decisions whoever reviews has to look at. And stop.
 
-Si no podés terminar: comentá en el issue qué hiciste y qué falta, pusheá la rama si sirve y desasignate (`gh issue edit <n> --remove-assignee @me`).
+If you cannot finish: comment on the issue what you did and what is missing, push the branch if it helps and unassign yourself (`gh issue edit <n> --remove-assignee @me`).

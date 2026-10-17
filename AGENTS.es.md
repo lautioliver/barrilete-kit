@@ -75,7 +75,10 @@ Fuente de verdad: `docs/github-naming-convention.md`. Labels: `.github/labels.ym
 
 - **Ramas:** Conventional Branch 1.1, `<tipo>/<n°issue>-<descripcion>`. Tipos: `feat`, `fix`, `hotfix`, `chore`, `release`. Si la crea un agente: `claude/<n°issue>-<descripcion>`. Solo minúsculas, números y guiones, sin tildes ni ñ.
 - **Rama base:** <BRANCH_RULE> Ver la skill `git-workflow`.
-- **Commits y títulos de PR:** Conventional Commits 1.0, `<tipo>(<scope>): <descripcion>`, en imperativo, minúscula, sin punto final, ≤ 72 caracteres. Tipos en inglés; descripción en español.
+- **Commits y títulos de PR:** Conventional Commits 1.0, `<tipo>(<scope>): <descripcion>`, en imperativo, minúscula, sin punto final, ≤ 72 caracteres. Tipos en inglés; descripción en <COMMIT_LANG>.
+<!-- template:start -->
+- **Descripciones de commits en este repo (la plantilla misma):** en español. En los demás, el init reemplaza `<COMMIT_LANG>` por el idioma de la instalación (`--lang`).
+<!-- template:end -->
 - **Scopes:** los de `docs/github-naming-convention.md` §2. Si un cambio toca varios, se omite el scope o se divide en varios commits.
 - **Cuerpo del PR:** `.github/pull_request_template.md` (Qué cambia / Por qué / Lógica de negocio afectada / Cómo probarlo / `Closes #n`).
 - **Labels:** prefijo `grupo:valor` (`type:`, `area:`, `priority:`, `status:`, más `business-logic` y `breaking-change`). Solo los de `.github/labels.yml`; no crear otros.

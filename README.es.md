@@ -58,6 +58,9 @@ Plantilla de repo para trabajar con agentes de código **sin perder el control**
 <!-- template:start -->
 > [!NOTE]
 > ¿La probás por primera vez para contar cómo te fue? Seguí la [guía de prueba](docs/try-the-template.es.md): pasos, qué anotar y el formulario para reportarlo.
+
+> [!NOTE]
+> Los docs tenían nombres de archivo en español. Si tenés un link viejo, a dónde fue cada archivo está en la [tabla de renombres](CHANGELOG.md#tabla-de-renombres-09--nuevo) del changelog.
 <!-- template:end -->
 
 > [!TIP]
@@ -67,8 +70,10 @@ Plantilla de repo para trabajar con agentes de código **sin perder el control**
 2. Inicializalo:
 
    ```bash
-   ./scripts/init-template.sh "Nombre del proyecto" main
+   ./scripts/init-template.sh "Nombre del proyecto" main --lang es
    ```
+
+   Sin `--lang es` el proyecto queda en inglés (el valor por defecto).
 
    Pone el nombre, la rama base, la regla de ramas y la fecha en todos los archivos, escribe `.agent-kit.json` (commitealo) y se borra solo. Para elegir otra rama base o el modo chico, ver [Modos](#modos).
 3. Completá los `TODO:` (`grep -rn "TODO:" .`). Lo mínimo:
@@ -94,7 +99,7 @@ curl -fsSL https://raw.githubusercontent.com/lautioliver/barrilete-kit/main/scri
 O cloná la plantilla y correlo desde el clon, para leerlo antes de correrlo:
 
 ```bash
-python3 <clon de la plantilla>/scripts/install.py "Proyecto" main
+python3 <clon de la plantilla>/scripts/install.py "Proyecto" main --lang es
 ```
 
 `main` es la rama base (o `develop`), y `releases` funciona igual que en el init. `--draft` imprime el plan y no escribe nada. `--template <url o ruta>` y `--version vX.Y.Z` eligen de dónde sale el kit. Lo que va después de `--` se pasa tal cual a `init-template.sh` (por ejemplo `-- --lang es`).
@@ -271,13 +276,13 @@ El segundo argumento del init define a dónde van los PRs:
 
 | Comando | Flujo | Cuándo |
 |---|---|---|
-| `init-template.sh "X" main` | rama → `main` | 🌱 Proyecto nuevo, sin usuarios todavía |
-| `init-template.sh "X" develop` | rama → `develop` → `main` | 🔀 Separar integración de producción |
-| `init-template.sh "X" develop releases` | rama → `develop` → `release/vX.Y.Z` → `main` | 🚢 Ya hay usuarios activos: cada versión se congela y se prueba en staging antes de llegar a producción |
+| `init-template.sh "X" main --lang es` | rama → `main` | 🌱 Proyecto nuevo, sin usuarios todavía |
+| `init-template.sh "X" develop --lang es` | rama → `develop` → `main` | 🔀 Separar integración de producción |
+| `init-template.sh "X" develop releases --lang es` | rama → `develop` → `release/vX.Y.Z` → `main` | 🚢 Ya hay usuarios activos: cada versión se congela y se prueba en staging antes de llegar a producción |
 
 ### 🐣 Completo o chico
 
-Para proyectos de una o dos personas, agregá `--small`: `./scripts/init-template.sh "X" main --small`.
+Para proyectos de una o dos personas, agregá `--small`: `./scripts/init-template.sh "X" main --small --lang es`.
 
 El idioma de la prosa se elige con `--lang en|es` (por defecto `en`, combina con `--small` y con `releases`): con `es`, cada `X.md` se reemplaza por su `X.es.md`; en los dos casos se borran los `.es.md` que sobran, y `language` queda en `.agent-kit.json` para que `update.py` y `grow.py` reproduzcan la instalación. En la plantilla, con `"parity": true` en `docs/agents-map.json` (el init lo deja en `false` en los proyectos), `check-docs.py` exige que cada `X.md` tenga su `X.es.md` con los mismos encabezados y bloques de código.
 

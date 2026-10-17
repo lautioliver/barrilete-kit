@@ -1,12 +1,12 @@
 # <PROJECT>
 
-> TODO: una línea con qué es el proyecto y cómo está armado.
+> TODO: one line on what the project is and how it is built.
 
-Instrucciones para modelos: leer AGENTS.md (convenciones y autonomía). Qué corre hoy = docs/architecture.md. Por qué = docs/decisions/.
+Instructions for models: read AGENTS.md (conventions and autonomy). What runs today = docs/architecture.md. Why = docs/decisions/.
 
-## Documentación
+## Documentation
 
-- [Índice](README.md)
-- [Convención de GitHub](github-naming-convention.md)
-- [Decisiones (ADRs)](decisions/README.md)
+- [Index](README.md)
+- [GitHub convention](github-naming-convention.md)
+- [Decisions (ADRs)](decisions/README.md)
 - [AGENTS.md](../AGENTS.md)

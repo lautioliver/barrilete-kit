@@ -296,8 +296,14 @@ Se eligió `release/*` corta en vez de una rama permanente `staging`: cada versi
 | Opción | Detalle |
 |---|---|
 | A — Todo en inglés | Estándar internacional; mejor para herramientas y para sumar gente de afuera |
-| B — Tipos en inglés, descripciones en español ⭐ | Los tipos (`feat`, `fix`) son parte del estándar y no se traducen; el resto en español porque el equipo y el negocio son locales |
-| C — Todo en español | Rompe la compatibilidad con herramientas (`funcionalidad:` no es un tipo válido) |
+| B — Tipos en inglés, descripciones en el idioma del equipo ⭐ | Los tipos (`feat`, `fix`) son parte del estándar y no se traducen; la descripción va en el idioma que usan el equipo y el negocio |
+| C — Todo en el idioma del equipo | Rompe la compatibilidad con herramientas (`funcionalidad:` no es un tipo válido) |
+
+> ✅ **DECIDIDO (<DATE>):** la descripción de los commits y de los títulos de PR se escribe en <COMMIT_LANG> (el idioma elegido al instalar, `--lang`). Los tipos y los scopes siguen en inglés.
+
+<!-- template:start -->
+> En este repo (la plantilla misma) las descripciones van en español.
+<!-- template:end -->
 
 **Siempre sin tildes ni ñ en nombres de ramas y labels** (`vista-usuario`, `diseno`, no `diseño`).
 
@@ -349,7 +355,7 @@ Marcar la opción elegida por el equipo y fecha:
 | 6 | Campos del Project | | | ¿prioridad en campo o label? |
 | 7 | Milestones | | | |
 | 8 | Versionado | | | |
-| 9 | Idioma | | | |
+| 9 | Idioma | ✅ B — tipos en inglés, descripción en <COMMIT_LANG> | <DATE> | Viene decidido por el idioma de la instalación (`--lang`) |
 
 ---
 

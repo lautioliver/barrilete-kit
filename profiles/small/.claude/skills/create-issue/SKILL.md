@@ -1,32 +1,32 @@
 ---
 name: create-issue
-description: Abre issues de GitHub a partir de un pedido en el chat, con título, labels y cuerpo según la convención del proyecto. Usar con "abrí un issue", "creá un ticket", "anotá esto como bug", "pasá estos pendientes a issues".
+description: Opens GitHub issues from a chat request, with title, labels and body following the project convention. Use with "open an issue", "create a ticket", "log this as a bug", "turn these pending items into issues".
 ---
 
-# Crear issue
+# Create an issue
 
-Requiere `gh` autenticado (`gh auth status`). Los labels válidos son solo los de `.github/labels.yml`; no crees otros.
+Requires an authenticated `gh` (`gh auth status`). The valid labels are only those in `.github/labels.yml`; do not create others.
 
-1. **Entender el pedido.** Separá cuántos issues son. Si falta algo imprescindible, preguntá una vez; no inventes datos.
-2. **Buscar duplicados:** `gh issue list --state all --search "<palabras clave>" --limit 10`. Si hay uno abierto parecido, proponé comentar ahí.
-3. **Tipo** (exactamente un `type:`) y **secciones del cuerpo:**
+1. **Understand the request.** Separate how many issues it is. If something essential is missing, ask once; do not make up data.
+2. **Look for duplicates:** `gh issue list --state all --search "<keywords>" --limit 10`. If a similar one is open, propose commenting there.
+3. **Type** (exactly one `type:`) and **body sections:**
 
-   | Pedido | Label | Secciones |
+   | Request | Label | Sections |
    |---|---|---|
-   | Algo no funciona | `type:bug` | Qué pasa · Qué debería pasar · Cómo reproducirlo |
-   | Algo nuevo o un cambio visible | `type:feature` | Objetivo · Alcance · Listo cuando |
-   | Trabajo técnico | `type:task` | Qué hay que hacer · Por qué · Listo cuando |
-   | Documentación | `type:docs` | Qué hay que hacer · Por qué |
+   | Something does not work | `type:bug` | What happens · What should happen · How to reproduce it |
+   | Something new or a visible change | `type:feature` | Goal · Scope · Done when |
+   | Technical work | `type:task` | What needs to be done · Why · Done when |
+   | Documentation | `type:docs` | What needs to be done · Why |
 
-4. **Título** en imperativo, sin prefijo ni punto final: `Agregar login con Google`. En bugs vale el síntoma.
-5. **Prioridad** solo si el usuario la dio o es obvia (rompe algo en uso → `priority:high`).
-6. **Responsable:** `python3 scripts/agents/team.py suggest --labels "<labels separados por coma>"` devuelve a quién asignarlo según `.github/team.json` (por área y carga). Si no devuelve nada, el equipo está vacío: el issue queda sin asignar (sugerí `/add-member`). Si el usuario pidió otra persona, gana el usuario.
-7. **Cuerpo:** las secciones del tipo, links a archivos con ruta relativa, nada de secretos ni datos personales.
-8. **Mostrar el borrador (con el responsable) y esperar un "sí".** Abrir un issue publica contenido.
-9. **Crear** con el cuerpo en un archivo temporal:
+4. **Title** in the imperative, no prefix or final period: `Add login with Google`. For bugs the symptom works.
+5. **Priority** only if the user gave it or it is obvious (it breaks something in use → `priority:high`).
+6. **Owner:** `python3 scripts/agents/team.py suggest --labels "<comma-separated labels>"` returns who to assign it to according to `.github/team.json` (by area and load). If it returns nothing, the team is empty: the issue stays unassigned (suggest `/add-member`). If the user asked for someone else, the user wins.
+7. **Body:** the sections of the type, links to files with a relative path, no secrets or personal data.
+8. **Show the draft (with the owner) and wait for a "yes".** Opening an issue publishes content.
+9. **Create** with the body in a temporary file:
    ```bash
-   gh issue create --title "<título>" --body-file <archivo> --label "type:bug" --label "priority:high" --assignee "<responsable>"
+   gh issue create --title "<title>" --body-file <file> --label "type:bug" --label "priority:high" --assignee "<owner>"
    ```
-10. **Responder** con el link, o con el error si falló.
+10. **Reply** with the link, or with the error if it failed.
 
-Si un issue depende de otro, decilo en el cuerpo: `Después de #12: <por qué>`.
+If an issue depends on another, say so in the body: `After #12: <why>`.

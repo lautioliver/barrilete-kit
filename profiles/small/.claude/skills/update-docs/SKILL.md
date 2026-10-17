@@ -1,20 +1,20 @@
 ---
 name: update-docs
-description: Detecta qué documentación quedó desactualizada por un cambio y la corrige en el mismo PR. Usar antes de abrir un PR (implement-issue la llama), con "/update-docs", "actualizá los docs" o "¿qué docs quedaron viejos?".
+description: Detects which documentation became outdated because of a change and fixes it in the same PR. Use before opening a PR (implement-issue calls it), with "/update-docs", "update the docs" or "which docs went stale?".
 ---
 
-# Actualizar docs
+# Update docs
 
-Los agentes trabajan con lo que dicen los docs: si un doc dice algo que el código ya no hace, el próximo agente construye sobre algo falso. Si un doc y el código no coinciden, **gana el código** (salvo un ADR: ahí se consulta).
+Agents work with what the docs say: if a doc says something the code no longer does, the next agent builds on something false. If a doc and the code do not match, **the code wins** (except an ADR: there you ask).
 
-1. **Mirá el diff:** `git diff <BASE_BRANCH>...HEAD --stat` y después el detalle.
-2. **Revisá contra cada doc:**
-   - ¿Cambió algo que corre (pantallas, endpoints, datos, flujos, deploy)? → `docs/architecture.md`.
-   - ¿Cambió un comando, una dependencia o una convención? → `AGENTS.md`.
-   - ¿Cambió una decisión de un ADR? → no lo reescribas: enmienda con fecha o ADR nuevo (`docs/decisions/README.md`). Consultalo antes.
-   - ¿Agregaste un documento? → `docs/README.md` y `docs/llms.txt`.
-3. **Escribí lo mínimo:** describí lo que hay, no la historia del cambio (eso va en el PR). No inventes lo que no está en el código.
-4. **Validá:** `python3 scripts/agents/check-docs.py`.
-5. **Reportá** en el PR qué docs cambiaste, o por qué no hizo falta.
+1. **Look at the diff:** `git diff <BASE_BRANCH>...HEAD --stat` and then the detail.
+2. **Check against each doc:**
+   - Did something that runs change (screens, endpoints, data, flows, deploy)? → `docs/architecture.md`.
+   - Did a command, a dependency or a convention change? → `AGENTS.md`.
+   - Did an ADR decision change? → do not rewrite it: amend with a date or a new ADR (`docs/decisions/README.md`). Ask first.
+   - Did you add a document? → `docs/README.md` and `docs/llms.txt`.
+3. **Write the minimum:** describe what is there, not the history of the change (that goes in the PR). Do not invent what is not in the code.
+4. **Validate:** `python3 scripts/agents/check-docs.py`.
+5. **Report** in the PR which docs you changed, or why it was not needed.
 
-Para "¿qué docs quedaron viejos?": corré `check-docs.py`, después compará `docs/architecture.md` y `AGENTS.md` con el código y listá los desfases con archivo y línea.
+For "which docs went stale?": run `check-docs.py`, then compare `docs/architecture.md` and `AGENTS.md` with the code and list the gaps with file and line.

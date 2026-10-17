@@ -34,7 +34,10 @@ An agent does not cut releases, merge to `main` or create tags unless explicitly
 
 ## Commits
 
-- `<type>(<scope>): <description>` — imperative, lowercase, no period, ≤ 72 characters. Types in English; the description in the language `AGENTS.md` sets.
+- `<type>(<scope>): <description>` — imperative, lowercase, no period, ≤ 72 characters. Types in English; the description in <COMMIT_LANG>.
+<!-- template:start -->
+- In this repo (the template itself) the descriptions are in Spanish.
+<!-- template:end -->
 - One commit = one logical change. If it touches several scopes: no scope, or split.
 - Breaks compatibility: `feat(api)!: …` + footer `BREAKING CHANGE: …`.
 

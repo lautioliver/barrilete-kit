@@ -75,7 +75,10 @@ Source of truth: `docs/github-naming-convention.md`. Labels: `.github/labels.yml
 
 - **Branches:** Conventional Branch 1.1, `<type>/<issue-no>-<description>`. Types: `feat`, `fix`, `hotfix`, `chore`, `release`. If an agent creates it: `claude/<issue-no>-<description>`. Lowercase, numbers and hyphens only, no accents or ñ.
 - **Base branch:** <BRANCH_RULE> See the `git-workflow` skill.
-- **Commits and PR titles:** Conventional Commits 1.0, `<type>(<scope>): <description>`, imperative, lowercase, no final period, ≤ 72 characters. Types in English; description in Spanish.
+- **Commits and PR titles:** Conventional Commits 1.0, `<type>(<scope>): <description>`, imperative, lowercase, no final period, ≤ 72 characters. Types in English; description in <COMMIT_LANG>.
+<!-- template:start -->
+- **Commit descriptions in this repo (the template itself):** in Spanish. Everywhere else the init replaces `<COMMIT_LANG>` with the language of the installation (`--lang`).
+<!-- template:end -->
 - **Scopes:** those in `docs/github-naming-convention.md` §2. If a change touches several, omit the scope or split it into several commits.
 - **PR body:** `.github/pull_request_template.md` (What changes / Why / Business logic affected / How to test it / `Closes #n`).
 - **Labels:** prefix `group:value` (`type:`, `area:`, `priority:`, `status:`, plus `business-logic` and `breaking-change`). Only those in `.github/labels.yml`; do not create others.

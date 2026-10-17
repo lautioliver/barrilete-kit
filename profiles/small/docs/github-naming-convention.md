@@ -1,43 +1,43 @@
-# Convención de GitHub — <PROJECT>
+# GitHub convention — <PROJECT>
 
-> Decidido el <DATE>. Si algo no está cubierto, se pregunta antes de inventar un formato.
+> Decided on <DATE>. If something is not covered, ask before inventing a format.
 
-## Ramas
+## Branches
 
 <BRANCH_RULE>
 
-Formato `<tipo>/<n°issue>-<descripcion>` ([Conventional Branch](https://conventionalbranch.org/)): solo minúsculas, números y guiones, sin tildes ni ñ.
+Format `<type>/<issue-no>-<description>` ([Conventional Branch](https://conventionalbranch.org/)): lowercase, numbers and hyphens only, no accents or ñ.
 
-| Tipo | Cuándo |
+| Type | When |
 |---|---|
-| `feat/` | Funcionalidad nueva |
-| `fix/` | Corrección de un bug |
-| `chore/` | Dependencias, config, docs, tooling |
-| `claude/` | Rama creada por un agente |
+| `feat/` | New functionality |
+| `fix/` | Fixing a bug |
+| `chore/` | Dependencies, config, docs, tooling |
+| `claude/` | Branch created by an agent |
 
-## Commits y títulos de PR
+## Commits and PR titles
 
-[Conventional Commits](https://www.conventionalcommits.org/): `<tipo>: <descripcion>`, en imperativo, minúscula, sin punto final, ≤ 72 caracteres. Tipos: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`. Si rompe compatibilidad: `feat!: …`.
+[Conventional Commits](https://www.conventionalcommits.org/): `<type>: <description>`, in the imperative, lowercase, no final period, ≤ 72 characters. The description is written in <COMMIT_LANG>. Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`. If it breaks compatibility: `feat!: …`.
 
 ## Pull requests
 
-Cuerpo con [la plantilla](../.github/pull_request_template.md) y `Closes #n`. Se mergea con squash. Nadie (ni agentes) pushea directo a la rama troncal.
+Body with [the template](../.github/pull_request_template.md) and `Closes #n`. Merged with squash. Nobody (agents included) pushes straight to the trunk branch.
 
 ## Issues
 
-Título en imperativo, sin prefijo: `Agregar login con Google`. Para bugs vale el síntoma: `El formulario no guarda sin conexión`.
+Title in the imperative, no prefix: `Add login with Google`. For bugs the symptom works: `The form does not save offline`.
 
 ## Labels
 
-| Grupo | Valores |
+| Group | Values |
 |---|---|
-| `type:` | `feature`, `bug`, `task`, `docs` — exactamente uno |
-| `priority:` | `high`, `medium`, `low` — solo en issues |
+| `type:` | `feature`, `bug`, `task`, `docs` — exactly one |
+| `priority:` | `high`, `medium`, `low` — only on issues |
 
-Fuente: [`.github/labels.yml`](../.github/labels.yml). No se crean otros.
+Source: [`.github/labels.yml`](../.github/labels.yml). No others are created.
 
-**Repos que ya tienen labels:** el sync de `labels.yml` borra los que no están en el archivo. El instalador (`install.py`) agrega al archivo los que ya tiene el repo (`gh label list`), en la sección `# ── project's own labels …`, así el sync no borra ninguno. Los que GitHub crea en todo repo nuevo (`bug`, `enhancement`…) quedan ahí: borralos de esa sección si no los querés.
+**Repos that already have labels:** the `labels.yml` sync deletes the ones that are not in the file. The installer (`install.py`) adds to the file the ones the repo already has (`gh label list`), in the `# ── project's own labels …` section, so the sync deletes none. The ones GitHub creates in every new repo (`bug`, `enhancement`…) stay there: delete them from that section if you do not want them.
 
-## Versiones
+## Versions
 
-Si se publican: [SemVer](https://semver.org/) con `v` (`v0.3.0`).
+If they are published: [SemVer](https://semver.org/) with `v` (`v0.3.0`).

@@ -312,7 +312,6 @@
   "parity_ignore": [
     "CHANGELOG.md",
     "CLAUDE.md",
-    "docs/decisions/ADR-001-*",
-    "profiles/small/**"
+    "docs/decisions/ADR-001-*"
   ]
 }

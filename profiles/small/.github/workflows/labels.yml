@@ -1,5 +1,5 @@
-# .github/workflows/labels.yml — <PROJECT> (modo chico)
-# Aplica .github/labels.yml al repo (borra los labels que no estén en el archivo).
+# .github/workflows/labels.yml — <PROJECT> (small mode)
+# Applies .github/labels.yml to the repo (deletes the labels that are not in the file).
 name: Labels
 
 on:
