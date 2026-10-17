@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016  # los backticks de Markdown y los regex de los tests van entre comillas simples a propósito
 # Tests de routing.py y cleanup.sh con un gh falso y un repo local (no usa GitHub).
 # Uso: bash .claude/skills/orchestrate/test-orchestrate.sh
 set -uo pipefail
@@ -266,11 +267,11 @@ ambos() {
 }
 SK="$RAIZ/.claude/skills"; AG="$RAIZ/.claude/agents"
 # 1. red.sh: el formato de las aserciones está dicho donde el implementador lo lee, con la sintaxis de red.sh.
-ambos "implement-issue (paso 3) dice qué líneas reconoce red.sh: FAIL - y FAIL:" 'FAIL - .*FAIL: ' "$SK/implement-issue/SKILL.md"
+ambos "implement-issue (paso 3) dice qué reconoce red.sh en un test bash: FAIL - " 'starts with `FAIL - `|empieza con `FAIL - `' "$SK/implement-issue/SKILL.md"
 ambos "los implementadores nombran red.sh con su sintaxis (red.sh -- <test command>)" 'red\.sh -- <(test command|comando de test)>' "$AG/implementer.md" "$AG/implementer-light.md"
-ambos "los implementadores dicen el formato FAIL - / FAIL:" 'FAIL - .*FAIL: ' "$AG/implementer.md" "$AG/implementer-light.md"
+ambos "los implementadores dicen el formato FAIL - (el que red.sh reconoce)" '`FAIL - `' "$AG/implementer.md" "$AG/implementer-light.md"
 for a in implementer implementer-light; do
-  grep -q 'red\.sh -- <' "$AG/$a.md" && grep -q 'FAIL - ' "$AG/$a.md" && grep -q 'FAIL: ' "$AG/$a.md"; afirmar $? "$a: la sintaxis red.sh -- <comando> y el formato FAIL - / FAIL:"
+  grep -q 'red\.sh -- <' "$AG/$a.md" && grep -q 'FAIL - ' "$AG/$a.md" && ! grep -q 'FAIL: ' "$AG/$a.md"; afirmar $? "$a: la sintaxis red.sh -- <comando> y el formato FAIL - (sin prometer FAIL:)"
 done
 # 3. retro-template: agent_sha y skill_sha, que el contrato exige.
 for t in retro-template.md retro-template.es.md; do
@@ -289,10 +290,14 @@ ambos "review-pr: agents_map.py y red.sh corren desde el checkout de confianza (
 ambos "review-pr: red.sh del checkout de confianza, y lo único del PR que corre son sus tests" '<root>/.claude/skills/implement-issue/red\.sh --' "$V"
 ambos "revisor: red.sh y agents_map.py del checkout del orquestador, no del worktree de revisión" '(root|raiz).*/\.claude/skills/implement-issue/red\.sh.*agents_map\.py' "$R"
 # 8 (aprobado por @lautioliver): una sola regla de lo que corre el revisor, igual en el revisor, review-pr y el contrato.
-ambos "revisor, review-pr y contrato: los scripts del kit (red.sh, agents_map.py, verify.py, retro.sh) salen del checkout de confianza, en la rama base" 'red\.sh.*agents_map\.py.*verify\.py.*retro\.sh.*(trusted checkout, on the base branch|checkout de confianza, en la rama base)' "$R" "$V" "$C"
+ambos "revisor, review-pr y contrato: los scripts del kit (red.sh, agents_map.py, verify.py, retro.sh) salen del checkout de confianza, en la rama base" 'red\.sh.*agents_map\.py.*retro\.sh.*(trusted checkout, on the base branch|checkout de confianza, en la rama base)' "$R" "$V" "$C"
 ambos "revisor, review-pr y contrato: el commit en rojo puede tener tests, fixtures y stubs, y no corre otro código del PR" '(red commit may contain tests, fixtures and stubs|commit en rojo puede tener tests, fixtures y stubs).*(never runs any other PR code|[Nn]unca corre otro código del PR)' "$R" "$V" "$C"
 ambos "revisor, review-pr y contrato: los tests del PR corren en el worktree de revisión, en el commit en rojo y en la punta" '(red commit and at the tip|commit en rojo y en la punta)' "$R" "$V" "$C"
 ! grep -Eq 'only runs .retro.sh. there|solo corre .retro.sh. ahí|only adds tests|apenas agrega|solo agrega tests' "$R" "$V" "$C" "${C%.md}.es.md" "$RAIZ/.claude/i18n/agents/reviewer.es.md" 2>/dev/null; afirmar $? "ya no quedan las frases viejas (el revisor solo corre retro.sh; el commit en rojo solo agrega tests)"
+ambos "revisor, review-pr y contrato: el revisor no corre verify.py (lo cubre el CI)" '(does not run `verify.py`|No corre `verify.py`)' "$R" "$V" "$C"
+! grep -Eq 'red\.sh.*agents_map\.py.*verify\.py.*retro\.sh' "$R" "$V" "$C" "${C%.md}.es.md" "${V%.md}.es.md" "$RAIZ/.claude/i18n/agents/reviewer.es.md" 2>/dev/null; afirmar $? "ningún texto del revisor lista verify.py entre los scripts que corre"
+grep -Eq 'checkout de confianza|trusted checkout' "$C" && grep -Eq 'run \(the reviewer is the exception|se corren \(el revisor es la excepción' "$C" "${C%.md}.es.md"; afirmar $? "contrato (viñeta 1): el revisor es la excepción de cd <worktree> && …"
+ambos "review-pr (Retro): retro.sh del checkout de confianza por ruta absoluta" '<root>/\.claude/skills/improve-skills/retro\.sh' "$V"
 ambos "implement-issue (paso 3): qué puede tener el commit en rojo" 'fixtures and stubs|fixtures y stubs' "$I"
 # 7. Restos en español en la instalación en inglés.
 CI="$SK/create-issue/SKILL.md"

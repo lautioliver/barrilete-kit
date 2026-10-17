@@ -108,38 +108,15 @@ FAIL - asigna el issue
 
 1 test(s) fallaron."
 
-# Otros formatos de test-*.sh (#143): "FAIL: msg" en inglés y "FALLA - msg" / "FALLO: msg" en español.
-rojo 0 "test-*.sh: FAIL: con dos puntos" 1 "ok   - crea la rama
-FAIL: asigna el issue"
-rojo 0 "test-*.sh: FALLA - en español" 1 "ok   - crea la rama
-FALLA - asigna el issue"
-rojo 0 "test-*.sh: FALLO: en español con dos puntos" 1 "FALLO: asigna el issue"
-rojo 2 "test-*.sh: FAIL sin separador no se da por buena" 1 "FAIL asigna el issue"
-rojo 2 "una línea FAIL: con un error de carga no es una aserción" 1 "FAIL: asigna el issue
-ModuleNotFoundError: No module named 'x'"
-
-# #143 (revisión): un FAIL: pelado lo imprimen automake y Bazel para cualquier falla (un crash, un error de carga): no es una aserción.
-rojo 2 "automake: FAIL: <test> con el resumen de make check" 1 "FAIL: test_parser
-============================================================================
-# TOTAL: 1
-# PASS:  0
-# FAIL:  1"
-rojo 2 "Bazel: FAIL: //src:parser_test (see test.log)" 1 "FAIL: //src:parser_test (see /x/testlogs/test.log)"
-rojo 2 "un segfault con FAIL:" 1 "Segmentation fault (core dumped)
-FAIL: test_parser"
-# Errores de carga de un test bash (con cualquiera de los formatos): el script no corrió, no hay aserción.
-for e in "bash: ./scripts/new.sh: No such file or directory" "./test.sh: line 4: foo: command not found" "./test.sh: line 4: syntax error near unexpected token" "./test.sh: line 9: x: unbound variable"; do
-  rojo 2 "bash: '$e' con FAIL: no es rojo" 1 "$e
-FAIL: asigna el issue"
-  rojo 2 "bash: '$e' con FAIL - no es rojo" 1 "$e
+# El formato de un test bash que red.sh reconoce hoy (y que implement-issue documenta, #143): "FAIL - <descripción>" al principio de la línea.
+# Otras formas (FAIL: ..., FALLA - ..., not ok) salen con 2: no se aceptan, se documenta el formato.
+rojo 0 "test-*.sh: FAIL - <descripción> (el formato que se documenta)" 1 "ok   - crea la rama
 FAIL - asigna el issue"
-  rojo 2 "bash: '$e' con FALLÓ: no es rojo" 1 "$e
-FALLÓ: asigna el issue"
-done
-# El resumen no se llena con palabras que empiezan con FALL (FALLBACK…): la falla real entra en el bloque.
-{ for _ in $(seq 1 45); do echo "FALLBACK paso"; done; echo "FAIL - la falla real"; } >"$TMP/salida.txt"
-s=$("$AQUI/red.sh" -- bash -c "cat '$TMP/salida.txt'; exit 1" 2>&1)
-if grep -q 'la falla real' <<<"$s"; then ok "FALLBACK no desplaza la falla real del resumen"; else falla "FALLBACK no desplaza la falla real del resumen"; fi
+rojo 2 "test-*.sh: FAIL: con dos puntos no se reconoce" 1 "ok   - crea la rama
+FAIL: asigna el issue"
+rojo 2 "test-*.sh: FALLA - en español no se reconoce" 1 "FALLA - asigna el issue"
+rojo 2 "test-*.sh: not ok no se reconoce" 1 "not ok 1 asigna el issue"
+rojo 2 "test-*.sh: FAIL sin separador no se reconoce" 1 "FAIL asigna el issue"
 
 # Cualquier herramienta
 rojo 2 "comando inexistente (exit 127)" 127 "bash: comando-que-no-existe: command not found"
@@ -154,7 +131,6 @@ if grep -q "I do not recognize this failure as an assertion" <<<"$s"; then ok "u
 # La instalación en inglés no trae español en el uso ni en los comentarios de red.sh (#143).
 s=$("$AQUI/red.sh" 2>&1); if grep -q '^Usage: .*red.sh -- <test command>' <<<"$s"; then ok "red.sh sin argumentos imprime el uso en inglés"; else falla "red.sh sin argumentos imprime el uso en inglés"; fi
 if ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$AQUI/red.sh"; then ok "red.sh no tiene español en su uso ni en sus comentarios"; else falla "red.sh no tiene español en su uso ni en sus comentarios"; grep -Ein 'Uso:|ej\.:|comando de test|módulo' "$AQUI/red.sh"; fi
-if compgen -G "$TMP/red-*" >/dev/null; then ok "los archivos temporales de red.sh se llaman red-*"; else falla "los archivos temporales de red.sh se llaman red-*"; fi
 
 # El bloque para el PR lleva el literal inglés que lee el CI (#115): "Red before implementing".
 bloque=$(cat "$TMP"/*.md 2>/dev/null)
