@@ -259,7 +259,7 @@ ambos() {
     for g in "$f" "${f%.md}.es.md" "${x%.md}.es.md"; do
       [ -f "$g" ] || continue
       case "$vistos" in *" $g "*) continue ;; esac; vistos="$vistos$g "
-      grep -Eq -- "$re" "$g" || { r=1; echo "       falta en ${g#"$RAIZ"/}"; }
+      grep -Eq -- "$re" "$g" || { r=1; echo "       falta en ${g#"$RAIZ"/}" >&2; }
     done
   done
   tap_check $r "$d"

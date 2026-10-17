@@ -4,10 +4,10 @@
 # Usage: bash scripts/test-renames.sh
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-cd "$ROOT" || exit 1
 # shellcheck source=/dev/null
 . "$ROOT/scripts/agents/tap.sh"
 tap_begin "$0"
+cd "$ROOT" || exit 1
 # Usage: <condition>; tap_check $? "description"
 
 # old path|new path

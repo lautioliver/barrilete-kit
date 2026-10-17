@@ -140,7 +140,8 @@ for t in tests:
 PY
 )
 r=1; [ -z "$mapa_verify" ] && r=0
-tap_check $r "verify: cada test-*.sh que corre el CI está en el mapa y se dispara al cambiar él mismo<mapa_verify>" "verify: cada test-*.sh que corre el CI está en el mapa y se dispara al cambiar él mismo${mapa_verify:+ (faltan: $(echo "$mapa_verify" | tr '\n' ' '))}"
+tap_check $r "verify: cada test-*.sh que corre el CI está en el mapa y se dispara al cambiar él mismo" "${mapa_verify:+faltan: $(echo "$mapa_verify" | tr '
+' ' ')}"
 # Solo en la plantilla: el init borra test-renames.sh y su verificación.
 if [ -f "$RAIZ/scripts/test-renames.sh" ]; then
 (cd "$RAIZ" && python3 - <<'PY'

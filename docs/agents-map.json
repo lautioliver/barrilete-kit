@@ -223,7 +223,8 @@
       "name": "tap",
       "when": [
         "scripts/agents/tap.sh",
-        "scripts/agents/test-tap.sh"
+        "scripts/agents/test-tap.sh",
+        "**/test-*.sh"
       ],
       "run": "bash scripts/agents/test-tap.sh"
     },

@@ -55,7 +55,7 @@ s=$(cd "$TMP/p" && python3 -c 'import sys; sys.path.insert(0, "scripts/agents");
 print("\n".join(archivos_cambiados(["--base", "trunk"])))' 2>&1)
 esperado=$(printf '%s\n' "a b.txt" "c d.txt" "guía.md" "nuevo ñ.txt" "señal.md")
 es "$s" = "$esperado"; tap_check $? "archivos_cambiados devuelve los nombres literales y el renombre una vez"
-[ "$s" = "$esperado" ] || printf '       %s\n' "$s"
+[ "$s" = "$esperado" ] || printf '       %s\n' "$s" >&2
 
 # Un archivo dentro de una carpeta nueva sin trackear aparece con su ruta, no solo la carpeta.
 (cd "$TMP/p" && mkdir -p "carpeta nueva/sub" && echo x >"carpeta nueva/sub/a.txt")

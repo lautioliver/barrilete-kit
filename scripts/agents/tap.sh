@@ -20,7 +20,7 @@
 # The cases are held until tap_done (or a bail out) and written then, in the order of their first call.
 #
 # Where the TAP goes. Under red.sh, TAP_OUT is the file it created ({out}): the helper opens it once,
-# on fd 8, and unsets the variable, so the test does not see the path and what it prints on stdout
+# on fd 8 (a path that cannot be opened is a bail out with exit 2), and unsets the variable, so the test does not see the path and what it prints on stdout
 # cannot inject cases. Without TAP_OUT (a person running the test, the docs CI) the TAP goes to
 # stdout. Several scripts can write the same file: the numbering continues and the plan is rewritten
 # at the end so the stream keeps a single 1..N. Each failing case is also printed on
@@ -28,7 +28,10 @@
 #
 # Unexpected errors: with set -e a failing command emits "Bail out!" (ERR trap) and exits 1; leaving
 # the script in any other way before tap_done (set -u, an exit, a crash) also emits it from the EXIT
-# trap. Without set -e a failing command is the test's business: it checks its status.
+# trap. Without set -e a failing command is the test's business (it checks its status with $?), except
+# status 126 and 127, a command that cannot run: that bails out too. A command that crashes with status 1
+# (a traceback in a setup step) cannot be told from a status the test checks on purpose, so it shows
+# up as the failure of the next case, not as a Bail out!. That is narrower than ADR-002 D6 says.
 #
 # A test runs in the same shell as this file, so it could still read _TAP_PATH or write to fd 8: it is
 # not a sandbox, only a path that the test has no reason to touch.
@@ -38,6 +41,7 @@ _TAP_FAILED=0
 _TAP_IDS=()
 _TAP_VERDICTS=()
 _TAP_DESCS=()
+_TAP_REPS=()
 _TAP_DONE=0
 _TAP_BAILED=0
 _TAP_AT_EXIT=""
@@ -45,7 +49,7 @@ _TAP_PATH=""
 
 if [ -n "${TAP_OUT:-}" ]; then
   _TAP_PATH=$TAP_OUT
-  exec 8>>"$_TAP_PATH"
+  { exec 8>>"$_TAP_PATH"; } 2>/dev/null || { echo "Bail out! cannot open TAP_OUT ($_TAP_PATH)" >&2; exit 2; }
   _TAP_BASE=$(grep -c -E '^(not )?ok ' "$_TAP_PATH" 2>/dev/null || true)
   _TAP_BASE=${_TAP_BASE:-0}
 else
@@ -58,10 +62,21 @@ _tap_line() { printf '%s\n' "$1" >&8; }
 # Usage: _tap_flat <text>: the text in one line.
 _tap_flat() { local t=$1; t=${t//$'\r'/ }; printf '%s' "${t//$'\n'/ }"; }
 
+# Removes the plans that earlier scripts left in a shared file: a bailed stream has none.
+_tap_strip_plans() {
+  [ -n "$_TAP_PATH" ] || return 0
+  local tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/tap-XXXXXX") || return 0
+  grep -v -E '^1\.\.' "$_TAP_PATH" >"$tmp" 2>/dev/null
+  cat "$tmp" >"$_TAP_PATH"
+  rm -f "$tmp"
+}
+
 _tap_bail() {
   [ "$_TAP_BAILED" -eq 0 ] || return 0
   _TAP_BAILED=1
   _tap_flush
+  _tap_strip_plans
   _tap_line "Bail out! $(_tap_flat "$1")"
   [ -z "$_TAP_PATH" ] || echo "Bail out! $(_tap_flat "$1")" >&2
 }
@@ -79,13 +94,15 @@ _tap_on_exit() {
 
 _tap_on_err() {
   local rc=$1
-  case $- in *e*) ;; *) return 0 ;; esac
-  _tap_bail "unexpected error (status $rc) at line $2 of ${3:-the script}"
+  # Under set -e any failure is unexpected. Without it a failing command is usually a status the test
+  # checks, except a command that does not exist or cannot run (126, 127): nobody checks for that.
+  case $- in *e*) ;; *) case $rc in 126|127) ;; *) return 0 ;; esac ;; esac
+  _tap_bail "unexpected error (status $rc) at line $2 of $3"
   exit 1
 }
 
 trap '_tap_on_exit' EXIT
-trap '_tap_on_err $? $LINENO "${BASH_SOURCE[1]:-}"' ERR
+trap '_tap_on_err $? $LINENO "$0"' ERR
 
 # Usage: _tap_rel <script>: its path from the repo root (as written in the diff), or as given.
 _tap_rel() {
@@ -116,7 +133,7 @@ _tap_flush() {
     done
   done
   _TAP_BASE=$((_TAP_BASE + ${#_TAP_IDS[@]}))
-  _TAP_IDS=(); _TAP_VERDICTS=(); _TAP_DESCS=()
+  _TAP_IDS=(); _TAP_VERDICTS=(); _TAP_DESCS=(); _TAP_REPS=()
 }
 
 # Usage: _tap_case <ok|not ok> <id> [description]
@@ -132,7 +149,11 @@ _tap_case() {
   done
   if [ "$found" -lt 0 ]; then
     found=${#_TAP_IDS[@]}
-    _TAP_IDS[found]=$id; _TAP_VERDICTS[found]="ok"; _TAP_DESCS[found]=""
+    _TAP_IDS[found]=$id; _TAP_VERDICTS[found]="ok"; _TAP_DESCS[found]=""; _TAP_REPS[found]=1
+  else
+    _TAP_REPS[found]=$((_TAP_REPS[found] + 1))
+    # A passing case that stands for several inputs does not show the first one only.
+    [ "${_TAP_VERDICTS[$found]}" != "ok" ] || _TAP_DESCS[found]=""
   fi
   if [ "$verdict" = "not ok" ]; then
     if [ "${_TAP_VERDICTS[$found]}" = "ok" ]; then
@@ -141,7 +162,7 @@ _tap_case() {
     fi
     [ -z "$desc" ] || _TAP_DESCS[found]="${_TAP_DESCS[$found]:+${_TAP_DESCS[$found]}$'\n'}$desc"
     { echo "FAIL - $id"; [ -z "$desc" ] || echo "       $desc"; } >&2
-  elif [ "${_TAP_VERDICTS[$found]}" = "ok" ] && [ -z "${_TAP_DESCS[$found]}" ]; then
+  elif [ "${_TAP_VERDICTS[$found]}" = "ok" ] && [ "${_TAP_REPS[$found]}" -eq 1 ]; then
     _TAP_DESCS[found]=$desc
   fi
 }

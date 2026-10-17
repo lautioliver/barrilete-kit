@@ -21,6 +21,9 @@ run_tap() {
     printf '%s\n' "$1"
   } >"$TMP/t.sh"
   rm -f "$TMP/tap"
+  { run_tap_child "$@"; } 2>/dev/null
+}
+run_tap_child() {
   if [ "${2:-}" = "dir" ]; then
     (cd "$ROOT" && TAP_OUT="$TMP" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"); echo $? >"$TMP/rc"
   elif [ "${2:-}" = "file" ]; then
