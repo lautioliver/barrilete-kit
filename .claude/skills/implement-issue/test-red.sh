@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016  # the bodies of bash -c are single-quoted on purpose: they expand inside the child shell
+# shellcheck disable=SC2016,SC2319  # bash -c bodies are single-quoted on purpose; "test ...; tap_check $?" is the pattern of the other tests
 # Tests of red.sh (ADR-002): every case of corpus/ is run through red.sh, and so are the cases that
 # the corpus cannot express (usage, the `red` section, the report path, timeouts, the trusted checkout).
 #
