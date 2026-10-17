@@ -63,6 +63,7 @@ Rule: if a product document and the code do not match, [architecture.md](develop
 <!-- template:start -->
 - [ADR-001 (kit)](decisions/ADR-001-language-labels-and-names-in-english.md) — kit language: prose in two languages, labels and names in English (kit ADR: the init does not install it)
 <!-- template:end -->
+- [ADR-002](decisions/ADR-002-structured-red-validation.md) — red tests are validated only with a structured report (JUnit or TAP)
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — one-line summary`
 
 ### Guides

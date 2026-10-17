@@ -14,6 +14,7 @@ Instrucciones para modelos: leer este archivo y AGENTS.md. Spec aspiracional = /
 <!-- template:start -->
 - [ADR-001: idioma del kit, labels y nombres en inglés (ADR del kit)](decisions/ADR-001-language-labels-and-names-in-english.md)
 <!-- template:end -->
+- [ADR-002: validación estructurada del test en rojo](decisions/ADR-002-structured-red-validation.md)
 - [Mapa para agentes: docs según cambios, rutas sensibles](agents-map.json)
 - [Contrato de los subagentes: reglas y salida común](agents/subagent-contract.md)
 - [Lecciones de las retros de agentes (revisadas en PR; leer antes de implementar)](agents/lessons.md)
