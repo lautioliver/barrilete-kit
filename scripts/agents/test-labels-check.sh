@@ -143,6 +143,10 @@ const more = [
 })();
 JS
 check $? "the labels check reports the unfilled reasons (full script, fake GitHub)"
+# Every job of the workflow has a short timeout (a runaway job must not hold a runner for the 6-hour default).
+jobs=$(awk '/^jobs:/{j=1;next} j && /^  [a-z-]+:$/{n++} END{print n+0}' "$ROOT/.github/workflows/labels.yml")
+tm=$(grep -cE '^    timeout-minutes: 2( |$)' "$ROOT/.github/workflows/labels.yml")
+[ "$((jobs - 0))" -ge 1 ] && [ "$jobs" -eq "$tm" ]; check $? "each job of labels.yml has timeout-minutes: 2 ($tm of $jobs)"
 echo
 if [ "$fails" -ne 0 ]; then echo "$fails test(s) failed."; exit 1; fi
 echo "All tests pass."
