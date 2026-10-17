@@ -169,7 +169,9 @@
       "name": "red",
       "when": [
         ".claude/skills/implement-issue/red.sh",
-        ".claude/skills/implement-issue/test-red.sh"
+        ".claude/skills/implement-issue/test-red.sh",
+        ".claude/skills/implement-issue/corpus/**",
+        "scripts/agents/red_report.py"
       ],
       "run": "bash .claude/skills/implement-issue/test-red.sh"
     },

@@ -113,12 +113,13 @@ def int_attr(el, name):
         return -1
 
 
-def is_suite_level(classname, name):
-    """A failure that is not a test: vitest reports a file that did not load as a case named like its file,
-    and gotestsum reports a package that failed outside any test (build failure, panic in TestMain) as TestMain."""
-    if name == "TestMain":
+def is_suite_level(diff, case):
+    """A failure that is not a test: vitest reports a file that did not load as a case named like its file (a
+    path of the repository), and gotestsum reports a package that failed outside any test (build failure, panic
+    in TestMain) as TestMain."""
+    if case.name == "TestMain":
         return True
-    return bool(name) and name == classname and ("/" in name or name.endswith(JS_EXT))
+    return bool(case.name) and case.name == case.classname and case.name in diff.tree()
 
 
 def parse_junit(path):
@@ -161,10 +162,7 @@ def parse_junit(path):
             status = "skipped"
         else:
             status = "pass"
-        classname, name = tc.get("classname") or "", tc.get("name") or ""
-        if status == "failure" and is_suite_level(classname, name):
-            status = "error"
-        rep.cases.append(Case(tc.get("file") or suite_file(tc), classname, name, status))
+        rep.cases.append(Case(tc.get("file") or suite_file(tc), tc.get("classname") or "", tc.get("name") or "", status))
 
     for suite in root.iter("testsuite"):
         inner = list(suite.iter("testcase"))
@@ -184,7 +182,7 @@ def parse_junit(path):
     return rep
 
 
-TAP_CASE = re.compile(r"^(not )?ok\b(?:\s+(\d+))?\s*(?:-\s*)?(.*)$")
+TAP_CASE = re.compile(r"^(not )?ok(?=\s|$)(?:\s+(\d+))?\s*(?:-\s*)?(.*)$")
 TAP_DIRECTIVE = re.compile(r"\s#\s*(TODO|SKIP)\w*\b", re.I)
 
 
@@ -464,6 +462,10 @@ def case_files_uncached(diff, case):
             if not files:
                 raise Unmapped(f'the package "{cls}" has no *_test.go file in "{d or "."}"')
             return "go", files, "go:" + cls
+    mod = go_module(diff)
+    if mod and not cargo_crates(diff):
+        raise Unmapped(f'the classname "{cls}" is not under the module "{mod}" of go.mod: configure gotestsum so that '
+                       "the classname is the package import path")
     files = cargo_files(diff, case)
     return "cargo", files, "cargo:" + ",".join(files)
 
@@ -691,6 +693,9 @@ def judge(entry, rc, timed_out, report_error, report, diff):
     if report_error:
         return 2, [f"{report_error}. Configure the reporter of this stack: see the `red` entry \"{entry['name']}\" "
                    "in docs/agents-map.json and docs/decisions/kit/ADR-002 (D1, D2)."], []
+    for c in report.cases:
+        if c.status == "failure" and is_suite_level(diff, c):
+            c.status = "error"
     msgs = []
     if report.aborted:
         msgs += [f"incomplete report: {m}" for m in report.aborted]
@@ -766,8 +771,9 @@ def load_stacks(map_path):
         if not isinstance(e, dict):
             raise Reject("each `red` entry has to be an object")
         name = e.get("name")
-        if not isinstance(name, str) or not name or name in seen:
-            raise Reject("each `red` entry needs a unique `name`")
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", name) or name in seen:
+            raise Reject("each `red` entry needs a unique `name` made of letters, digits, `.`, `_` and `-` "
+                         "(it is part of the path of {out})")
         seen.add(name)
         if e.get("format") not in ("junit", "tap"):
             raise Reject(f'red "{name}": `format` has to be "junit" or "tap"')
@@ -823,12 +829,13 @@ def main(argv):
         if not chosen:
             raise Reject("no `red` entry matches a file of the red commit (" + (", ".join(diff.files()[:8]) or "it changes no file")
                          + "). Does the commit change a test file? Is `when` of the stack right?")
+    base = tempfile.gettempdir()
+    if not SAFE_PATH.match(base):
+        raise Reject(f"TMPDIR ({base}) has characters that are not safe for {{out}}: use another TMPDIR")
     tmp = tempfile.mkdtemp(prefix="red-")
-    if not SAFE_PATH.match(tmp):
-        raise Reject(f"TMPDIR ({tmp}) has characters that are not safe for {{out}}: use another TMPDIR")
     codes, groups = [], []
     for entry in chosen:
-        out_dir = tempfile.mkdtemp(prefix=entry["name"].replace("/", "_")[:20] + "-", dir=tmp)
+        out_dir = tempfile.mkdtemp(prefix=entry["name"][:20] + "-", dir=tmp)
         print(f'== red: stack "{entry["name"]}" ({entry["format"]}, timeout {entry["timeout"]} s)', flush=True)
         rc, timed_out, out = run_stack(entry, out_dir, root)
         report, report_error = None, None
