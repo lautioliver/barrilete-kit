@@ -180,9 +180,18 @@
         ".claude/agents/reviewer.md",
         ".claude/skills/implement-issue/SKILL.md",
         ".gitignore",
+        ".github/workflows/labels.yml",
         "?profiles/small/DELETE"
       ],
       "run": "bash .claude/skills/orchestrate/test-orchestrate.sh"
+    },
+    {
+      "name": "labels-check",
+      "when": [
+        ".github/workflows/labels.yml",
+        "scripts/agents/test-labels-check.sh"
+      ],
+      "run": "bash scripts/agents/test-labels-check.sh"
     },
     {
       "name": "retros",
@@ -260,7 +269,13 @@
     {
       "name": "renames",
       "when": [
-        "?scripts/test-renames.sh"
+        "?scripts/test-renames.sh",
+        "scripts/**",
+        ".claude/**",
+        ".github/**",
+        "docs/**",
+        "profiles/**",
+        "*.md"
       ],
       "run": "bash scripts/test-renames.sh"
     },

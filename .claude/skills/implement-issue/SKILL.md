@@ -39,7 +39,7 @@ TDD: the tests come from the issue's **acceptance criteria**, not from the code 
   ```
   If they pass, they prove nothing: rewrite them. If they fail on an import or a missing symbol, it does not count: complete the stub. Each failure has to be an assertion of a criterion.
 - **Commit the red tests** before implementing (`test(<scope>): …`), so the reviewer can go back to that commit and see them fail. Keep the block `red.sh` leaves for the PR.
-- No behavior to test (docs, config) or with a part that cannot be tested here (real concurrency, an external provider): say so in the PR as **`no tests: <reason>`** (the literal the CI check accepts; the old `sin test` also works).
+- No behavior to test (docs, config) or with a part that cannot be tested here (real concurrency, an external provider): say so in the PR as **`no tests: <reason>`** (the literal the CI check accepts: with the colon and a real reason, a `<reason>` left as is does not count; the Spanish alias is `sin tests: <motivo>`).
 
 ## 4. Implement (green)
 

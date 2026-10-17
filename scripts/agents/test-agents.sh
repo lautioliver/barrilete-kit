@@ -130,7 +130,10 @@ for t in tests:
         print(t)
 PY
 )
-[ -z "$mapa_verify" ]; afirmar $? "verify: cada test-*.sh que corre el CI está en el mapa y se dispara al cambiar él mismo${mapa_verify:+ (faltan: $(echo "$mapa_verify" | tr '\n' ' '))}"
+r=1; [ -z "$mapa_verify" ] && r=0
+afirmar $r "verify: cada test-*.sh que corre el CI está en el mapa y se dispara al cambiar él mismo${mapa_verify:+ (faltan: $(echo "$mapa_verify" | tr '\n' ' '))}"
+# Solo en la plantilla: el init borra test-renames.sh y su verificación.
+if [ -f "$RAIZ/scripts/test-renames.sh" ]; then
 (cd "$RAIZ" && python3 - <<'PY'
 import json, sys
 sys.path.insert(0, "scripts/agents")
@@ -142,6 +145,7 @@ cambios = ["scripts/agents/verify.py", "docs/github-naming-convention.md", ".cla
 sys.exit(0 if all(coincide(c, r.get("when", [])) for c in cambios) else 1)
 PY
 ); afirmar $? "verify: renames corre cuando cambian scripts, docs, skills, el mapa o los workflows"
+fi
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi

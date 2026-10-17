@@ -109,8 +109,11 @@ jobs:
               // Without the <!-- … --> comments, which GitHub does not show (an exception written inside one does not count),
               // and the reason on the same line: a blank line followed by the next heading is not a reason.
               const cuerpo = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '');
-              const explica = /ADR (?:unchanged|sin cambios):[^\S\n]*\S/i.test(cuerpo);
-              if (!tocaAdr && !explica) errors.push('business-logic without changes in docs/decisions/: amend the ADR that defines the rule, or add "ADR unchanged: <reason>" to the body.');
+              // A reason that is only <…> (the template placeholder copied as is) is not a reason.
+              const explica = /ADR (?:unchanged|sin cambios):[^\S\n]*(?!(?:<[^>\n]*>[^\S\n]*)+(?=\n|$))\S/i.test(cuerpo);
+              if (!tocaAdr && !explica) errors.push(/ADR (?:unchanged|sin cambios):[^\S\n]*<[^>\n]*>/i.test(cuerpo)
+                ? 'business-logic: the reason of "ADR unchanged:" is still the <reason> placeholder (or "<motivo>"): write why the ADR does not change.'
+                : 'business-logic without changes in docs/decisions/: amend the ADR that defines the rule, or add "ADR unchanged: <reason>" to the body.');
             }
             // Agent branches: what implement-issue asks for in the body, validated here instead of in the skill.
             if (/^claude\//.test(pr.head.ref)) {
@@ -122,10 +125,13 @@ jobs:
               const refiere = /^\s*refs?:?\s+#\d+/im;
               if (!cierra.test(body) && !refiere.test(body))
                 errors.push('the body neither closes nor references any issue: add "Closes #<n>" (or "Refs #<n>" if it does not close it).');
-              // The English literals are the current ones; the Spanish ones ("Rojo antes de implementar", "sin test")
-              // stay as aliases. "no test" needs the colon: without it, any "there is no test coverage" would pass.
-              if (!/<summary>(?:Red before implementing|Rojo antes de implementar)<\/summary>|\bno tests?:[^\S\n]*\n?[^\S\n]*\S|sin tests?\b[^\S\n]*:?[^\S\n]*\n?[^\S\n]*\S/i.test(body))
-                errors.push('the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
+              // The English literals are the current ones; the Spanish ones ("Rojo antes de implementar", "sin tests:")
+              // stay as aliases. "no tests"/"sin tests" need the colon and a reason: without it, any
+              // "there is no test coverage" would pass. A reason that is only <…> (the placeholder copied as is) does not count.
+              if (!/<summary>(?:Red before implementing|Rojo antes de implementar)<\/summary>|\b(?:no|sin) tests?:[^\S\n]*\n?[^\S\n]*(?!(?:<[^>\n]*>[^\S\n]*)+(?=\n|$))\S/i.test(body))
+                errors.push(/\b(?:no|sin) tests?:[^\S\n]*\n?[^\S\n]*<[^>\n]*>/i.test(body)
+                  ? 'the reason of "no tests:" is still the <reason> placeholder (or "<motivo>"): write why there are no tests.'
+                  : 'the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
             }
             if (errors.length) core.setFailed('PR out of convention:\n- ' + errors.join('\n- '));
             else core.info('PR OK. Labels: ' + names.join(', '));
