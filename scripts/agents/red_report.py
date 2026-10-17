@@ -100,6 +100,9 @@ def read_report(path):
         data.decode("utf-8")
     except UnicodeDecodeError:
         raise Reject("the report is not UTF-8")
+    if b"\0" in data:
+        # UTF-16 and UTF-32 without a BOM are "valid UTF-8" because of their NUL bytes, and expat detects them by itself
+        raise Reject("the report is not UTF-8 text (it has NUL bytes)")
     return data
 
 
@@ -119,7 +122,7 @@ def is_suite_level(diff, case):
     in TestMain) as TestMain."""
     if case.name == "TestMain":
         return True
-    return bool(case.name) and case.name == case.classname and case.name in diff.tree()
+    return bool(case.name) and case.name == case.classname and normalize_path(diff, case.name) is not None
 
 
 def parse_junit(path):
@@ -215,8 +218,9 @@ def parse_tap(path):
         last_case_at = i
         rest = m.group(3)
         directive = TAP_DIRECTIVE.search(rest)
-        # The case id is the description up to the first " # "; what follows is not compared (D4).
-        ident = re.split(r"\s#(?:\s|$)", rest, maxsplit=1)[0].strip()
+        # The id is the text of the case line without its directive, with the TAP 14 escapes (\# and \\) undone.
+        # What tap.sh varies at run time goes in "# desc:" lines, which are comments and are not compared (D4).
+        ident = re.sub(r"\\(.)", r"\1", (rest[:directive.start()] if directive else rest).strip())
         failed = bool(m.group(1))
         if directive:
             kind = directive.group(1).upper()
@@ -585,6 +589,8 @@ def rust_defines(diff, path, added, name):
         k = no - 2  # 0-based index of the line above
         while 0 <= k < len(lines):
             above = lines[k].strip()
+            if re.search(r"\bfn\b", above):
+                break  # the attribute above belongs to another function
             if above.startswith("#[") and above.endswith("test]"):
                 return True
             if not (above.startswith("#[") or above.startswith("///")):
@@ -596,14 +602,16 @@ def rust_defines(diff, path, added, name):
 def defines(diff, path, added, name, ext_kind):
     """Does an added line of `path` define the test `name` (a whole identifier, never in a comment)?"""
     if ext_kind == "tap":
+        # The case line of tap.sh: the id is the literal first argument of tap_ok, tap_fail or tap_check (after
+        # the status). A line that only mentions the id (an echo, a variable) does not define the case.
+        spellings = {name, name.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")}
         for _, line in added:
-            code = strip_comment(line, ["#"]).strip()
-            if not code:
-                continue
-            esc = re.escape(name)
-            if re.search(r"""(?<![\w])(["'])""" + esc + r"""\1""", code) or \
-                    (re.fullmatch(r"[\w.:-]+", name) and re.search(r"(?<![\w.:-])" + esc + r"(?![\w.:-])", code)):
-                return True
+            code = strip_comment(line, ["#"])
+            for sp in spellings:
+                esc = re.escape(sp)
+                if re.search(r"""(?<![\w])tap_(?:ok|fail)\s+(["'])""" + esc + r"""\1""", code) or \
+                        re.search(r"""(?<![\w])tap_check\s+\S+\s+(["'])""" + esc + r"""\1""", code):
+                    return True
         return False
     if path.endswith(".py"):
         rx = re.compile(r"^\s*(?:async\s+)?def\s+" + re.escape(name) + r"\s*\(")
@@ -724,8 +732,11 @@ def judge(entry, rc, timed_out, report_error, report, diff):
 def run_stack(entry, out_dir, cwd):
     out = os.path.join(out_dir, "report." + ("xml" if entry["format"] == "junit" else "tap"))
     run = entry["run"].replace("{out}", out)
+    env = dict(os.environ)
+    if entry["format"] == "tap":
+        env["TAP_OUT"] = out  # tap.sh writes the stream there (and not to stdout) when it sees it
     proc = subprocess.Popen(["bash", "-o", "pipefail", "-c", run], cwd=cwd, stdin=subprocess.DEVNULL,
-                            start_new_session=True)
+                            start_new_session=True, env=env)
     timed_out = False
     try:
         rc = proc.wait(timeout=entry["timeout"])
