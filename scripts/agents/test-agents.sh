@@ -116,6 +116,39 @@ if [ -f "$RAIZ/profiles/small/DELETE" ]; then
   grep -qx "scripts/agents/test-agents.sh" "$RAIZ/profiles/small/DELETE"; afirmar $? "el modo chico borra test-agents.sh (sin agentes no tiene qué probar)"
 fi
 
+# 7. verify.py corre antes del PR cada test-*.sh que corre el CI (#143): si no, el error recién aparece en CI.
+# Para cada script, hay una verificación del mapa que lo corre y que se dispara cuando cambia el propio script.
+mapa_verify=$(cd "$RAIZ" && python3 - <<'PY'
+import json, re, subprocess, sys
+sys.path.insert(0, "scripts/agents")
+from agents_map import coincide
+reglas = json.load(open("docs/agents-map.json", encoding="utf-8"))["verify"]
+lista = subprocess.run(["python3", "scripts/agents/check-docs.py", "--list", "*test-*.sh"], capture_output=True, text=True)
+tests = lista.stdout.split()
+if lista.returncode != 0 or not tests:
+    print("check-docs.py --list failed or listed nothing")
+for t in tests:
+    if not any(re.search(r"(?:^|[;&| ])bash " + re.escape(t) + r"(?: |$)", r["run"]) and coincide(t, r.get("when", [])) for r in reglas):
+        print(t)
+PY
+)
+r=1; [ -z "$mapa_verify" ] && r=0
+afirmar $r "verify: cada test-*.sh que corre el CI está en el mapa y se dispara al cambiar él mismo${mapa_verify:+ (faltan: $(echo "$mapa_verify" | tr '\n' ' '))}"
+# Solo en la plantilla: el init borra test-renames.sh y su verificación.
+if [ -f "$RAIZ/scripts/test-renames.sh" ]; then
+(cd "$RAIZ" && python3 - <<'PY'
+import json, sys
+sys.path.insert(0, "scripts/agents")
+from agents_map import coincide
+reglas = {r["name"]: r for r in json.load(open("docs/agents-map.json", encoding="utf-8"))["verify"]}
+r = reglas.get("renames", {})
+# Los literales viejos recién aparecían en CI: el test de renames corre cuando cambian scripts, tests o docs.
+cambios = ["scripts/agents/verify.py", "docs/github-naming-convention.md", ".claude/skills/implement-issue/SKILL.md", "docs/agents-map.json", ".github/workflows/labels.yml"]
+sys.exit(0 if all(coincide(c, r.get("when", [])) for c in cambios) else 1)
+PY
+); afirmar $? "verify: renames corre cuando cambian scripts, docs, skills, el mapa o los workflows"
+fi
+
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
 echo "Todos los tests pasan."

@@ -39,7 +39,7 @@ TDD: los tests salen de los **criterios de aceptación** del issue, no del códi
   ```
   Si pasan, no prueban nada: reescribilos. Si fallan por un import o un símbolo inexistente, no cuenta: completá el stub. Cada falla tiene que ser una aserción de un criterio.
 - **Commiteá los tests en rojo** antes de implementar (`test(<scope>): …`), así el revisor puede volver a ese commit y verlos fallar. Guardá el bloque que deja `red.sh` para el PR.
-- Sin comportamiento que probar (docs, config) o con una parte que no se puede probar acá (concurrencia real, un proveedor externo): decilo en el PR como **`sin test`** (o `no tests: <motivo>`: el check del CI acepta los dos), con el motivo.
+- Sin comportamiento que probar (docs, config) o con una parte que no se puede probar acá (concurrencia real, un proveedor externo): decilo en el PR como **`sin tests: <motivo>`** (o `no tests: <motivo>`: el check del CI acepta los dos, con los dos puntos y un motivo real; un `<motivo>` sin completar no vale).
 
 ## 4. Implementar (verde)
 

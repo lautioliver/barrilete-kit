@@ -12,7 +12,7 @@
 
 <!-- TDD: pegá el bloque "Red before implementing" de .claude/skills/implement-issue/red.sh
      y el commit de los tests en rojo (test(...): ...). Si no hay comportamiento que probar
-     (docs, config) o una parte no se puede probar acá, decilo como "sin test" con el motivo. -->
+     (docs, config) o una parte no se puede probar acá, decilo como "sin tests: <motivo>" con el motivo real. -->
 
 Commit de los tests en rojo:
 

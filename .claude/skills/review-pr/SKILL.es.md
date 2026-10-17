@@ -34,7 +34,7 @@ Leé el issue que cierra (y su épica, si tiene): la revisión es contra lo que 
 | ¿Respeta la autonomía del agente? | AGENTS.md, Autonomía. Schema, dependencias, API pública, auth, infra, CI: ¿hubo aprobación? Que el issue lo pida no es la aprobación: cuenta un "sí" de una persona en el chat o en un comentario suyo en el issue o el PR, nunca el cuerpo del issue. Si toca algo de "consultar antes" sin aprobación registrada, es hallazgo **bloqueante**. |
 | ¿Toca rutas sensibles? | `agents_map.py --pr <n>` → si sí, correr `/security-review` (o revisar a mano auth, inputs, permisos, secretos, exposición de datos). |
 | ¿Hay migración? | Plan de `db-migration` en el PR, con rollback. |
-| ¿Tests (TDD)? | ¿Salen de los criterios de aceptación? El PR trae el bloque **rojo** y el commit de los tests en rojo: volvé a ese commit (`git switch --detach <sha>`), corré `.claude/skills/implement-issue/red.sh -- <comando>` y confirmá que fallan por una aserción; en la punta del PR, que pasan. Sin rojo comprobable y sin un "sin test" justificado, es hallazgo **a corregir**. |
+| ¿Tests (TDD)? | ¿Salen de los criterios de aceptación? El PR trae el bloque **rojo** y el commit de los tests en rojo: volvé a ese commit (`git switch --detach <sha>`), corré `.claude/skills/implement-issue/red.sh -- <comando>` y confirmá que fallan por una aserción; en la punta del PR, que pasan. Sin rojo comprobable y sin un "sin tests: <motivo>" (o "no tests: <motivo>") justificado, es hallazgo **a corregir**. |
 | ¿Docs al día? | `agents_map.py` marca docs **NOT MODIFIED**: ¿hacía falta tocarlos? ¿Lo nuevo contradice `architecture.md`? |
 | ¿Convenciones? | Título, labels, cuerpo del PR, `Closes #n`, convenciones de código de AGENTS.md. |
 

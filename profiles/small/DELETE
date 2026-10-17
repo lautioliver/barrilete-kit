@@ -19,3 +19,4 @@ docs/agents
 .claude/agents
 scripts/agents/test-agents.sh
 .claude/skills/orchestrate
+scripts/agents/test-labels-check.sh
