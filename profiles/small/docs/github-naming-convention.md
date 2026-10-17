@@ -36,7 +36,7 @@ Title in the imperative, no prefix: `Add login with Google`. For bugs the sympto
 
 Source: [`.github/labels.yml`](../.github/labels.yml). No others are created.
 
-**Repos that already have labels:** the `labels.yml` sync deletes the ones that are not in the file. The installer (`install.py`) adds to the file the ones the repo already has (`gh label list`), in the `# ── project's own labels …` section, so the sync deletes none. The ones GitHub creates in every new repo (`bug`, `enhancement`…) stay there: delete them from that section if you do not want them.
+**Repos that already have labels:** the `labels.yml` sync deletes the ones that are not in the file. In a repo that already had labels, add to the file the ones it has (`gh label list`), in the `# ── project's own labels …` section, so the sync deletes none. The ones GitHub creates in every new repo (`bug`, `enhancement`…) stay there: delete them from that section if you do not want them.
 
 ## Versions
 

@@ -6,19 +6,19 @@ body:
     attributes:
       value: "Gracias por probarla. La guía está en `docs/try-the-template.es.md`. No pegues secretos ni datos personales."
   - type: dropdown
-    id: herramienta
+    id: tool
     attributes:
       label: Herramienta
       options: [Claude Code, Codex, GitHub Copilot, Cursor, Otra]
     validations: { required: true }
   - type: dropdown
-    id: modo
+    id: mode
     attributes:
       label: Modo
       options: [Completo, Chico, No llegué a inicializar]
     validations: { required: true }
   - type: dropdown
-    id: hasta
+    id: how-far
     attributes:
       label: Hasta dónde llegaste
       description: "El último paso de la guía que terminaste. En modo chico no hay paso 7 (revisión) ni orchestrate: si llegaste al merge, elegí 8."
@@ -34,27 +34,27 @@ body:
         - 9. Si te queda tiempo
     validations: { required: true }
   - type: textarea
-    id: trabas
+    id: blockers
     attributes:
       label: Dónde te trabaste
       description: Un ítem por traba, con el paso, qué hiciste y el error textual. Si no te trabaste, poné "ninguna".
       placeholder: "- Paso 3: no encontré dónde van los comandos de test. Error: …"
     validations: { required: true }
   - type: textarea
-    id: dudas
+    id: doubts
     attributes:
       label: Qué leíste dos veces o no entendiste
   - type: textarea
-    id: agente
+    id: agent
     attributes:
       label: Qué hizo el agente que no esperabas
       description: Se frenó, preguntó de más, se salteó algo, tocó lo que no debía, o lo hiciste vos a mano.
   - type: input
-    id: tiempo
+    id: time
     attributes:
       label: Tiempo hasta el primer PR
       placeholder: "por ejemplo: 50 minutos"
   - type: textarea
-    id: cambiaria
+    id: would-change
     attributes:
       label: ¿La volverías a usar? ¿Qué cambiarías primero?

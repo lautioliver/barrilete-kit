@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Which implementer an issue gets: the routing rule of epic #33 (decision 2).
+"""Which implementer an issue gets: the routing rule.
 
 Haiku only if the issue is type:docs or type:task, without business-logic or breaking-change and without
 sensitive paths (docs/agents-map.json) named in the title or the body. Everything else, Sonnet.

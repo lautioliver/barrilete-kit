@@ -54,6 +54,13 @@ for modo in completo chico; do
   [ -f "$p/docs/decisions/README.md" ] && ! ls "$p"/docs/decisions/ADR-001-* >/dev/null 2>&1 && ! grep -rq 'ADR-001-language-labels' "$p/docs" "$p/README.md"
   afirmar $? "[$modo] el init no instala los ADRs del kit (Ámbito: kit) ni sus líneas en los índices"
   grep -q 'TODO:.*ADR-001' "$p/docs/README.md"; afirmar $? "[$modo] docs/README.md conserva el TODO del primer ADR del proyecto"
+  # #143: con base main, "neither to `main` nor to `main`" / "ni a `main` ni a `main`" no puede quedar: el reemplazo cambia la frase entera.
+  # shellcheck disable=SC2016  # backticks de Markdown, literales
+  ! grep -rEq 'nor to `main`|ni a `main` ni a `main`|neither to `main`|ni a `main` ni' --exclude-dir=.git "$p"; afirmar $? "[$modo] con base main no queda 'ni a main ni a main' (ni 'neither to main nor to main')"
+  # #143: lo que es del kit (su ADR-001, el instalador, la épica #33, el CHANGELOG del kit) no viaja a la documentación instalada.
+  ! grep -rEn "kit's .ADR-001|ADR-001. del kit|install\.py|#122|[eé]pic(a)? #33|kit's .CHANGELOG|CHANGELOG.md. del kit|\-\-lang" --include='*.md' --include='*.py' --include='*.txt' "$p/docs" "$p/AGENTS.md" "$p/.claude/skills" "$p/.claude/agents" 2>/dev/null | grep -v '/test-[a-z-]*\.sh:' >"$TMP/kit-$modo.txt"
+  es ! -s "$TMP/kit-$modo.txt"; afirmar $? "[$modo] la documentación instalada no cita el ADR-001 del kit, install.py, #122, la épica #33 ni --lang"
+  [ -s "$TMP/kit-$modo.txt" ] && sed 's/^/       /' "$TMP/kit-$modo.txt" | head -5
   es -z "$(cd "$p" && git status --porcelain)"; afirmar $? "[$modo] después de correr los scripts, git status queda limpio"
   if [ "$modo" = chico ]; then
     ! [ -e "$p/docs/agents-map.json" ]; afirmar $? "[$modo] el modo chico no tiene mapa (ni verificación init)"
@@ -91,6 +98,18 @@ copiar "$p"
 for w in docs labels; do
   grep -qxF "    branches: [main, develop, 'release/**']" "$p/.github/workflows/$w.yml" && ! grep -q 'for the template itself' "$p/.github/workflows/$w.yml"
   afirmar $? "[completo develop releases] $w.yml corre en los pushes a [main, develop, 'release/**']"
+done
+
+# #143: la frase "nunca mergea, ni a <base> ni a main": con base main la frase entera cambia; con otra base queda con las dos ramas.
+for idioma in en es; do
+  # shellcheck disable=SC2016  # backticks de Markdown, literales
+  if [ "$idioma" = en ]; then con_main='not even to `main`'; con_otra='neither to `develop` nor to `main`'; else con_main='ni siquiera a `main`'; con_otra='ni a `develop` ni a `main`'; fi
+  p="$TMP/lim-$idioma-main"; copiar "$p"
+  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" >/dev/null 2>&1)
+  grep -qF "$con_main" "$p/.claude/skills/implement-issue/SKILL.md"; afirmar $? "[--lang $idioma, base main] implement-issue dice '$con_main' (la frase entera, no 'main' dos veces)"
+  p="$TMP/lim-$idioma-develop"; copiar "$p"
+  (cd "$p" && ./scripts/init-template.sh Demo develop --lang "$idioma" >/dev/null 2>&1)
+  grep -qF "$con_otra" "$p/.claude/skills/implement-issue/SKILL.md"; afirmar $? "[--lang $idioma, base develop] implement-issue conserva '$con_otra'"
 done
 
 # --lang (#113): con es, cada X.md se reemplaza por su X.es.md; con en (default), los .es.md se borran.

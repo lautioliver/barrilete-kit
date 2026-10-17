@@ -108,6 +108,16 @@ FAIL - asigna el issue
 
 1 test(s) fallaron."
 
+# El formato de un test bash que red.sh reconoce hoy (y que implement-issue documenta, #143): "FAIL - <descripción>" al principio de la línea.
+# Otras formas (FAIL: ..., FALLA - ..., not ok) salen con 2: no se aceptan, se documenta el formato.
+rojo 0 "test-*.sh: FAIL - <descripción> (el formato que se documenta)" 1 "ok   - crea la rama
+FAIL - asigna el issue"
+rojo 2 "test-*.sh: FAIL: con dos puntos no se reconoce" 1 "ok   - crea la rama
+FAIL: asigna el issue"
+rojo 2 "test-*.sh: FALLA - en español no se reconoce" 1 "FALLA - asigna el issue"
+rojo 2 "test-*.sh: not ok no se reconoce" 1 "not ok 1 asigna el issue"
+rojo 2 "test-*.sh: FAIL sin separador no se reconoce" 1 "FAIL asigna el issue"
+
 # Cualquier herramienta
 rojo 2 "comando inexistente (exit 127)" 127 "bash: comando-que-no-existe: command not found"
 rojo 2 "comando sin permiso de ejecución (exit 126)" 126 "bash: ./test.sh: Permission denied"
@@ -117,6 +127,10 @@ rojo 1 "los tests pasan: no prueban nada" 0 "1 passed in 0.01s"
 printf '%s\n' "Segmentation fault" >"$TMP/salida.txt"
 s=$("$AQUI/red.sh" -- bash -c "cat '$TMP/salida.txt'; exit 1" 2>&1)
 if grep -q "I do not recognize this failure as an assertion" <<<"$s"; then ok "una falla desconocida explica qué hacer"; else falla "una falla desconocida explica qué hacer"; fi
+
+# La instalación en inglés no trae español en el uso ni en los comentarios de red.sh (#143).
+s=$("$AQUI/red.sh" 2>&1); if grep -q '^Usage: .*red.sh -- <test command>' <<<"$s"; then ok "red.sh sin argumentos imprime el uso en inglés"; else falla "red.sh sin argumentos imprime el uso en inglés"; fi
+if ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$AQUI/red.sh"; then ok "red.sh no tiene español en su uso ni en sus comentarios"; else falla "red.sh no tiene español en su uso ni en sus comentarios"; grep -Ein 'Uso:|ej\.:|comando de test|módulo' "$AQUI/red.sh"; fi
 
 # El bloque para el PR lleva el literal inglés que lee el CI (#115): "Red before implementing".
 bloque=$(cat "$TMP"/*.md 2>/dev/null)

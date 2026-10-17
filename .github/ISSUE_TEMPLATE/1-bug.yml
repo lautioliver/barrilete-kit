@@ -6,16 +6,16 @@ body:
     attributes:
       value: "Title: the symptom, descriptive. E.g.: *The QR does not validate offline*."
   - type: textarea
-    id: que-pasa
+    id: what-happens
     attributes: { label: What happens, description: What you see and where. }
     validations: { required: true }
   - type: textarea
-    id: esperado
+    id: expected
     attributes: { label: What should happen, description: With a link to the ADR or doc that defines it, if there is one. }
     validations: { required: true }
   - type: textarea
-    id: pasos
+    id: steps
     attributes: { label: How to reproduce it }
   - type: textarea
-    id: contexto
+    id: context
     attributes: { label: Context, description: Environment, IDs, logs (no secrets or personal data). }

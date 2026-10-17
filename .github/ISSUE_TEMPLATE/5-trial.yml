@@ -6,19 +6,19 @@ body:
     attributes:
       value: "Thanks for trying it. The guide is in `docs/try-the-template.md`. Do not paste secrets or personal data."
   - type: dropdown
-    id: herramienta
+    id: tool
     attributes:
       label: Tool
       options: [Claude Code, Codex, GitHub Copilot, Cursor, Other]
     validations: { required: true }
   - type: dropdown
-    id: modo
+    id: mode
     attributes:
       label: Mode
       options: [Full, Small, I did not get to initialize]
     validations: { required: true }
   - type: dropdown
-    id: hasta
+    id: how-far
     attributes:
       label: How far you got
       description: "The last step of the guide you finished. In small mode there is no step 7 (review) or orchestrate: if you reached the merge, pick 8."
@@ -34,27 +34,27 @@ body:
         - 9. If you have time left
     validations: { required: true }
   - type: textarea
-    id: trabas
+    id: blockers
     attributes:
       label: Where you got stuck
       description: One item per snag, with the step, what you did and the exact error. If you did not get stuck, write "none".
       placeholder: "- Step 3: I did not find where the test commands go. Error: …"
     validations: { required: true }
   - type: textarea
-    id: dudas
+    id: doubts
     attributes:
       label: What you read twice or did not understand
   - type: textarea
-    id: agente
+    id: agent
     attributes:
       label: What the agent did that you did not expect
       description: It stopped, asked too much, skipped something, touched what it should not have, or you did it by hand.
   - type: input
-    id: tiempo
+    id: time
     attributes:
       label: Time to the first PR
       placeholder: "for example: 50 minutes"
   - type: textarea
-    id: cambiaria
+    id: would-change
     attributes:
       label: Would you use it again? What would you change first?
