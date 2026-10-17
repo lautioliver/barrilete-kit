@@ -63,7 +63,7 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 <!-- template:start -->
 - [ADR-001 (kit)](decisions/ADR-001-language-labels-and-names-in-english.md) — idioma del kit: prosa en dos idiomas, labels y nombres en inglés (ADR del kit: el init no lo instala)
 <!-- template:end -->
-- [ADR-002](decisions/ADR-002-structured-red-validation.md) — el rojo se valida solo con un reporte estructurado (JUnit o TAP)
+- [ADR-002](decisions/kit/ADR-002-structured-red-validation.md) — el rojo se valida solo con un reporte estructurado (JUnit o TAP)
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — resumen en una línea`
 
 ### Guías

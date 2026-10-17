@@ -14,5 +14,5 @@ Reglas:
 
 ## Decisiones
 
-- [ADR-002](decisions/ADR-002-structured-red-validation.md) — el rojo se valida solo con un reporte estructurado (JUnit o TAP)
+- [ADR-002](decisions/kit/ADR-002-structured-red-validation.md) — el rojo se valida solo con un reporte estructurado (JUnit o TAP)
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — resumen en una línea`

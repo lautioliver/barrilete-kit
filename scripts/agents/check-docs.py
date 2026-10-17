@@ -4,7 +4,7 @@
 Checks:
 - Relative Markdown links ([text](path)) that point to missing files.
 - Paths in backticks (`dir/file.ext`) whose first directory exists but the file does not.
-- Mentions of ADR-NNN with no file in docs/decisions/.
+- Mentions of ADR-NNN with no file in docs/decisions/ or docs/decisions/kit/.
 - ADRs missing from docs/README.md or docs/llms.txt (and from their Spanish siblings, if they exist); a kit ADR with
   `Scope: kit` (the init only deletes `Ámbito: kit`) is a warning.
 - Required documents and paths of docs/agents-map.json that do not exist.
@@ -126,9 +126,17 @@ def sin_codigo(texto):
 
 
 # The .es.md siblings of an ADR are not ADRs of their own: only X.md counts (and in a fixed order, not the one os.listdir gives).
-adrs = {m.group(1): f for f in sorted(os.listdir("docs/decisions"), reverse=True)
-        if (m := re.match(r"ADR-(\d{3})-", f)) and not f.endswith(".es.md")} \
-    if os.path.isdir("docs/decisions") else {}
+# The ADRs of the kit that the projects install live in docs/decisions/kit/ (the project numbers its own in docs/decisions/), so the
+# same number can exist in both folders: each folder is read on its own and the index asks for each one by its path.
+def leer_adrs(carpeta):
+    if not os.path.isdir(carpeta):
+        return {}
+    return {m.group(1): f for f in sorted(os.listdir(carpeta), reverse=True)
+            if (m := re.match(r"ADR-(\d{3})-", f)) and not f.endswith(".es.md")}
+
+
+adrs = leer_adrs("docs/decisions")
+adrs_kit = leer_adrs("docs/decisions/kit")
 
 for archivo in md_files():
     with open(archivo, encoding="utf-8") as fh:
@@ -150,8 +158,8 @@ for archivo in md_files():
                     and not os.path.exists(os.path.join(carpeta, ruta)):
                 errores.append(f"{archivo}:{n}: missing path → `{ruta}`")
         for num in set(ADR.findall(prosa)):
-            if num != "000" and num not in adrs:
-                errores.append(f"{archivo}:{n}: ADR-{num} does not exist in docs/decisions/")
+            if num != "000" and num not in adrs and num not in adrs_kit:
+                errores.append(f"{archivo}:{n}: ADR-{num} does not exist in docs/decisions/ or docs/decisions/kit/")
 
 # In an installed repo every ADR is the project's (the kit's own are not installed) and its indices are the
 # project's too: the kit does not require them to list its ADRs.
@@ -160,9 +168,14 @@ for archivo in md_files():
 for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llms.es.txt"):
     if os.path.exists(indice) and not INSTALADO:
         contenido = open(indice, encoding="utf-8").read()
+        # The path is what is looked for ("decisions/" + name, "decisions/kit/" + name): the name alone would let the index line of
+        # one folder cover a file of the other.
         for num, f in adrs.items():
-            if num != "000" and f not in contenido:
+            if num != "000" and f"decisions/{f}" not in contenido:
                 errores.append(f"{indice}: the ADR {f} is missing from the index")
+        for f in adrs_kit.values():
+            if f"decisions/kit/{f}" not in contenido:
+                errores.append(f"{indice}: the ADR kit/{f} is missing from the index")
 
 # The init only deletes the ADRs of the kit with the exact line "Ámbito: kit" (it is a literal, it is not translated): one written
 # with "Scope: kit" would be installed in every project. Warning, not error: a project may use that line for something else.
