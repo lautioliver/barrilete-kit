@@ -266,11 +266,11 @@ ambos() {
 }
 SK="$RAIZ/.claude/skills"; AG="$RAIZ/.claude/agents"
 # 1. red.sh: el formato de las aserciones está dicho donde el implementador lo lee, con la sintaxis de red.sh.
-ambos "implement-issue (paso 3) dice qué reconoce red.sh en un test bash: FAIL - " 'starts with `FAIL - `|empieza con `FAIL - `' "$SK/implement-issue/SKILL.md"
-ambos "los implementadores nombran red.sh con su sintaxis (red.sh -- <test command>)" 'red\.sh -- <(test command|comando de test)>' "$AG/implementer.md" "$AG/implementer-light.md"
-ambos "los implementadores dicen el formato FAIL - (el que red.sh reconoce)" '`FAIL - `' "$AG/implementer.md" "$AG/implementer-light.md"
+ambos "implement-issue (paso 3) dice cómo escribe un test bash la evidencia del rojo: tap.sh con tap_check" 'scripts/agents/tap\.sh.*tap_check' "$SK/implement-issue/SKILL.md"
+ambos "los implementadores nombran red.sh con su sintaxis (red.sh [<stack>])" 'red\.sh \[<stack>\]' "$AG/implementer.md" "$AG/implementer-light.md"
+ambos "los implementadores dicen que un test bash usa tap.sh (la evidencia estructurada que red.sh lee)" 'scripts/agents/tap\.sh' "$AG/implementer.md" "$AG/implementer-light.md"
 for a in implementer implementer-light; do
-  grep -q 'red\.sh -- <' "$AG/$a.md" && grep -q 'FAIL - ' "$AG/$a.md" && ! grep -q 'FAIL: ' "$AG/$a.md"; tap_check $? "<a>: la sintaxis red.sh -- <comando> y el formato FAIL - (sin prometer FAIL:)" "$a: la sintaxis red.sh -- <comando> y el formato FAIL - (sin prometer FAIL:)"
+  grep -q 'red\.sh \[<stack>\]' "$AG/$a.md" && grep -q 'tap\.sh' "$AG/$a.md" && ! grep -q 'red\.sh -- <' "$AG/$a.md"; tap_check $? "<a>: la sintaxis red.sh [<stack>] y tap.sh (sin la forma vieja red.sh -- <comando>)" "$a: la sintaxis red.sh [<stack>] y tap.sh (sin la forma vieja)"
 done
 # 3. retro-template: agent_sha y skill_sha, que el contrato exige.
 for t in retro-template.md retro-template.es.md; do
@@ -286,7 +286,7 @@ ambos "la regla de saltear /code-review dice 'no existe en tu sesión' en la ski
 ambos "un diff vacío no es motivo para saltear /code-review (se arregla el rango)" 'empty diff|diff vacío' "$C" "$I"
 # 8. El revisor no corre código del PR salvo los tests: los scripts del kit salen del checkout de confianza.
 ambos "review-pr: agents_map.py y red.sh corren desde el checkout de confianza (<root>), no desde el worktree del PR" 'cd <root> && python3 scripts/agents/agents_map.py --pr <n>' "$V"
-ambos "review-pr: red.sh del checkout de confianza, y lo único del PR que corre son sus tests" '<root>/.claude/skills/implement-issue/red\.sh --' "$V"
+ambos "review-pr: red.sh del checkout de confianza, y lo único del PR que corre son sus tests" '<root>/\.claude/skills/implement-issue/red\.sh \[<stack>\]' "$V"
 ambos "revisor: red.sh y agents_map.py del checkout del orquestador, no del worktree de revisión" '(root|raiz).*/\.claude/skills/implement-issue/red\.sh.*agents_map\.py' "$R"
 # 8 (aprobado por @lautioliver): una sola regla de lo que corre el revisor, igual en el revisor, review-pr y el contrato.
 ambos "revisor, review-pr y contrato: los scripts del kit (red.sh, agents_map.py, verify.py, retro.sh) salen del checkout de confianza, en la rama base" 'red\.sh.*agents_map\.py.*retro\.sh.*(trusted checkout, on the base branch|checkout de confianza, en la rama base)' "$R" "$V" "$C"
