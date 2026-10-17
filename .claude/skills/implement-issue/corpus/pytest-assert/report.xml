@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="0.001" timestamp="2026-10-17T00:00:00" hostname="host"><testcase classname="test_new" name="test_total" file="test_new.py" line="2" time="0.001"><failure message="assert 0 == 3&#10; +  where 0 = total([1, 2])">def test_total():
+&gt;       assert total([1, 2]) == 3
+E       assert 0 == 3
+E        +  where 0 = total([1, 2])
+
+test_new.py:4: AssertionError</failure></testcase><testcase classname="test_old" name="test_old" file="test_old.py" line="2" time="0.001" /></testsuite></testsuites>

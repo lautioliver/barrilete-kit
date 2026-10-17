@@ -1,0 +1,5 @@
+expect=2
+format=junit
+exit=1
+source=real: vitest 5.0.5 (node 26.7)
+says=is not defined

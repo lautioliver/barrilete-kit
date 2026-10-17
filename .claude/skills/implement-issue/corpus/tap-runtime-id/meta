@@ -1,0 +1,5 @@
+expect=0
+format=tap
+exit=1
+source=handwritten: the TAP 14 stream of the helper of D6 (ADR-002) as scripts/agents/tap.sh (issue #151) writes it
+note=the id is the literal first argument of the helper; the part after ' # ' is a description that is not compared (D4)

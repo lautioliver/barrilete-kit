@@ -1,0 +1,7 @@
+panic: boom
+
+goroutine 1 [running]:
+example.com/m/calc.TestMain(...)
+exit status 2
+FAIL	example.com/m/calc	0.003s
+FAIL

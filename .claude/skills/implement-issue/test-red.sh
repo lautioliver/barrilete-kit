@@ -1,141 +1,276 @@
 #!/usr/bin/env bash
-# Tests de red.sh con herramientas de test simuladas: cada caso imprime la salida típica
-# de pytest o vitest/jest y sale con su código, sin instalarlas.
-# Uso: bash .claude/skills/implement-issue/test-red.sh
+# Tests of red.sh (ADR-002): every case of corpus/ is run through red.sh, and so are the cases that
+# the corpus cannot express (usage, the `red` section, the report path, timeouts, the trusted checkout).
+#
+# A corpus case is a directory:
+#   meta        expect=<exit code of red.sh> format=junit|tap exit=<exit code of the runner> source=<how the fixture was made>
+#               optional: says=<text red.sh must print>, timeout=<s>, sleep=<s the runner stays alive>, note=
+#   base/       the files of the parent commit
+#   red/        the files the red commit adds or changes
+#   report.xml  | report.tap   what the runner wrote to {out} (absent: it wrote nothing)
+#   output.txt  what the runner printed
+# The runner is simulated: it prints output.txt, copies the report to {out} and exits with `exit`.
+# The reports of pytest, vitest and jest are real output; the rest is written by hand (see `source`).
+#
+# Usage: bash .claude/skills/implement-issue/test-red.sh
 set -uo pipefail
-AQUI=$(cd "$(dirname "$0")" && pwd)
+HERE=$(cd "$(dirname "$0")" && pwd)
+KIT=$(cd "$HERE/../../.." && pwd)
+CORPUS="$HERE/corpus"
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-red-XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
-export TMPDIR="$TMP"  # red.sh deja ahí la salida y el bloque del PR
-fallas=0
+export TMPDIR="$TMP/tmp"
+mkdir -p "$TMPDIR"
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+failures=0
 ok() { echo "ok   - $1"; }
-falla() { echo "FAIL - $1"; fallas=$((fallas + 1)); }
-
-# rojo <código esperado> <descripción> <código de salida de la herramienta> <salida de la herramienta>
-rojo() {
-  printf '%s\n' "$4" >"$TMP/salida.txt"
-  "$AQUI/red.sh" -- bash -c "cat '$TMP/salida.txt'; exit $3" >"$TMP/out" 2>&1
-  local c=$?
-  if [ "$c" -eq "$1" ]; then ok "$2"; else falla "$2 (salió con $c, esperado $1)"; sed 's/^/       /' "$TMP/out"; fi
+fail() { echo "FAIL - $1"; failures=$((failures + 1)); }
+check() { # check <description> <command...>
+  local d=$1; shift
+  if "$@"; then ok "$d"; else fail "$d"; fi
 }
 
-# pytest
-rojo 2 "pytest: ImportError (la función no existe)" 2 "ImportError while importing test module '/p/test_x.py'.
-E   ImportError: cannot import name 'total' from 'app' (/p/app.py)
-=========================== short test summary info ============================
-ERROR test_x.py
-!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!
-1 error in 0.05s"
-rojo 2 "pytest: AttributeError en el módulo" 1 "    def test_t():
->       assert app.total([1, 2]) == 3
-E       AttributeError: module 'app' has no attribute 'total'
-=========================== short test summary info ============================
-FAILED test_x.py::test_t - AttributeError: module 'app' has no attribute 'total'
-1 failed in 0.02s"
-rojo 2 "pytest: archivo de test inexistente" 4 "ERROR: file or directory not found: test_x.py
+# The runner of the corpus: prints the output, writes the report to {out} and exits.
+cat >"$TMP/fake-run.sh" <<'EOF'
+#!/usr/bin/env bash
+case_dir=$1 out=$2 code=$3 pause=$4
+cat "$case_dir/output.txt" 2>/dev/null
+for r in "$case_dir"/report.xml "$case_dir"/report.tap; do [ -f "$r" ] && cp "$r" "$out"; done
+[ "$pause" != 0 ] && sleep "$pause"
+exit "$code"
+EOF
 
-no tests ran in 0.00s"
-rojo 2 "pytest: NameError" 1 "E       NameError: name 'total' is not defined
-FAILED test_x.py::test_t - NameError: name 'total' is not defined"
-rojo 0 "pytest: aserción que falla de verdad" 1 "    def test_t():
->       assert total([1, 2]) == 3
-E       assert 0 == 3
-E        +  where 0 = total([1, 2])
-=========================== short test summary info ============================
-FAILED test_x.py::test_t - assert 0 == 3
-1 failed in 0.02s"
+# install_kit <repo>: red.sh and what it needs, in the layout of an installed project.
+install_kit() {
+  mkdir -p "$1/.claude/skills/implement-issue" "$1/scripts/agents" "$1/docs"
+  cp "$HERE/red.sh" "$1/.claude/skills/implement-issue/red.sh"
+  cp "$KIT/scripts/agents/red_report.py" "$KIT/scripts/agents/agents_map.py" "$1/scripts/agents/"
+}
 
-# pytest: el test corre pero falla antes de la aserción (FAILED no alcanza como evidencia).
-rojo 2 "pytest: TypeError por firma incorrecta" 1 "    def test_t():
->       assert total([1, 2], 0) == 3
-E       TypeError: total() takes 1 positional argument but 2 were given
-=========================== short test summary info ============================
-FAILED test_x.py::test_t - TypeError: total() takes 1 positional argument but 2 were given
-1 failed in 0.02s"
-rojo 2 "pytest: KeyError" 1 "    def test_t():
->       assert precios['total'] == 3
-E       KeyError: 'total'
-=========================== short test summary info ============================
-FAILED test_x.py::test_t - KeyError: 'total'
-1 failed in 0.02s"
-rojo 2 "pytest: AttributeError sobre un objeto (símbolo inexistente)" 1 "    def test_t():
->       assert Carrito().total() == 3
-E       AttributeError: 'Carrito' object has no attribute 'total'
-=========================== short test summary info ============================
-FAILED test_x.py::test_t - AttributeError: 'Carrito' object has no attribute 'total'
-1 failed in 0.02s"
+# write_map <repo> <json of the red section>
+write_map() { printf '{"red": %s}\n' "$2" >"$1/docs/agents-map.json"; }
 
-# pytest: rojos válidos que no traen "E   assert".
-rojo 0 "pytest: pytest.raises que no se cumple" 1 "    def test_t():
-        with pytest.raises(ValueError):
->           validar(-1)
-E           Failed: DID NOT RAISE <class 'ValueError'>
-=========================== short test summary info ============================
-FAILED test_x.py::test_t - Failed: DID NOT RAISE <class 'ValueError'>
-1 failed in 0.02s"
-rojo 0 "pytest --tb=line: la aserción solo está en el resumen" 1 "/p/test_x.py:3: assert 0 == 3
-=========================== short test summary info ============================
-FAILED test_x.py::test_t - assert 0 == 3
-1 failed in 0.02s"
-rojo 0 "pytest con color: la línea E empieza con códigos ANSI" 1 "$(printf '\033[1m\033[31mE       assert 0 == 3\033[0m\nFAILED test_x.py::test_t - assert 0 == 3')"
+new_repo() { # new_repo <dir>
+  rm -rf "$1"; mkdir -p "$1"; git -C "$1" init -q; git -C "$1" config commit.gpgsign false
+}
+commit_all() { git -C "$1" add -A && git -C "$1" commit -q --allow-empty -m "$2"; }
 
-# vitest / jest
-rojo 2 "vitest: TypeError sobre undefined" 1 " FAIL  src/suma.test.ts > suma > suma dos números
-TypeError: Cannot read properties of undefined (reading 'total')
- ❯ src/suma.test.ts:5:23
- × suma > suma dos números
- Test Files  1 failed (1)"
-rojo 0 "vitest: aserción que falla de verdad" 1 " FAIL  src/suma.test.ts > suma > suma dos números
-AssertionError: expected 0 to be 3 // Object.is equality
+# run_red <repo> [args]: red.sh of that repo, output in $TMP/out, exit code in $code
+run_red() {
+  local repo=$1; shift
+  (cd "$repo" && "$repo/.claude/skills/implement-issue/red.sh" "$@") >"$TMP/out" 2>&1
+  code=$?
+}
+show() { sed 's/^/       /' "$TMP/out"; }
+meta() { grep "^$2=" "$1/meta" | head -1 | cut -d= -f2-; }
 
-- Expected
-+ Received
+# ---------------------------------------------------------------- the corpus
+n=0
+for c in "$CORPUS"/*/; do
+  c=${c%/}; name=$(basename "$c"); n=$((n + 1))
+  expect=$(meta "$c" expect); fmt=$(meta "$c" format); rc=$(meta "$c" exit)
+  says=$(meta "$c" says); tmo=$(meta "$c" timeout); pause=$(meta "$c" sleep)
+  repo="$TMP/w/$name"
+  new_repo "$repo"
+  [ -d "$c/base" ] && cp -R "$c/base/." "$repo/"
+  install_kit "$repo"
+  python3 - "$repo/docs/agents-map.json" "$fmt" "$TMP/fake-run.sh" "$c" "$rc" "${pause:-0}" "${tmo:-}" <<'EOF'
+import json, sys
+out, fmt, fake, case, rc, pause, tmo = sys.argv[1:8]
+entry = {"name": "tests", "when": ["**"], "format": fmt, "run": f"bash {fake} {case} {{out}} {rc} {pause}"}
+if tmo:
+    entry["timeout"] = int(tmo)
+json.dump({"red": [entry]}, open(out, "w"))
+EOF
+  commit_all "$repo" base
+  [ -d "$c/red" ] && cp -R "$c/red/." "$repo/"
+  commit_all "$repo" red
+  run_red "$repo"
+  if [ "$code" -ne "$expect" ]; then
+    fail "corpus $name: red.sh exited with $code, expected $expect"; show
+  elif [ -n "$says" ] && ! grep -qF -- "$says" "$TMP/out"; then
+    fail "corpus $name: the output lacks the text of its says= line"; show
+  else
+    ok "corpus $name -> $expect"
+  fi
+done
+check "the corpus has cases ($n)" test "$n" -ge 100
 
-- 3
-+ 0
+# ---------------------------------------------------------------- the PR block
+repo="$TMP/w/pytest-assert"
+run_red "$repo"
+block=$(sed -n 's/^Block for .*: //p' "$TMP/out")
+sha=$(git -C "$repo" rev-parse HEAD)
+check "red: a valid red prints the block path" test -f "$block"
+b=$(cat "$block" 2>/dev/null)
+check "block: uses the English literal Red before implementing" grep -q '<summary>Red before implementing</summary>' <<<"$b"
+check "block: red commit is the sha of HEAD" grep -qx "red commit: $sha" <<<"$b"
+check "block: stack and format lines" bash -c 'grep -qx "stack: tests" <<<"$1" && grep -qx "format: junit" <<<"$1"' _ "$b"
+check "block: failing cases as file::name" grep -qx -- '- test_new.py::test_total' <<<"$b"
+check "block: it lists only the failed case" test "$(grep -c '^- ' <<<"$b")" -eq 1
+check "block: closes the details" grep -q '^</details>' <<<"$b"
 
- ❯ src/suma.test.ts:5:23
- Test Files  1 failed (1)"
-rojo 2 "vitest: Cannot find module" 1 " FAIL  src/suma.test.ts [ src/suma.test.ts ]
-Error: Cannot find module './suma' imported from /p/src/suma.test.ts
- Test Files  1 failed (1)"
-rojo 2 "jest: No tests found" 1 "No tests found, exiting with code 1
-Run with \`--passWithNoTests\` to exit with code 0"
+# ---------------------------------------------------------------- usage and the red section
+repo="$TMP/w/pytest-assert"
+run_red "$repo" -- bash -c 'exit 1'
+check "usage: red.sh -- <command> is gone (exit 64)" test "$code" -eq 64
+check "usage: it says where the command is declared" grep -q 'agents-map.json' "$TMP/out"
+run_red "$repo" a b
+check "usage: two stacks (exit 64)" test "$code" -eq 64
+run_red "$repo" nosuch
+check "an unknown stack exits with 2 and lists the stacks" bash -c 'test "$1" -eq 2 && grep -q "tests" "$2"' _ "$code" "$TMP/out"
 
-# Los test-*.sh de la plantilla (ok/FAIL con afirmar)
-rojo 0 "test-*.sh: una afirmación que falla" 1 "ok   - crea la rama
-FAIL - asigna el issue
+r="$TMP/w/nosection"; new_repo "$r"; install_kit "$r"; printf '{"docs": []}\n' >"$r/docs/agents-map.json"
+echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
+run_red "$r"
+check "D1: no red section -> exit 2 with a guide" bash -c 'test "$1" -eq 2 && grep -q "no .red. section" "$2" && grep -q "gotestsum" "$2" && grep -q "no text fallback" "$2"' _ "$code" "$TMP/out"
 
-1 test(s) fallaron."
+bad_map() { # bad_map <description> <json of the red section> <text expected>
+  local r="$TMP/w/badmap"; new_repo "$r"; install_kit "$r"; write_map "$r" "$2"
+  echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
+  run_red "$r"
+  if [ "$code" -eq 2 ] && grep -qF -- "$3" "$TMP/out"; then ok "$1"; else fail "$1 (exit $code)"; show; fi
+}
+bad_map "map: run without {out} is rejected" '[{"name":"t","when":["**"],"run":"true","format":"tap"}]' '{out}'
+bad_map "map: unknown format is rejected" '[{"name":"t","when":["**"],"run":"true {out}","format":"text"}]' '"junit" or "tap"'
+bad_map "map: no when is rejected" '[{"name":"t","run":"true {out}","format":"tap"}]' '`when`'
+bad_map "map: timeout must be a positive number" '[{"name":"t","when":["**"],"run":"true {out}","format":"tap","timeout":"soon"}]' '`timeout`'
+bad_map "map: zero timeout is rejected" '[{"name":"t","when":["**"],"run":"true {out}","format":"tap","timeout":0}]' '`timeout`'
+bad_map "map: duplicate names are rejected" '[{"name":"t","when":["**"],"run":"true {out}","format":"tap"},{"name":"t","when":["**"],"run":"true {out}","format":"tap"}]' 'unique `name`'
+bad_map "map: a stack that matches no changed file" '[{"name":"t","when":["src/**"],"run":"true {out}","format":"tap"}]' 'no `red` entry matches'
 
-# El formato de un test bash que red.sh reconoce hoy (y que implement-issue documenta, #143): "FAIL - <descripción>" al principio de la línea.
-# Otras formas (FAIL: ..., FALLA - ..., not ok) salen con 2: no se aceptan, se documenta el formato.
-rojo 0 "test-*.sh: FAIL - <descripción> (el formato que se documenta)" 1 "ok   - crea la rama
-FAIL - asigna el issue"
-rojo 2 "test-*.sh: FAIL: con dos puntos no se reconoce" 1 "ok   - crea la rama
-FAIL: asigna el issue"
-rojo 2 "test-*.sh: FALLA - en español no se reconoce" 1 "FALLA - asigna el issue"
-rojo 2 "test-*.sh: not ok no se reconoce" 1 "not ok 1 asigna el issue"
-rojo 2 "test-*.sh: FAIL sin separador no se reconoce" 1 "FAIL asigna el issue"
+# ---------------------------------------------------------------- the commit
+r="$TMP/w/dirty"; cp -R "$TMP/w/pytest-assert" "$r"; echo "# x" >>"$r/test_old.py"
+run_red "$r"
+check "a tracked file changed after the red commit -> exit 2" bash -c 'test "$1" -eq 2 && grep -q "uncommitted" "$2"' _ "$code" "$TMP/out"
 
-# Cualquier herramienta
-rojo 2 "comando inexistente (exit 127)" 127 "bash: comando-que-no-existe: command not found"
-rojo 2 "comando sin permiso de ejecución (exit 126)" 126 "bash: ./test.sh: Permission denied"
-rojo 2 "una falla desconocida no se da por buena" 1 "Segmentation fault (core dumped)"
-rojo 1 "los tests pasan: no prueban nada" 0 "1 passed in 0.01s"
+r="$TMP/w/rootcommit"; new_repo "$r"; install_kit "$r"; write_map "$r" '[{"name":"t","when":["**"],"run":"true {out}","format":"tap"}]'
+commit_all "$r" only
+run_red "$r"
+check "a red commit without parent -> exit 2" bash -c 'test "$1" -eq 2 && grep -q "no parent" "$2"' _ "$code" "$TMP/out"
 
-printf '%s\n' "Segmentation fault" >"$TMP/salida.txt"
-s=$("$AQUI/red.sh" -- bash -c "cat '$TMP/salida.txt'; exit 1" 2>&1)
-if grep -q "I do not recognize this failure as an assertion" <<<"$s"; then ok "una falla desconocida explica qué hacer"; else falla "una falla desconocida explica qué hacer"; fi
+# ---------------------------------------------------------------- several stacks, the choice of stack
+r="$TMP/w/two-stacks"; new_repo "$r"; install_kit "$r"
+mkdir -p "$TMP/py" "$TMP/tp"; cp "$CORPUS/pytest-assert/"{report.xml,output.txt} "$TMP/py/"; cp "$CORPUS/tap-new-script/"{report.tap,output.txt} "$TMP/tp/"
+python3 - "$r/docs/agents-map.json" "$TMP/fake-run.sh" "$TMP/py" "$TMP/tp" <<'EOF'
+import json, sys
+out, fake, py, tp = sys.argv[1:5]
+json.dump({"red": [
+    {"name": "py", "when": ["**/*.py"], "format": "junit", "run": f"bash {fake} {py} {{out}} 1 0"},
+    {"name": "sh", "when": ["**/*.sh"], "format": "tap", "run": f"bash {fake} {tp} {{out}} 1 0"}]}, open(out, "w"))
+EOF
+mkdir -p "$r/scripts"
+printf 'x\n' >"$r/test_old.py"; printf 'x\n' >"$r/scripts/test-calc.sh"; commit_all "$r" base
+cp -R "$CORPUS/pytest-assert/red/." "$r/"; mkdir -p "$r/scripts"; cp -R "$CORPUS/tap-new-script/red/." "$r/"
+commit_all "$r" red
+run_red "$r"
+b=$(cat "$(sed -n 's/^Block for .*: //p' "$TMP/out")" 2>/dev/null)
+check "two stacks that match, both red -> exit 0" test "$code" -eq 0
+check "two stacks: one group per stack in the block" bash -c 'test "$(grep -c "^stack: " <<<"$1")" -eq 2 && grep -q "^stack: py" <<<"$1" && grep -q "^stack: sh" <<<"$1"' _ "$b"
+check "two stacks: red commit appears once" test "$(grep -c '^red commit: ' <<<"$b")" -eq 1
+run_red "$r" py
+b=$(cat "$(sed -n 's/^Block for .*: //p' "$TMP/out")" 2>/dev/null)
+check "red.sh <stack> runs only that stack" bash -c 'test "$1" -eq 0 && test "$(grep -c "^stack: " <<<"$2")" -eq 1 && ! grep -q "stack \"sh\"" "$3"' _ "$code" "$b" "$TMP/out"
+python3 - "$r/docs/agents-map.json" <<'EOF'
+import json, sys
+p = sys.argv[1]; m = json.load(open(p)); m["red"][1]["run"] = m["red"][1]["run"].replace(" 1 0", " 0 0"); json.dump(m, open(p, "w"))
+EOF
+git -C "$r" commit -q -a --amend --no-edit; run_red "$r"
+check "two stacks: one is rejected, the whole red is rejected (exit 2)" bash -c 'test "$1" -eq 2' _ "$code"
+git -C "$r" commit -q --allow-empty -m "empty"; run_red "$r"
+check "a red commit that changes no file matches no stack (exit 2)" bash -c 'test "$1" -eq 2 && grep -q "no .red. entry matches" "$2"' _ "$code" "$TMP/out"
 
-# La instalación en inglés no trae español en el uso ni en los comentarios de red.sh (#143).
-s=$("$AQUI/red.sh" 2>&1); if grep -q '^Usage: .*red.sh -- <test command>' <<<"$s"; then ok "red.sh sin argumentos imprime el uso en inglés"; else falla "red.sh sin argumentos imprime el uso en inglés"; fi
-if ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$AQUI/red.sh"; then ok "red.sh no tiene español en su uso ni en sus comentarios"; else falla "red.sh no tiene español en su uso ni en sus comentarios"; grep -Ein 'Uso:|ej\.:|comando de test|módulo' "$AQUI/red.sh"; fi
+# ---------------------------------------------------------------- the report path, the timeout, the process group, the size
+case_repo() { # case_repo <dir> <run>: a repo whose red commit adds test_new.py; the stack runs <run>
+  local r=$1; new_repo "$r"; install_kit "$r"
+  python3 - "$r/docs/agents-map.json" "$2" "${3:-600}" <<'EOF'
+import json, sys
+out, run, tmo = sys.argv[1:4]
+json.dump({"red": [{"name": "t", "when": ["**/*.py"], "format": "junit", "run": run, "timeout": int(tmo)}]}, open(out, "w"))
+EOF
+  printf 'def test_old():\n    assert True\n' >"$r/test_old.py"; commit_all "$r" base
+  printf 'def test_new():\n    assert False\n' >"$r/test_new.py"; commit_all "$r" red
+}
+GOOD_XML='<testsuites><testsuite name="p" tests="1" failures="1"><testcase classname="test_new" name="test_new" file="test_new.py"><failure message="x"/></testcase></testsuite></testsuites>'
 
-# El bloque para el PR lleva el literal inglés que lee el CI (#115): "Red before implementing".
-bloque=$(cat "$TMP"/*.md 2>/dev/null)
-if grep -q '<summary>Red before implementing</summary>' <<<"$bloque" && ! grep -q 'Rojo antes de implementar' <<<"$bloque"; then ok "el bloque del PR usa el literal Red before implementing"; else falla "el bloque del PR usa el literal Red before implementing"; fi
+# D2/D3: the path of the report is new in every run, and nothing exists there before the run
+r="$TMP/w/path"; log="$TMP/path.log"; : >"$log"
+case_repo "$r" "[ -e {out} ] && echo EXISTED >>$log; echo {out} >>$log; echo '$GOOD_XML' > {out}; exit 1"
+run_red "$r"; first=$code
+run_red "$r"
+check "report path: a valid red twice" test "$first" -eq 0 -a "$code" -eq 0
+check "report path: nothing existed at {out} before the run" bash -c '! grep -q EXISTED "$1"' _ "$log"
+check "report path: it is different in each run" test "$(grep -c '^/' "$log")" -eq 2 -a "$(grep '^/' "$log" | sort -u | wc -l | tr -d ' ')" -eq 2
+check "report path: it is under TMPDIR, not in the repo" bash -c 'grep "^/" "$1" | grep -q "^$2/"' _ "$log" "$TMPDIR"
+
+# an old report left by a previous run cannot be reused
+r="$TMP/w/stale"; case_repo "$r" "exit 1"
+run_red "$r"
+check "a run that writes no report is rejected even if an old one exists elsewhere" bash -c 'test "$1" -eq 2 && grep -q "not created in this run" "$2"' _ "$code" "$TMP/out"
+
+# D5: timeout applied with python, and the whole process group dies
+r="$TMP/w/timeout"; case_repo "$r" "echo '$GOOD_XML' > {out}; sleep 30 & wait" 1
+start=$(date +%s); run_red "$r"; end=$(date +%s)
+check "timeout: the run is killed (exit 2) well before it ends by itself" bash -c 'test "$1" -eq 2 && grep -q "passed its timeout" "$2" && test "$3" -lt 15' _ "$code" "$TMP/out" "$((end - start))"
+
+r="$TMP/w/group"; flag="$TMP/late"; rm -f "$flag"
+case_repo "$r" "(sleep 2; echo late > $flag) & exit 1"
+run_red "$r"; sleep 3
+check "process group: a background child cannot write after red.sh returns" bash -c 'test "$1" -eq 2 && ! test -e "$2"' _ "$code" "$flag"
+
+r="$TMP/w/timeout-conf"; case_repo "$r" "echo '$GOOD_XML' > {out}; exit 1" 7
+check "timeout: it is read from the entry" grep -q '"timeout": 7' "$r/docs/agents-map.json"
+run_red "$r"
+check "timeout: a run that ends in time is judged normally" test "$code" -eq 0
+check "timeout: the output says the timeout of the stack" grep -q 'timeout 7 s' "$TMP/out"
+
+r="$TMP/w/default-timeout"; case_repo "$r" "echo '$GOOD_XML' > {out}; exit 1"
+python3 - "$r/docs/agents-map.json" <<'EOF'
+import json, sys
+p = sys.argv[1]; m = json.load(open(p)); del m["red"][0]["timeout"]; json.dump(m, open(p, "w"))
+EOF
+git -C "$r" commit -q -a --amend --no-edit; run_red "$r"
+check "timeout: without the field it is 600 s" grep -q 'timeout 600 s' "$TMP/out"
+
+# D3: a report larger than 20 MB is not read
+r="$TMP/w/big"; case_repo "$r" "head -c 21000000 /dev/zero > {out}; exit 1"
+run_red "$r"
+check "a report larger than 20 MB is rejected without reading it" bash -c 'test "$1" -eq 2 && grep -q "larger than 20 MB" "$2"' _ "$code" "$TMP/out"
+r="$TMP/w/symlink"; case_repo "$r" "echo '$GOOD_XML' > $TMP/target.xml; ln -s $TMP/target.xml {out}; exit 1"
+run_red "$r"
+check "a report that is a symbolic link is rejected" bash -c 'test "$1" -eq 2 && grep -q "not a regular file" "$2"' _ "$code" "$TMP/out"
+
+# D2: stdout of the run is not the evidence: lines that look like TAP on stdout inject no case
+r="$TMP/w/stdout"; new_repo "$r"; install_kit "$r"
+python3 - "$r/docs/agents-map.json" <<'EOF'
+import json, sys
+json.dump({"red": [{"name": "t", "when": ["**"], "format": "tap", "run": "printf 'ok 1 - injected\\nnot ok 2 - injected\\n1..2\\n'; printf 'TAP version 14\\n1..1\\nok 1 - fine\\n' > {out}; exit 1"}]}, open(sys.argv[1], "w"))
+EOF
+echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
+run_red "$r"
+check "stdout of the run is not parsed: only {out} counts" bash -c 'test "$1" -eq 2 && grep -q "no failure" "$2"' _ "$code" "$TMP/out"
+
+# D2: pipefail keeps the failing exit code of a pipeline
+r="$TMP/w/pipefail"; case_repo "$r" "{ echo '$GOOD_XML' > {out}; exit 1; } | cat"
+run_red "$r"
+check "pipefail: a failing pipeline still counts as failing" test "$code" -eq 0
+
+# ---------------------------------------------------------------- the red section comes from where red.sh lives (D7: the trusted checkout)
+trusted="$TMP/trusted"; mkdir -p "$trusted"; install_kit "$trusted"
+write_map "$trusted" "[{\"name\":\"trusted\",\"when\":[\"**/*.py\"],\"format\":\"junit\",\"run\":\"echo '$GOOD_XML' > {out}; exit 1\"}]"
+r="$TMP/w/pr"; new_repo "$r"; mkdir -p "$r/docs"
+printf 'def test_old():\n    assert True\n' >"$r/test_old.py"; commit_all "$r" base
+printf 'def test_new():\n    assert False\n' >"$r/test_new.py"
+printf '{"red":[{"name":"pr","when":["**"],"format":"tap","run":"touch %s/pwned; echo {out}"}]}\n' "$TMP" >"$r/docs/agents-map.json"
+commit_all "$r" red
+(cd "$r" && "$trusted/.claude/skills/implement-issue/red.sh") >"$TMP/out" 2>&1; code=$?
+check "trusted checkout: red.sh runs the red section of its own checkout, never the PR's" bash -c 'test "$1" -eq 0 && grep -q "stack \"trusted\"" "$2" && ! test -e "$3/pwned"' _ "$code" "$TMP/out" "$TMP"
+
+# ---------------------------------------------------------------- the files of red.sh are in English
+check "red.sh prints its usage in English" bash -c 'cd "$1" && .claude/skills/implement-issue/red.sh a b 2>&1 | grep -q "^Usage: red.sh"' _ "$TMP/w/pytest-assert"
+if ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$HERE/red.sh" "$KIT/scripts/agents/red_report.py"; then ok "red.sh and red_report.py have no Spanish"; else fail "red.sh and red_report.py have no Spanish"; fi
 
 echo
-if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
-echo "Todos los tests pasan."
+if [ "$failures" -ne 0 ]; then echo "$failures test(s) failed."; exit 1; fi
+echo "All the tests pass."

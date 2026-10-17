@@ -1,0 +1,4 @@
+expect=0
+format=junit
+exit=1
+source=real: pytest 8.4.2 (python 3.9)

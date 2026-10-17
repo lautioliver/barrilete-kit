@@ -1,0 +1,32 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0
+rootdir: /private/work/p
+collected 2 items
+
+test_new.py F                                                            [ 50%]
+test_old.py F                                                            [100%]
+
+=================================== FAILURES ===================================
+__________________________________ test_total __________________________________
+
+    def test_total():
+>       assert total([1, 2]) == 3
+E       assert 0 == 3
+E        +  where 0 = total([1, 2])
+
+test_new.py:4: AssertionError
+__________________________________ test_parse __________________________________
+
+    def test_parse():
+>       assert total([1]) == 1
+E       assert 0 == 1
+E        +  where 0 = total([1])
+
+test_old.py:4: AssertionError
+- generated xml file: /work/report.xml -
+=========================== short test summary info ============================
+FAILED test_new.py::test_total - assert 0 == 3
+ +  where 0 = total([1, 2])
+FAILED test_old.py::test_parse - assert 0 == 1
+ +  where 0 = total([1])
+============================== 2 failed in 0.01s ===============================

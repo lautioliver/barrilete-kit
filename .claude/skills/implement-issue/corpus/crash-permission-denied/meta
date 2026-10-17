@@ -1,0 +1,5 @@
+expect=2
+format=tap
+exit=126
+source=handwritten: the message the shell or the runtime prints for that signal or error
+says=did not run

@@ -1,0 +1,4 @@
+expect=0
+format=junit
+exit=101
+source=handwritten from the documented format of cargo2junit (README) and cargo test output: cargo is not installed here

@@ -1,0 +1,4 @@
+TAP version 14
+# file: scripts/test-new.sh
+not ok 1 - creates the branch
+1..1

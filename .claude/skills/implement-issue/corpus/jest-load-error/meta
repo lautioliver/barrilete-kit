@@ -1,0 +1,5 @@
+expect=2
+format=junit
+exit=1
+source=real: jest 30.5.2 + jest-junit 17.0.0 (node 26.7)
+says=no executed case

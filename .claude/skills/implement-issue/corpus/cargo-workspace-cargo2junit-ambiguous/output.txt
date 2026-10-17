@@ -1,0 +1,4 @@
+    Starting 1 test across 1 binary
+        FAIL [   0.004s] two works
+     Summary [   0.005s] 1 test run: 0 passed, 1 failed, 0 skipped
+error: test run failed

@@ -1,0 +1,9 @@
+make[1]: Entering directory '/work'
+make  check-TESTS
+FAIL: tests/run.sh
+============================================================================
+Testsuite summary for demo 1.0
+# TOTAL: 1
+# FAIL:  1
+See ./test-suite.log
+make[1]: *** [Makefile:900: test-suite.log] Error 1

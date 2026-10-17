@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0
+rootdir: /private/work/p
+collected 1 item / 1 error
+
+==================================== ERRORS ====================================
+_________________________ ERROR collecting test_new.py _________________________
+ImportError while importing test module '/private/work/p/test_new.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/importlib/__init__.py:127: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+test_new.py:1: in <module>
+    from app import total, nope
+E   ImportError: cannot import name 'nope' from 'app' (/private/work/p/app.py)
+- generated xml file: /work/report.xml -
+=========================== short test summary info ============================
+ERROR test_new.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.01s ===============================

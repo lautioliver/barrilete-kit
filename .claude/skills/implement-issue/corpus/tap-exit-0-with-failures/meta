@@ -1,0 +1,5 @@
+expect=2
+format=tap
+exit=0
+source=handwritten: the TAP 14 stream of the helper of D6 (ADR-002) as scripts/agents/tap.sh (issue #151) writes it
+says=inconsistent

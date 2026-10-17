@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="3" time="0.001" timestamp="2026-10-17T00:00:00" hostname="host"><testcase classname="test_p" name="test_p[1-2]" file="test_p.py" line="3" time="0.001"><failure message="assert 0 == 2&#10; +  where 0 = total([1])">a = 1, b = 2
+
+    @pytest.mark.parametrize("a,b", [(1, 2), (2, 3), (3, 4)])
+    def test_p(a, b):
+&gt;       assert total([a]) == b
+E       assert 0 == 2
+E        +  where 0 = total([1])
+
+test_p.py:6: AssertionError</failure></testcase><testcase classname="test_p" name="test_p[2-3]" file="test_p.py" line="3" time="0.001"><failure message="assert 0 == 3&#10; +  where 0 = total([2])">a = 2, b = 3
+
+    @pytest.mark.parametrize("a,b", [(1, 2), (2, 3), (3, 4)])
+    def test_p(a, b):
+&gt;       assert total([a]) == b
+E       assert 0 == 3
+E        +  where 0 = total([2])
+
+test_p.py:6: AssertionError</failure></testcase><testcase classname="test_p" name="test_p[3-4]" file="test_p.py" line="3" time="0.001"><failure message="assert 0 == 4&#10; +  where 0 = total([3])">a = 3, b = 4
+
+    @pytest.mark.parametrize("a,b", [(1, 2), (2, 3), (3, 4)])
+    def test_p(a, b):
+&gt;       assert total([a]) == b
+E       assert 0 == 4
+E        +  where 0 = total([3])
+
+test_p.py:6: AssertionError</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,5 @@
+expect=2
+format=junit
+exit=1
+source=handwritten: the message the shell or the runtime prints for that signal or error
+says=not created in this run

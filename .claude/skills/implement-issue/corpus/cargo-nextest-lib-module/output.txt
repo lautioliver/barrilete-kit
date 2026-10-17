@@ -1,0 +1,4 @@
+    Starting 2 tests across 1 binary
+        FAIL [   0.004s] demo a::more::adds
+     Summary [   0.005s] 2 tests run: 1 passed, 1 failed, 0 skipped
+error: test run failed

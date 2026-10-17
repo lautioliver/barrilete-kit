@@ -1,0 +1,8 @@
+FAIL: test_total (test_app.T)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "test_app.py", line 6, in test_total
+    total(None)
+TypeError: 'NoneType' object is not iterable
+
+FAILED (failures=1)

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="0.001" timestamp="2026-10-17T00:00:00" hostname="host"><testcase classname="test_new" name="test_check" file="test_new.py" line="3" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">def test_check():
+        with pytest.raises(ValueError):
+&gt;           check(-1)
+E           Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+test_new.py:6: Failed</failure></testcase><testcase classname="test_old" name="test_old" file="test_old.py" line="2" time="0.001" /></testsuite></testsuites>

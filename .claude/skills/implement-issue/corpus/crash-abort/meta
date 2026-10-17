@@ -1,0 +1,5 @@
+expect=2
+format=tap
+exit=134
+source=handwritten: the message the shell or the runtime prints for that signal or error
+says=signal or a crash

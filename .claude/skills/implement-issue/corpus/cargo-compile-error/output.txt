@@ -1,0 +1,8 @@
+   Compiling demo v0.1.0 (/work)
+error[E0425]: cannot find function `nope` in this scope
+ --> src/a.rs:13:15
+  |
+13 | fn broken() { nope(); }
+  |               ^^^^ not found in this scope
+
+error: could not compile `demo` (lib test) due to 1 previous error

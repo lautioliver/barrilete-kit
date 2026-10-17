@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="3" failures="2" errors="0" time="0.001">
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2026-10-17T00:00:00" time="0.001" tests="1">
+    <testcase classname=" passes" name="passes" time="0.001" file="old.test.js">
+    </testcase>
+  </testsuite>
+  <testsuite name="undefined" errors="0" failures="2" skipped="0" timestamp="2026-10-17T00:00:00" time="0.001" tests="2">
+    <testcase classname=" adds 1 to get 2" name="adds 1 to get 2" time="0.001" file="new.test.js">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 2
+Received: 0
+    at toBe (/private/work/p/new.test.js:2:79)
+    at Object.&lt;anonymous&gt; (/rt/js/node_modules/jest-each/build/index.js:80:140)
+    at Promise.finally.completed (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1834:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1774:10)
+    at _callCircusTest (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1167:40)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at _runTestInContext (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1103:3)
+    at runTestWithContext (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:996:5)
+    at _runTestsForDescribeBlockOnce (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1008:11)
+    at _runTestsForDescribeBlock (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at run (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:789:3)
+    at runAndTransformResultsToJestFormat (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:2300:21)
+    at jestAdapter (/rt/js/node_modules/jest-circus/build/runner.js:111:19)
+    at runTestInternal (/rt/js/node_modules/jest-runner/build/testWorker.js:247:16)
+    at runTest (/rt/js/node_modules/jest-runner/build/testWorker.js:315:7)
+    at Object.worker (/rt/js/node_modules/jest-runner/build/testWorker.js:479:12)</failure>
+    </testcase>
+    <testcase classname=" adds 2 to get 3" name="adds 2 to get 3" time="0.001" file="new.test.js">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 3
+Received: 0
+    at toBe (/private/work/p/new.test.js:2:79)
+    at Object.&lt;anonymous&gt; (/rt/js/node_modules/jest-each/build/index.js:80:140)
+    at Promise.finally.completed (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1834:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1774:10)
+    at _callCircusTest (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1167:40)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at _runTestInContext (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1103:3)
+    at runTestWithContext (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:996:5)
+    at _runTestsForDescribeBlockOnce (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:1008:11)
+    at _runTestsForDescribeBlock (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at run (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:789:3)
+    at runAndTransformResultsToJestFormat (/rt/js/node_modules/jest-circus/build/jestAdapterInit.js:2300:21)
+    at jestAdapter (/rt/js/node_modules/jest-circus/build/runner.js:111:19)
+    at runTestInternal (/rt/js/node_modules/jest-runner/build/testWorker.js:247:16)
+    at runTest (/rt/js/node_modules/jest-runner/build/testWorker.js:315:7)
+    at Object.worker (/rt/js/node_modules/jest-runner/build/testWorker.js:479:12)</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

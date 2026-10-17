@@ -1,0 +1,1 @@
+./tests/run.sh: line 7: 4242 Floating point exception: 8 ./calc 1 0
