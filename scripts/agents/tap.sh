@@ -1,9 +1,161 @@
 # shellcheck shell=bash
-# STUB (red commit): the helper does not exist yet. The functions load and write nothing.
-tap_begin() { :; }
-tap_ok() { :; }
-tap_fail() { echo "FAIL - $1" >&2; TAP_FAILED=1; }
-tap_check() { if [ "$1" -eq 0 ]; then tap_ok "$2"; else tap_fail "$2"; fi; }
-tap_skip_all() { :; }
-tap_at_exit() { :; }
-tap_done() { [ -z "${TAP_FAILED:-}" ] || exit 1; }
+# TAP 14 helper for the kit's tests (ADR-002 D6, issue #151). It is sourced, not run:
+#
+#   . "$ROOT/scripts/agents/tap.sh"
+#   tap_begin "$0"                       # writes "# file: <path of the script from the repo root>"
+#   tap_at_exit 'rm -rf "$TMP"'          # instead of trap ... EXIT, which would replace the helper's
+#   tap_ok    "literal id" ["description"]
+#   tap_fail  "literal id" ["description"]
+#   tap_check $? "literal id" ["description"]   # 0 is ok, anything else is not ok
+#   tap_done                             # writes the plan 1..N and exits (1 if a case failed)
+#   tap_skip_all "reason"                # for a script that does not apply: 1..0 # SKIP, exits 0
+#
+# The id is a literal, written in the source: red.sh compares only that name with the lines the red
+# commit adds (ADR-002 D4). What varies at run time goes in the description, which is not compared
+# and is written as a "# desc:" line. An id cannot be empty, cannot have a newline and cannot repeat
+# inside a script (red.sh rejects an ambiguous name): the helper bails out instead.
+#
+# Where the TAP goes. Under red.sh, TAP_OUT is the file it created ({out}): the helper opens it once,
+# on fd 8, and unsets the variable, so the test does not see the path and what it prints on stdout
+# cannot inject cases. Without TAP_OUT (a person running the test, the docs CI) the TAP goes to
+# stdout. Several scripts can write the same file: the numbering continues and the plan is rewritten
+# at the end so the stream keeps a single 1..N. In file mode each failing case is also printed on
+# stderr as "FAIL - <id>", so a CI log shows it.
+#
+# Unexpected errors: with set -e a failing command emits "Bail out!" (ERR trap) and exits 1; leaving
+# the script in any other way before tap_done (set -u, an exit, a crash) also emits it from the EXIT
+# trap. Without set -e a failing command is the test's business: it checks its status.
+#
+# A test runs in the same shell as this file, so it could still read _TAP_PATH or write to fd 8: it is
+# not a sandbox, only a path that the test has no reason to touch.
+
+_TAP_N=0
+_TAP_FAILED=0
+_TAP_IDS=$'\n'
+_TAP_DONE=0
+_TAP_BAILED=0
+_TAP_AT_EXIT=""
+_TAP_PATH=""
+
+if [ -n "${TAP_OUT:-}" ]; then
+  _TAP_PATH=$TAP_OUT
+  exec 8>>"$_TAP_PATH"
+  _TAP_N=$(grep -c -E '^(not )?ok ' "$_TAP_PATH" 2>/dev/null || true)
+  _TAP_N=${_TAP_N:-0}
+else
+  exec 8>&1
+fi
+unset TAP_OUT
+
+_tap_line() { printf '%s\n' "$1" >&8; }
+
+# Usage: _tap_flat <text>: the text in one line.
+_tap_flat() { local t=$1; t=${t//$'\r'/ }; printf '%s' "${t//$'\n'/ }"; }
+
+_tap_bail() {
+  [ "$_TAP_BAILED" -eq 0 ] || return 0
+  _TAP_BAILED=1
+  _tap_line "Bail out! $(_tap_flat "$1")"
+  [ -z "$_TAP_PATH" ] || echo "Bail out! $(_tap_flat "$1")" >&2
+}
+
+_tap_on_exit() {
+  local rc=$?
+  trap - EXIT ERR
+  if [ "$_TAP_DONE" -eq 0 ]; then
+    _tap_bail "the script ended with status $rc before tap_done"
+    [ "$rc" -ne 0 ] || rc=1
+  fi
+  [ -z "$_TAP_AT_EXIT" ] || eval "$_TAP_AT_EXIT"
+  exit "$rc"
+}
+
+_tap_on_err() {
+  local rc=$1
+  case $- in *e*) ;; *) return 0 ;; esac
+  _tap_bail "unexpected error (status $rc) at line $2 of ${3:-the script}"
+  exit 1
+}
+
+trap '_tap_on_exit' EXIT
+trap '_tap_on_err $? $LINENO "${BASH_SOURCE[1]:-}"' ERR
+
+# Usage: _tap_rel <script>: its path from the repo root (as written in the diff), or as given.
+_tap_rel() {
+  local d b top
+  d=$(cd "$(dirname "$1")" 2>/dev/null && pwd -P) || { printf '%s' "$1"; return; }
+  b=$(basename "$1")
+  top=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) || { printf '%s' "$1"; return; }
+  top=$(cd "$top" && pwd -P)
+  if [ "$d" = "$top" ]; then printf '%s' "$b"; else printf '%s/%s' "${d#"$top"/}" "$b"; fi
+}
+
+tap_begin() { _tap_line "# file: $(_tap_rel "${1:?tap_begin needs the path of the script}")"; }
+
+tap_at_exit() { _TAP_AT_EXIT=$1; }
+
+# Usage: _tap_case <ok|not ok> <id> [description]
+_tap_case() {
+  local verdict=$1 id=$2 desc=${3:-}
+  case $id in
+    '') _tap_bail "a case needs an id"; exit 1 ;;
+    *$'\n'*|*$'\r'*) _tap_bail "the id of a case cannot have a newline: $(_tap_flat "$id")"; exit 1 ;;
+  esac
+  case "$_TAP_IDS" in
+    *$'\n'"$id"$'\n'*) _tap_bail "repeated id: $id (red.sh rejects ambiguous names; use a literal id per case)"; exit 1 ;;
+  esac
+  _TAP_IDS="$_TAP_IDS$id"$'\n'
+  _TAP_N=$((_TAP_N + 1))
+  local esc=${id//\\/\\\\}
+  esc=${esc//#/\\#}
+  _tap_line "$verdict $_TAP_N - $esc"
+  [ -z "$desc" ] || _tap_line "# desc: $(_tap_flat "$desc")"
+  if [ "$verdict" = "not ok" ]; then
+    _TAP_FAILED=$((_TAP_FAILED + 1))
+    [ -z "$_TAP_PATH" ] || { echo "FAIL - $id"; [ -z "$desc" ] || echo "       $(_tap_flat "$desc")"; } >&2
+  fi
+}
+
+tap_ok() { _tap_case "ok" "$@"; }
+tap_fail() { _tap_case "not ok" "$@"; }
+tap_check() {
+  local status=$1; shift
+  if [ "$status" -eq 0 ]; then _tap_case "ok" "$@"; else _tap_case "not ok" "$@"; fi
+}
+
+# Usage: _tap_plan [skip reason]: leaves one plan, at the end of the stream, with every case of the file.
+_tap_plan() {
+  local plan
+  if [ -n "$_TAP_PATH" ]; then
+    local total tmp
+    total=$(grep -c -E '^(not )?ok ' "$_TAP_PATH" 2>/dev/null || true)
+    total=${total:-0}
+    plan="1..$total"
+    [ "$total" -ne 0 ] || [ -z "${1:-}" ] || plan="$plan # SKIP $(_tap_flat "$1")"
+    tmp=$(mktemp "${TMPDIR:-/tmp}/tap-XXXXXX")
+    { grep -v -E '^1\.\.' "$_TAP_PATH"; printf '%s\n' "$plan"; } >"$tmp" 2>/dev/null
+    cat "$tmp" >"$_TAP_PATH"
+    rm -f "$tmp"
+  else
+    plan="1..$_TAP_N"
+    [ "$_TAP_N" -ne 0 ] || [ -z "${1:-}" ] || plan="$plan # SKIP $(_tap_flat "$1")"
+    _tap_line "$plan"
+  fi
+}
+
+tap_done() {
+  _TAP_DONE=1
+  _tap_plan
+  if [ "$_TAP_FAILED" -ne 0 ]; then
+    [ -z "$_TAP_PATH" ] || echo "$_TAP_FAILED test(s) failed." >&2
+    exit 1
+  fi
+  exit 0
+}
+
+tap_skip_all() {
+  _TAP_DONE=1
+  _tap_line "# skip: $(_tap_flat "${1:-}")"
+  _tap_plan "${1:-}"
+  exit 0
+}
