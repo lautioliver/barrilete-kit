@@ -4,18 +4,18 @@
 
 Accepted (2026-10-17)
 
-Origin: epic lautioliver/agent-kit-template#148 and issue lautioliver/agent-kit-template#149. Decisions D1–D10 approved by @lautioliver in the chat (2026-10-17): D1–D7 and D10 as recommended, D8 option (a) and D9 approved. Amendments of the review of PR lautioliver/agent-kit-template#156, decided by @lautioliver in chat, 2026-10-17: D11 (this ADR lives in `docs/decisions/kit/`), the `--small` profile in D2, the per-case rule of D4 and the trusted `red` section of D7. Where a rule below says "decided by @lautioliver in chat, 2026-10-17", that is the approval.
+Origin: epic lautioliver/barrilete-kit#148 and issue lautioliver/barrilete-kit#149. Decisions D1–D10 approved by @lautioliver in the chat (2026-10-17): D1–D7 and D10 as recommended, D8 option (a) and D9 approved. Amendments of the review of PR lautioliver/barrilete-kit#156, decided by @lautioliver in chat, 2026-10-17: D11 (this ADR lives in `docs/decisions/kit/`), the `--small` profile in D2, the per-case rule of D4 and the trusted `red` section of D7. Where a rule below says "decided by @lautioliver in chat, 2026-10-17", that is the approval.
 
 Implementation state: this ADR records the target. Until the issues of the epic land, `red.sh` keeps working with the text rules it has today, and no `red` section, `tap.sh`, `red_report.py` or structured PR block exists yet.
 
 ## Context
 
 - `red.sh` (step 3 of `implement-issue`, the TDD table of `review-pr`) decides whether a test fails "for the right reason" by matching regexes over the runner's output: a list of load errors, a list of assertion patterns, and everything else is rejected.
-- Free text does not scale: any new runner, language or crash shape lands on the wrong side. In lautioliver/agent-kit-template#146, two rounds of accepting more formats with lists of crashes ended with the reviewer finding cases that passed as a valid red both times.
+- Free text does not scale: any new runner, language or crash shape lands on the wrong side. In lautioliver/barrilete-kit#146, two rounds of accepting more formats with lists of crashes ended with the reviewer finding cases that passed as a valid red both times.
 - There is no timeout, and it does not tell the failures of the new tests from an old test that was already broken.
 - The block that goes into the PR is free text the reviewer cannot compare against anything.
 - The kit's own 12 `test-*.sh` each define their own `ok()`/`fail()`, and the docs CI only looks at the exit code.
-- The format is documented nowhere (end-to-end test of lautioliver/agent-kit-template#115).
+- The format is documented nowhere (end-to-end test of lautioliver/barrilete-kit#115).
 
 ## Decision
 
@@ -65,7 +65,7 @@ Implementation state: this ADR records the target. Until the issues of the epic 
 
 5. **D5. Timeout: 600 s by default, configurable with `"timeout"` (in seconds) in each `red` entry.** It covers the whole run, not each case. It is applied with Python, because `timeout` does not exist on macOS. `run` starts in its own process group, and on timeout `red.sh` kills the whole group, not only the child, so that no runner keeps writing to `{out}`. After a timeout, `red.sh` exits with 2.
 
-6. **D6. The kit's tests use the same rule it demands.** A helper, scripts/agents/tap.sh (created by lautioliver/agent-kit-template#151), writes TAP 14: `ok N - x`, `not ok N - x`, `# file: <script>` before the cases of each script, one `1..N` plan, and `Bail out!` on an unexpected error through `trap ERR`. The 12 `test-*.sh` migrate to it. `red.sh` takes a `Bail out!` as an error.
+6. **D6. The kit's tests use the same rule it demands.** A helper, scripts/agents/tap.sh (created by lautioliver/barrilete-kit#151), writes TAP 14: `ok N - x`, `not ok N - x`, `# file: <script>` before the cases of each script, one `1..N` plan, and `Bail out!` on an unexpected error through `trap ERR`. The 12 `test-*.sh` migrate to it. `red.sh` takes a `Bail out!` as an error.
 
 7. **D7. The reviewer checks it again, with the `red` of the base branch.**
    - **The block.** The PR carries, in "How to test it", exactly this (the lines are literals, they are not translated; only the title also accepts the Spanish `Rojo antes de implementar`):
@@ -87,9 +87,9 @@ Implementation state: this ADR records the target. Until the issues of the epic 
      `red commit:` appears once. Then there is one group (`stack:`, `format:`, `failing cases:`) per `red` entry that ran (D2), so a red commit that touches two stacks has two groups. `<file>` is the file of D4 (or the `classname` when the report gives no file), `<name>` is the name of the case, one case per line.
    - **The check.** The reviewer runs the `red.sh` of the **trusted checkout** (the base branch) on that commit, in its review worktree, and compares, group by group (by `stack`), the list of failing cases with the one in the block as a set: order and repeats do not matter. A stack with no group, or a group of a stack that did not run, is a mismatch. If they do not match, it is a finding to fix.
    - **Where `red` comes from.** The reviewer's `red.sh` reads the `red` section from the trusted checkout on the base branch, never from the PR (decided by @lautioliver in chat, 2026-10-17). If it read it from the red commit, a PR could set `run` to any command and the reviewer would run it. A PR that changes the `red` section is a sensitive change: it needs the approval of a person, like CI, and the reviewer validates with the base's section meanwhile. When the base has no `red` yet, there is nothing to trust and the person decides.
-   - This keeps the rule of point 8 approved in lautioliver/agent-kit-template#146: the reviewer runs only the PR's tests, not other code from the PR.
+   - This keeps the rule of point 8 approved in lautioliver/barrilete-kit#146: the reviewer runs only the PR's tests, not other code from the PR.
 
-8. **D8. It lands before v1.0, as a breaking change, with no text mode.** Epic lautioliver/agent-kit-template#148 blocks lautioliver/agent-kit-template#91. A project without a `red` section gets a rejection with a guide on how to add it; there is no transition mode. Changing this after `v1.0.0` would be a break.
+8. **D8. It lands before v1.0, as a breaking change, with no text mode.** Epic lautioliver/barrilete-kit#148 blocks lautioliver/barrilete-kit#91. A project without a `red` section gets a rejection with a guide on how to add it; there is no transition mode. Changing this after `v1.0.0` would be a break.
 
 9. **D9. The CI check also requires structure.** Besides the `Red before implementing` title (or `Rojo antes de implementar`: the check accepts both), `labels.yml` requires the `red commit:` line (a hexadecimal sha) and at least one group with a `stack:` line, a `format:` line (`junit` or `tap`) and, under `failing cases:`, at least one line `- <file>::<name>`. It goes in the same PR as D7. CI is a sensitive path: approved by @lautioliver in the chat (2026-10-17).
 
@@ -99,7 +99,7 @@ Implementation state: this ADR records the target. Until the issues of the epic 
 
 ## Rejected alternatives
 
-- **A structured report, or text as a fallback (D1).** The text fallback is the hole that lautioliver/agent-kit-template#146 could not close.
+- **A structured report, or text as a fallback (D1).** The text fallback is the hole that lautioliver/barrilete-kit#146 could not close.
 - **An environment variable the project reads for the report path (D2).** It is not declared anywhere, `check-docs.py` cannot validate it, and the path is not controlled by `red.sh`.
 - **A `report` field next to `run`, or a fixed path (D2).** If `report` were always `{out}` it would be redundant, and if it could be a fixed path `red.sh` would lose control of it.
 - **The exit code alone, or the exit code plus a text match (D3).** The exit code does not tell an assertion from a crash, and a text match is the hole of D1 again.
@@ -119,4 +119,4 @@ Implementation state: this ADR records the target. Until the issues of the epic 
 - It costs initial work per project: configuring the reporter. It is eased with defaults in the `init` for bash and copy-ready examples of `agents-map.json` per runner.
 - False rejections will happen (a badly configured runner does not produce the report, or the per-case rule is stricter than the change): the messages say what to configure. Over-rejecting is accepted: failing closed is the goal.
 - Out of scope: coverage, mutation testing, retrying flaky tests and validating the green (the project's CI keeps doing that).
-- What changes is in the rest of epic lautioliver/agent-kit-template#148: the TAP helper and the migration of the 12 tests, `red.sh` with its parser (scripts/agents/red_report.py, created by lautioliver/agent-kit-template#150) and its corpus, the `red` section and its validation, the structured PR block and the `labels.yml` check, the migration of existing projects (the update and grow scripts, the installer and the CHANGELOG), and the end-to-end test.
+- What changes is in the rest of epic lautioliver/barrilete-kit#148: the TAP helper and the migration of the 12 tests, `red.sh` with its parser (scripts/agents/red_report.py, created by lautioliver/barrilete-kit#150) and its corpus, the `red` section and its validation, the structured PR block and the `labels.yml` check, the migration of existing projects (the update and grow scripts, the installer and the CHANGELOG), and the end-to-end test.
