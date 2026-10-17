@@ -183,8 +183,9 @@ for f in sorted(os.listdir("docs/decisions") if os.path.exists("scripts/init-tem
     hermano_es = os.path.join("docs/decisions", f[:-3] + ".es.md")
     if not f.endswith(".es.md") and os.path.exists(hermano_es):
         with open(hermano_es, encoding="utf-8", newline="") as fh:
-            es_kit = bool(re.search(r"^Ámbito: kit[ \t\r]*$", fh.read(), re.M))
-        en_kit = bool(re.search(r"^Ámbito: kit[ \t\r]*$", texto, re.M))
+            es_kit = bool(re.search(r"^(?:Ámbito|Scope): kit[ \t\r]*$", fh.read(), re.M))
+        # `Scope: kit` counts as kit here: it has its own warning above, and a second one would point at the wrong fix.
+        en_kit = bool(re.search(r"^(?:Ámbito|Scope): kit[ \t\r]*$", texto, re.M))
         if en_kit != es_kit:
             con, sin = (f, f[:-3] + ".es.md") if en_kit else (f[:-3] + ".es.md", f)
             avisos.append(f"docs/decisions/{con} has `Ámbito: kit` but docs/decisions/{sin} does not: the two siblings must agree "

@@ -279,8 +279,7 @@ for combinacion in "completo en English" "completo es español" "chico en Englis
   if [ "$modo" = completo ]; then
     # La línea que sigue al bloque DECIDED de la convención es en blanco (si no, la regla siguiente se vuelve parte de la cita).
     n=$(grep -nE '(is written in|se escribe en) ' "$p/docs/github-naming-convention.md" | head -1 | cut -d: -f1)
-    [ -n "$n" ] && grep -q '^> ' <(sed -n "${n}p" "$p/docs/github-naming-convention.md") || n=0
-    if [ -z "$(sed -n "$((n + 1))p" "$p/docs/github-naming-convention.md")" ]; then r=0; else r=1; fi; afirmar $r "[$modo --lang $idioma R-6] después del bloque DECIDED de la convención queda una línea en blanco"
+    if [ -n "$n" ] && [ -z "$(sed -n "$((n + 1))p" "$p/docs/github-naming-convention.md")" ]; then r=0; else r=1; fi; afirmar $r "[$modo --lang $idioma R-6] después del bloque DECIDED de la convención queda una línea en blanco"
   fi
   ! grep -rq 'the template itself\|la plantilla misma' "$p/AGENTS.md" "$p/docs" "$p/.claude/skills" 2>/dev/null; afirmar $? "[$modo --lang $idioma R-6] el aviso del kit (descripciones en español en este repo) no llega al proyecto"
 done
