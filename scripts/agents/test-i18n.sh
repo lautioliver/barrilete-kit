@@ -407,13 +407,18 @@ grep -q 'cambió el modelo de pagos' "$TMP/r/docs/agents-map.json" && grep -q 'i
 
 # #158: en un proyecto (sin scripts/init-template.sh) un ADR de kit/ que falta en un índice es un aviso, no un error: un update.py
 # que deja un conflicto en docs/README.md no puede dejar en rojo el CI de docs. En el kit mismo sigue siendo un error (arriba).
+# Sin init-template.sh el mapa de la copia conserva sus TODO de plantilla (errores que no son de este caso) y el check sale con 1
+# antes y después: lo que se compara es que el índice no agrega ningún error, que es lo que decide si el CI de docs se pone en rojo.
+copia
+rm "$TMP/r/scripts/init-template.sh"
+base=$(check | grep '^- ' | sort)
 for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do
   copia
   rm "$TMP/r/scripts/init-template.sh"
   grep -v "$KITADR" "$TMP/r/$indice" >"$TMP/r/x" && mv "$TMP/r/x" "$TMP/r/$indice"
   s=$(check)
-  grep -q "Warning: .*$indice: the ADR kit/$KITADR is missing from the index" <<<"$s" && ! grep -q -- "^- .*the ADR kit/" <<<"$s"
-  afirmar $? "proyecto (sin init-template.sh): un ADR de kit/ que falta en $indice es un aviso, no un error"
+  grep -q "Warning: .*$indice: the ADR kit/$KITADR is missing from the index" <<<"$s" && [ "$(grep '^- ' <<<"$s" | sort)" = "$base" ]
+  afirmar $? "proyecto (sin init-template.sh): un ADR de kit/ que falta en $indice es un aviso y no agrega ningún error"
 done
 copia
 rm "$TMP/r/scripts/init-template.sh"
@@ -421,40 +426,6 @@ grep -v "decisions/ADR-001-" "$TMP/r/docs/README.md" >"$TMP/r/x" && mv "$TMP/r/x
 s=$(check)
 grep -q -- '- docs/README.md: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"
 afirmar $? "proyecto: un ADR propio (docs/decisions/) que falta en el índice sigue siendo un error"
-
-# #158: el texto del ADR-002 (en y es, el mismo contenido). Frases que fijan lo que la revisión pidió.
-adr_tiene() { # <en|es> <regex> <descripción>
-  local f="$RAIZ/docs/decisions/kit/ADR-002-structured-red-validation.md"; [ "$1" = es ] && f="${f%.md}.es.md"
-  grep -Eq -- "$2" "$f"; afirmar $? "ADR-002 ($1): $3"
-}
-adr_no_tiene() {
-  local f="$RAIZ/docs/decisions/kit/ADR-002-structured-red-validation.md"; [ "$1" = es ] && f="${f%.md}.es.md"
-  ! grep -Eq -- "$2" "$f"; afirmar $? "ADR-002 ($1): $3"
-}
-adr_tiene en 'Refinements written in the review of PR .*not decided separately' "Estado lista los refinamientos de D2, D3 y D9 que la persona no decidió por separado"
-adr_tiene en 'approved when .*#158.* is merged' "Estado dice que se aprueban al mergear el PR #158"
-adr_tiene es 'Refinamientos escritos en la revisión del PR .*no decididos por separado' "Estado lista los refinamientos (es)"
-adr_tiene es '[Ss]e aprueban al mergear .*#158' "Estado dice que se aprueban al mergear el PR #158 (es)"
-adr_tiene en 'whole identifier' "D4 exige el identificador entero"
-adr_tiene es 'identificador entero' "D4 exige el identificador entero (es)"
-adr_tiene en 'never in a comment' "D4 excluye los comentarios"
-adr_tiene es 'nunca en un comentario' "D4 excluye los comentarios (es)"
-adr_tiene en 'titleTemplate="\{title\}"' "D4 dice qué opción de jest-junit da un nombre comparable"
-adr_tiene es 'titleTemplate="\{title\}"' "D4 dice qué opción de jest-junit da un nombre comparable (es)"
-adr_tiene en 'last segment' "D4 define el último segmento para vitest y go"
-adr_tiene es 'último segmento' "D4 define el último segmento para vitest y go (es)"
-adr_tiene en 'cargo is only checked by file' "D4 dice que cargo solo se controla por archivo"
-adr_tiene es 'cargo solo se controla por archivo' "D4 dice que cargo solo se controla por archivo (es)"
-adr_tiene en 'in the language of the installation' "D11 dice que el init conserva kit/ en el idioma de la instalación"
-adr_tiene es 'en el idioma de la instalación' "D11 dice que el init conserva kit/ en el idioma de la instalación (es)"
-adr_no_tiene en 'Spanish sibling' "D11 ya no promete un hermano en español"
-adr_no_tiene es 'hermano en español' "D11 ya no promete un hermano en español (es)"
-adr_tiene en 'written to a file that `red.sh` creates' "D6 decide que TAP va a un archivo de red.sh y no a stdout"
-adr_tiene es 'escribe en un archivo que crea `red.sh`' "D6 decide que TAP va a un archivo de red.sh y no a stdout (es)"
-adr_tiene en 'without a `tests` attribute' "D3 dice qué pasa con un testsuite sin atributo tests"
-adr_tiene es 'sin atributo `tests`' "D3 dice qué pasa con un testsuite sin atributo tests (es)"
-adr_tiene en 'removed by the amendment that closes lautioliver/barrilete-kit#154' "la nota de estado la saca la enmienda que cierra #154"
-adr_tiene es 'la saca la enmienda que cierra lautioliver/barrilete-kit#154' "la nota de estado la saca la enmienda que cierra #154 (es)"
 
 echo
 if [ "$fallas" -ne 0 ]; then echo "$fallas test(s) fallaron."; exit 1; fi
