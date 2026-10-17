@@ -18,7 +18,7 @@ Checks:
   opus, sonnet or haiku, or that do not point to the common contract (docs/agents/subagent-contract.md).
 - Language siblings (ADR-001), only with "parity": true in the map: every X.md has its X.es.md (and the
   other way around; the Spanish sibling of an agent lives in .claude/i18n/agents/, and that of an issue form in
-  .github/i18n/ISSUE_TEMPLATE/, compared by type/id/labels) with the same number of headings and code blocks. "parity_ignore" in the map lists
+  .github/i18n/ISSUE_TEMPLATE/, compared by type/id/labels/required/options) with the same number of headings and code blocks. "parity_ignore" in the map lists
   the exceptions (globs). The ignore_check paths do NOT exempt: profiles/ has siblings too.
 - Members of .github/team.json that are repeated or have areas that are not in labels.yml.
 The paths in "ignore_check" of the map (for example, historical logs) are not validated.
@@ -169,14 +169,25 @@ for indice in ("docs/README.md", "docs/llms.txt", "docs/README.es.md", "docs/llm
 for f in sorted(os.listdir("docs/decisions") if os.path.exists("scripts/init-template.sh") and os.path.isdir("docs/decisions") else []):
     if not re.match(r"ADR-\d{3}-.*\.md$", f):
         continue
-    with open(os.path.join("docs/decisions", f), encoding="utf-8") as fh:
+    with open(os.path.join("docs/decisions", f), encoding="utf-8", newline="") as fh:  # newline="": keep the \r of CRLF files
         texto = fh.read()
     if re.search(r"^Scope: kit\s*$", texto, re.M):
         avisos.append(f"docs/decisions/{f} has the line `Scope: kit`, but the init only deletes the ADRs with `Ámbito: kit` "
                       "(a literal that is not translated): this one would be installed in the projects.")
     if re.search(r"^Ámbito: kit[ \t\r]+$", texto, re.M):
-        avisos.append(f"docs/decisions/{f} has `Ámbito: kit` with trailing whitespace: the init matches the whole line, so it would "
-                      "not delete it (remove the trailing spaces).")
+        avisos.append(f"docs/decisions/{f} has `Ámbito: kit` with trailing whitespace or a CRLF line ending: the init matches the whole "
+                      "line, so it would not delete it (remove the trailing spaces or convert the file to LF).")
+    # The init deletes only the .md (and its .es.md sibling by name): if the two disagree on the scope, one language says kit and
+    # the other does not.
+    hermano_es = os.path.join("docs/decisions", f[:-3] + ".es.md")
+    if not f.endswith(".es.md") and os.path.exists(hermano_es):
+        with open(hermano_es, encoding="utf-8", newline="") as fh:
+            es_kit = bool(re.search(r"^Ámbito: kit[ \t\r]*$", fh.read(), re.M))
+        en_kit = bool(re.search(r"^Ámbito: kit[ \t\r]*$", texto, re.M))
+        if en_kit != es_kit:
+            con, sin = (f, f[:-3] + ".es.md") if en_kit else (f[:-3] + ".es.md", f)
+            avisos.append(f"docs/decisions/{con} has `Ámbito: kit` but docs/decisions/{sin} does not: the two siblings must agree "
+                          "(the init deletes the one that has it and leaves the other in the project).")
 
 
 def estructura(ruta):
@@ -222,11 +233,10 @@ if MAPA.get("parity"):
 # .github/i18n/ISSUE_TEMPLATE/<name>.es.yml (ADR-001, R-1; the rule is hermano_de_idioma() in agents_map.py). They are
 # compared by what does not carry prose: type, id, labels, required and the number of options.
 FORMS_EN, FORMS_ES = ".github/ISSUE_TEMPLATE", ".github/i18n/ISSUE_TEMPLATE"
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-try:
-    from agents_map import hermano_de_idioma as hermano  # noqa: E402
-except ImportError:  # small mode deletes agents_map.py (and has no forms nor map): nothing to compare
-    hermano = lambda ruta: None  # noqa: E731
+# hermano_de_idioma is imported at the top, with the map: small mode deletes agents_map.py and has no map, forms or parity.
+hermano = hermano_de_idioma
+# One option of an inline list: a quoted string (it can carry a comma: "Yes, I did") or text up to the next comma.
+OPCION = re.compile(r"""\s*(?:"[^"]*"|'[^']*'|[^,"'][^,]*)\s*(?:,|$)""")
 
 
 def claves_de_formulario(ruta):
@@ -234,13 +244,19 @@ def claves_de_formulario(ruta):
     with open(ruta, encoding="utf-8") as fh:
         lineas = fh.read().splitlines()
     claves = [re.sub(r"\s+", " ", l).strip() for l in lineas if re.match(r"^\s*(?:- )?(?:type|id|labels):", l)]
-    claves += ["required" for l in lineas if re.search(r"\brequired: *true\b", l)]
+    actual = ""  # the id of the field the line belongs to: two forms that require different fields are not the same
+    for l in lineas:
+        m = re.match(r"^\s*(?:- )?id: *[\"']?([^\"'\s]+)", l)
+        if m:
+            actual = m.group(1)
+        if re.search(r"\brequired: *true\b", l):
+            claves.append(f"required:{actual}")
     for i, l in enumerate(lineas):
         m = re.match(r"^(\s*)options:\s*(.*)$", l)
         if not m:
             continue
         if m.group(2).startswith("["):
-            claves.append(f"options={len([x for x in m.group(2).strip('[]').split(',') if x.strip()])}")
+            claves.append(f"options={len(OPCION.findall(m.group(2).strip().strip('[]')))}")
         else:
             n = 0
             for sig in lineas[i + 1:]:
@@ -281,7 +297,14 @@ if MAPA.get("parity") and os.path.isdir(FORMS_EN):
 def etiquetas(ruta):
     """(name, color, aliases) of each label of a labels.yml, in order."""
     with open(ruta, encoding="utf-8") as fh:
-        bloques = re.split(r"^- name:", fh.read(), flags=re.M)[1:]
+        texto = fh.read()
+    bloques = re.split(r"^- name:", texto, flags=re.M)[1:]
+    # Whatever the parser does not read (`-   name:`, `- {name: ...}`, an alias on the same line) would be lost without a word:
+    # if the items (`- ` at the start of the line) are not the blocks read, fail.
+    items = len(re.findall(r"^- ", texto, re.M))
+    if items != len(bloques):
+        errores.append(f"{ruta}: {items} items (`- ` at the start of a line) but {len(bloques)} blocks `- name:` were read: a YAML "
+                       "format this check does not understand (write each label as `- name: ...`).")
     res = []
     for b in bloques:
         nombre = b.splitlines()[0].strip().strip("\"'")
