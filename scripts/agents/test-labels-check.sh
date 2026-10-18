@@ -189,7 +189,10 @@ const cases = {
   'block-in-comment-fails': ['Closes #1\n<!-- ' + T.split('\n').slice(1).join('\n') + R + G() + E + ' -->\n<details><summary>Red before implementing</summary>x</details>', /red commit:/],
   'lines-after-details-do-not-count': [T + R + 'stack: bash\n' + E + 'format: tap\nfailing cases:\n- a::b\n', /format:|case/i],
   'no-tests-still-passes': ['Closes #1\nno tests: only docs', null],
-  'title-with-no-tests-reason-passes': ['Closes #1\n<details><summary>Red before implementing</summary>x</details>\nno tests: only docs', null],
+  'title-with-no-tests-reason-fails': ['Closes #1\n<details><summary>Red before implementing</summary>x</details>\nno tests: only docs', /red commit:/],
+  'valid-block-with-no-tests-passes': [T + R + G() + E + 'no tests: the concurrency part cannot be tested here', null],
+  'malformed-block-with-no-tests-fails': [T + R + 'stack: bash\nfailing cases:\n- a::b\n\n' + E + 'no tests: the concurrency part cannot be tested here', /format:/],
+  'prose-no-tests-with-malformed-block-fails': [T + G() + E + 'there are no tests: the old module had none', /red commit:/],
 };
 const N = 10000;
 const perf = {
@@ -236,7 +239,10 @@ lc_case case-without-separator-fails; tap_check $? "structured-block-case-withou
 lc_case block-in-comment-fails; tap_check $? "structured-block-inside-comment-does-not-count"
 lc_case lines-after-details-do-not-count; tap_check $? "structured-block-lines-after-details-do-not-count"
 lc_case no-tests-still-passes; tap_check $? "structured-no-tests-reason-still-passes"
-lc_case title-with-no-tests-reason-passes; tap_check $? "structured-title-plus-no-tests-reason-passes"
+lc_case title-with-no-tests-reason-fails; tap_check $? "structured-title-plus-no-tests-reason-fails"
+lc_case valid-block-with-no-tests-passes; tap_check $? "structured-valid-block-plus-no-tests-passes"
+lc_case malformed-block-with-no-tests-fails; tap_check $? "structured-malformed-block-plus-no-tests-fails"
+lc_case prose-no-tests-with-malformed-block-fails; tap_check $? "structured-prose-no-tests-plus-malformed-block-fails"
 lc_perf spaces; tap_check $? "structured-block-performance-spaces"
 lc_perf colons; tap_check $? "structured-block-performance-colons"
 lc_perf lines; tap_check $? "structured-block-performance-many-lines"
