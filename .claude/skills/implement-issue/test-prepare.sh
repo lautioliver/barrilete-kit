@@ -44,6 +44,7 @@ git clone -q "$TMP/remoto.git" "$TMP/proj" 2>/dev/null
 (cd "$TMP/proj" && git switch -q -c main && echo base >README.md && git add README.md && git commit -qm base && git push -q origin main 2>/dev/null)
 WT="$TMP/proj-wt"
 asignado() { grep -q "^issue edit $1 .*--add-assignee @me" "$GH_LOG"; }
+tap_assertions es asignado  # their failure is a failed case, not a crash (tap.sh)
 worktrees() { git -C "$TMP/proj" worktree list | wc -l | tr -d ' '; }
 
 # 1. Issue nuevo: crea el worktree y la rama, y lo asigna. El checkout principal sucio no lo frena.

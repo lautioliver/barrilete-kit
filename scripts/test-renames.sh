@@ -99,7 +99,8 @@ for f in .claude/skills/review-pr/SKILL.md .claude/skills/update-docs/SKILL.md; 
 done
 
 # JSON keys of agents-map.json and team.json.
-python3 - >&2 <<'PY'
+ec=0
+python3 - >&2 <<'PY' || ec=$?
 import json, sys
 old = {"cuando", "revisar", "motivo", "sensibles", "rutas", "verificar", "nombre", "siempre", "correr",
        "obligatorios", "ignorar_check", "_ayuda", "tipo", "integrantes", "activo"}
@@ -130,6 +131,7 @@ falta = new_map - usadas
 print(("ok   - " if not falta else "FAIL - ") + "agents-map.json uses the English keys" + (f" (missing {sorted(falta)})" if falta else ""))
 sys.exit(1 if bad or falta else 0)
 PY
+[ "$ec" -eq 0 ]
 tap_check $? "JSON keys are in English"
 
 # Labels: type:, priority:, status:, business-logic, with aliases so label-sync keeps the old ones.

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # Tests de update.py de punta a punta: dos versiones locales de la plantilla (v0.1.0 y v0.2.0),
 # un proyecto iniciado con la primera y cambios de los dos lados.
 # Uso: bash scripts/test-update.sh
@@ -11,6 +12,7 @@ tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
+tap_assertions es  # their failure is a failed case, not a crash (tap.sh)
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 
@@ -306,10 +308,14 @@ mkdir -p "$P09"
     && perl -pi -e 's/^# .*/# Plantilla 0.10/ if $. == 1' docs/github-naming-convention.md \
     && git add -A && git commit -qm v0.10.0 && git tag v0.10.0
 ) >/dev/null 2>&1
-git -C "$P09" rev-parse -q --verify v0.9.0 >/dev/null && git -C "$P09" rev-parse -q --verify v0.10.0 >/dev/null
+ec=0
+git -C "$P09" rev-parse -q --verify v0.9.0 >/dev/null && git -C "$P09" rev-parse -q --verify v0.10.0 >/dev/null || ec=$?
+[ "$ec" -eq 0 ]
 tap_check $? "[0.9] la plantilla de prueba tiene los tags v0.9.0 (nombres viejos) y v0.10.0"
+ec=0
 git -C "$P09" show v0.9.0:docs/mapa-agentes.json | grep -q '"sensibles"' && git -C "$P09" show v0.9.0:scripts/agentes/verificar.py >/dev/null 2>&1 \
-  && git -C "$P09" show v0.9.0:scripts/init-plantilla.sh >/dev/null 2>&1 && ! git -C "$P09" show v0.9.0:scripts/init-template.sh >/dev/null 2>&1
+  && git -C "$P09" show v0.9.0:scripts/init-plantilla.sh >/dev/null 2>&1 && ! git -C "$P09" show v0.9.0:scripts/init-template.sh >/dev/null 2>&1 || ec=$?
+[ "$ec" -eq 0 ]
 tap_check $? "[0.9] v0.9.0 tiene el init, las rutas y las claves viejas"
 
 NUEVO_UPDATE="$TMP/update-nuevo.py"   # lo que baja un proyecto 0.9: no tiene update.py, tiene actualizar.py
@@ -368,7 +374,8 @@ grep -q "Lección del proyecto." "$D/docs/agents/lessons.md"; tap_check $? "[0.9
 grep -q "Línea nueva de la plantilla 0.10." "$D/.claude/skills/create-issue/SKILL.md"; tap_check $? "[0.9] un archivo renombrado que el proyecto no tocó se reemplaza por la versión nueva"
 head -1 "$D/docs/github-naming-convention.md" | grep -q "Convención del proyecto" && grep -q '^<<<<<<<' "$D/.agent-kit/pending/docs/github-naming-convention.md"
 tap_check $? "[0.9] un conflicto en un archivo renombrado no lo pisa: la fusión con marcas queda en .agent-kit/pending/ con la ruta nueva"
-python3 - "$D/.agent-kit.json" <<'PY'
+ec=0
+python3 - "$D/.agent-kit.json" <<'PY' || ec=$?
 import json, sys
 k = json.load(open(sys.argv[1], encoding="utf-8"))
 viejas = {"proyecto", "rama_base", "modo", "fecha", "archivos"} & set(k)
@@ -377,8 +384,10 @@ ok = (not viejas and k.get("project") == "Demo" and k.get("base_branch") == "mai
       and not any(r.startswith(("scripts/agentes/", "docs/agentes/")) for r in k["files"]) and "scripts/agents/verify.py" in k["files"])
 sys.exit(0 if ok else 1)
 PY
+[ "$ec" -eq 0 ]
 tap_check $? "[0.9] .agent-kit.json pasa a las claves nuevas (project, base_branch, mode: full, date, files con las rutas nuevas) y registra la versión nueva"
-python3 - "$D/docs/agents-map.json" "$D/.github/team.json" <<'PY'
+ec=0
+python3 - "$D/docs/agents-map.json" "$D/.github/team.json" <<'PY' || ec=$?
 import json, sys
 def claves(o):
     if isinstance(o, dict):
@@ -400,6 +409,7 @@ ok = (not viejas & (set(claves(m)) | set(claves(t))) and pagos and pagos[0]["pat
       and "money" in {x.get("type") for x in m["sensitive"]} and t["members"][0] == {"login": "ana", "name": "Ana", "areas": ["infra"], "active": True})
 sys.exit(0 if ok else 1)
 PY
+[ "$ec" -eq 0 ]
 tap_check $? "[0.9] migra las claves y los valores de agents-map.json y team.json conservando lo que agregó el proyecto"
 grep -q 'name: "type:feature"' "$D/.github/labels.yml" && grep -q '^ *- "tipo:feature"' "$D/.github/labels.yml" && grep -q 'name: "area:pagos"' "$D/.github/labels.yml"
 tap_check $? "[0.9] labels.yml queda con los labels nuevos y los viejos como aliases, y conserva el label propio"
@@ -457,7 +467,8 @@ PY
   mkdir -p scripts/agentes/__pycache__ && echo x >scripts/agentes/__pycache__/guardrails.pyc
 ) >/dev/null 2>&1
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
-python3 - "$D/docs/agents-map.json" <<'PY'
+ec=0
+python3 - "$D/docs/agents-map.json" <<'PY' || ec=$?
 import json, sys
 m = json.load(open(sys.argv[1], encoding="utf-8"))
 pii = [x for x in m["sensitive"] if x.get("type") == "pii"]
@@ -466,6 +477,7 @@ sys.exit(0 if pii and pii[0]["paths"] == ["app/perfiles/**", "?src/scripts/agent
          and cmd and cmd[0]["run"] == "bash tools/scripts/crecer.py.sh"
          and [x["run"] for x in m["verify"] if x.get("name") == "relativa"] == ["python3 ./scripts/agents/verify.py && python3 ../scripts/grow.py"] else 1)
 PY
+[ "$ec" -eq 0 ]
 tap_check $? "[0.9] solo renombra las rutas del kit en el mapa (app/perfiles/** queda intacta), también si empiezan con ./ o ../"
 ! [ -e "$D/scripts/agentes" ] && ! grep -q "own files" <<<"$s"
 tap_check $? "[0.9] un __pycache__ de la carpeta vieja no cuenta como archivo propio: se borra con la carpeta"
@@ -508,9 +520,13 @@ PY
 ) >/dev/null 2>&1
 s=$(cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1); c=$?
 [ "$c" -eq 0 ] && ! grep -q Traceback <<<"$s"; tap_check $? "[0.9] un .agent-kit.json con solo algunas claves viejas se migra igual, sin traceback"
-python3 -c "import json,sys; k=json.load(open('$D/.agent-kit.json')); sys.exit(0 if k.get('language')=='en' and k.get('project')=='Demo' else 1)"
+ec=0
+python3 -c "import json,sys; k=json.load(open('$D/.agent-kit.json')); sys.exit(0 if k.get('language')=='en' and k.get('project')=='Demo' else 1)" || ec=$?
+[ "$ec" -eq 0 ]
 tap_check $? "[0.9] sin fecha en las claves viejas, igual queda language: en"
-python3 -c "import json,sys; t=json.load(open('$D/.github/team.json')); sys.exit(0 if t['members'][0]['name']=='rojo' else 1)"
+ec=0
+python3 -c "import json,sys; t=json.load(open('$D/.github/team.json')); sys.exit(0 if t['members'][0]['name']=='rojo' else 1)" || ec=$?
+[ "$ec" -eq 0 ]
 tap_check $? "[0.9] no traduce los nombres de las personas de team.json"
 es -f "$D/docs/agentes/mi-guia.md" && grep -q "docs/agentes" <<<"$s" && grep -qi "own files\|your own" <<<"$s"
 tap_check $? "[0.9] una carpeta vieja con archivos propios no se mueve y el resumen lo avisa"

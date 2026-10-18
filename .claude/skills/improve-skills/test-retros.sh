@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # Tests de retro.sh y signals.sh contra un remoto local (no usa GitHub).
 # Uso: bash .claude/skills/improve-skills/test-retros.sh
 set -uo pipefail
@@ -14,6 +15,7 @@ RAMA_VIEJA=agentes/retros
 # Uso: <condición>; tap_check $? "descripción"
 igual() { [ "$1" = "$2" ]; }
 es() { test "$@"; }
+tap_assertions igual es  # their failure is a failed case, not a crash (tap.sh)
 
 # gh falso: los scripts no pueden depender de GitHub para las retros.
 mkdir -p "$TMP/bin"
@@ -123,7 +125,8 @@ git clone -q "$TMP/remoto.git" "$TMP/c" 2>/dev/null
 err=$(cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/carrera.md" 2>&1 >/dev/null); cod=$?
 ! igual "$cod" 0 && ! grep -q retrying <<<"$err"; tap_check $? "sin acceso al remoto falla sin reintentar"
 grep -q 'no-existe' <<<"$err"; tap_check $? "muestra el error de git"
-ls "$TMP/c/.git/pending-retros/"*.md >/dev/null 2>&1; tap_check $? "deja la retro en .git/pending-retros"
+ec=0
+ls "$TMP/c/.git/pending-retros/"*.md >/dev/null 2>&1 || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "deja la retro en .git/pending-retros"
 
 # Sin remoto: guarda en la rama local.
 git init -q "$TMP/d"; (cd "$TMP/d" && git commit -q --allow-empty -m base)
@@ -133,8 +136,9 @@ git -C "$TMP/d" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implement-
 # En un repo sin commits la retro no se pierde: se guarda o queda pendiente.
 git init -q "$TMP/vacio"
 (cd "$TMP/vacio" && "$AQUI/retro.sh" "$TMP/carrera.md" >/dev/null 2>&1)
+ec=0
 git -C "$TMP/vacio" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implement-issue-9\.md$' \
-  || ls "$TMP/vacio/.git/pending-retros/"*.md >/dev/null 2>&1; tap_check $? "en un repo sin commits la retro no se pierde"
+  || ls "$TMP/vacio/.git/pending-retros/"*.md >/dev/null 2>&1 || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "en un repo sin commits la retro no se pierde"
 
 # Revisión del PR #39.
 # --consolidated solo acepta commits de la rama de retros.

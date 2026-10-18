@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # Runs the real script of the `labels` job of .github/workflows/labels.yml with a fake GitHub
 # and checks what it says about the PR body (issue #143): an unfilled "<reason>" fails with a clear message.
 # Usage: bash scripts/agents/test-labels-check.sh
@@ -10,7 +11,8 @@ tap_begin "$0"
 # Usage: <condition>; tap_check $? "description"
 
 command -v node >/dev/null || { tap_fail "node is installed"; tap_done; }
-node - "$ROOT/.github/workflows/labels.yml" >&2 <<'JS'
+ec=0
+node - "$ROOT/.github/workflows/labels.yml" >&2 <<'JS' || ec=$?
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[2], 'utf8');
 // The script of the `labels:` job: the block after its `script: |`, up to the end of the file.
@@ -141,6 +143,7 @@ const more = [
   process.exit(bad ? 1 : 0);
 })();
 JS
+[ "$ec" -eq 0 ]
 tap_check $? "the labels check reports the unfilled reasons (full script, fake GitHub)"
 # Every job of the workflow has a short timeout (a runaway job must not hold a runner for the 6-hour default).
 jobs=$(awk '/^jobs:/{j=1;next} j && /^  [a-z-]+:$/{n++} END{print n+0}' "$ROOT/.github/workflows/labels.yml")

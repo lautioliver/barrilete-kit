@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # Tests de install.py de punta a punta: un repo existente con todos los choques (README, AGENTS.md,
 # CLAUDE.md, settings.json con hooks propios, docs.yml propio, labels propios con un `gh` falso,
 # .md con links rotos, .sh que no pasa shellcheck) y una plantilla local con dos versiones.
@@ -13,6 +14,7 @@ tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
+tap_assertions es  # their failure is a failed case, not a crash (tap.sh)
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 unset BASE AGENT_KIT_TEMPLATE
@@ -133,7 +135,8 @@ grep -q 'regla propia' "$U/CLAUDE.md" && grep -qx '@AGENTS.md' "$U/CLAUDE.md"
 tap_check $? "CLAUDE.md conserva lo suyo y agrega @AGENTS.md"
 
 # settings.json: fusión JSON.
-python3 - "$U/.claude/settings.json" <<'PY'
+ec=0
+python3 - "$U/.claude/settings.json" <<'PY' || ec=$?
 import json, sys
 s = json.load(open(sys.argv[1]))
 pre = s["hooks"]["PreToolUse"]
@@ -143,6 +146,7 @@ assert sum("guardrails.py" in c for c in cmds) == 1, cmds
 assert s["hooks"]["PostToolUse"][0]["hooks"][0]["command"] == "echo post"
 assert s["model"] == "sonnet"
 PY
+[ "$ec" -eq 0 ]
 tap_check $? "settings.json conserva sus hooks y su configuración, y agrega el hook de guardrails una vez"
 
 # Workflows.
@@ -153,19 +157,22 @@ es -f "$U/.github/workflows/labels.yml" && ! [ -e "$U/.github/workflows/barrilet
 tap_check $? "un workflow que no choca conserva su nombre"
 
 # Labels.
-python3 - "$U/.github/labels.yml" <<'PY'
+ec=0
+python3 - "$U/.github/labels.yml" <<'PY' || ec=$?
 import re, sys
 nombres = re.findall(r'^- name:\s*"?(.*?)"?\s*$', open(sys.argv[1], encoding="utf-8").read(), re.M)
 bajos = [n.lower() for n in nombres]
 assert len(bajos) == len(set(bajos)), "repetidos: %s" % nombres
 assert "mi-label" in nombres and "bug" in nombres and "type:bug" in bajos, nombres
 PY
+[ "$ec" -eq 0 ]
 tap_check $? "labels.yml = labels del kit + los del repo, sin repetir (ni por mayúsculas)"
 grep -q 'mi-label' <<<"$s" && grep -qi 'github default\|default' <<<"$s"
 tap_check $? "el resumen cuenta los labels del repo que conservó (y avisa de los por defecto de GitHub)"
 
 # .agent-kit.json: solo lo del kit.
-python3 - "$U" <<'PY'
+ec=0
+python3 - "$U" <<'PY' || ec=$?
 import json, sys
 u = sys.argv[1]
 k = json.load(open(u + "/.agent-kit.json"))
@@ -180,6 +187,7 @@ for kit in (".github/workflows/barrilete-docs.yml", ".claude/skills/debug/SKILL.
 assert k["project"] == "Demo" and k["base_branch"] == "main" and k["version"] == "0.1.0", k
 assert k["renames"] == {".github/workflows/docs.yml": ".github/workflows/barrilete-docs.yml"}, k.get("renames")
 PY
+[ "$ec" -eq 0 ]
 tap_check $? ".agent-kit.json tiene solo los archivos del kit, con los renombres"
 ! [ -e "$U/scripts/install.py" ] && ! [ -e "$U/scripts/test-install.sh" ] && ! [ -e "$U/scripts/init-template.sh" ]
 tap_check $? "no instala el instalador ni el init (son de la plantilla)"
@@ -197,7 +205,9 @@ lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh')
 tap_check $? "la lista de scripts del CI no incluye los .sh del usuario"
 lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*test-*.sh')
 ! grep -q 'src/test-propio.sh' <<<"$lista"; tap_check $? "el CI no corre los test-*.sh del usuario"
-(cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh' | xargs shellcheck) >/dev/null 2>&1
+ec=0
+(cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh' | xargs shellcheck) >/dev/null 2>&1 || ec=$?
+[ "$ec" -eq 0 ]
 tap_check $? "shellcheck pasa sobre los scripts del kit instalados"
 
 # Reinstalar: se frena (ya hay .agent-kit.json).
@@ -316,16 +326,18 @@ conlabels() { # conlabels <dir>: repo existente con un labels.yml propio
 U9="$TMP/usuario-ref"; conlabels "$U9"
 U10="$TMP/usuario-ref-chico"; conlabels "$U10"
 s=$(cd "$U9" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" 2>&1); c=$?
-es "$c" -eq 0 && python3 - "$U9" "$SHA2" <<'PY'
+ec=0
+es "$c" -eq 0 && python3 - "$U9" "$SHA2" <<'PY' || ec=$?
 import json, sys
 k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
 assert k["ref"] == sys.argv[2] and k["version"] is None, k
 assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
 PY
+[ "$ec" -eq 0 ]
 tap_check $? "el instalador registra el commit (ref) y lo que dejó afuera a propósito (withheld)"
 grep -q 'withheld\|not installed' <<<"$s"; tap_check $? "el resumen nombra lo que dejó afuera a propósito"
 (cd "$U9" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
-s=$(cd "$U10" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" -- --small 2>&1)
+s=$(cd "$U10" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" -- --small 2>&1) || true
 (cd "$U10" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 s=$(cd "$U9" && python3 scripts/update.py --template "$P5" 2>&1); c=$?
 es "$c" -ne 0 && grep -qi 'does not contain' <<<"$s" && es -z "$(git -C "$U9" status --porcelain)"
@@ -343,12 +355,14 @@ tap_check $? "update.py no instala el workflow de labels que el instalador dejó
 s=$(cd "$U10" && python3 scripts/grow.py --template "$P5" 2>&1); c=$?
 es "$c" -eq 0 && ! [ -e "$U10/.github/workflows/labels.yml" ]
 tap_check $? "grow.py no instala el workflow de labels que el instalador dejó afuera"
-python3 - "$U10" "$SHA3" <<'PY'
+ec=0
+python3 - "$U10" "$SHA3" <<'PY' || ec=$?
 import json, sys
 k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
 assert k["ref"] == sys.argv[2] and k["version"] == "1.0.0", k
 assert ".github/workflows/labels.yml" in k["withheld"], k.get("withheld")
 PY
+[ "$ec" -eq 0 ]
 tap_check $? "grow.py registra el commit clonado como ref con la versión de su tag (v1.0.0), y conserva withheld"
 
 # grow.py trae los archivos del HEAD de la plantilla (C), que va por delante del último tag (B): el registro
@@ -366,11 +380,13 @@ s=$(cd "$U12" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo m
 ) >/dev/null 2>&1
 SHAC=$(git -C "$P6" rev-parse HEAD)
 s=$(cd "$U12" && python3 scripts/grow.py --template "$P6" 2>&1); c=$?
-es "$c" -eq 0 && python3 - "$U12" "$SHAC" <<'PY'
+ec=0
+es "$c" -eq 0 && python3 - "$U12" "$SHAC" <<'PY' || ec=$?
 import json, sys
 k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
 assert k["ref"] == sys.argv[2] and k["version"] is None, k
 PY
+[ "$ec" -eq 0 ]
 tap_check $? "grow.py registra el commit desde el que trajo los archivos (C) como ref, con version null" "grow.py registra el commit desde el que trajo los archivos (C) como ref, con version null (salida: $(tail -1 <<<"$s"))"
 (cd "$U12" && rm -rf .agent-kit/pending && git add -A && git commit -qm grow) >/dev/null 2>&1
 s=$(cd "$U12" && python3 scripts/update.py --template "$P6" 2>&1); c=$?

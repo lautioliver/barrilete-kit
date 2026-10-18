@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # shellcheck disable=SC2016  # los backticks de Markdown y los regex de los tests van entre comillas simples a propósito
 # Tests de routing.py y cleanup.sh con un gh falso y un repo local (no usa GitHub).
 # Uso: bash .claude/skills/orchestrate/test-orchestrate.sh
@@ -12,6 +13,7 @@ tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
+tap_assertions es  # their failure is a failed case, not a crash (tap.sh)
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 
@@ -157,10 +159,12 @@ grep -q "claude/18-x.*without a PR" <<<"$s" && grep -q "claude/19-x.*unpushed" <
 grep -q "git push origin --delete" <<<"$s"; tap_check $? "dice cómo borrar las ramas a mano (sin gh --delete-branch)"
 es "$(git -C "$P" for-each-ref --format='%(refname) %(objectname)' refs/remotes)" = "$antes"; tap_check $? "listar no hace fetch ni toca las refs remotas"
 (cd "$P" && "$AQUI/cleanup.sh" --delete >/dev/null 2>&1)
-git -C "$P" rev-parse -q --verify claude/15-x >/dev/null && git --git-dir="$TMP/remoto.git" rev-parse -q --verify claude/15-x >/dev/null && git --git-dir="$TMP/remoto.git" rev-parse -q --verify claude/20-x >/dev/null; tap_check $? "--delete no borra ramas (ni locales ni remotas): eso lo decide la persona"
+ec=0
+git -C "$P" rev-parse -q --verify claude/15-x >/dev/null && git --git-dir="$TMP/remoto.git" rev-parse -q --verify claude/15-x >/dev/null && git --git-dir="$TMP/remoto.git" rev-parse -q --verify claude/20-x >/dev/null || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "--delete no borra ramas (ni locales ni remotas): eso lo decide la persona"
 ! es -d "$WT/10" && ! es -d "$WT/13"; tap_check $? "--delete borra los worktrees limpios de issues cerrados"
 es -d "$WT/11" && es -f "$WT/12/sucio.txt"; tap_check $? "--delete no toca el abierto ni el que tiene cambios"
-git -C "$P" rev-parse -q --verify claude/10-x >/dev/null; tap_check $? "--delete deja la rama (solo saca el worktree)"
+ec=0
+git -C "$P" rev-parse -q --verify claude/10-x >/dev/null || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "--delete deja la rama (solo saca el worktree)"
 
 # Issue cerrado al abrir el PR (costumbre de algunos proyectos): mientras el PR siga abierto, el worktree no se toca.
 git -C "$P" worktree add -q -b claude/30-x "$WT/30" main 2>/dev/null
@@ -191,7 +195,9 @@ es -n "$b" && es -n "$d" && es "$d" -gt "$b"; tap_check $? "--delete da los coma
 ! grep -Eq 'pushe[aá] de nuevo[^`]*$|push again[^`]*$' "$RAIZ/.claude/skills/implement-issue/SKILL.md" && grep -q 'git push origin HEAD' "$RAIZ/.claude/agents/implementer.md"; tap_check $? "cada push dice git push origin HEAD (la rama no tiene upstream)"
 M="$RAIZ/docs/agents-map.json"
 for f in .claude/skills/implement-issue/SKILL.md .gitignore profiles/small/DELETE; do
-  python3 -c "import json,sys; v=[x for x in json.load(open('$M'))['verify'] if x['name']=='orchestrate'][0]; sys.exit(0 if any(g.lstrip('?')=='$f' for g in v['when']) else 1)"
+  ec=0
+  python3 -c "import json,sys; v=[x for x in json.load(open('$M'))['verify'] if x['name']=='orchestrate'][0]; sys.exit(0 if any(g.lstrip('?')=='$f' for g in v['when']) else 1)" || ec=$?
+  [ "$ec" -eq 0 ]
   tap_check $? "la verificación orchestrate del mapa corre cuando cambia <f>" "la verificación orchestrate del mapa corre cuando cambia $f"
 done
 R="$RAIZ/.claude/agents/reviewer.md"
@@ -230,13 +236,14 @@ grep -Eqi 'sin aprobación.*bloqueante|no recorded approval.*blocking' "$V"; tap
 ! grep -Eqi 'si está disponible ./code-review.|code-review[^.]*if available|if[^.]*code-review[^.]*available' "$V" && grep -q 'code-review origin/<base>\.\.\.<head>' "$V"; tap_check $? "review-pr: /code-review obligatorio y sobre origin/<base>...<head> (la base del PR, la rama por nombre)"
 grep -q 'fetch' "$V"; tap_check $? "review-pr: hace fetch antes de /code-review (la base local puede estar atrasada)"
 L="$RAIZ/.github/workflows/labels.yml"
+ec=0
 node -e '
 const src=require("fs").readFileSync(process.argv[1],"utf8");
 const m=src.match(/const cierra = (\/.*\/[a-z]*);/), r=src.match(/const refiere = (\/.*\/[a-z]*);/);
 if(!m||!r) process.exit(1);
 const ok=b=>eval(m[1]).test(b)||eval(r[1]).test(b);
 const casos=[["Closes #1",1],["Refs #77",1],["texto\nRefs: #3\n",1],["  Ref #2",1],["ver ref #38 de pasada",0],["prefs #4",0],["Refs 77",0]];
-process.exit(casos.every(([b,e])=>ok(b)===!!e)?0:1);' "$L" 2>/dev/null; tap_check $? "check de labels: Refs #n solo en su propia línea, Closes en cualquier parte"
+process.exit(casos.every(([b,e])=>ok(b)===!!e)?0:1);' "$L" 2>/dev/null || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "check de labels: Refs #n solo en su propia línea, Closes en cualquier parte"
 # El bloque rojo y "no tests", y la excepción "ADR unchanged": sus casos corren con el script real del job en scripts/agents/test-labels-check.sh (#143).
 # review-pr acepta lo mismo que el CI: sin tests: <motivo> (o no tests: <reason>), no el "sin test" suelto (#143).
 grep -q 'sin tests: <motivo>' "$V" && ! grep -Eq 'old .sin test.' "$V"; tap_check $? "review-pr: el alias es 'sin tests: <motivo>', no el viejo 'sin test' suelto"
@@ -246,7 +253,8 @@ if [ -d "$RAIZ/profiles/small" ]; then
   ! grep -qi 'si está disponible ./code-review.' "$RAIZ/profiles/small/.claude/skills/implement-issue/SKILL.md"; tap_check $? "chico: /code-review obligatorio"
 fi
 grep -q 'code-review.*origin/<base>\.\.\.<branch>' "$RAIZ/.claude/skills/implement-issue/SKILL.md"; tap_check $? "implement-issue corre /code-review sobre el diff de la rama, nombrada (origin/<base>...<branch>)"
-(cd "$RAIZ" && git check-ignore -q .claude/worktrees/agente-x); tap_check $? ".claude/worktrees/ está ignorado (el aislamiento de Claude Code no ensucia el checkout)"
+ec=0
+(cd "$RAIZ" && git check-ignore -q .claude/worktrees/agente-x) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? ".claude/worktrees/ está ignorado (el aislamiento de Claude Code no ensucia el checkout)"
 grep -qx '.claude/skills/orchestrate' "$RAIZ/profiles/small/DELETE" 2>/dev/null || ! [ -d "$RAIZ/profiles" ]; tap_check $? "el modo chico borra la skill orquestar"
 
 
