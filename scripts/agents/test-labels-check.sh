@@ -225,6 +225,7 @@ const perf = {
 JS
 lc_case() { node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" case "$1" >&2; }
 lc_perf() { perl -e 'alarm 10; exec @ARGV' node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" perf "$1" >&2; }
+tap_assertions lc_case lc_perf  # the node driver exits 1 when the workflow script gives another verdict than the case expects
 lc_case valid-block; tap_check $? "structured-block-valid-passes"
 lc_case valid-block-es-title; tap_check $? "structured-block-spanish-title-passes"
 lc_case valid-block-two-groups; tap_check $? "structured-block-two-groups-pass"
