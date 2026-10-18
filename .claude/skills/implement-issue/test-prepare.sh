@@ -120,7 +120,7 @@ rm -f "$TMP/bin/git"
 
 # 7. Hallazgos de /code-review.
 issue 42 "Huerfano"; issue 43 "Desde worktree"; issue 44 "Sin fetch"
-(cd "$TMP/proj" && "$PREPARAR" 42 --worktree >/dev/null 2>&1)
+(cd "$TMP/proj" && "$PREPARAR" 42 --worktree >/dev/null 2>&1) || true
 rm -rf "$WT/42"
 s=$(cd "$TMP/proj" && "$PREPARAR" 42 --worktree 2>&1); c=$?
 tap_check $c "retoma aunque la carpeta del worktree se haya borrado a mano"
@@ -170,7 +170,7 @@ tap_check $? "sin --worktree, con el título editado, retoma la rama existente y
 git -C "$TMP/proj" switch -q main
 
 issue 51 "Antes"
-(cd "$TMP/proj" && "$PREPARAR" 51 --worktree >/dev/null 2>&1)
+(cd "$TMP/proj" && "$PREPARAR" 51 --worktree >/dev/null 2>&1) || true
 issue 51 "Despues"
 s=$(cd "$TMP/proj" && "$PREPARAR" 51 --worktree 2>&1); c=$?
 es "$c" -eq 0 && grep -qx "Worktree: $WT/51" <<<"$s" && es "$(git -C "$WT/51" branch --show-current)" = claude/51-antes

@@ -158,7 +158,7 @@ grep -q "claude/15-x.*closed without merging" <<<"$s" && grep -q "claude/20-x.*c
 grep -q "claude/18-x.*without a PR" <<<"$s" && grep -q "claude/19-x.*unpushed" <<<"$s"; tap_check $? "avisa de la rama sin PR y de la que tiene commits sin pushear"
 grep -q "git push origin --delete" <<<"$s"; tap_check $? "dice cómo borrar las ramas a mano (sin gh --delete-branch)"
 es "$(git -C "$P" for-each-ref --format='%(refname) %(objectname)' refs/remotes)" = "$antes"; tap_check $? "listar no hace fetch ni toca las refs remotas"
-(cd "$P" && "$AQUI/cleanup.sh" --delete >/dev/null 2>&1)
+(cd "$P" && "$AQUI/cleanup.sh" --delete >/dev/null 2>&1) || true
 ec=0
 git -C "$P" rev-parse -q --verify claude/15-x >/dev/null && git --git-dir="$TMP/remoto.git" rev-parse -q --verify claude/15-x >/dev/null && git --git-dir="$TMP/remoto.git" rev-parse -q --verify claude/20-x >/dev/null || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "--delete no borra ramas (ni locales ni remotas): eso lo decide la persona"
 ! es -d "$WT/10" && ! es -d "$WT/13"; tap_check $? "--delete borra los worktrees limpios de issues cerrados"
@@ -171,7 +171,7 @@ git -C "$P" worktree add -q -b claude/30-x "$WT/30" main 2>/dev/null
 issue 30 closed "type:task" "Cerrado con el PR en revisión."; pr 30 130 OPEN
 s=$(cd "$P" && "$AQUI/cleanup.sh" 2>&1)
 ! grep -q "$WT/30" <<<"$s"; tap_check $? "no lista el worktree de un issue cerrado con el PR abierto"
-(cd "$P" && "$AQUI/cleanup.sh" --delete >/dev/null 2>&1)
+(cd "$P" && "$AQUI/cleanup.sh" --delete >/dev/null 2>&1) || true
 es -d "$WT/30"; tap_check $? "--delete no saca el worktree de un PR abierto"
 
 # Una rama de PR cerrado que todavía tiene worktree: git branch -D falla hasta sacarlo, así que
