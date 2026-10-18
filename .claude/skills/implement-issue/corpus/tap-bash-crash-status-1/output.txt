@@ -1,1 +1,1 @@
-Bail out! unexpected error (status 1) at line 6 of scripts/new.test.sh: python3 -c 'raise SystemExit(1)' is not an assertion: its status cannot be told from a crash (compare its output, or read the status and compare it with test)
+Bail out! unexpected error (status 1) at line 6 of scripts/new.test.sh: python3 -c 'raise SystemExit(1)': it is not an assertion, so a crash cannot be told from a failed case (compare its output with tap_run, or declare the failure expected with || true)

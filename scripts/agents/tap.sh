@@ -157,6 +157,7 @@ _tap_on_err() {
 }
 
 trap '_tap_on_exit' EXIT
+trap 'exit 143' TERM  # a crash in a subshell stops the script with it; the EXIT trap then reports and exits with 1
 trap '_tap_on_err "$?" "$LINENO" "$0" "$BASH_COMMAND" "${PIPESTATUS[*]}"' ERR
 set -E -o pipefail
 _TAP_BAILFILE=$(mktemp "${TMPDIR:-/tmp}/tap-bail-XXXXXX") || _TAP_BAILFILE=""

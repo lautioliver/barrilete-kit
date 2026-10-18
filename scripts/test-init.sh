@@ -61,7 +61,7 @@ for modo in completo chico; do
   # shellcheck disable=SC2016  # backticks de Markdown, literales
   ! grep -rEq 'nor to `main`|ni a `main` ni a `main`|neither to `main`|ni a `main` ni' --exclude-dir=.git "$p"; tap_check $? "[<modo>] con base main no queda 'ni a main ni a main' (ni 'neither to main nor to main')" "[$modo] con base main no queda 'ni a main ni a main' (ni 'neither to main nor to main')"
   # #143: lo que es del kit (su ADR-001, el instalador, la épica #33, el CHANGELOG del kit) no viaja a la documentación instalada.
-  ! grep -rEn "kit's .ADR-001|ADR-001. del kit|install\.py|#122|[eé]pic(a)? #33|kit's .CHANGELOG|CHANGELOG.md. del kit|\-\-lang" --include='*.md' --include='*.py' --include='*.txt' "$p/docs" "$p/AGENTS.md" "$p/.claude/skills" "$p/.claude/agents" 2>/dev/null | grep -v '/test-[a-z-]*\.sh:' >"$TMP/kit-$modo.txt"
+  grep -rEn "kit's .ADR-001|ADR-001. del kit|install\.py|#122|[eé]pic(a)? #33|kit's .CHANGELOG|CHANGELOG.md. del kit|\-\-lang" --include='*.md' --include='*.py' --include='*.txt' "$p/docs" "$p/AGENTS.md" "$p/.claude/skills" "$p/.claude/agents" 2>/dev/null | grep -v '/test-[a-z-]*\.sh:' >"$TMP/kit-$modo.txt" || true  # no line is the good result
   es ! -s "$TMP/kit-$modo.txt"; tap_check $? "[<modo>] la documentación instalada no cita el ADR-001 del kit, install.py, #122, la épica #33 ni --lang" "[$modo] la documentación instalada no cita el ADR-001 del kit, install.py, #122, la épica #33 ni --lang"
   [ -s "$TMP/kit-$modo.txt" ] && sed 's/^/       /' "$TMP/kit-$modo.txt" | head -5
   es -z "$(cd "$p" && git status --porcelain)"; tap_check $? "[<modo>] después de correr los scripts, git status queda limpio" "[$modo] después de correr los scripts, git status queda limpio"
