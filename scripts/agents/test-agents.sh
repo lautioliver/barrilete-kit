@@ -157,4 +157,61 @@ PY
 ); tap_check $? "verify: renames corre cuando cambian scripts, docs, skills, el mapa o los workflows"
 fi
 
+# 6. check-docs.py valida la sección red del mapa (ADR-002 D2, #152). En un proyecto inicializado check-docs falla
+# igual por los TODO del mapa, así que se miran solo sus líneas de la sección red ("docs/agents-map.json: red ...").
+# Reemplaza la sección red del mapa de la copia por el JSON que se pasa (o la borra con DEL).
+poner_red() {
+  RED_JSON="$1" python3 - "$TMP/r/docs/agents-map.json" <<'PY'
+import json, os, sys
+ruta = sys.argv[1]
+m = json.load(open(ruta, encoding="utf-8"))
+if os.environ["RED_JSON"] == "DEL":
+    m.pop("red", None)
+else:
+    m["red"] = json.loads(os.environ["RED_JSON"])
+open(ruta, "w", encoding="utf-8").write(json.dumps(m, ensure_ascii=False, indent=2) + "\n")
+PY
+}
+errores_red() { check | grep '^- docs/agents-map.json: red' || true; }
+OK='{"name":"py","when":["**/test_*.py"],"run":"pytest --junitxml={out}","format":"junit","timeout":600}'
+# Una entrada inválida: check-docs informa un error de red con todos los fragmentos. Se usa como:
+# rechaza <entrada JSON> <fragmento>...; tap_check $? "id literal"
+rechaza() {
+  local entrada="$1"; shift
+  poner_red "[$entrada]"
+  local salida f r=0
+  salida=$(errores_red)
+  [ -n "$salida" ] || r=1
+  for f in "$@"; do grep -q -- "$f" <<<"$salida" || r=1; done
+  return $r
+}
+
+copia
+poner_red "[$OK]"
+r=0; [ -z "$(errores_red)" ] || r=1; tap_check $r "check-docs acepta una entrada red válida (pytest, junit, timeout)"
+poner_red '[{"name":"b","when":["**/test-*.sh"],"run":"TAP_OUT={out} bash t.sh","format":"tap"}]'
+r=0; [ -z "$(errores_red)" ] || r=1; tap_check $r "check-docs acepta una entrada red válida sin timeout (es opcional)"
+poner_red DEL
+r=0; [ -z "$(errores_red)" ] || r=1; tap_check $r "check-docs acepta un mapa sin sección red (se lee como vacía)"
+
+rechaza '{"name":"sinout","when":["**/*.py"],"run":"pytest","format":"junit"}' "red 'sinout'" '{out}'; tap_check $? "check-docs rechaza una entrada red sin {out} en run"
+rechaza '{"name":"fmt","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"xml"}' "red 'fmt'" 'junit' 'tap'; tap_check $? "check-docs rechaza un format que no es junit ni tap"
+rechaza '{"name":"nofmt","when":["**/*.py"],"run":"pytest --junitxml={out}"}' "red 'nofmt'" 'format'; tap_check $? "check-docs rechaza una entrada red sin format"
+rechaza '{"name":"nowhen","run":"pytest --junitxml={out}","format":"junit"}' "red 'nowhen'" 'when'; tap_check $? "check-docs rechaza una entrada red sin when"
+rechaza '{"name":"vacio","when":[],"run":"pytest --junitxml={out}","format":"junit"}' "red 'vacio'" 'when'; tap_check $? "check-docs rechaza un when vacío"
+rechaza '{"name":"textos","when":"**/*.py","run":"pytest --junitxml={out}","format":"junit"}' "red 'textos'" 'when'; tap_check $? "check-docs rechaza un when que no es una lista de textos"
+rechaza '{"name":"tout","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit","timeout":"600"}' "red 'tout'" 'timeout'; tap_check $? "check-docs rechaza un timeout que no es un entero"
+rechaza '{"name":"cero","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit","timeout":0}' "red 'cero'" 'timeout'; tap_check $? "check-docs rechaza un timeout cero o negativo"
+rechaza '{"name":"bool","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit","timeout":true}' "red 'bool'" 'timeout'; tap_check $? "check-docs rechaza un timeout booleano (true no es un entero)"
+rechaza '{"name":"rep","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit","report":"{out}"}' "red 'rep'" 'report'; tap_check $? "check-docs rechaza el campo report, que no existe (el camino va en {out})"
+rechaza '{"when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red\[0\]" 'name'; tap_check $? "check-docs rechaza una entrada red sin name"
+rechaza '"pytest"' "red\[0\]" 'object'; tap_check $? "check-docs rechaza una entrada red que no es un objeto"
+
+poner_red "[$OK,$OK]"
+errores_red | grep -q "more than once"; tap_check $? "check-docs rechaza dos entradas red con el mismo name (red.sh <stack> sería ambiguo)"
+poner_red '{"name":"py"}'
+errores_red | grep -q "array"; tap_check $? "check-docs rechaza una sección red que no es un arreglo"
+poner_red '[{"name":"a","when":["**/*.py"],"run":"x","format":"zzz"}]'
+[ "$(errores_red | grep -c "red 'a'")" -ge 2 ]; tap_check $? "check-docs informa todos los problemas de una entrada, no solo el primero"
+
 tap_done

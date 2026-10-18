@@ -65,8 +65,12 @@ for modo in completo chico; do
   [ -s "$TMP/kit-$modo.txt" ] && sed 's/^/       /' "$TMP/kit-$modo.txt" | head -5
   es -z "$(cd "$p" && git status --porcelain)"; tap_check $? "[<modo>] después de correr los scripts, git status queda limpio" "[$modo] después de correr los scripts, git status queda limpio"
   if [ "$modo" = chico ]; then
-    ! [ -e "$p/docs/agents-map.json" ]; tap_check $? "[<modo>] el modo chico no tiene mapa (ni verificación init)" "[$modo] el modo chico no tiene mapa (ni verificación init)"
+    # #152: el modo chico declara el rojo en un mapa mínimo que solo tiene la sección red (decidido en el ADR-002, D2).
+    r=0; [ "$(python3 -c "import json; print(sorted(json.load(open('$p/docs/agents-map.json'))))" 2>/dev/null)" = "['red']" ] || r=1; tap_check $r "[<modo>] el modo chico deja un docs/agents-map.json mínimo con solo la sección red" "[$modo] el modo chico deja un docs/agents-map.json mínimo con solo la sección red"
+    ! grep -q '"name": "init"' "$p/docs/agents-map.json"; tap_check $? "[<modo>] el mapa mínimo del modo chico no trae la verificación init" "[$modo] el mapa mínimo del modo chico no trae la verificación init"
   else
+    python3 -c "import json,sys; r=json.load(open('$p/docs/agents-map.json'))['red']; sys.exit(0 if r and all('{out}' in e['run'] and e['format'] in ('junit','tap') for e in r) else 1)" 2>/dev/null; tap_check $? "[<modo>] el mapa instalado trae la sección red por defecto (bash/TAP con {out})" "[$modo] el mapa instalado trae la sección red por defecto (bash/TAP con {out})"
+    ! grep -q "red '" <<<"$s"; tap_check $? "[<modo>] check-docs del proyecto recién creado no rechaza la sección red por defecto" "[$modo] check-docs del proyecto recién creado no rechaza la sección red por defecto"
     ! grep -q '"name": "init"' "$p/docs/agents-map.json"; tap_check $? "[<modo>] el init saca del mapa la verificación init (su test ya no existe)" "[$modo] el init saca del mapa la verificación init (su test ya no existe)"
     ! grep -q 'ADR-001\|CHANGELOG' "$p/docs/agents-map.json"; tap_check $? "[<modo>] el init saca del mapa lo que ignora de los archivos del kit (no debe ocultar el ADR-001 del proyecto)" "[$modo] el init saca del mapa lo que ignora de los archivos del kit (no debe ocultar el ADR-001 del proyecto)"
   fi
@@ -245,6 +249,9 @@ for idioma in en es; do
   p="$TMP/real-chico-$idioma"
   copiar "$p"
   (cd "$p" && ./scripts/init-template.sh Demo main --small --lang "$idioma" >/dev/null 2>&1); tap_check $? "[real chico --lang <idioma>] el init termina bien" "[real chico --lang $idioma] el init termina bien"
+  # #152: en los dos idiomas el proyecto chico trae el mapa mínimo (solo red) y check-docs lo acepta.
+  r=0; [ "$(python3 -c "import json; print(sorted(json.load(open('$p/docs/agents-map.json'))))" 2>/dev/null)" = "['red']" ] || r=1; tap_check $r "[real chico --lang <idioma>] docs/agents-map.json tiene solo la sección red" "[real chico --lang $idioma] docs/agents-map.json tiene solo la sección red"
+  (cd "$p" && python3 scripts/agents/check-docs.py >/dev/null 2>&1); tap_check $? "[real chico --lang <idioma>] check-docs pasa con el mapa mínimo, sin agents_map.py" "[real chico --lang $idioma] check-docs pasa con el mapa mínimo, sin agents_map.py"
   hermano() { if [ "$idioma" = es ]; then case "$1" in *.md) echo "${1%.md}.es.md" ;; *.txt) echo "${1%.txt}.es.txt" ;; esac; else echo "$1"; fi; }
   for sk in implement-issue create-issue update-docs; do
     # El init reemplaza los marcadores (<BASE_BRANCH>…): se comparan con esa sustitución.
@@ -363,7 +370,7 @@ for combinacion in "completo main" "chico main" "completo develop" "chico develo
       grep -E '^FAIL|^ {7}[^ ]|fallaron' <<<"$salida" | sed "s|^|       [$modo, base $base] $t: |"
     fi
   done < <(cd "$p" && git ls-files '*test-*.sh')
-  es -z "$rotos"; tap_check $? "[<modo>, base <base>] los test-*.sh del proyecto pasan<rotos>" "[$modo, base $base] los test-*.sh del proyecto pasan${rotos:+ (fallan: $rotos)}"
+  es -z "$rotos"; tap_check $? "[<modo>, base <base>] los test-*.sh del proyecto instalado pasan<rotos>" "[$modo, base $base] los test-*.sh del proyecto instalado pasan${rotos:+ (fallan: $rotos)}"
 done
 
 # check-docs.py falla si AGENTS.md dice que algo está ignorado y no lo está.
