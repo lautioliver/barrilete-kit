@@ -310,10 +310,6 @@ has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a setup funct
 run_tap '( python3 /nonexistent/missing-script.py 2>/dev/null; [ x = y ] ); tap_check $? "crash in a subshell"
 tap_done' file
 has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash inside a subshell emits Bail out!"
-run_tap 'out=$(python3 /nonexistent/missing-script.py 2>/dev/null) || true
-[ "$out" = expected ]; tap_check $? "compares the output of a crash"
-tap_done' file
-has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash inside a substitution is not hidden by a trailing || true"
 run_tap 'tap_ok "before"
 ( python3 /nonexistent/missing-script.py 2>/dev/null; : )
 tap_ok "after"

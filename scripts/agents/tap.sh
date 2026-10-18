@@ -47,7 +47,8 @@
 #   - a program the test expects to fail with 1 or 2 (tap_run or tap_status with that status, "|| true"): a crash with
 #     that same status looks like the behaviour. A tool whose failure is a verdict (check-docs.py exits 1 on findings)
 #     is in this case; tap_no_traceback "$out" covers Python tools by their traceback;
-#   - "trap - ERR" and a "|| true" inside a substitution: the commands there are no longer watched;
+#   - "trap - ERR", and "|| true" after a command or a substitution: bash 5 does not watch what runs under the
+#     "||" (bash 3.2 still calls the trap inside a substitution), so the crash is hidden: use tap_run;
 #   - a failure in the middle of "a && b" or "a || b", and in a condition (if, while, "!"): bash does not call the trap;
 #   - "local x=$(prog)" hides the status of prog (a crash inside prog still bails out);
 #   - on bash 3.2 (macOS), a subshell "( cmd )" with a single command that fails: the parent does not see it; bash 5 does.
