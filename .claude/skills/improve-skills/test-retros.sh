@@ -15,7 +15,6 @@ RAMA_VIEJA=agentes/retros
 # Uso: <condición>; tap_check $? "descripción"
 igual() { [ "$1" = "$2" ]; }
 es() { test "$@"; }
-tap_assertions igual es  # their failure is a failed case, not a crash (tap.sh)
 
 # gh falso: los scripts no pueden depender de GitHub para las retros.
 mkdir -p "$TMP/bin"
@@ -69,7 +68,7 @@ igual "$(cd "$TMP/a" && git diff --cached --name-only)" sucio.txt; tap_check $? 
 
 # Sin frontmatter obligatorio, no publica.
 printf '**Desvíos:** nada\n' >"$TMP/mal.md"
-! (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/mal.md" >/dev/null 2>&1); tap_check $? "rechaza una retro sin skill ni issue"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/mal.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "rechaza una retro sin skill ni issue"
 
 # 2. Dos retros desde clones desactualizados (y la misma skill e issue el mismo día) no se pisan.
 retro b review-pr 1 "desde b" >/dev/null 2>&1 || true
@@ -81,7 +80,7 @@ s=$(cd "$TMP/a" && "$AQUI/signals.sh" 2>&1)
 grep -q primera <<<"$s" && grep -q "desde a" <<<"$s" && grep -q "desde b" <<<"$s"; tap_check $? "signals.sh sin consolidar muestra todas"
 punta=$(sed -n 's/.*consolidate up to: \([0-9a-f]\{7,\}\).*/\1/p' <<<"$s" | head -1)
 grep -Eq '^[0-9a-f]{40}$' <<<"$punta"; tap_check $? "signals.sh imprime el commit completo para consolidar"
-(cd "$TMP/a" && "$AQUI/retro.sh" --consolidated deadbee https://example.test/pull/7 >/dev/null 2>&1); igual $? 64; tap_check $? "--consolidated rechaza un commit que no existe"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" --consolidated deadbee https://example.test/pull/7 >/dev/null 2>&1) || c=$?; tap_status "$c" 64; igual "$c" 64; tap_check $? $? "--consolidated rechaza un commit que no existe"
 (cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$punta" https://example.test/pull/7 >/dev/null 2>&1) || true
 cons=$(git --git-dir="$TMP/remoto.git" show "$RAMA:consolidated.md" 2>/dev/null)
 grep -q "^consolidated-until: $punta" <<<"$cons" && grep -q "pull/7" <<<"$cons"; tap_check $? "consolidated.md guarda hasta dónde y el PR"
@@ -98,7 +97,7 @@ archivos | grep -q 'implement-issue-3\.md$'; tap_check $? "acepta una ruta relat
 
 # review-pr sin issue: alcanza con el PR.
 printf -- '---\nskill: review-pr\nissue: sin issue\npr: 45\n---\nsin issue\n' >"$TMP/sin.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/sin.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/sin.md" >/dev/null 2>&1)
 archivos | grep -q 'review-pr-pr45\.md$'; tap_check $? "review-pr sin issue usa el número de PR"
 
 # Carrera real: justo antes del push de a, b guarda otra retro. a tiene que reintentar.
@@ -122,54 +121,52 @@ grep -q retrying <<<"$err"; tap_check $? "en una carrera reintenta"
 # Un push que falla por otra razón no se reintenta, muestra el error y deja la retro a mano.
 git clone -q "$TMP/remoto.git" "$TMP/c" 2>/dev/null
 (cd "$TMP/c" && git remote set-url origin "$TMP/no-existe.git")
-err=$(cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/carrera.md" 2>&1 >/dev/null); cod=$?
+cod=0; err=$(trap - ERR; cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/carrera.md" 2>&1 >/dev/null) || cod=$?; tap_status "$cod" 1
 ! igual "$cod" 0 && ! grep -q retrying <<<"$err"; tap_check $? "sin acceso al remoto falla sin reintentar"
 grep -q 'no-existe' <<<"$err"; tap_check $? "muestra el error de git"
-ec=0
-ls "$TMP/c/.git/pending-retros/"*.md >/dev/null 2>&1 || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "deja la retro en .git/pending-retros"
+ls "$TMP/c/.git/pending-retros/"*.md >/dev/null 2>&1; tap_check $? "deja la retro en .git/pending-retros"
 
 # Sin remoto: guarda en la rama local.
 git init -q "$TMP/d"; (cd "$TMP/d" && git commit -q --allow-empty -m base)
-(cd "$TMP/d" && "$AQUI/retro.sh" "$TMP/carrera.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/d" && "$AQUI/retro.sh" "$TMP/carrera.md" >/dev/null 2>&1)
 git -C "$TMP/d" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implement-issue-9\.md$'; tap_check $? "sin remoto guarda en la rama local"
 
 # En un repo sin commits la retro no se pierde: se guarda o queda pendiente.
 git init -q "$TMP/vacio"
-(cd "$TMP/vacio" && "$AQUI/retro.sh" "$TMP/carrera.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
-ec=0
+(cd "$TMP/vacio" && "$AQUI/retro.sh" "$TMP/carrera.md" >/dev/null 2>&1)
 git -C "$TMP/vacio" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implement-issue-9\.md$' \
-  || ls "$TMP/vacio/.git/pending-retros/"*.md >/dev/null 2>&1 || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "en un repo sin commits la retro no se pierde"
+  || ls "$TMP/vacio/.git/pending-retros/"*.md >/dev/null 2>&1; tap_check $? "en un repo sin commits la retro no se pierde"
 
 # Revisión del PR #39.
 # --consolidated solo acepta commits de la rama de retros.
 otro=$(cd "$TMP/a" && git rev-parse HEAD)
-(cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$otro" https://example.test/pull/8 >/dev/null 2>&1); igual $? 64; tap_check $? "--consolidated rechaza un commit que no es de <RAMA>" "--consolidated rechaza un commit que no es de $RAMA"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$otro" https://example.test/pull/8 >/dev/null 2>&1) || c=$?; tap_status "$c" 64; igual "$c" 64; tap_check $? $? "--consolidated rechaza un commit que no es de <RAMA>" "--consolidated rechaza un commit que no es de $RAMA"
 
 # Frontmatter con CRLF y comillas se acepta; sin cerrar se rechaza.
 printf -- '---\r\nskill: "implement-issue"\r\nissue: 11\r\n---\r\ncrlf\r\n' >"$TMP/crlf.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/crlf.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/crlf.md" >/dev/null 2>&1)
 archivos | grep -q 'implement-issue-11\.md$'; tap_check $? "acepta frontmatter con CRLF y comillas"
 printf -- '---\nskill: implement-issue\nissue: 12\nsin cierre\n' >"$TMP/abierto.md"
-! (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/abierto.md" >/dev/null 2>&1); tap_check $? "rechaza un frontmatter sin cerrar"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/abierto.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "rechaza un frontmatter sin cerrar"
 
 # Con commit.gpgSign y una firma que falla, igual guarda (la rama de retros no se firma).
 (cd "$TMP/a" && git config commit.gpgSign true && git config gpg.program false)
 printf -- '---\nskill: implement-issue\nissue: 13\n---\nfirma\n' >"$TMP/firma.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/firma.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/firma.md" >/dev/null 2>&1)
 archivos | grep -q 'implement-issue-13\.md$'; tap_check $? "guarda aunque el repo exija firmar commits"
 (cd "$TMP/a" && git config --unset commit.gpgSign && git config --unset gpg.program)
 
 # En un worktree, la pendiente queda en el .git común (sobrevive a git worktree remove).
 git -C "$TMP/c" worktree add -q "$TMP/cw" 2>/dev/null
 printf -- '---\nskill: implement-issue\nissue: 14\n---\nworktree\n' >"$TMP/wt.md"
-(cd "$TMP/cw" && "$AQUI/retro.sh" "$TMP/wt.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/cw" && "$AQUI/retro.sh" "$TMP/wt.md" >/dev/null 2>&1) || true  # exits non-zero when it leaves the retro pending (no remote)
 git -C "$TMP/c" worktree remove --force "$TMP/cw" 2>/dev/null
 pend=$(find "$TMP/c/.git/pending-retros" -name "*implement-issue-14*.md" 2>/dev/null | head -1)
 grep -q . <<<"$pend"; tap_check $? "en un worktree la pendiente sobrevive a git worktree remove"
 
 # Reintentar una pendiente con éxito la borra y no duplica.
 (cd "$TMP/c" && git remote set-url origin "$TMP/remoto.git")
-(cd "$TMP/c" && "$AQUI/retro.sh" "$pend" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/c" && "$AQUI/retro.sh" "$pend" >/dev/null 2>&1)
 igual "$(archivos | grep -c 'implement-issue-14')" 1; tap_check $? "la pendiente reintentada se guarda una vez"
 ! [ -e "$pend" ]; tap_check $? "la pendiente reintentada se borra"
 
@@ -179,7 +176,7 @@ git init -q --bare -b main "$TMP/remoto-d.git"
 s=$(cd "$TMP/d" && "$AQUI/signals.sh" 2>&1)
 grep -q 'implement-issue-9' <<<"$s"; tap_check $? "signals.sh ve las retros locales después de agregar un remoto"
 printf -- '---\nskill: implement-issue\nissue: 15\n---\nd\n' >"$TMP/d.md"
-(cd "$TMP/d" && "$AQUI/retro.sh" "$TMP/d.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/d" && "$AQUI/retro.sh" "$TMP/d.md" >/dev/null 2>&1)
 git --git-dir="$TMP/remoto-d.git" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implement-issue-9'; tap_check $? "al agregar un remoto, las retros locales se suben"
 
 # 5. Modelo, rol, agent_sha y skill orchestrate (#35).
@@ -191,45 +188,45 @@ mkdir -p "$TMP/g/.claude/agents"; echo "# implementador liviano" >"$TMP/g/.claud
 (cd "$TMP/g" && git add .claude/agents && git commit -qm "agente liviano")
 agsha=$(cd "$TMP/g" && git log -1 --format=%H -- .claude/agents/implementer-light.md)
 printf -- '---\nskill: implement-issue\nissue: 35\nmodel: haiku\nrole: implementer-light\n---\nliviano\n' >"$TMP/liv.md"
-(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/liv.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/liv.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-35' | head -1)" 2>/dev/null)
 grep -q '^model: haiku$' <<<"$c" && grep -q '^role: implementer-light$' <<<"$c"; tap_check $? "guarda modelo y rol tal como vienen"
 grep -q "^agent_sha: $agsha$" <<<"$c"; tap_check $? "un subagente guarda agent_sha del .claude/agents/<rol>.md"
 
 # Un agent_sha explícito (el que pasa el orquestador) se respeta, aunque el checkout tenga otro.
 printf -- '---\nskill: implement-issue\nissue: 75\nmodel: sonnet\nrole: implementer\nagent_sha: 0123456789abcdef0123456789abcdef01234567\n---\nexplicito\n' >"$TMP/expl.md"
-(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/expl.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/expl.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-75' | head -1)" 2>/dev/null)
 grep -q '^agent_sha: 0123456789abcdef0123456789abcdef01234567$' <<<"$c" && igual "$(grep -c '^agent_sha:' <<<"$c")" 1; tap_check $? "un agent_sha explícito se guarda tal cual, una sola vez"
 
 printf -- '---\nskill: review-pr\npr: 46\nmodel: opus\nrole: reviewer\n---\nrev\n' >"$TMP/rev.md"
-(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/rev.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/rev.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'review-pr-pr46' | head -1)" 2>/dev/null)
 grep -q '^agent_sha: unknown$' <<<"$c"; tap_check $? "si el archivo del agente no existe, agent_sha es unknown"
 
 printf -- '---\nskill: orchestrate\nissue: 33\nmodel: opus\nrole: orchestrator\n---\nepica\n' >"$TMP/orq.md"
-(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/orq.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/orq.md" >/dev/null 2>&1)
 archivos | grep -Eq 'retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-orchestrate-33\.md$'; tap_check $? "orchestrate con issue de la épica se guarda como orquestar-<n>"
 
 printf -- '---\nskill: orchestrate\nrun: 20261008-1530\nmodel: opus\nrole: orchestrator\n---\ncorrida\n' >"$TMP/corr.md"
-(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr.md" >/dev/null 2>&1)
 archivos | grep -Eq 'retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-orchestrate-20261008-1530\.md$'; tap_check $? "orquestar sin épica se identifica con run: AAAAMMDD-HHMM"
 
 printf -- '---\nskill: orchestrate\nrun: ayer\npr: 47\n---\nmal formada\n' >"$TMP/corr-mal.md"
-(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-mal.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-mal.md" >/dev/null 2>&1)
 archivos | grep -Eq 'retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-orchestrate-pr47\.md$'; tap_check $? "corrida mal formada cae al pr y la retro se nombra prN"
 
 printf -- '---\nskill: implement-issue\nrun: 20261008-1530\n---\ncorrida fuera de orquestar\n' >"$TMP/corr-ii.md"
-! (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-ii.md" >/dev/null 2>&1); tap_check $? "run: solo vale con skill orchestrate: implement-issue sin issue ni pr se rechaza"
+c=0; (trap - ERR; cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-ii.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "run: solo vale con skill orchestrate: implement-issue sin issue ni pr se rechaza"
 
 # Campos vacíos y espacios al final (revisión de #46).
 printf -- '---\nskill: implement-issue\nissue: 61\nmodel:\nrole:\n---\nvacios\n' >"$TMP/vacios.md"
-(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/vacios.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/vacios.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-61' | head -1)" 2>/dev/null)
 grep -q '^model: unknown$' <<<"$c" && grep -q '^role: session$' <<<"$c" && ! grep -Eq '^(model|role):$' <<<"$c"; tap_check $? "modelo y rol vacíos se guardan como desconocido y sesion"
 
 printf -- '---\nskill: implement-issue\nissue: 62\nmodel: haiku \nrole: implementer-light \n---\nespacios\n' >"$TMP/esp.md"
-(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/esp.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/esp.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-62' | head -1)" 2>/dev/null)
 grep -q '^model: haiku$' <<<"$c" && grep -q '^role: implementer-light$' <<<"$c" && grep -q "^agent_sha: $agsha$" <<<"$c"; tap_check $? "espacios al final no se guardan en modelo/rol y no impiden agent_sha"
 
@@ -237,7 +234,7 @@ mkdir -p "$TMP/g/.claude/agents"; echo "# revisor" >"$TMP/g/.claude/agents/revie
 (cd "$TMP/g" && git add .claude/agents && git commit -qm "agente revisor")
 revsha=$(cd "$TMP/g" && git log -1 --format=%H -- .claude/agents/reviewer.md)
 printf -- '---\nskill: review-pr\npr: 63\nmodel: opus\nrole: reviewer \n---\nrev2\n' >"$TMP/rev2.md"
-(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/rev2.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/rev2.md" >/dev/null 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'review-pr-pr63' | head -1)" 2>/dev/null)
 grep -q "^agent_sha: $revsha$" <<<"$c"; tap_check $? "rol con espacio al final guarda agent_sha igual"
 
@@ -259,7 +256,7 @@ tap_check $? "el contrato dice cómo abrirla (origin/), qué hacer con el sufijo
 
 # Claves y valores viejos (0.9) en una retro pendiente: se normalizan a los nuevos y se conserva agente_sha.
 printf -- '---\nskill: orquestar\nissue: 33\nmodelo: haiku\nrol: implementador-liviano\nagente_sha: 1111111111111111111111111111111111111111\nrutas: docs/x.md\nfecha: 2026-01-02\n---\nvieja\n' >"$TMP/v1.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v1.md" >/dev/null 2>&1); c=$?
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v1.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 0
 tap_check "$c" "retro.sh acepta una retro con skill: orquestar (0.9)"
 archivos | grep -Eq 'retros/[0-9-]+-orchestrate-33(-[0-9]+)?\.md$'; tap_check $? "la retro vieja se guarda como orchestrate-<n>"
 r=$(for f in $(archivos | grep -E 'orchestrate-33'); do git --git-dir="$TMP/remoto.git" show "$RAMA:$f"; done)
@@ -269,31 +266,31 @@ grep -q '^agent_sha: 1111111111111111111111111111111111111111$' <<<"$r"; tap_che
 grep -q '^paths: docs/x.md$' <<<"$r" && grep -q '^date: 2026-01-02$' <<<"$r"; tap_check $? "rutas: y fecha: pasan a paths: y date:"
 ! grep -Eq '^(modelo|rol|agente_sha|rutas|fecha):' <<<"$r"; tap_check $? "la retro guardada no conserva ninguna clave vieja"
 printf -- '---\nskill: mejorar-skills\npr: 7\nmodelo: opus\nrol: revisor\n---\nvieja2\n' >"$TMP/v2.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v2.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v2.md" >/dev/null 2>&1)
 archivos | grep -q 'improve-skills-pr7'; tap_check $? "mejorar-skills se guarda como improve-skills"
 r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'improve-skills-pr7' | tail -1)" 2>/dev/null)
 grep -q '^role: reviewer$' <<<"$r" && grep -q '^agent_sha: ' <<<"$r"; tap_check $? "revisor pasa a reviewer y registra agent_sha"
 # Valores viejos de modelo/rol vacíos y de pr/area ("desconocido", "sesion", "orquestador", "sin PR", "ninguna").
 printf -- '---\nskill: orquestar\ncorrida: 20261009-0900\npr: sin PR\narea: ninguna\nmodelo: desconocido\nrol: orquestador\n---\nvalores\n' >"$TMP/v3.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v3.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v3.md" >/dev/null 2>&1)
 archivos | grep -q 'orchestrate-20261009-0900'; tap_check $? "corrida: (0.9) se acepta como run:"
 r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'orchestrate-20261009-0900' | tail -1)" 2>/dev/null)
 grep -q '^model: unknown$' <<<"$r" && grep -q '^role: orchestrator$' <<<"$r" && grep -q '^pr: no PR$' <<<"$r" && grep -q '^area: none$' <<<"$r" && grep -q '^run: 20261009-0900$' <<<"$r"; tap_check $? "desconocido, orquestador, sin PR y ninguna pasan a unknown, orchestrator, no PR y none"
 # Una retro pendiente en el directorio viejo (retros-pendientes) se reintenta y se borra.
 mkdir -p "$TMP/c/.git/retros-pendientes"; cp "$TMP/v1.md" "$TMP/c/.git/retros-pendientes/vieja-1.md"
-(cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/c/.git/retros-pendientes/vieja-1.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/c/.git/retros-pendientes/vieja-1.md" >/dev/null 2>&1)
 ! [ -e "$TMP/c/.git/retros-pendientes/vieja-1.md" ]; tap_check $? "una pendiente del directorio viejo retros-pendientes se guarda y se borra"
 
 # Revisión (code-review): skill_sha desconocido, valores entre comillas y claves viejas y nuevas juntas.
 printf -- '---\nskill: implement-issue\nissue: 41\nskill_sha: desconocido\nmodelo: "desconocido"\nrol: '"'"'sesion'"'"'\nfecha: 2026-01-01\ndate: 2026-02-02\n---\ndup\n' >"$TMP/v4.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v4.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v4.md" >/dev/null 2>&1)
 r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'implement-issue-41' | tail -1)" 2>/dev/null)
 grep -q '^skill_sha: unknown$' <<<"$r" && grep -q '^model: unknown$' <<<"$r" && grep -q '^role: session$' <<<"$r"; tap_check $? "skill_sha desconocido y los valores entre comillas pasan a unknown y session"
 igual "$(grep -c '^date:' <<<"$r")" 1; tap_check $? "una clave vieja y su nueva juntas no dejan claves duplicadas"
 
 # Revisión de #129: area con y sin prefijo es el mismo grupo.
 printf -- '---\nskill: implement-issue\nissue: 42\narea: area:docs\n---\narea\n' >"$TMP/v5.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v5.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v5.md" >/dev/null 2>&1)
 r=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep -E 'implement-issue-42' | tail -1)" 2>/dev/null)
 grep -q '^area: docs$' <<<"$r"; tap_check $? "area: area:docs se guarda como area: docs"
 
@@ -347,10 +344,10 @@ s=$(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/signals.sh" 2>&1)
 # #143: el template trae agent_sha y skill_sha; si se copia sin completar (<...>), retro.sh los reemplaza por los reales en vez de guardar el texto.
 printf -- '---\nskill: implement-issue\nissue: 77\npr: 99\nmodel: sonnet\nrole: implementer\nagent_sha: <the agent_sha the orchestrator gave you>\nskill_sha: <the skill_sha the orchestrator gave you>\n---\n**Desvíos:** plantilla sin completar\n' >"$TMP/ph.md"
 printf -- '---\nskill: implement-issue\nissue: 78\npr: 99\nmodel: sonnet\nrole: implementer\nagent_sha:\nskill_sha: (orchestrator value)\n---\n**Desvíos:** vacío y basura\n' >"$TMP/ph2.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/ph2.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/ph2.md" >/dev/null 2>&1)
 c2=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-78\.md$')" 2>/dev/null)
 grep -Eq '^agent_sha: ([0-9a-f]{40}|unknown)$' <<<"$c2" && grep -Eq '^skill_sha: ([0-9a-f]{40}|unknown)$' <<<"$c2"; tap_check $? "agent_sha vacío y skill_sha que no es un sha (texto suelto) tampoco se guardan: retro.sh pone los reales"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/ph.md" >"$TMP/ph.out" 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/ph.md" >"$TMP/ph.out" 2>&1)
 c=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-77\.md$')" 2>/dev/null)
 grep -Eq '^agent_sha: [0-9a-f]{40}$|^agent_sha: unknown$' <<<"$c" && grep -Eq '^skill_sha: [0-9a-f]{40}$|^skill_sha: unknown$' <<<"$c" && ! grep -Eq '^(agent_sha|skill_sha): <' <<<"$c"; tap_check $? "agent_sha y skill_sha sin completar (<...>) no se guardan: retro.sh pone los reales"
 grep -q '^agent_sha:' "$AQUI/retro-template.md" && grep -q '^skill_sha:' "$AQUI/retro-template.md"; tap_check $? "el template de retro trae agent_sha y skill_sha"
@@ -358,7 +355,7 @@ grep -q '^agent_sha:' "$AQUI/retro-template.md" && grep -q '^skill_sha:' "$AQUI/
 # Un repo con objetos SHA-256: los 64 caracteres hexa que pasa el orquestador se conservan.
 h64=$(printf 'a%.0s' $(seq 1 64)); h64b=$(printf 'b%.0s' $(seq 1 64))
 printf -- '---\nskill: implement-issue\nissue: 79\npr: 99\nmodel: sonnet\nrole: implementer\nagent_sha: %s\nskill_sha: %s\n---\n**Desvíos:** sha-256\n' "$h64" "$h64b" >"$TMP/ph3.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/ph3.md" >/dev/null 2>&1) || true  # a pending retro or a rejection is a result, checked below
+(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/ph3.md" >/dev/null 2>&1)
 c3=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-79\.md$')" 2>/dev/null)
 grep -q "^agent_sha: $h64\$" <<<"$c3" && grep -q "^skill_sha: $h64b\$" <<<"$c3"; tap_check $? "agent_sha y skill_sha de 64 caracteres (SHA-256) se conservan"
 

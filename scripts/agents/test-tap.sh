@@ -351,6 +351,24 @@ tap_ok "fine"
 tap_done' file
 rc_is 0; tap_check $? "tap_run accepts the status the test expected, 0 or not"
 
+# 8j. tap_status and tap_no_traceback: the same rule for a command line that ran with its ERR trap off.
+run_tap 'c=0; out=$(trap - ERR; sh -c "echo refused; exit 64") || c=$?; tap_status "$c" 64
+[ "$out" = refused ]; tap_check $? "output of a refused command"
+c=0; out=$(trap - ERR; sh -c "exit 0") || c=$?; tap_status "$c" 64
+[ "$c" -eq 64 ]; tap_check $? "a command that should have refused"
+tap_done' file
+has "ok 1 - output of a refused command" "$TMP/tap" && has "not ok 2 - a command that should have refused" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "tap_status keeps the expected status and leaves a status that is not a crash code to the test"
+run_tap 'c=0; out=$(trap - ERR; python3 /nonexistent/missing-script.py 2>&1) || c=$?; tap_status "$c" 64
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "tap_status bails out when the status is 2 and the test expected another one"
+run_tap 'tap_no_traceback "all good"
+tap_no_traceback "Traceback (most recent call last):
+  File x"
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "tap_no_traceback bails out when the output has a Python traceback"
+
 run_tap 'if python3 -c "raise SystemExit(1)" 2>/dev/null; then tap_fail "x"; else tap_ok "else branch"; fi
 tap_done' file
 has "ok 1 - else branch" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a command in an if condition is the test's own business"

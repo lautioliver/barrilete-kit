@@ -58,11 +58,11 @@ commit_all() { git -C "$1" add -A && git -C "$1" commit -q --allow-empty -m "$2"
 # run_red <repo> [args]: red.sh of that repo, output in $TMP/out, exit code in $code
 run_red() {
   local repo=$1; shift
-  (cd "$repo" && "$repo/.claude/skills/implement-issue/red.sh" "$@") >"${OUT:-$TMP/out}" 2>&1
-  code=$?
+  code=0
+  (trap - ERR; cd "$repo" && "$repo/.claude/skills/implement-issue/red.sh" "$@") >"${OUT:-$TMP/out}" 2>&1 || code=$?
 }
 show() { sed 's/^/       /' "${OUT:-$TMP/out}"; }
-meta() { grep "^$2=" "$1/meta" | head -1 | cut -d= -f2-; }
+meta() { grep "^$2=" "$1/meta" | head -1 | cut -d= -f2- || true; }  # a key that is not there is empty
 
 # ---------------------------------------------------------------- the corpus
 # One case: its lines (ok / FAIL) go to $TMP/res/<name>.txt, so that the cases can run in parallel.
@@ -303,7 +303,7 @@ test "$code" -eq 0 && grep -q "stack \"trusted\"" "$TMP/out" && ! test -e "$TMP/
 
 # an unsafe TMPDIR is rejected before anything is created in it
 r="$TMP/w/unsafe-tmpdir"; case_repo "$r" "echo '$GOOD_XML' > {out}; exit 1"; mkdir -p "$TMP/un safe"
-(cd "$r" && TMPDIR="$TMP/un safe" .claude/skills/implement-issue/red.sh) >"$TMP/out" 2>&1; code=$?
+code=0; (trap - ERR; cd "$r" && TMPDIR="$TMP/un safe" .claude/skills/implement-issue/red.sh) >"$TMP/out" 2>&1 || code=$?
 test "$code" -eq 2 && grep -q "not safe" "$TMP/out" && test -z "$(ls "$TMP/un safe")"; tap_check $? "an unsafe TMPDIR is rejected and leaves nothing behind"
 
 # ---------------------------------------------------------------- the kit's own `red` entry (docs/agents-map.json)
@@ -312,9 +312,8 @@ test "$code" -eq 2 && grep -q "not safe" "$TMP/out" && test -z "$(ls "$TMP/un sa
 # The small profile installs this test with a map that has no red entry of the kit's: nothing to check there.
 # In the kit itself (and in a full install) a missing or renamed `bash` entry is a failure, not a skip.
 if ! grep -q '"mode"[[:space:]]*:[[:space:]]*"small"' "$KIT/.agent-kit.json" 2>/dev/null; then
-  ec=0
-  python3 -c 'import json,sys; sys.exit(0 if any(e.get("name") == "bash" for e in json.load(open(sys.argv[1])).get("red", [])) else 1)' "$KIT/docs/agents-map.json" 2>/dev/null || ec=$?
-  [ "$ec" -eq 0 ]; tap_check $? "the map of the kit has its bash red entry"
+  python3 -c 'import json,sys; sys.exit(0 if any(e.get("name") == "bash" for e in json.load(open(sys.argv[1])).get("red", [])) else 1)' "$KIT/docs/agents-map.json" 2>/dev/null
+  tap_check $? "the map of the kit has its bash red entry"
   kit_repo() { # kit_repo <dir>: the kit's red entry, tap.sh and a base commit
     new_repo "$1"; install_kit "$1"
     cp "$KIT/scripts/agents/tap.sh" "$1/scripts/agents/"
@@ -367,7 +366,7 @@ PY
 fi
 
 # ---------------------------------------------------------------- the files of red.sh are in English
-usage=$(cd "$TMP/w/pytest-assert" && .claude/skills/implement-issue/red.sh a b 2>&1) || true  # it exits with 64
+c=0; usage=$(trap - ERR; cd "$TMP/w/pytest-assert" && .claude/skills/implement-issue/red.sh a b 2>&1) || c=$?; tap_status "$c" 64  # usage error
 grep -q "^Usage: red.sh" <<<"$usage"; tap_check $? "red.sh prints its usage in English"
 ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$HERE/red.sh" "$KIT/scripts/agents/red_report.py"; tap_check $? "red.sh and red_report.py have no Spanish"
 

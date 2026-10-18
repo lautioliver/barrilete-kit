@@ -12,7 +12,6 @@ tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
-tap_assertions es  # their failure is a failed case, not a crash (tap.sh)
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 unset BASE
@@ -28,8 +27,7 @@ for modo in completo chico; do
   p="$TMP/$modo"
   copiar "$p"
   extra=(); [ "$modo" = chico ] && extra=(--small)
-  ec=0
-  (cd "$p" && ./scripts/init-template.sh Demo main ${extra[@]+"${extra[@]}"} >/dev/null 2>&1) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "[<modo>] el init termina bien" "[$modo] el init termina bien"
+  (cd "$p" && ./scripts/init-template.sh Demo main ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); tap_check $? "[<modo>] el init termina bien" "[$modo] el init termina bien"
   (cd "$p" && git add -A && git commit -qm init)
 
   ! [ -e "$p/scripts/test-init.sh" ]; tap_check $? "[<modo>] el init borra este test (no sirve sin init-template.sh)" "[$modo] el init borra este test (no sirve sin init-template.sh)"
@@ -39,7 +37,7 @@ for modo in completo chico; do
   ! grep -q 'README.es.md\|lang:start' "$p/README.md"; tap_check $? "[<modo>] el README del proyecto no tiene el selector de idioma (lo borra el init)" "[$modo] el README del proyecto no tiene el selector de idioma (lo borra el init)"
   n=$(cd "$p" && git check-ignore .env .env.local scripts/agents/__pycache__ | wc -l | tr -d ' ')
   es "$n" = 3; tap_check $? "[<modo>] .env, .env.local y __pycache__ están ignorados" "[$modo] .env, .env.local y __pycache__ están ignorados"
-  ! (cd "$p" && git check-ignore -q .env.example); tap_check $? "[<modo>] .env.example no está ignorado" "[$modo] .env.example no está ignorado"
+  c=0; (trap - ERR; cd "$p" && git check-ignore -q .env.example) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "[<modo>] .env.example no está ignorado" "[$modo] .env.example no está ignorado"
 
   echo "SECRET=x" >"$p/.env"
   if [ -f "$p/scripts/agents/verify.py" ]; then
@@ -48,7 +46,7 @@ for modo in completo chico; do
   fi
   # Completo: el mapa trae TODO de ejemplo y check-docs falla a propósito hasta que el proyecto los completa;
   # lo que no puede fallar son los links, rutas ni índices. Chico: no tiene mapa y tiene que pasar entero.
-  s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1); c=$?
+  c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" "$([ "$modo" = chico ] && echo 0 || echo 1)"
   # La salida tiene que ser la del check (un resumen), nunca un traceback: un traceback no menciona esos errores y el grep de abajo pasaría igual.
   ! grep -q Traceback <<<"$s" && grep -q '^Docs ' <<<"$s"; tap_check $? "[<modo>] check-docs.py del proyecto recién creado termina con su resumen, sin Traceback" "[$modo] check-docs.py del proyecto recién creado termina con su resumen, sin Traceback"
   if [ "$modo" = chico ]; then es "$c" -eq 0; else ! grep -q 'missing path\|broken link\|missing from the index\|does not exist' <<<"$s"; fi
@@ -79,8 +77,7 @@ grep -q '"name": "init"' "$RAIZ/docs/agents-map.json"; tap_check $? "la plantill
   && grep -q '5-trial.yml' "$RAIZ/docs/try-the-template.md"
 tap_check $? "la plantilla trae la guía de prueba, enlazada desde el README, y la guía lleva al formulario"
 # Los pasos del formulario son los de la guía, con el mismo número y nombre.
-ec=0
-python3 - "$RAIZ" <<'PY' || ec=$?
+python3 - "$RAIZ" <<'PY'
 import re, sys
 raiz = sys.argv[1]
 guia = re.findall(r"^(\d+)\. \*\*([^*:]+):?\*\*", open(f"{raiz}/docs/try-the-template.es.md", encoding="utf-8").read(), re.M)
@@ -89,7 +86,6 @@ en = re.findall(r"^(\d+)\. \*\*([^*:]+):?\*\*", open(f"{raiz}/docs/try-the-templ
 form_en = re.findall(r"^ +- \"?(\d+)\. ([^\"\n]+)\"?$", open(f"{raiz}/.github/ISSUE_TEMPLATE/5-trial.yml", encoding="utf-8").read(), re.M)
 sys.exit(0 if guia and [(n, t.strip()) for n, t in guia] == [(n, t.strip()) for n, t in form] and [(n, t.strip()) for n, t in en] == [(n, t.strip()) for n, t in form_en] and [n for n, _ in en] == [n for n, _ in guia] else 1)
 PY
-[ "$ec" -eq 0 ]
 tap_check $? "los pasos del formulario de prueba coinciden con los de la guía"
 
 # docs.yml (#101) y labels.yml (#103) corren en los pushes a main de la plantilla, y el init deja el filtro de cada modo.
@@ -101,8 +97,7 @@ for w in docs labels; do
 done
 p="$TMP/ramas-releases"
 copiar "$p"
-ec=0
-(cd "$p" && ./scripts/init-template.sh Demo develop releases >/dev/null 2>&1) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "[completo develop releases] el init termina bien"
+(cd "$p" && ./scripts/init-template.sh Demo develop releases >/dev/null 2>&1); tap_check $? "[completo develop releases] el init termina bien"
 for w in docs labels; do
   grep -qxF "    branches: [main, develop, 'release/**']" "$p/.github/workflows/$w.yml" && ! grep -q 'for the template itself' "$p/.github/workflows/$w.yml"
   tap_check $? "[completo develop releases] <w>.yml corre en los pushes a [main, develop, 'release/**']" "[completo develop releases] $w.yml corre en los pushes a [main, develop, 'release/**']"
@@ -143,8 +138,7 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
   extra=(); [ "$modo" = chico ] && extra=(--small)
   base=(main); [ "$modo" = completo-releases ] && base=(develop releases)
   [ "$idioma" = en ] && args=(--lang en) || args=(--lang=es)
-  ec=0
-  (cd "$p" && ./scripts/init-template.sh Demo "${base[@]}" "${args[@]}" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "[<modo> --lang <idioma>] el init termina bien" "[$modo --lang $idioma] el init termina bien"
+  (cd "$p" && ./scripts/init-template.sh Demo "${base[@]}" "${args[@]}" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); tap_check $? "[<modo> --lang <idioma>] el init termina bien" "[$modo --lang $idioma] el init termina bien"
   es -z "$(find "$p" \( -name '*.es.md' -o -name '*.es.txt' \) -not -path '*/.git/*')"; tap_check $? "[<modo> --lang <idioma>] no queda ningún .es.md ni .es.txt" "[$modo --lang $idioma] no queda ningún .es.md ni .es.txt"
   if [ "$idioma" = es ]; then
     grep -qx SAMPLE-ES "$p/SAMPLE.md"; tap_check $? "[<modo> --lang es] SAMPLE.md es la versión .es.md" "[$modo --lang es] SAMPLE.md es la versión .es.md"
@@ -168,9 +162,7 @@ for combinacion in "completo en" "completo es" "chico en" "chico es" "completo-r
     tap_check $? "[<modo> --lang <idioma>] los ajustes del perfil chico (label business-logic) valen también con el hermano .es.md" "[$modo --lang $idioma] los ajustes del perfil chico (label business-logic) valen también con el hermano .es.md"
   fi
   ! [ -e "$p/docs/try-the-template.md" ]; tap_check $? "[<modo> --lang <idioma>] el init sigue borrando la guía de prueba, también su versión .es.md" "[$modo --lang $idioma] el init sigue borrando la guía de prueba, también su versión .es.md"
-  ec=0
-  python3 -c "import json,sys; sys.exit(0 if json.load(open('$p/.agent-kit.json')).get('language') == '$idioma' else 1)" || ec=$?
-  [ "$ec" -eq 0 ]
+  python3 -c "import json,sys; sys.exit(0 if json.load(open('$p/.agent-kit.json')).get('language') == '$idioma' else 1)"
   tap_check $? "[<modo> --lang <idioma>] .agent-kit.json registra language: <idioma>" "[$modo --lang $idioma] .agent-kit.json registra language: $idioma"
 done
 # Contenido real (#115), no pares de ejemplo. Los agentes: Claude Code carga todo .md de .claude/agents/, así que su
@@ -178,8 +170,7 @@ done
 for idioma in en es; do
   p="$TMP/real-completo-$idioma"
   copiar "$p"
-  ec=0
-  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" >/dev/null 2>&1) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "[real completo --lang <idioma>] el init termina bien" "[real completo --lang $idioma] el init termina bien"
+  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" >/dev/null 2>&1); tap_check $? "[real completo --lang <idioma>] el init termina bien" "[real completo --lang $idioma] el init termina bien"
   nombres=$(grep -h '^name:' "$p"/.claude/agents/*.md); repetidos=$(sort <<<"$nombres" | uniq -d); sueltos=$(find "$p/.claude/agents" -name '*.es.md')
   if [ -z "$repetidos" ] && [ "$(wc -l <<<"$nombres" | tr -d ' ')" = 3 ] && [ -z "$sueltos" ]; then r=0; else r=1; fi
   tap_check $r "[real completo --lang <idioma>] cada name: aparece una sola vez en .claude/agents/ (3 agentes, ningún .es.md)" "[real completo --lang $idioma] cada name: aparece una sola vez en .claude/agents/ (3 agentes, ningún .es.md)"
@@ -204,8 +195,7 @@ for combinacion in "completo en" "completo es" "chico en" "chico es"; do
   p="$TMP/gh-$modo-$idioma"
   copiar "$p"
   extra=(); [ "$modo" = chico ] && extra=(--small)
-  ec=0
-  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "[<modo> --lang <idioma> .github] el init termina bien" "[$modo --lang $idioma .github] el init termina bien"
+  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); tap_check $? "[<modo> --lang <idioma> .github] el init termina bien" "[$modo --lang $idioma .github] el init termina bien"
   if [ "$idioma" = en ]; then
     pr='## What changes'; otro='## Qué cambia'; bug='What happens'; label='Something does not work as defined'; otro_label='Algo no funciona como está definido'
   else
@@ -236,8 +226,7 @@ grep -q 'Auditoría <área>: <hallazgo>' "$TMP/gh-completo-es/.github/ISSUE_TEMP
 if ! grep -q 'business-logic' "$TMP/gh-chico-en/.github/pull_request_template.md" && ! grep -q 'business-logic' "$TMP/gh-chico-es/.github/pull_request_template.md"; then r=0; else r=1; fi
 tap_check $r "[chico .github] la plantilla del PR no pide el label business-logic, en inglés ni en español"
 # En la plantilla sin inicializar, cada formulario tiene su hermano con los mismos type, id y labels.
-ec=0
-python3 - "$RAIZ" <<'PY' || ec=$?
+python3 - "$RAIZ" <<'PY'
 import glob, os, re, sys
 raiz = sys.argv[1]
 mal = []
@@ -250,15 +239,13 @@ for en in sorted(glob.glob(f"{raiz}/.github/ISSUE_TEMPLATE/[0-9]*.yml")):
         mal.append(f"{os.path.basename(en)}: type/id/labels distintos")
 print("\n".join(mal)); sys.exit(1 if mal else 0)
 PY
-[ "$ec" -eq 0 ]
 tap_check $? "cada formulario de issue tiene su hermano en español con los mismos type, id y labels"
 # El perfil chico tiene su hermano en español (#115, parte 3): --small gana al archivo completo en los dos idiomas, cada uno en el suyo
 # (las skills chicas, de 63, 32 y 20 líneas, no las completas).
 for idioma in en es; do
   p="$TMP/real-chico-$idioma"
   copiar "$p"
-  ec=0
-  (cd "$p" && ./scripts/init-template.sh Demo main --small --lang "$idioma" >/dev/null 2>&1) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "[real chico --lang <idioma>] el init termina bien" "[real chico --lang $idioma] el init termina bien"
+  (cd "$p" && ./scripts/init-template.sh Demo main --small --lang "$idioma" >/dev/null 2>&1); tap_check $? "[real chico --lang <idioma>] el init termina bien" "[real chico --lang $idioma] el init termina bien"
   hermano() { if [ "$idioma" = es ]; then case "$1" in *.md) echo "${1%.md}.es.md" ;; *.txt) echo "${1%.txt}.es.txt" ;; esac; else echo "$1"; fi; }
   for sk in implement-issue create-issue update-docs; do
     # El init reemplaza los marcadores (<BASE_BRANCH>…): se comparan con esa sustitución.
@@ -304,8 +291,7 @@ for combinacion in "completo en English" "completo es español" "chico en Englis
   p="$TMP/commitlang-$modo-$idioma"
   copiar "$p"
   extra=(); [ "$modo" = chico ] && extra=(--small)
-  ec=0
-  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "[<modo> --lang <idioma> R-6] el init termina bien" "[$modo --lang $idioma R-6] el init termina bien"
+  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); tap_check $? "[<modo> --lang <idioma> R-6] el init termina bien" "[$modo --lang $idioma R-6] el init termina bien"
   ! grep -rq '<COMMIT_LANG>' "$p" --exclude-dir=.git; tap_check $? "[<modo> --lang <idioma> R-6] no queda ningún <COMMIT_LANG> sin reemplazar" "[$modo --lang $idioma R-6] no queda ningún <COMMIT_LANG> sin reemplazar"
   grep -Eq "(description in|descripción en|descripcion en) $lengua" "$p/AGENTS.md"; tap_check $? "[<modo> --lang <idioma> R-6] AGENTS.md fija la descripción de los commits en <lengua>" "[$modo --lang $idioma R-6] AGENTS.md fija la descripción de los commits en $lengua"
   if [ "$idioma" = en ]; then titulo='Structured validation of the red test'; else titulo='Validación estructurada del test en rojo'; fi
@@ -336,7 +322,7 @@ copiar "$p"
 grep -q '"parity": false' "$p/docs/agents-map.json"; tap_check $? "[completo] el init deja parity apagado en el mapa del proyecto"
 ! grep -q 'CLAUDE.md' <(python3 -c "import json; print(json.load(open('$p/docs/agents-map.json'))['parity_ignore'])"); tap_check $? "[completo] el init saca CLAUDE.md del parity_ignore del proyecto (es ruido de la plantilla)"
 printf '# Guía\n' >"$p/docs/manual.es.md"
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || true
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 [ -f "$p/docs/manual.es.md" ] && ! grep -q 'manual' <<<"$s"; tap_check $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"
 # Un .yml del perfil chico gana a su hermano completo, cualquiera sea el archivo (no solo labels.yml).
 p="$TMP/yml-general"
@@ -346,16 +332,14 @@ echo "FULL-ES" >"$p/.github/foo.es.yml"; echo "FULL-EN" >"$p/.github/foo.yml"; e
 grep -qx SMALL-EN "$p/.github/foo.yml" && ! [ -e "$p/.github/foo.es.yml" ]; tap_check $? "[chico --lang es] un .yml del perfil gana a su hermano .es.yml completo (regla general, no solo labels.yml)"
 p="$TMP/lang-default"
 copiar "$p"; con_pares "$p"
-ec=0
-(cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "[sin --lang] el init termina bien"
-ec=0
-grep -qx SAMPLE-EN "$p/SAMPLE.md" && python3 -c "import json,sys; sys.exit(0 if json.load(open('$p/.agent-kit.json')).get('language') == 'en' else 1)" || ec=$?
-[ "$ec" -eq 0 ]
+(cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1); tap_check $? "[sin --lang] el init termina bien"
+grep -qx SAMPLE-EN "$p/SAMPLE.md" && python3 -c "import json,sys; sys.exit(0 if json.load(open('$p/.agent-kit.json')).get('language') == 'en' else 1)"
 tap_check $? "[sin --lang] el idioma por defecto es en y queda registrado"
 for malo in "--lang fr" "--lang" "--lang="; do
   p="$TMP/lang-malo"; rm -rf "$p"; copiar "$p"
+  c=0
   # shellcheck disable=SC2086  # $malo se parte a propósito en opción y valor
-  s=$(cd "$p" && ./scripts/init-template.sh Demo $malo 2>&1); c=$?
+  s=$(trap - ERR; cd "$p" && ./scripts/init-template.sh Demo $malo 2>&1) || c=$?; tap_status "$c" 1
   [ "$c" -ne 0 ] && grep -q -- '--lang' <<<"$s" && [ -e "$p/scripts/init-template.sh" ]
   tap_check $? "el init rechaza '<malo>' con un mensaje sobre --lang y sin tocar nada" "el init rechaza '$malo' con un mensaje sobre --lang y sin tocar nada"
 done
@@ -386,7 +370,7 @@ done
 
 # check-docs.py falla si AGENTS.md dice que algo está ignorado y no lo está.
 p="$TMP/completo"
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || true
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 ! grep -q 'is ignored, but' <<<"$s"; tap_check $? "check-docs.py no se queja si lo que AGENTS.md dice ignorado lo está"
 # Una frase que dice que algo NO está ignorado no es una afirmación de que lo esté.
 cp "$p/AGENTS.md" "$TMP/AGENTS.md"
@@ -394,24 +378,24 @@ cp "$p/AGENTS.md" "$TMP/AGENTS.md"
 echo '- `dist/` no está ignorado: se commitea.' >>"$p/AGENTS.md"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `build/` is not ignored: it is committed.' >>"$p/AGENTS.md"
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || true
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 ! grep -q 'dist/\|build/' <<<"$s"; tap_check $? "check-docs.py no se queja de una frase que dice que algo no está ignorado"
 cp "$TMP/AGENTS.md" "$p/AGENTS.md"
 (cd "$p" && git rm -q .gitignore)
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1
 [ "$c" -ne 0 ] && grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s"; tap_check $? "check-docs.py falla si AGENTS.md dice que .env* está ignorado y no lo está"
 # Una línea que afirma una cosa y niega otra: la negación no tapa la afirmación.
 grep -Ev 'ignorad|ignored' "$TMP/AGENTS.md" >"$p/AGENTS.md"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `.env*` están ignorados; `dist/` no está ignorado.' >>"$p/AGENTS.md"
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || true
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s" && ! grep -q 'dist/' <<<"$s"; tap_check $? "check-docs.py valida la afirmación aunque la misma línea niegue otra cosa"
 
 # La negación se decide por cada patrón, aunque la afirmación y la negación estén en la misma frase.
 # Sin .gitignore: tiene que reclamar por .env* y nunca por dist/.
 while IFS= read -r frase; do
   grep -Ev 'ignorad|ignored' "$TMP/AGENTS.md" >"$p/AGENTS.md"; printf -- '- %s\n' "$frase" >>"$p/AGENTS.md"
-  s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || true
+  c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
   grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s" && ! grep -q 'dist/' <<<"$s"; tap_check $? "check-docs.py valida .env* en: <frase>" "check-docs.py valida .env* en: $frase"
 done <<'FRASES'
 `.env*` está ignorado y `dist/` no está ignorado.

@@ -5,6 +5,7 @@
 #   tap_begin "$0"                       # writes "# file: <path of the script from the repo root>"
 #   tap_at_exit 'rm -rf "$TMP"'          # instead of trap ... EXIT, which would replace the helper's
 #   tap_run   out 64 prog args...        # runs a program that may fail: output in $out, status in $TAP_RC
+#   c=0; out=$(trap - ERR; prog) || c=$?; tap_status "$c" 64    # the same, for a command line; tap_no_traceback "$out"
 #   tap_ok    "literal id" ["description"]
 #   tap_fail  "literal id" ["description"]
 #   tap_check $? "literal id" ["description"]   # 0 is ok, anything else is not ok
@@ -42,11 +43,14 @@
 # with the one the test expects: any other status is a bail out when it is 1 or 2 (what a crash gives) and
 # is left to the test to compare otherwise. Under set -e any failure bails out, assertions included.
 #
-# What it cannot see, and the review has to: a program that is expected to fail with 1 or 2 (tap_run with
-# that status, or "prog || true"): a crash with the same status looks like the behaviour; a failure inside
-# "a && b" or "a || b" where it is not the last command; the status of "local x=$(prog)" (local hides it,
-# but a crash in prog still bails out through the substitution); a crash inside a condition. Read these as a
-# waiver whenever a red commit adds one around a program.
+# What it cannot see, and the review has to (each is a waiver written in the test):
+#   - a program the test expects to fail with 1 or 2 (tap_run or tap_status with that status, "|| true"): a crash with
+#     that same status looks like the behaviour. A tool whose failure is a verdict (check-docs.py exits 1 on findings)
+#     is in this case; tap_no_traceback "$out" covers Python tools by their traceback;
+#   - "trap - ERR" and a "|| true" inside a substitution: the commands there are no longer watched;
+#   - a failure in the middle of "a && b" or "a || b", and in a condition (if, while, "!"): bash does not call the trap;
+#   - "local x=$(prog)" hides the status of prog (a crash inside prog still bails out);
+#   - on bash 3.2 (macOS), a subshell "( cmd )" with a single command that fails: the parent does not see it; bash 5 does.
 #
 # A test runs in the same shell as this file, so it could still read _TAP_PATH or write to fd 8: it is
 # not a sandbox, only a path that the test has no reason to touch.
@@ -242,6 +246,24 @@ tap_run() {
   case $TAP_RC in
     1|2|126|127) _tap_crash "unexpected status $TAP_RC from $(_tap_flat "$*") (expected $__want): a crash cannot be told from a failed case" ;;
   esac
+  return 0
+}
+
+# Usage: tap_status <status> <expected>: for a program that ran with its ERR trap off ("c=0; out=$(trap - ERR; prog) || c=$?"):
+# the status it ended with against the one the test expects. A status that is not that one and is 1, 2, 126 or
+# 127 is what a crash gives, so the run bails out; any other status is left to the test to compare.
+tap_status() {
+  local got=${1:?tap_status needs the status} want=${2:?tap_status needs the expected status}
+  [ "$got" = "$want" ] && return 0
+  case $got in
+    1|2|126|127) _tap_crash "unexpected status $got (expected $want) at $(_tap_flat "${BASH_SOURCE[1]:-?}:${BASH_LINENO[0]:-?}"): a crash cannot be told from a failed case" ;;
+  esac
+  return 0
+}
+
+# Usage: tap_no_traceback <output>: a Python traceback in the output of a tool is a crash, whatever its status was.
+tap_no_traceback() {
+  case ${1:-} in *"Traceback (most recent call last)"*) _tap_crash "a Python traceback in the output of a program (a crash is not an assertion)" ;; esac
   return 0
 }
 

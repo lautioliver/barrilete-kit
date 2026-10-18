@@ -17,14 +17,19 @@ AGENTES=".claude/agents"
 # Copia del repo con lo commiteado y lo que está en el working tree.
 copia() {
   rm -rf "$TMP/r"; mkdir -p "$TMP/r"
-  (cd "$RAIZ" && git ls-files -co --exclude-standard -z | tar --null -T - -cf -) | tar -xf - -C "$TMP/r"
+  (cd "$RAIZ" && git ls-files -co --exclude-standard -z | tar --null -T - -cf - 2>/dev/null || true) | tar -xf - -C "$TMP/r"  # a file the index lists and the tree lost only warns
   (cd "$TMP/r" && git init -q && git add -A && git commit -qm base)
 }
-check() { (cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>&1); }
+check() {
+  local o c=0
+  o=$(trap - ERR; cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>&1) || c=$?
+  tap_status "$c" 1
+  tap_no_traceback "$o"
+  printf '%s\n' "$o"
+}
 # check-docs sin errores de los subagentes. En un proyecto recién inicializado check-docs falla
 # igual por los TODO del mapa, así que se mira solo lo de los subagentes.
 sin_errores_agentes() { ! check | grep -q "$AGENTES\|subagent-contract"; }
-tap_assertions sin_errores_agentes
 frontmatter() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1"; }
 
 # 1. Los tres roles existen con su modelo y herramientas acotadas.
@@ -65,11 +70,11 @@ copia
 sin_errores_agentes; tap_check $? "check-docs no reporta errores en los subagentes del repo"
 mkdir -p "$TMP/r/$AGENTES"
 printf -- '---\nname: x\ndescription: d\ntools: Read\nmodel: gpt-4\n---\nVer %s.\n' "$CONTRATO" >"$TMP/r/$AGENTES/x.md"
-salida=$(check) || true; grep -q "$AGENTES/x.md.*model" <<<"$salida"; tap_check $? "check-docs rechaza un model que no es opus, sonnet ni haiku"
+salida=$(check); grep -q "$AGENTES/x.md.*model" <<<"$salida"; tap_check $? "check-docs rechaza un model que no es opus, sonnet ni haiku"
 printf -- '---\nname: x\ndescription: d\nmodel: haiku\n---\nVer %s.\n' "$CONTRATO" >"$TMP/r/$AGENTES/x.md"
-salida=$(check) || true; grep -q "$AGENTES/x.md.*tools" <<<"$salida"; tap_check $? "check-docs rechaza un subagente sin tools"
+salida=$(check); grep -q "$AGENTES/x.md.*tools" <<<"$salida"; tap_check $? "check-docs rechaza un subagente sin tools"
 printf -- '---\nname: x\ndescription: d\ntools: Read\nmodel: haiku\n---\nSin contrato.\n' >"$TMP/r/$AGENTES/x.md"
-salida=$(check) || true; grep -q "$AGENTES/x.md.*contract" <<<"$salida"; tap_check $? "check-docs rechaza un subagente que no remite al contrato"
+salida=$(check); grep -q "$AGENTES/x.md.*contract" <<<"$salida"; tap_check $? "check-docs rechaza un subagente que no remite al contrato"
 printf -- '---\r\nname: x\r\ndescription: d\r\ntools: Read\r\nmodel: haiku\r\n---\r\nVer %s.\r\n' "$CONTRATO" >"$TMP/r/$AGENTES/x.md"
 sin_errores_agentes; tap_check $? "check-docs acepta un subagente con fin de línea CRLF"
 printf -- '---\nname: "x"\ndescription: d\ntools: Read\nmodel: "haiku"\n---\nVer %s.\n' "$CONTRATO" >"$TMP/r/$AGENTES/x.md"
@@ -89,25 +94,25 @@ printf '#!/bin/sh\necho [ -z a ]\n' >"$TMP/r/ajeno/malo.sh"
 printf '#!/bin/sh\nexit 1\n' >"$TMP/r/ajeno/test-propio.sh"
 listar() { (cd "$TMP/r" && python3 scripts/agents/check-docs.py --list "$1" 2>/dev/null); }
 # En un proyecto recién inicializado el check falla por los TODO del mapa: se mira solo lo ajeno.
-salida=$(check) || true; grep -q "^Docs\|^Warning" <<<"$salida" && ! grep -q "ajeno/README.md" <<<"$salida"; tap_check $? "con .agent-kit.json, un .md ajeno con link roto no falla el check"
+salida=$(check); grep -q "^Docs\|^Warning" <<<"$salida" && ! grep -q "ajeno/README.md" <<<"$salida"; tap_check $? "con .agent-kit.json, un .md ajeno con link roto no falla el check"
 lista=$(listar '*.sh'); grep -qx "scripts/agents/test-agents.sh" <<<"$lista"; tap_check $? "con .agent-kit.json, --list '*.sh' devuelve los scripts del kit"
 ! grep -q "^ajeno/" <<<"$lista"; tap_check $? "con .agent-kit.json, --list '*.sh' no devuelve los .sh ajenos"
 lista=$(listar '*test-*.sh'); grep -qx "scripts/agents/test-agents.sh" <<<"$lista" && ! grep -q "^ajeno/" <<<"$lista"
 tap_check $? "con .agent-kit.json, --list '*test-*.sh' no devuelve los tests propios del proyecto"
-(cd "$TMP/r" && python3 scripts/agents/check-docs.py --list >/dev/null 2>&1); codigo=$?
+codigo=0; (trap - ERR; cd "$TMP/r" && python3 scripts/agents/check-docs.py --list >/dev/null 2>&1) || codigo=$?; tap_status "$codigo" 2
 if [ "$codigo" -eq 2 ]; then tap_ok "--list sin glob es un error de uso (no corre el check completo)"; else tap_fail "--list sin glob es un error de uso (no corre el check completo)"; fi
 cp "$TMP/r/.agent-kit.json" "$TMP/kit.bak"; echo '{roto' >"$TMP/r/.agent-kit.json"
-(cd "$TMP/r" && python3 scripts/agents/check-docs.py --list '*.sh' >/dev/null 2>&1); codigo=$?
+codigo=0; (trap - ERR; cd "$TMP/r" && python3 scripts/agents/check-docs.py --list '*.sh' >/dev/null 2>&1) || codigo=$?; tap_status "$codigo" 1
 if [ "$codigo" -ne 0 ]; then tap_ok "un .agent-kit.json inválido hace fallar --list (no devuelve una lista vacía)"; else tap_fail "un .agent-kit.json inválido hace fallar --list (no devuelve una lista vacía)"; fi
-salida=$(check) || true; grep -q "\.agent-kit.json" <<<"$salida" && ! grep -q Traceback <<<"$salida"; tap_check $? "un .agent-kit.json inválido es un error claro del check, sin traceback"
+salida=$(check); grep -q "\.agent-kit.json" <<<"$salida" && ! grep -q Traceback <<<"$salida"; tap_check $? "un .agent-kit.json inválido es un error claro del check, sin traceback"
 cp "$TMP/kit.bak" "$TMP/r/.agent-kit.json"
 printf '# Doc\n\n[roto](no-existe.md)\n' >"$TMP/r/docs/ajeno-en-docs.md"
-salida=$(check) || true; grep -q "docs/ajeno-en-docs.md.*broken link" <<<"$salida"; tap_check $? "con .agent-kit.json, un link roto en docs/ sigue fallando"
+salida=$(check); grep -q "docs/ajeno-en-docs.md.*broken link" <<<"$salida"; tap_check $? "con .agent-kit.json, un link roto en docs/ sigue fallando"
 rm "$TMP/r/docs/ajeno-en-docs.md"
 printf '\n[roto](no-existe.md)\n' >>"$TMP/r/README.md"
-salida=$(check) || true; grep -q "^- README.md:.*broken link" <<<"$salida"; tap_check $? "con .agent-kit.json, un link roto en un archivo del kit sigue fallando"
+salida=$(check); grep -q "^- README.md:.*broken link" <<<"$salida"; tap_check $? "con .agent-kit.json, un link roto en un archivo del kit sigue fallando"
 rm "$TMP/r/.agent-kit.json"; git -C "$TMP/r" add -A  # sin manifiesto, el kit es lo que git rastrea
-salida=$(check) || true; grep -q "ajeno/README.md.*broken link" <<<"$salida"; tap_check $? "sin .agent-kit.json (la plantilla), se revisa todo"
+salida=$(check); grep -q "ajeno/README.md.*broken link" <<<"$salida"; tap_check $? "sin .agent-kit.json (la plantilla), se revisa todo"
 lista=$(listar '*.sh'); grep -qx "ajeno/malo.sh" <<<"$lista"; tap_check $? "sin .agent-kit.json, --list devuelve todos los archivos del repo"
 
 # 6. El modo chico no deja los subagentes (solo en la plantilla: el init borra profiles/).
@@ -145,7 +150,6 @@ tap_check $r "verify: cada test-*.sh que corre el CI está en el mapa y se dispa
 ' ' ')}"
 # Solo en la plantilla: el init borra test-renames.sh y su verificación.
 if [ -f "$RAIZ/scripts/test-renames.sh" ]; then
-ec=0
 (cd "$RAIZ" && python3 - <<'PY'
 import json, sys
 sys.path.insert(0, "scripts/agents")
@@ -156,7 +160,7 @@ r = reglas.get("renames", {})
 cambios = ["scripts/agents/verify.py", "docs/github-naming-convention.md", ".claude/skills/implement-issue/SKILL.md", "docs/agents-map.json", ".github/workflows/labels.yml"]
 sys.exit(0 if all(coincide(c, r.get("when", [])) for c in cambios) else 1)
 PY
-) || ec=$?; [ "$ec" -eq 0 ]; tap_check $? "verify: renames corre cuando cambian scripts, docs, skills, el mapa o los workflows"
+); tap_check $? "verify: renames corre cuando cambian scripts, docs, skills, el mapa o los workflows"
 fi
 
 tap_done

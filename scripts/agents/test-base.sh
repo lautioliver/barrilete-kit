@@ -11,7 +11,6 @@ tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
-tap_assertions es  # their failure is a failed case, not a crash (tap.sh)
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 unset BASE
@@ -28,18 +27,18 @@ printf '{"docs": [], "sensitive": [], "verify": [{"name": "eco", "always": true,
 (cd "$TMP/p" && git switch -q -c trunk && git add -A && git commit -qm base && git push -q origin trunk 2>/dev/null \
   && git remote set-head origin trunk && git switch -q -c claude/1-algo && echo x >nuevo.txt && git add nuevo.txt && git commit -qm x)
 
-s=$(cd "$TMP/p" && python3 scripts/agents/agents_map.py 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$TMP/p" && python3 scripts/agents/agents_map.py 2>&1) || c=$?; tap_status "$c" 0
 tap_check $c "agents_map.py sin BASE en la plantilla sin inicializar termina bien"
 grep -q "nuevo.txt\|Changed files: 1" <<<"$s"; tap_check $? "agents_map.py compara contra la rama por defecto del remoto"
 grep -qi "warning.*trunk" <<<"$s"; tap_check $? "agents_map.py avisa qué base usó"
 
-s=$(cd "$TMP/p" && python3 scripts/agents/verify.py --list 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$TMP/p" && python3 scripts/agents/verify.py --list 2>&1) || c=$?; tap_status "$c" 0
 tap_check $c "verify.py sin BASE termina bien"
 grep -q "against origin/trunk" <<<"$s"; tap_check $? "verify.py usa origin/<rama por defecto>"
 
 # Sin origin/HEAD local: la pide al remoto.
 (cd "$TMP/p" && git remote set-head origin -d)
-s=$(cd "$TMP/p" && python3 scripts/agents/agents_map.py 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$TMP/p" && python3 scripts/agents/agents_map.py 2>&1) || c=$?; tap_status "$c" 0
 tap_check $c "sin origin/HEAD local, la pide al remoto"
 
 # Con BASE explícita, no cambia nada.
