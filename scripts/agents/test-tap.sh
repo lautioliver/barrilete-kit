@@ -278,6 +278,11 @@ tap_assertions is_there
 is_there /nonexistent/file; tap_check $? "a declared assertion function fails"
 tap_done' file
 has "not ok 1 - a declared assertion function fails" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a function declared with tap_assertions can fail a case"
+run_tap 'wraps() { python3 -c "raise SystemExit(1)" 2>/dev/null; }
+tap_assertions wraps
+wraps; tap_check $? "a declared function that ends in a program"
+tap_done' file
+has "not ok 1 - a declared function that ends in a program" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a declared function is an assertion whatever command runs inside it"
 run_tap 'crashes() { python3 -c "raise SystemExit(1)" 2>/dev/null; }
 crashes; tap_check $? "an undeclared function"
 tap_done' file

@@ -64,6 +64,9 @@ _TAP_PEND_AT=""      # "line N of <script>" of that command
 _TAP_READ=""         # the command whose failure the last command read (with $?)
 _TAP_READ_RC=0
 _TAP_READ_AT=""
+_TAP_TOP=""          # the last command the test itself started (a call to a function, not what runs inside it)
+_TAP_PEND_TOP=""
+_TAP_READ_TOP=""
 
 if [ -n "${TAP_OUT:-}" ]; then
   _TAP_PATH=$TAP_OUT
@@ -116,19 +119,20 @@ _tap_on_err() {
   # never a status the test checks. Any other failure waits for the next command (_tap_on_debug).
   case $- in *e*) _tap_bail "unexpected error (status $rc) at line $line of $file"; exit 1 ;; esac
   case $rc in 126|127) _tap_bail "unexpected error (status $rc) at line $line of $file"; exit 1 ;; esac
-  _TAP_PEND=$cmd; _TAP_PEND_RC=$rc; _TAP_PEND_AT="line $line of $file"
+  _TAP_PEND=$cmd; _TAP_PEND_RC=$rc; _TAP_PEND_AT="line $line of $file"; _TAP_PEND_TOP=$_TAP_TOP
 }
 
 # Runs before every command of the test (not inside its functions). $1 is the command about to run.
 _tap_on_debug() {
   local last=$1 cmd=$2 pend
   case $cmd in _tap_*) return 0 ;; esac
+  _TAP_TOP=$cmd
   if [ -n "$_TAP_PEND" ]; then
     pend=$_TAP_PEND; _TAP_PEND=""
     # bash 3.2 calls the ERR trap for "! a | b" too: the status that reaches the next command is 0 there.
     [ "$last" -ne 0 ] || return 0
     case $cmd in
-      *\$\?*|*\$\{\?*) _TAP_READ=$pend; _TAP_READ_RC=$_TAP_PEND_RC; _TAP_READ_AT=$_TAP_PEND_AT ;;
+      *\$\?*|*\$\{\?*) _TAP_READ=$pend; _TAP_READ_RC=$_TAP_PEND_RC; _TAP_READ_AT=$_TAP_PEND_AT; _TAP_READ_TOP=$_TAP_PEND_TOP ;;
       *)
         _tap_bail "unexpected error (status $_TAP_PEND_RC) at $_TAP_PEND_AT: $(_tap_flat "$pend") failed and nothing read its status (a crash is not an assertion)"
         exit 1 ;;
@@ -137,6 +141,10 @@ _tap_on_debug() {
     case $cmd in tap_*) ;; *) _TAP_READ="" ;; esac
   fi
 }
+
+# Usage: _tap_declared <command>: is its first word a function declared with tap_assertions? (what ran inside it
+# is not what the test called: the ERR trap reports the last command executed, which can be inside the function)
+_tap_declared() { local word=${1%% *}; case $_TAP_ASSERT in *" $word "*) return 0 ;; esac; return 1; }
 
 # Usage: _tap_assertion <command> <status>: is that failing command an assertion, whose failure is a failed case?
 _tap_assertion() {
@@ -221,7 +229,7 @@ tap_ok() { _tap_case "ok" "$@"; }
 tap_fail() { _tap_case "not ok" "$@"; }
 tap_check() {
   local status=$1; shift
-  if [ "$status" -ne 0 ] && [ -n "$_TAP_READ" ] && ! _tap_assertion "$_TAP_READ" "$_TAP_READ_RC"; then
+  if [ "$status" -ne 0 ] && [ -n "$_TAP_READ" ] && ! _tap_assertion "$_TAP_READ" "$_TAP_READ_RC" && ! _tap_declared "$_TAP_READ_TOP"; then
     _tap_bail "unexpected error (status $_TAP_READ_RC) at $_TAP_READ_AT: $(_tap_flat "$_TAP_READ") is not an assertion: its status cannot be told from a crash (compare its output, or read the status and compare it with test)"
     exit 1
   fi
