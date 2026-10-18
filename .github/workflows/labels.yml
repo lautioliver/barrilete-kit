@@ -123,6 +123,48 @@ jobs:
               }
               return { ok: false, placeholder };
             };
+            // The structured red block of red.sh (ADR-002 D7/D9): the title, `red commit:` once (a hex sha) and, per group, `stack:`, `format:`
+            // (junit or tap) and under `failing cases:` at least one `- <file>::<name>`. Linear time like the helpers above: the lines are read
+            // with string methods (no regex over the body), and the only regexes run on one trimmed line with a single quantifier.
+            const TITULO_ROJO = /<summary>(?:Red before implementing|Rojo antes de implementar)<\/summary>/i;
+            const leerBloqueRojo = t => {
+              const ls = lineas(t);
+              const i = ls.findIndex(l => TITULO_ROJO.test(l));
+              if (i < 0) return { found: false, errors: [] };
+              const errs = new Set();
+              let commits = 0, grupo = null, n = 0;
+              const cerrar = () => {
+                if (!grupo) return;
+                if (!grupo.nombre) errs.add(`group ${n}: "stack:" has no name.`);
+                if (grupo.formato !== 'junit' && grupo.formato !== 'tap') errs.add(`group ${n}: "format:" is missing or is not junit or tap.`);
+                if (!grupo.cabecera) errs.add(`group ${n}: the "failing cases:" line is missing.`);
+                else if (grupo.casos === 0) errs.add(`group ${n}: "failing cases:" needs at least one line "- <file>::<name>".`);
+              };
+              for (let j = ls[i].includes('</details>') ? ls.length : i + 1; j < ls.length; j++) {
+                const l = ls[j].trim(), low = l.toLowerCase();
+                if (l.includes('</details>')) break;
+                if (low.startsWith('red commit:')) {
+                  commits++;
+                  if (!/^[0-9a-f]{7,64}$/i.test(l.slice(11).trim())) errs.add('"red commit:" needs a hexadecimal sha (7 to 64 characters).');
+                } else if (low.startsWith('stack:')) {
+                  cerrar(); n++;
+                  grupo = { nombre: l.slice(6).trim(), formato: null, cabecera: false, casos: 0 };
+                } else if (low.startsWith('format:')) {
+                  if (!grupo) errs.add('"format:" comes before any "stack:".');
+                  else grupo.formato = l.slice(7).trim().toLowerCase();
+                } else if (low.startsWith('failing cases:')) {
+                  if (grupo) grupo.cabecera = true;
+                } else if (l.startsWith('- ') && grupo && grupo.cabecera) {
+                  const resto = l.slice(2), k = resto.indexOf('::');
+                  if (k > 0 && resto.slice(0, k).trim() && resto.slice(k + 2).trim()) grupo.casos++;
+                  else errs.add(`group ${n}: a failing case has to be written "- <file>::<name>".`);
+                }
+              }
+              cerrar();
+              if (commits !== 1) errs.add(commits === 0 ? 'the "red commit: <sha>" line is missing.' : `"red commit:" must appear once (it appears ${commits} times).`);
+              if (n === 0) errs.add('no group: add "stack:", "format:" and "failing cases:" with at least one "- <file>::<name>".');
+              return { found: true, errors: [...errs] };
+            };
             if (count('type:') !== 1)    errors.push(`type: there must be exactly 1 (there are ${count('type:')}). claude/, cursor/ and release/ branches carry it by hand.`);
             if (count('priority:') > 0) errors.push('priority: is not used on PRs (only on issues).');
             if (count('status:') > 1)    errors.push(`status: at most 1 (there are ${count('status:')}).`);
@@ -161,10 +203,15 @@ jobs:
               // stay as aliases. "no tests"/"sin tests" need the colon and a reason (on the same line or the next one): without it,
               // any "there is no test coverage" would pass. A reason that is only <…> (the placeholder copied as is) does not count.
               const sinTests = hayMotivo(body, /(?:^|[^A-Za-z0-9])(?:no|sin) tests?:([^\n]*)$/i, () => true);
-              if (!/<summary>(?:Red before implementing|Rojo antes de implementar)<\/summary>/i.test(body) && !sinTests.ok)
-                errors.push(sinTests.placeholder
+              // Either the structured block of red.sh or a justified "no tests:". A block with the title but without
+              // its structure (red commit, stack, format, cases) is not a red: it does not count.
+              const rojo = leerBloqueRojo(body);
+              if (!sinTests.ok && !(rojo.found && rojo.errors.length === 0)) {
+                if (rojo.found) rojo.errors.forEach(e => errors.push('the "Red before implementing" block from red.sh is incomplete: ' + e));
+                else errors.push(sinTests.placeholder
                   ? 'the reason of "no tests:" is still the <reason> placeholder (or "<motivo>"): write why there are no tests.'
                   : 'the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
+              }
             }
             if (errors.length) core.setFailed('PR out of convention:\n- ' + errors.join('\n- '));
             else core.info('PR OK. Labels: ' + names.join(', '));

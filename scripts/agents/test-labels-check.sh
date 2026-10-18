@@ -33,7 +33,8 @@ const run = async (body, { labels = ['type:task'], ref = 'claude/1-x', files = [
   return out.failed;
 };
 const BL = { labels: ['type:task', 'business-logic'], ref: 'feat/1-x' };
-const base = 'Closes #1\n<details><summary>Red before implementing</summary>x</details>\n';
+const BLOCK = (title = 'Red before implementing') => `<details><summary>${title}</summary>\n\nred commit: 0123abc4\n\nstack: bash\nformat: tap\nfailing cases:\n- scripts/a/test-x.sh::some-id\n\n</details>\n`;
+const base = 'Closes #1\n' + BLOCK();
 const cases = [
   // [name, body, options, regex the failure must match (null: it must pass)]
   ['ADR unchanged: <reason> fails and says why', 'ADR unchanged: <reason>', BL, /ADR unchanged:.*(placeholder|reason)/i],
@@ -67,9 +68,9 @@ const cases = [
 ];
 
 // Cases of the old regex-only tests, now through the full script: [body, 1 = it passes / 0 = it fails].
-const TESTS_CASES = [["<summary>Red before implementing</summary>",1],["no tests: docs only",1],["No tests: it is config",1],["no test: only docs",1],["No tests:\nonly docs",1],
+const TESTS_CASES = [[BLOCK(),1],["no tests: docs only",1],["No tests: it is config",1],["no test: only docs",1],["No tests:\nonly docs",1],
  ["there is no test coverage here",0],["no tests were added",0],["no test",0],["no tests:",0],["no tests: ",0],["nonetheless no testing",0],
- ["sin test: es solo docs",1],["sin tests: es config",1],["Sin tests:\nes solo docs",1],["<summary>Rojo antes de implementar</summary>",1],["sin test",0],["testear sin testigo",0],
+ ["sin test: es solo docs",1],["sin tests: es config",1],["Sin tests:\nes solo docs",1],[BLOCK('Rojo antes de implementar'),1],["sin test",0],["testear sin testigo",0],
  ["Sin test\nes solo docs",0],["esto no queda sin tests porque lo cubre otro",0],["sin tests es config",0],["sin test es solo docs",0],
  ["no tests: <reason>",0],["no tests:\n<reason>",0],["sin tests: <motivo>",0],["sin test: <motivo>",0],["no tests: <reason> ",0],["sin tests:   <motivo>  ",0],["no tests: <reason> only docs",1],["sin test: <motivo> es config",1],
  ["\"no tests: <reason>\"",0],["`no tests: <reason>`",0],["**`no tests: <reason>`**",0],["**no tests:** <reason>",0],["_no tests: <reason>_",0],
