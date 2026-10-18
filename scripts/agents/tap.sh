@@ -4,6 +4,7 @@
 #   . "$ROOT/scripts/agents/tap.sh"
 #   tap_begin "$0"                       # writes "# file: <path of the script from the repo root>"
 #   tap_at_exit 'rm -rf "$TMP"'          # instead of trap ... EXIT, which would replace the helper's
+#   tap_assertions has_line no_line      # functions whose failing status is a failed case, not a crash
 #   tap_ok    "literal id" ["description"]
 #   tap_fail  "literal id" ["description"]
 #   tap_check $? "literal id" ["description"]   # 0 is ok, anything else is not ok
@@ -26,12 +27,22 @@
 # at the end so the stream keeps a single 1..N. Each failing case is also printed on
 # stderr as "FAIL - <id>", so a CI log shows it.
 #
-# Unexpected errors: with set -e a failing command emits "Bail out!" (ERR trap) and exits 1; leaving
-# the script in any other way before tap_done (set -u, an exit, a crash) also emits it from the EXIT
-# trap. Without set -e a failing command is the test's business (it checks its status with $?), except
-# status 126 and 127, a command that cannot run: that bails out too. A command that crashes with status 1
-# (a traceback in a setup step) cannot be told from a status the test checks on purpose, so it shows
-# up as the failure of the next case, not as a Bail out!. That is narrower than ADR-002 D6 says.
+# Unexpected errors (ADR-002 D6: a crash is never a failed assertion). A command that fails is an unexpected
+# error, and the run ends with "Bail out!" (exit 1), unless the test shows that it looks at the failure:
+#   - the next command reads the status: it has $? in it ("rc=$?", "[ $? -eq 2 ]", "tap_check $? ..."); or
+#   - the command is in a condition or after ||, && or ! (bash does not call the ERR trap there).
+# A failure that the next command does not read ("s=$(python3 x.py)" followed by a comparison of $s, or
+# a bare failing command before tap_ok or tap_done) bails out: it is a crash in a setup step, never an assertion.
+# When the status is read straight by tap_check ("<command>; tap_check $? ..."), the command has to be an
+# assertion, which is what can fail a case: test, [, [[, grep, egrep, fgrep, diff and cmp (with status 1: a status
+# of 2 or more is a usage error or a file that could not be read) and the functions the test declares with
+# tap_assertions (a helper that wraps one of those). A program under test that fails there ("python3 x.py;
+# tap_check $? ...") bails out: its status cannot be told from a crash. Capture its output with the failure
+# declared ("out=$(prog) || true", "prog || rc=$?") and compare the output, or read the status into a
+# variable and compare it with test. Under set -e any failure bails out, with no exceptions. Status 126 and 127
+# (a command that cannot run) always bail out. Left out of reach: a failure inside "a && b; tap_check $?" when
+# a is the one that fails, a crash in the middle of a pipeline, and a program whose exit status the test
+# compares with a number on purpose ("prog; [ $? -eq 2 ]": a crash with that number looks like the behaviour).
 #
 # A test runs in the same shell as this file, so it could still read _TAP_PATH or write to fd 8: it is
 # not a sandbox, only a path that the test has no reason to touch.
@@ -46,6 +57,13 @@ _TAP_DONE=0
 _TAP_BAILED=0
 _TAP_AT_EXIT=""
 _TAP_PATH=""
+_TAP_ASSERT=" "      # the functions declared with tap_assertions, between spaces
+_TAP_PEND=""         # the command that failed and that no later command has read yet
+_TAP_PEND_RC=0
+_TAP_PEND_AT=""      # "line N of <script>" of that command
+_TAP_READ=""         # the command whose failure the last command read (with $?)
+_TAP_READ_RC=0
+_TAP_READ_AT=""
 
 if [ -n "${TAP_OUT:-}" ]; then
   _TAP_PATH=$TAP_OUT
@@ -83,7 +101,7 @@ _tap_bail() {
 
 _tap_on_exit() {
   local rc=$?
-  trap - EXIT ERR
+  trap - EXIT ERR DEBUG
   if [ "$_TAP_DONE" -eq 0 ]; then
     _tap_bail "the script ended with status $rc before tap_done"
     [ "$rc" -ne 0 ] || rc=1
@@ -93,16 +111,45 @@ _tap_on_exit() {
 }
 
 _tap_on_err() {
-  local rc=$1
-  # Under set -e any failure is unexpected. Without it a failing command is usually a status the test
-  # checks, except a command that does not exist or cannot run (126, 127): nobody checks for that.
-  case $- in *e*) ;; *) case $rc in 126|127) ;; *) return 0 ;; esac ;; esac
-  _tap_bail "unexpected error (status $rc) at line $2 of $3"
-  exit 1
+  local rc=$1 line=$2 file=$3 cmd=$4
+  # Under set -e any failure is unexpected. A command that does not exist or cannot run (126, 127) is
+  # never a status the test checks. Any other failure waits for the next command (_tap_on_debug).
+  case $- in *e*) _tap_bail "unexpected error (status $rc) at line $line of $file"; exit 1 ;; esac
+  case $rc in 126|127) _tap_bail "unexpected error (status $rc) at line $line of $file"; exit 1 ;; esac
+  _TAP_PEND=$cmd; _TAP_PEND_RC=$rc; _TAP_PEND_AT="line $line of $file"
+}
+
+# Runs before every command of the test (not inside its functions). $1 is the command about to run.
+_tap_on_debug() {
+  local last=$1 cmd=$2 pend
+  case $cmd in _tap_*) return 0 ;; esac
+  if [ -n "$_TAP_PEND" ]; then
+    pend=$_TAP_PEND; _TAP_PEND=""
+    # bash 3.2 calls the ERR trap for "! a | b" too: the status that reaches the next command is 0 there.
+    [ "$last" -ne 0 ] || return 0
+    case $cmd in
+      *\$\?*|*\$\{\?*) _TAP_READ=$pend; _TAP_READ_RC=$_TAP_PEND_RC; _TAP_READ_AT=$_TAP_PEND_AT ;;
+      *)
+        _tap_bail "unexpected error (status $_TAP_PEND_RC) at $_TAP_PEND_AT: $(_tap_flat "$pend") failed and nothing read its status (a crash is not an assertion)"
+        exit 1 ;;
+    esac
+  else
+    case $cmd in tap_*) ;; *) _TAP_READ="" ;; esac
+  fi
+}
+
+# Usage: _tap_assertion <command> <status>: is that failing command an assertion, whose failure is a failed case?
+_tap_assertion() {
+  local word=${1%% *}
+  case $word in
+    test|'['|'[['|grep|egrep|fgrep|diff|cmp) [ "$2" -eq 1 ] ;;
+    *) case $_TAP_ASSERT in *" $word "*) return 0 ;; esac; return 1 ;;
+  esac
 }
 
 trap '_tap_on_exit' EXIT
-trap '_tap_on_err $? $LINENO "$0"' ERR
+trap '_tap_on_err $? "$LINENO" "$0" "$BASH_COMMAND"' ERR
+trap '_tap_on_debug "$?" "$BASH_COMMAND"' DEBUG
 
 # Usage: _tap_rel <script>: its path from the repo root (as written in the diff), or as given.
 _tap_rel() {
@@ -118,8 +165,8 @@ tap_begin() { _tap_line "# file: $(_tap_rel "${1:?tap_begin needs the path of th
 
 tap_at_exit() { _TAP_AT_EXIT=$1; }
 
-# Stub (issue #165, red): declares the functions of a test whose failing status is an assertion.
-tap_assertions() { :; }
+# Usage: tap_assertions <function>...: functions whose failing status is a failed case (see "Unexpected errors").
+tap_assertions() { local f; for f in "$@"; do _TAP_ASSERT="$_TAP_ASSERT$f "; done; }
 
 # Usage: _tap_flush: writes the held cases (numbered after the ones already in the file) and forgets them.
 _tap_flush() {
@@ -174,6 +221,11 @@ tap_ok() { _tap_case "ok" "$@"; }
 tap_fail() { _tap_case "not ok" "$@"; }
 tap_check() {
   local status=$1; shift
+  if [ "$status" -ne 0 ] && [ -n "$_TAP_READ" ] && ! _tap_assertion "$_TAP_READ" "$_TAP_READ_RC"; then
+    _tap_bail "unexpected error (status $_TAP_READ_RC) at $_TAP_READ_AT: $(_tap_flat "$_TAP_READ") is not an assertion: its status cannot be told from a crash (compare its output, or read the status and compare it with test)"
+    exit 1
+  fi
+  _TAP_READ=""
   if [ "$status" -eq 0 ]; then _tap_case "ok" "$@"; else _tap_case "not ok" "$@"; fi
 }
 

@@ -311,7 +311,8 @@ done
 # tap_begin runs before any cd of the script: with a relative $0 it would resolve from the wrong folder.
 tarde=""
 for s in $SCRIPTS; do
-  b=$(grep -n '^tap_begin ' "$ROOT/$s" | head -1 | cut -d: -f1); c=$(grep -n '^cd ' "$ROOT/$s" | head -1 | cut -d: -f1)
+  b=$(grep -n '^tap_begin ' "$ROOT/$s" | head -1 | cut -d: -f1) || true  # no match: no line
+  c=$(grep -n '^cd ' "$ROOT/$s" | head -1 | cut -d: -f1) || true
   [ -z "$c" ] || [ "${b:-999999}" -lt "$c" ] || tarde="$tarde $s"
 done
 [ -z "$tarde" ]; check $? "tap_begin comes before the first cd of each test" "after the cd:${tarde:- none}"
