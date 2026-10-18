@@ -14,6 +14,4 @@
      as is (it carries the red commit sha, and per stack its format and failing cases). If there is no behavior to test
      (docs, config) or a part cannot be tested here, say it as "no tests: <reason>". -->
 
-Commit of the red tests:
-
 Closes #

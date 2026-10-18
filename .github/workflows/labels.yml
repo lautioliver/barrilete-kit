@@ -203,15 +203,14 @@ jobs:
               // stay as aliases. "no tests"/"sin tests" need the colon and a reason (on the same line or the next one): without it,
               // any "there is no test coverage" would pass. A reason that is only <…> (the placeholder copied as is) does not count.
               const sinTests = hayMotivo(body, /(?:^|[^A-Za-z0-9])(?:no|sin) tests?:([^\n]*)$/i, () => true);
-              // Either the structured block of red.sh or a justified "no tests:". A block with the title but without
-              // its structure (red commit, stack, format, cases) is not a red: it does not count.
+              // A block with the title is judged by its structure, whatever else the body says: a malformed block is not a red, and
+              // a "no tests:" line cannot hide it (a PR may carry a block for what is tested and "no tests:" for what is not).
+              // "no tests: <reason>" stands in for the block only when there is no block.
               const rojo = leerBloqueRojo(body);
-              if (!sinTests.ok && !(rojo.found && rojo.errors.length === 0)) {
-                if (rojo.found) rojo.errors.forEach(e => errors.push('the "Red before implementing" block from red.sh is incomplete: ' + e));
-                else errors.push(sinTests.placeholder
-                  ? 'the reason of "no tests:" is still the <reason> placeholder (or "<motivo>"): write why there are no tests.'
-                  : 'the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
-              }
+              if (rojo.found) rojo.errors.forEach(e => errors.push('the "Red before implementing" block from red.sh is incomplete: ' + e));
+              else if (!sinTests.ok) errors.push(sinTests.placeholder
+                ? 'the reason of "no tests:" is still the <reason> placeholder (or "<motivo>"): write why there are no tests.'
+                : 'the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
             }
             if (errors.length) core.setFailed('PR out of convention:\n- ' + errors.join('\n- '));
             else core.info('PR OK. Labels: ' + names.join(', '));
