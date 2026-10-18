@@ -310,7 +310,10 @@ bash -c 'test "$1" -eq 2 && grep -q "not safe" "$2" && test -z "$(ls "$3")"' _ "
 # The real entry, run on a repo with two changed tests: a script that dies before it sources tap.sh writes no TAP
 # and must not hide behind the valid failure of the other one (D3: 0 errors); a script that is not a test is not run.
 # The small profile installs this test with a map that has no red entry of the kit's: nothing to check there.
-if python3 -c 'import json,sys; sys.exit(0 if any(e.get("name") == "bash" for e in json.load(open(sys.argv[1])).get("red", [])) else 1)' "$KIT/docs/agents-map.json" 2>/dev/null; then
+# In the kit itself (and in a full install) a missing or renamed `bash` entry is a failure, not a skip.
+if ! grep -q '"mode"[[:space:]]*:[[:space:]]*"small"' "$KIT/.agent-kit.json" 2>/dev/null; then
+  python3 -c 'import json,sys; sys.exit(0 if any(e.get("name") == "bash" for e in json.load(open(sys.argv[1])).get("red", [])) else 1)' "$KIT/docs/agents-map.json" 2>/dev/null
+  tap_check $? "the map of the kit has its bash red entry"
   kit_repo() { # kit_repo <dir>: the kit's red entry, tap.sh and a base commit
     new_repo "$1"; install_kit "$1"
     cp "$KIT/scripts/agents/tap.sh" "$1/scripts/agents/"
@@ -343,6 +346,23 @@ PY
   commit_all "$r" red
   run_red "$r"
   test "$code" -eq 0; tap_check $? "kit red entry: a test in a path with spaces is run"
+  reads_test="cat >/dev/null; $good_test"
+  nodone_test='ROOT=$(cd "$(dirname "$0")/../.." && pwd); . "$ROOT/scripts/agents/tap.sh"; tap_begin "$0"; exit 0'
+  r="$TMP/w/kit-reads-stdin"; kit_repo "$r"
+  printf '%s\n' "$reads_test" >"$r/scripts/agents/test-a.sh"; printf '%s\n' "$dies_test" >"$r/scripts/agents/test-b.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 2; tap_check $? "kit red entry: a test that reads stdin does not stop the next scripts from running"
+  r="$TMP/w/kit-dies-first"; kit_repo "$r"
+  printf '%s\n' "$dies_test" >"$r/scripts/agents/test-a.sh"; printf '%s\n' "$good_test" >"$r/scripts/agents/test-b.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 2; tap_check $? "kit red entry: a script that dies before tap.sh is caught when it runs first"
+  r="$TMP/w/kit-no-tap-done"; kit_repo "$r"
+  printf '%s\n' "$good_test" >"$r/scripts/agents/test-a.sh"; printf '%s\n' "$nodone_test" >"$r/scripts/agents/test-b.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 2; tap_check $? "kit red entry: a script that exits 0 without tap_done makes the run invalid"
 fi
 
 # ---------------------------------------------------------------- the files of red.sh are in English
