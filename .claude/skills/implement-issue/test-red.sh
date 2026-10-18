@@ -312,8 +312,9 @@ test "$code" -eq 2 && grep -q "not safe" "$TMP/out" && test -z "$(ls "$TMP/un sa
 # The small profile installs this test with a map that has no red entry of the kit's: nothing to check there.
 # In the kit itself (and in a full install) a missing or renamed `bash` entry is a failure, not a skip.
 if ! grep -q '"mode"[[:space:]]*:[[:space:]]*"small"' "$KIT/.agent-kit.json" 2>/dev/null; then
-  python3 -c 'import json,sys; sys.exit(0 if any(e.get("name") == "bash" for e in json.load(open(sys.argv[1])).get("red", [])) else 1)' "$KIT/docs/agents-map.json" 2>/dev/null
-  tap_check $? "the map of the kit has its bash red entry"
+  ec=0
+  python3 -c 'import json,sys; sys.exit(0 if any(e.get("name") == "bash" for e in json.load(open(sys.argv[1])).get("red", [])) else 1)' "$KIT/docs/agents-map.json" 2>/dev/null || ec=$?
+  [ "$ec" -eq 0 ]; tap_check $? "the map of the kit has its bash red entry"
   kit_repo() { # kit_repo <dir>: the kit's red entry, tap.sh and a base commit
     new_repo "$1"; install_kit "$1"
     cp "$KIT/scripts/agents/tap.sh" "$1/scripts/agents/"
@@ -340,7 +341,7 @@ PY
   printf 'touch "%s/ran-fetch"\n' "$TMP" >"$r/scripts/fetch-latest-tag.sh"
   commit_all "$r" red
   run_red "$r"
-  bash -c 'test "$1" -eq 0 && ! test -e "$2/ran-fetch"' _ "$code" "$TMP"; tap_check $? "kit red entry: a script that is not a test-*.sh is never run"
+  test "$code" -eq 0 && ! test -e "$TMP/ran-fetch"; tap_check $? "kit red entry: a script that is not a test-*.sh is never run"
   r="$TMP/w/kit-spaces"; kit_repo "$r"; mkdir -p "$r/scripts/my dir"
   printf '%s\n' "$good_test" >"$r/scripts/my dir/test-foo.sh"
   commit_all "$r" red
