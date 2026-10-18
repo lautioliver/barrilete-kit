@@ -31,7 +31,7 @@ The tests come from the issue's **acceptance criteria**, before writing the code
 .claude/skills/implement-issue/red.sh [<stack>]
 ```
 
-Commit the red tests first: `red.sh` validates the commit at HEAD, and the command of each stack is a `red` section (`name`, `when`, `run`, `format`) of an agents map that this mode does not ship: create it as docs/agents-map.json with only that section. Each command must write a JUnit or TAP report to `{out}`; for a bash test use `scripts/agents/tap.sh`. They have to fail **on an assertion** of the criterion: if they pass, they prove nothing; if they fail on an import or a missing symbol, complete the stub. **Bug** → `debug` skill: the red test reproduces the bug. Commit the red tests (`test: …`) before implementing. If a part cannot be tested (real concurrency, an external provider), note it in the PR as **`no tests: <reason>`**.
+Commit the red tests first: `red.sh` validates the commit at HEAD, and the command of each stack is a `red` section (`name`, `when`, `run`, `format`) of `docs/agents-map.json`, a minimal map that this mode ships with only that section and a bash/TAP entry: change the entry or add one for your test runner. Each command must write a JUnit or TAP report to `{out}`; for a bash test use `scripts/agents/tap.sh`. They have to fail **on an assertion** of the criterion: if they pass, they prove nothing; if they fail on an import or a missing symbol, complete the stub. **Bug** → `debug` skill: the red test reproduces the bug. Commit the red tests (`test: …`) before implementing. If a part cannot be tested (real concurrency, an external provider), note it in the PR as **`no tests: <reason>`**.
 
 ## 4. Implement (green)
 

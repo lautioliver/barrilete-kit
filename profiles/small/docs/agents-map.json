@@ -1,0 +1,13 @@
+{
+  "red": [
+    {
+      "name": "bash",
+      "when": [
+        "**/test-*.sh"
+      ],
+      "format": "tap",
+      "run": "for t in $(git diff --name-only --diff-filter=AM HEAD^ HEAD -- '**/test-*.sh'); do TAP_OUT={out} bash \"$t\" </dev/null || rc=1; done; exit ${rc:-0}",
+      "timeout": 600
+    }
+  ]
+}

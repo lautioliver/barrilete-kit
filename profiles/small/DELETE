@@ -3,7 +3,6 @@
 .claude/skills/review-pr
 .claude/skills/project-status
 .claude/skills/db-migration
-docs/agents-map.json
 docs/reference
 docs/development
 docs/guides
