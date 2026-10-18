@@ -54,7 +54,7 @@ git push -u origin HEAD
 gh pr create --base <BASE_BRANCH> --title "<type>: <description>" --body-file <file> --label "type:..."
 ```
 
-Body with `.github/pull_request_template.md`: in "How to test it", the red block from `red.sh`, the commit of the red tests and the commands you ran; `Closes #<n>`. Watch the CI (`gh pr checks --watch`) and fix what fails because of your change.
+Body with `.github/pull_request_template.md`: in "How to test it", the red block from `red.sh` as is (with its `red commit:` sha, and per stack `stack:`, `format:` and the failing cases: CI requires them) and the commands you ran; `Closes #<n>`. Watch the CI (`gh pr checks --watch`) and fix what fails because of your change.
 
 ## 8. Deliver
 
