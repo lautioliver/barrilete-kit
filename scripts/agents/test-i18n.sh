@@ -15,7 +15,8 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=test GI
 unset BASE
 
 copia() {
-  rm -rf "$TMP/r"; mkdir -p "$TMP/r"
+  rm -rf "$TMP/r" || true  # best effort: the copy of an earlier case may have read-only files
+  mkdir -p "$TMP/r"
   (cd "$RAIZ" && git ls-files -co --exclude-standard -z | tar --null -T - -cf - 2>/dev/null || true) | tar -xf - -C "$TMP/r"  # a file the index lists and the tree lost only warns
   (cd "$TMP/r" && git init -q -b main && git add -A && git commit -qm base)
 }
