@@ -188,7 +188,7 @@ has 'ok 1 - fixes \#12' "$TMP/tap"; check $? "a # in the id is escaped, as TAP 1
 # 7b. Several scripts, one stream: the numbering continues and there is a single plan at the end.
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_ok "a"\ntap_ok "b"\ntap_done\n' "$ROOT" >"$TMP/one.sh"
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_fail "c"\ntap_done\n' "$ROOT" >"$TMP/two.sh"
-rm -f "$TMP/tap3"; (cd "$ROOT" && TAP_OUT="$TMP/tap3" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap3" bash "$TMP/two.sh") 2>/dev/null
+rm -f "$TMP/tap3"; (cd "$ROOT" && TAP_OUT="$TMP/tap3" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap3" bash "$TMP/two.sh") 2>/dev/null || true
 has "ok 2 - b" "$TMP/tap3" && has "not ok 3 - c" "$TMP/tap3"; check $? "a second script writing the same file continues the numbering"
 count_is 1 '^1\.\.' "$TMP/tap3" && [ "$(tail -1 "$TMP/tap3")" = "1..3" ]; check $? "two scripts in one file leave a single plan, at the end, with the total"
 count_is 2 '^# file: ' "$TMP/tap3"; check $? "each script writes its own # file: line"
@@ -226,7 +226,7 @@ nogrep "input a" "$TMP/tap" && has "# desc: only one" "$TMP/tap"; check $? "a pa
 
 # 8e. A bail out leaves no plan from an earlier script in the stream.
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_ok "d"\nexit 4\n' "$ROOT" >"$TMP/three.sh"
-rm -f "$TMP/tap4"; (cd "$ROOT" && TAP_OUT="$TMP/tap4" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap4" bash "$TMP/three.sh") 2>/dev/null
+rm -f "$TMP/tap4"; (cd "$ROOT" && TAP_OUT="$TMP/tap4" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap4" bash "$TMP/three.sh") 2>/dev/null || true
 has_bail4() { grep -q '^Bail out!' "$TMP/tap4" 2>/dev/null; }
 tap_assertions has_bail4
 has_bail4 && nogrep '^1\.\.' "$TMP/tap4"; check $? "a bail out removes the plan an earlier script wrote"
