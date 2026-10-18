@@ -132,11 +132,13 @@ def parse_junit(path):
     text = data.decode("utf-8")
     if re.search(r"<!DOCTYPE", text, re.I):
         raise Reject("the report has a <!DOCTYPE: a JUnit report never needs one, so it is rejected")
-    decl = re.match(r"\s*<\?xml[^>]*encoding=[\"']([^\"']+)[\"']", text)
+    # XML allows spaces or tabs around "=", and a UTF-8 BOM can come before the declaration (\s does not match it)
+    decl = re.match(r"[\s\ufeff]*<\?xml[^>]*?\bencoding\s*=\s*[\"']([^\"']+)[\"']", text)
     if decl and decl.group(1).lower().replace("_", "-") not in ("utf-8", "utf8"):
         raise Reject("the XML declares an encoding other than UTF-8")
     try:
-        root = ET.fromstring(data)
+        # whatever the declaration says, expat reads the bytes as UTF-8 (the check above rejects the others)
+        root = ET.fromstring(data, parser=ET.XMLParser(encoding="utf-8"))
     except ET.ParseError as e:
         raise Reject(f"the report is truncated or is not valid XML ({e})")
     if root.tag not in ("testsuites", "testsuite"):

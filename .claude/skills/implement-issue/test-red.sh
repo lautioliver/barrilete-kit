@@ -103,10 +103,14 @@ wait
 for c in "$CORPUS"/*/; do
   name=$(basename "${c%/}")
   grep -q '^ok ' "$TMP/res/$name.txt"
-  tap_check $? "every case of the corpus gives the exit code of its meta file" "$name"
+  tap_check $? "every case of the corpus gives the exit code its meta file expects" "$name"
   grep -q '^ok ' "$TMP/res/$name.txt" || sed 's/^/  /' "$TMP/res/$name.txt" >&2
 done
 test "$n" -ge 100; tap_check $? "the corpus has at least 100 cases"
+# the three spellings of a non-UTF-8 declaration that a regex on `encoding=` misses (spaces, tabs, a BOM before it)
+enc=0
+for name in junit-latin1-spaces-around-equals junit-latin1-tabs junit-latin1-after-bom; do grep -q '^ok ' "$TMP/res/$name.txt" || enc=1; done
+tap_check $enc "an XML that declares an encoding other than UTF-8 is rejected however it is written"
 
 # ---------------------------------------------------------------- the PR block
 repo="$TMP/w/pytest-assert"
@@ -301,6 +305,65 @@ bash -c 'test "$1" -eq 0 && grep -q "stack \"trusted\"" "$2" && ! test -e "$3/pw
 r="$TMP/w/unsafe-tmpdir"; case_repo "$r" "echo '$GOOD_XML' > {out}; exit 1"; mkdir -p "$TMP/un safe"
 (cd "$r" && TMPDIR="$TMP/un safe" .claude/skills/implement-issue/red.sh) >"$TMP/out" 2>&1; code=$?
 bash -c 'test "$1" -eq 2 && grep -q "not safe" "$2" && test -z "$(ls "$3")"' _ "$code" "$TMP/out" "$TMP/un safe"; tap_check $? "an unsafe TMPDIR is rejected and leaves nothing behind"
+
+# ---------------------------------------------------------------- the kit's own `red` entry (docs/agents-map.json)
+# The real entry, run on a repo with two changed tests: a script that dies before it sources tap.sh writes no TAP
+# and must not hide behind the valid failure of the other one (D3: 0 errors); a script that is not a test is not run.
+# The small profile installs this test with a map that has no red entry of the kit's: nothing to check there.
+# In the kit itself (and in a full install) a missing or renamed `bash` entry is a failure, not a skip.
+if ! grep -q '"mode"[[:space:]]*:[[:space:]]*"small"' "$KIT/.agent-kit.json" 2>/dev/null; then
+  python3 -c 'import json,sys; sys.exit(0 if any(e.get("name") == "bash" for e in json.load(open(sys.argv[1])).get("red", [])) else 1)' "$KIT/docs/agents-map.json" 2>/dev/null
+  tap_check $? "the map of the kit has its bash red entry"
+  kit_repo() { # kit_repo <dir>: the kit's red entry, tap.sh and a base commit
+    new_repo "$1"; install_kit "$1"
+    cp "$KIT/scripts/agents/tap.sh" "$1/scripts/agents/"
+    python3 - "$KIT/docs/agents-map.json" "$1/docs/agents-map.json" <<'PY'
+import json, sys
+json.dump({"red": json.load(open(sys.argv[1]))["red"]}, open(sys.argv[2], "w"))
+PY
+    printf 'old\n' >"$1/README"; commit_all "$1" base
+  }
+  good_test='ROOT=$(cd "$(dirname "$0")/../.." && pwd); . "$ROOT/scripts/agents/tap.sh"; tap_begin "$0"; test 2 -eq 3; tap_check $? "two equals three"; tap_done'
+  dies_test='set -e; ROOT=$(cd "$(dirname "$0")/../.." && pwd); . "$ROOT/scripts/agents/new-helper.sh"; . "$ROOT/scripts/agents/tap.sh"; tap_begin "$0"; tap_done'
+  r="$TMP/w/kit-two-scripts"; kit_repo "$r"
+  printf '%s\n' "$good_test" >"$r/scripts/agents/test-foo.sh"; printf '%s\n' "$dies_test" >"$r/scripts/agents/test-bar.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 2; tap_check $? "kit red entry: a script that dies before tap.sh makes the run invalid even if another one fails"
+  r="$TMP/w/kit-one-script"; kit_repo "$r"
+  printf '%s\n' "$good_test" >"$r/scripts/agents/test-foo.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 0; tap_check $? "kit red entry: a test that fails with an assertion is a valid red"
+  r="$TMP/w/kit-not-a-test"; kit_repo "$r"
+  printf '%s\n' "$good_test" >"$r/scripts/agents/test-foo.sh"
+  printf 'touch "%s/ran-fetch"\n' "$TMP" >"$r/scripts/fetch-latest-tag.sh"
+  commit_all "$r" red
+  run_red "$r"
+  bash -c 'test "$1" -eq 0 && ! test -e "$2/ran-fetch"' _ "$code" "$TMP"; tap_check $? "kit red entry: a script that is not a test-*.sh is never run"
+  r="$TMP/w/kit-spaces"; kit_repo "$r"; mkdir -p "$r/scripts/my dir"
+  printf '%s\n' "$good_test" >"$r/scripts/my dir/test-foo.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 0; tap_check $? "kit red entry: a test in a path with spaces is run"
+  reads_test="cat >/dev/null; $good_test"
+  nodone_test='ROOT=$(cd "$(dirname "$0")/../.." && pwd); . "$ROOT/scripts/agents/tap.sh"; tap_begin "$0"; exit 0'
+  r="$TMP/w/kit-reads-stdin"; kit_repo "$r"
+  printf '%s\n' "$reads_test" >"$r/scripts/agents/test-a.sh"; printf '%s\n' "$dies_test" >"$r/scripts/agents/test-b.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 2; tap_check $? "kit red entry: a test that reads stdin does not stop the next scripts from running"
+  r="$TMP/w/kit-dies-first"; kit_repo "$r"
+  printf '%s\n' "$dies_test" >"$r/scripts/agents/test-a.sh"; printf '%s\n' "$good_test" >"$r/scripts/agents/test-b.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 2; tap_check $? "kit red entry: a script that dies before tap.sh is caught when it runs first"
+  r="$TMP/w/kit-no-tap-done"; kit_repo "$r"
+  printf '%s\n' "$good_test" >"$r/scripts/agents/test-a.sh"; printf '%s\n' "$nodone_test" >"$r/scripts/agents/test-b.sh"
+  commit_all "$r" red
+  run_red "$r"
+  test "$code" -eq 2; tap_check $? "kit red entry: a script that exits 0 without tap_done makes the run invalid"
+fi
 
 # ---------------------------------------------------------------- the files of red.sh are in English
 bash -c 'cd "$1" && .claude/skills/implement-issue/red.sh a b 2>&1 | grep -q "^Usage: red.sh"' _ "$TMP/w/pytest-assert"; tap_check $? "red.sh prints its usage in English"
