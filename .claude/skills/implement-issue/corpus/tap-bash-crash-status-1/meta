@@ -1,0 +1,6 @@
+expect=2
+format=tap
+exit=1
+source=real: scripts/agents/tap.sh (#165) run under TAP_OUT, the way red.sh runs it
+says=Bail out!
+note=a program that crashes with status 1 and is read straight by tap_check is a Bail out!, never a failed case of a new test (ADR-002 D3, D6); before #165 it came out as "not ok" and red.sh exited 0

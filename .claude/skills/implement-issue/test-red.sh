@@ -117,7 +117,7 @@ test -f "$block"; tap_check $? "red: a valid red prints the block path"
 b=$(cat "$block" 2>/dev/null)
 grep -q '<summary>Red before implementing</summary>' <<<"$b"; tap_check $? "block: uses the English literal Red before implementing"
 grep -qx "red commit: $sha" <<<"$b"; tap_check $? "block: red commit is the sha of HEAD"
-bash -c 'grep -qx "stack: tests" <<<"$1" && grep -qx "format: junit" <<<"$1"' _ "$b"; tap_check $? "block: stack and format lines"
+grep -qx "stack: tests" <<<"$b" && grep -qx "format: junit" <<<"$b"; tap_check $? "block: stack and format lines"
 grep -qx -- '- test_new.py::test_total' <<<"$b"; tap_check $? "block: failing cases as file::name"
 test "$(grep -c '^- ' <<<"$b")" -eq 1; tap_check $? "block: it lists only the failed case"
 grep -q '^</details>' <<<"$b"; tap_check $? "block: closes the details"
@@ -130,12 +130,12 @@ grep -q 'agents-map.json' "$TMP/out"; tap_check $? "usage: it says where the com
 run_red "$repo" a b
 test "$code" -eq 64; tap_check $? "usage: two stacks (exit 64)"
 run_red "$repo" nosuch
-bash -c 'test "$1" -eq 2 && grep -q "tests" "$2"' _ "$code" "$TMP/out"; tap_check $? "an unknown stack exits with 2 and lists the stacks"
+test "$code" -eq 2 && grep -q "tests" "$TMP/out"; tap_check $? "an unknown stack exits with 2 and lists the stacks"
 
 r="$TMP/w/nosection"; new_repo "$r"; install_kit "$r"; printf '{"docs": []}\n' >"$r/docs/agents-map.json"
 echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
 run_red "$r"
-bash -c 'test "$1" -eq 2 && grep -q "no .red. section" "$2" && grep -q "gotestsum" "$2" && grep -q "no text fallback" "$2"' _ "$code" "$TMP/out"; tap_check $? "D1: no red section -> exit 2 with a guide"
+test "$code" -eq 2 && grep -q "no .red. section" "$TMP/out" && grep -q "gotestsum" "$TMP/out" && grep -q "no text fallback" "$TMP/out"; tap_check $? "D1: no red section -> exit 2 with a guide"
 
 bad_map() { # bad_map <json of the red section> <text expected>: 0 if red.sh rejects it with that text
   local r="$TMP/w/badmap"; new_repo "$r"; install_kit "$r"; write_map "$r" "$1"
@@ -158,12 +158,12 @@ bad_map '[{"name":"t","when":["src/**"],"run":"true {out}","format":"tap"}]' 'no
 # ---------------------------------------------------------------- the commit
 r="$TMP/w/dirty"; cp -R "$TMP/w/pytest-assert" "$r"; echo "# x" >>"$r/test_old.py"
 run_red "$r"
-bash -c 'test "$1" -eq 2 && grep -q "uncommitted" "$2"' _ "$code" "$TMP/out"; tap_check $? "a tracked file changed after the red commit -> exit 2"
+test "$code" -eq 2 && grep -q "uncommitted" "$TMP/out"; tap_check $? "a tracked file changed after the red commit -> exit 2"
 
 r="$TMP/w/rootcommit"; new_repo "$r"; install_kit "$r"; write_map "$r" '[{"name":"t","when":["**"],"run":"true {out}","format":"tap"}]'
 commit_all "$r" only
 run_red "$r"
-bash -c 'test "$1" -eq 2 && grep -q "no parent" "$2"' _ "$code" "$TMP/out"; tap_check $? "a red commit without parent -> exit 2"
+test "$code" -eq 2 && grep -q "no parent" "$TMP/out"; tap_check $? "a red commit without parent -> exit 2"
 
 # ---------------------------------------------------------------- several stacks, the choice of stack
 r="$TMP/w/two-stacks"; new_repo "$r"; install_kit "$r"
@@ -182,19 +182,19 @@ commit_all "$r" red
 run_red "$r"
 b=$(cat "$(sed -n 's/^Block for .*: //p' "$TMP/out")" 2>/dev/null)
 test "$code" -eq 0; tap_check $? "two stacks that match, both red -> exit 0"
-bash -c 'test "$(grep -c "^stack: " <<<"$1")" -eq 2 && grep -q "^stack: py" <<<"$1" && grep -q "^stack: sh" <<<"$1"' _ "$b"; tap_check $? "two stacks: one group per stack in the block"
+test "$(grep -c "^stack: " <<<"$b")" -eq 2 && grep -q "^stack: py" <<<"$b" && grep -q "^stack: sh" <<<"$b"; tap_check $? "two stacks: one group per stack in the block"
 test "$(grep -c '^red commit: ' <<<"$b")" -eq 1; tap_check $? "two stacks: red commit appears once"
 run_red "$r" py
 b=$(cat "$(sed -n 's/^Block for .*: //p' "$TMP/out")" 2>/dev/null)
-bash -c 'test "$1" -eq 0 && test "$(grep -c "^stack: " <<<"$2")" -eq 1 && ! grep -q "stack \"sh\"" "$3"' _ "$code" "$b" "$TMP/out"; tap_check $? "red.sh <stack> runs only that stack"
+test "$code" -eq 0 && test "$(grep -c "^stack: " <<<"$b")" -eq 1 && ! grep -q "stack \"sh\"" "$TMP/out"; tap_check $? "red.sh <stack> runs only that stack"
 python3 - "$r/docs/agents-map.json" <<'EOF'
 import json, sys
 p = sys.argv[1]; m = json.load(open(p)); m["red"][1]["run"] = m["red"][1]["run"].replace(" 1 0", " 0 0"); json.dump(m, open(p, "w"))
 EOF
 git -C "$r" commit -q -a --amend --no-edit; run_red "$r"
-bash -c 'test "$1" -eq 2' _ "$code"; tap_check $? "two stacks: one is rejected, the whole red is rejected (exit 2)"
+test "$code" -eq 2; tap_check $? "two stacks: one is rejected, the whole red is rejected (exit 2)"
 git -C "$r" commit -q --allow-empty -m "empty"; run_red "$r"
-bash -c 'test "$1" -eq 2 && grep -q "no .red. entry matches" "$2"' _ "$code" "$TMP/out"; tap_check $? "a red commit that changes no file matches no stack (exit 2)"
+test "$code" -eq 2 && grep -q "no .red. entry matches" "$TMP/out"; tap_check $? "a red commit that changes no file matches no stack (exit 2)"
 
 # ---------------------------------------------------------------- the report path, the timeout, the process group, the size
 case_repo() { # case_repo <dir> <run>: a repo whose red commit adds test_new.py; the stack runs <run>
@@ -215,24 +215,24 @@ case_repo "$r" "[ -e {out} ] && echo EXISTED >>$log; echo {out} >>$log; echo '$G
 run_red "$r"; first=$code
 run_red "$r"
 test "$first" -eq 0 -a "$code" -eq 0; tap_check $? "report path: a valid red twice"
-bash -c '! grep -q EXISTED "$1"' _ "$log"; tap_check $? "report path: nothing existed at {out} before the run"
+! grep -q EXISTED "$log"; tap_check $? "report path: nothing existed at {out} before the run"
 test "$(grep -c '^/' "$log")" -eq 2 -a "$(grep '^/' "$log" | sort -u | wc -l | tr -d ' ')" -eq 2; tap_check $? "report path: it is different in each run"
-bash -c 'grep "^/" "$1" | grep -q "^$2/"' _ "$log" "$TMPDIR"; tap_check $? "report path: it is under TMPDIR, not in the repo"
+grep "^/" "$log" | grep -q "^$TMPDIR/"; tap_check $? "report path: it is under TMPDIR, not in the repo"
 
 # an old report left by a previous run cannot be reused
 r="$TMP/w/stale"; case_repo "$r" "exit 1 # {out}"
 run_red "$r"
-bash -c 'test "$1" -eq 2 && grep -q "not created in this run" "$2"' _ "$code" "$TMP/out"; tap_check $? "a run that writes no report is rejected even if an old one exists elsewhere"
+test "$code" -eq 2 && grep -q "not created in this run" "$TMP/out"; tap_check $? "a run that writes no report is rejected even if an old one exists elsewhere"
 
 # D5: timeout applied with python, and the whole process group dies
 r="$TMP/w/timeout"; case_repo "$r" "echo '$GOOD_XML' > {out}; sleep 30 & wait" 1
 start=$(date +%s); run_red "$r"; end=$(date +%s)
-bash -c 'test "$1" -eq 2 && grep -q "passed its timeout" "$2" && test "$3" -lt 15' _ "$code" "$TMP/out" "$((end - start))"; tap_check $? "timeout: the run is killed (exit 2) well before it ends by itself"
+test "$code" -eq 2 && grep -q "passed its timeout" "$TMP/out" && test "$((end - start))" -lt 15; tap_check $? "timeout: the run is killed (exit 2) well before it ends by itself"
 
 r="$TMP/w/group"; flag="$TMP/late"; rm -f "$flag"
 case_repo "$r" "(sleep 2; echo late > $flag) & exit 1"
 run_red "$r"; sleep 3
-bash -c 'test "$1" -eq 2 && ! test -e "$2"' _ "$code" "$flag"; tap_check $? "process group: a background child cannot write after red.sh returns"
+test "$code" -eq 2 && ! test -e "$flag"; tap_check $? "process group: a background child cannot write after red.sh returns"
 
 r="$TMP/w/timeout-conf"; case_repo "$r" "echo '$GOOD_XML' > {out}; exit 1" 7
 grep -q '"timeout": 7' "$r/docs/agents-map.json"; tap_check $? "timeout: it is read from the entry"
@@ -251,10 +251,10 @@ grep -q 'timeout 600 s' "$TMP/out"; tap_check $? "timeout: without the field it 
 # D3: a report larger than 20 MB is not read
 r="$TMP/w/big"; case_repo "$r" "head -c 21000000 /dev/zero > {out}; exit 1"
 run_red "$r"
-bash -c 'test "$1" -eq 2 && grep -q "larger than 20 MB" "$2"' _ "$code" "$TMP/out"; tap_check $? "a report larger than 20 MB is rejected without reading it"
+test "$code" -eq 2 && grep -q "larger than 20 MB" "$TMP/out"; tap_check $? "a report larger than 20 MB is rejected without reading it"
 r="$TMP/w/symlink"; case_repo "$r" "echo '$GOOD_XML' > $TMP/target.xml; ln -s $TMP/target.xml {out}; exit 1"
 run_red "$r"
-bash -c 'test "$1" -eq 2 && grep -q "not a regular file" "$2"' _ "$code" "$TMP/out"; tap_check $? "a report that is a symbolic link is rejected"
+test "$code" -eq 2 && grep -q "not a regular file" "$TMP/out"; tap_check $? "a report that is a symbolic link is rejected"
 
 # D2: stdout of the run is not the evidence: lines that look like TAP on stdout inject no case
 r="$TMP/w/stdout"; new_repo "$r"; install_kit "$r"
@@ -264,7 +264,7 @@ json.dump({"red": [{"name": "t", "when": ["**"], "format": "tap", "run": "printf
 EOF
 echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
 run_red "$r"
-bash -c 'test "$1" -eq 2 && grep -q "no failure" "$2"' _ "$code" "$TMP/out"; tap_check $? "stdout of the run is not parsed: only {out} counts"
+test "$code" -eq 2 && grep -q "no failure" "$TMP/out"; tap_check $? "stdout of the run is not parsed: only {out} counts"
 
 # D6: for format tap, TAP_OUT is the file red.sh created, so a helper that reads it writes there and not to stdout
 r="$TMP/w/tapout"; new_repo "$r"; install_kit "$r"; rm -f "$TMP/tapout.flag"
@@ -295,15 +295,16 @@ printf '{"red":[{"name":"pr","when":["**"],"format":"tap","run":"touch %s/pwned;
 commit_all "$r" red
 (cd "$r" && "$trusted/.claude/skills/implement-issue/red.sh") >"$TMP/out" 2>&1; code=$?
 [ "$code" -eq 0 ] || show
-bash -c 'test "$1" -eq 0 && grep -q "stack \"trusted\"" "$2" && ! test -e "$3/pwned"' _ "$code" "$TMP/out" "$TMP"; tap_check $? "trusted checkout: red.sh runs the red section of its own checkout, never the PR's"
+test "$code" -eq 0 && grep -q "stack \"trusted\"" "$TMP/out" && ! test -e "$TMP/pwned"; tap_check $? "trusted checkout: red.sh runs the red section of its own checkout, never the PR's"
 
 # an unsafe TMPDIR is rejected before anything is created in it
 r="$TMP/w/unsafe-tmpdir"; case_repo "$r" "echo '$GOOD_XML' > {out}; exit 1"; mkdir -p "$TMP/un safe"
 (cd "$r" && TMPDIR="$TMP/un safe" .claude/skills/implement-issue/red.sh) >"$TMP/out" 2>&1; code=$?
-bash -c 'test "$1" -eq 2 && grep -q "not safe" "$2" && test -z "$(ls "$3")"' _ "$code" "$TMP/out" "$TMP/un safe"; tap_check $? "an unsafe TMPDIR is rejected and leaves nothing behind"
+test "$code" -eq 2 && grep -q "not safe" "$TMP/out" && test -z "$(ls "$TMP/un safe")"; tap_check $? "an unsafe TMPDIR is rejected and leaves nothing behind"
 
 # ---------------------------------------------------------------- the files of red.sh are in English
-bash -c 'cd "$1" && .claude/skills/implement-issue/red.sh a b 2>&1 | grep -q "^Usage: red.sh"' _ "$TMP/w/pytest-assert"; tap_check $? "red.sh prints its usage in English"
+usage=$(cd "$TMP/w/pytest-assert" && .claude/skills/implement-issue/red.sh a b 2>&1) || true  # it exits with 64
+grep -q "^Usage: red.sh" <<<"$usage"; tap_check $? "red.sh prints its usage in English"
 ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$HERE/red.sh" "$KIT/scripts/agents/red_report.py"; tap_check $? "red.sh and red_report.py have no Spanish"
 
 tap_done

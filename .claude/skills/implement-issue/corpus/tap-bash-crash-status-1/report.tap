@@ -1,0 +1,3 @@
+# file: scripts/new.test.sh
+ok 1 - adds numbers
+Bail out! unexpected error (status 1) at line 6 of scripts/new.test.sh: python3 -c 'raise SystemExit(1)' is not an assertion: its status cannot be told from a crash (compare its output, or read the status and compare it with test)
