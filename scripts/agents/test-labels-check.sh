@@ -35,7 +35,8 @@ const run = async (body, { labels = ['type:task'], ref = 'claude/1-x', files = [
   return out.failed;
 };
 const BL = { labels: ['type:task', 'business-logic'], ref: 'feat/1-x' };
-const base = 'Closes #1\n<details><summary>Red before implementing</summary>x</details>\n';
+const BLOCK = (title = 'Red before implementing') => `<details><summary>${title}</summary>\n\nred commit: 0123abc4\n\nstack: bash\nformat: tap\nfailing cases:\n- scripts/a/test-x.sh::some-id\n\n</details>\n`;
+const base = 'Closes #1\n' + BLOCK();
 const cases = [
   // [name, body, options, regex the failure must match (null: it must pass)]
   ['ADR unchanged: <reason> fails and says why', 'ADR unchanged: <reason>', BL, /ADR unchanged:.*(placeholder|reason)/i],
@@ -69,9 +70,9 @@ const cases = [
 ];
 
 // Cases of the old regex-only tests, now through the full script: [body, 1 = it passes / 0 = it fails].
-const TESTS_CASES = [["<summary>Red before implementing</summary>",1],["no tests: docs only",1],["No tests: it is config",1],["no test: only docs",1],["No tests:\nonly docs",1],
+const TESTS_CASES = [[BLOCK(),1],["no tests: docs only",1],["No tests: it is config",1],["no test: only docs",1],["No tests:\nonly docs",1],
  ["there is no test coverage here",0],["no tests were added",0],["no test",0],["no tests:",0],["no tests: ",0],["nonetheless no testing",0],
- ["sin test: es solo docs",1],["sin tests: es config",1],["Sin tests:\nes solo docs",1],["<summary>Rojo antes de implementar</summary>",1],["sin test",0],["testear sin testigo",0],
+ ["sin test: es solo docs",1],["sin tests: es config",1],["Sin tests:\nes solo docs",1],[BLOCK('Rojo antes de implementar'),1],["sin test",0],["testear sin testigo",0],
  ["Sin test\nes solo docs",0],["esto no queda sin tests porque lo cubre otro",0],["sin tests es config",0],["sin test es solo docs",0],
  ["no tests: <reason>",0],["no tests:\n<reason>",0],["sin tests: <motivo>",0],["sin test: <motivo>",0],["no tests: <reason> ",0],["sin tests:   <motivo>  ",0],["no tests: <reason> only docs",1],["sin test: <motivo> es config",1],
  ["\"no tests: <reason>\"",0],["`no tests: <reason>`",0],["**`no tests: <reason>`**",0],["**no tests:** <reason>",0],["_no tests: <reason>_",0],
@@ -145,6 +146,112 @@ const more = [
 JS
 [ "$ec" -eq 0 ]
 tap_check $? "the labels check reports the unfilled reasons (full script, fake GitHub)"
+# The structured red block (ADR-002 D9, issue #153): the title is not enough, the block needs `red commit:` once, and per
+# group `stack:`, `format:` and at least one `- <file>::<name>` under `failing cases:`. One case per tap_check: the id of
+# each is a literal, so red.sh can tell which cases this change adds.
+CASE_JS=$(mktemp "${TMPDIR:-/tmp}/labels-case.XXXXXX") || tap_fail "a temp file for the structured block cases"
+# shellcheck disable=SC2016  # tap_at_exit evals it at exit, when $CASE_JS must be read
+tap_at_exit 'rm -f "$CASE_JS"'
+cat > "$CASE_JS" <<'JS'
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[2], 'utf8');
+const from = src.indexOf('\n  labels:\n');
+const next = src.slice(from + 1).search(/\n  [a-z-]+:\n/);
+const job = next < 0 ? src.slice(from) : src.slice(from, from + 1 + next);
+const start = job.indexOf('script: |\n') + 'script: |\n'.length;
+const script = job.slice(start).split('\n').map(l => l.replace(/^ {12}/, '')).join('\n');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const run = async body => {
+  const out = { failed: null };
+  const pr = { labels: [{ name: 'type:task' }], body, head: { ref: 'claude/1-x' } };
+  const github = { rest: { pulls: { get: async () => ({ data: pr }), listFiles: 'listFiles' } }, paginate: async () => [] };
+  const context = { repo: { owner: 'o', repo: 'r' }, payload: { pull_request: { number: 1 } } };
+  const core = { setFailed: m => { out.failed = m; }, info() {}, notice() {}, warning() {} };
+  await new AsyncFunction('github', 'context', 'core', script)(github, context, core);
+  return out.failed;
+};
+const T = 'Closes #1\n<details><summary>Red before implementing</summary>\n\n';
+const G = (n = 'bash', f = 'tap', c = '- scripts/a/test-x.sh::some-id') => `stack: ${n}\nformat: ${f}\nfailing cases:\n${c}\n\n`;
+const R = 'red commit: 0123abc4\n\n';
+const E = '</details>\n';
+const cases = {
+  'valid-block': [T + R + G() + E, null],
+  'valid-block-es-title': ['Closes #1\n<details><summary>Rojo antes de implementar</summary>\n\n' + R + G() + E, null],
+  'valid-block-two-groups': [T + R + G() + G('pytest', 'junit', '- tests/test_a.py::test_a\n- tests/test_a.py::test_b') + E, null],
+  'valid-block-crlf': [(T + R + G() + E).replace(/\n/g, '\r\n'), null],
+  'title-only-fails': ['Closes #1\n<details><summary>Red before implementing</summary>x</details>\n', /red commit:/],
+  'missing-format-fails': [T + R + 'stack: bash\nfailing cases:\n- a::b\n\n' + E, /format:/],
+  'missing-red-commit-fails': [T + G() + E, /red commit:/],
+  'no-case-fails': [T + R + 'stack: bash\nformat: tap\nfailing cases:\n\n' + E, /failing case|case/i],
+  'bad-sha-fails': [T + 'red commit: <sha>\n\n' + G() + E, /red commit:/],
+  'two-red-commits-fails': [T + R + R + G() + E, /red commit:/],
+  'bad-format-fails': [T + R + G('bash', 'text') + E, /format:/],
+  'empty-stack-fails': [T + R + 'stack:\nformat: tap\nfailing cases:\n- a::b\n\n' + E, /stack:/],
+  'second-group-incomplete-fails': [T + R + G() + 'stack: pytest\nformat: junit\nfailing cases:\n\n' + E, /case/i],
+  'case-without-separator-fails': [T + R + G('bash', 'tap', '- just a name') + E, /case/i],
+  'block-in-comment-fails': ['Closes #1\n<!-- ' + T.split('\n').slice(1).join('\n') + R + G() + E + ' -->\n<details><summary>Red before implementing</summary>x</details>', /red commit:/],
+  'lines-after-details-do-not-count': [T + R + 'stack: bash\n' + E + 'format: tap\nfailing cases:\n- a::b\n', /format:|case/i],
+  'no-tests-still-passes': ['Closes #1\nno tests: only docs', null],
+  'title-with-no-tests-reason-fails': ['Closes #1\n<details><summary>Red before implementing</summary>x</details>\nno tests: only docs', /red commit:/],
+  'valid-block-with-no-tests-passes': [T + R + G() + E + 'no tests: the concurrency part cannot be tested here', null],
+  'malformed-block-with-no-tests-fails': [T + R + 'stack: bash\nfailing cases:\n- a::b\n\n' + E + 'no tests: the concurrency part cannot be tested here', /format:/],
+  'prose-no-tests-with-malformed-block-fails': [T + G() + E + 'there are no tests: the old module had none', /red commit:/],
+};
+const N = 10000;
+const perf = {
+  spaces: R.replace('0123abc4', ' '.repeat(N) + '0123abc4') + G(' '.repeat(N)) ,
+  colons: G('bash', 'tap', '- ' + '::'.repeat(N)),
+  lines: R + '- a::b\n'.repeat(N),
+  groups: R + G().repeat(N / 10),
+  hex: 'red commit: ' + 'a'.repeat(N) + '\n' + G(),
+  stars: R + G('*'.repeat(N), 'tap', '- ' + '*'.repeat(N) + '::' + '_'.repeat(N)),
+};
+(async () => {
+  const [mode, name] = [process.argv[3], process.argv[4]];
+  if (mode === 'case') {
+    const [body, re] = cases[name];
+    const failed = await run(body);
+    const good = re === null ? failed === null : failed !== null && re.test(failed);
+    if (!good) console.log('got: ' + JSON.stringify(failed));
+    process.exit(good ? 0 : 1);
+  }
+  // perf: the title, the hostile text, and nothing else; it has to end quickly, with any verdict.
+  const t0 = performance.now();
+  await run(T + perf[name] + E);
+  const ms = performance.now() - t0;
+  if (ms >= 200) console.log('took ' + Math.round(ms) + ' ms');
+  process.exit(ms < 200 ? 0 : 1);
+})();
+JS
+lc_case() { node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" case "$1" >&2; }
+lc_perf() { perl -e 'alarm 10; exec @ARGV' node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" perf "$1" >&2; }
+lc_case valid-block; tap_check $? "structured-block-valid-passes"
+lc_case valid-block-es-title; tap_check $? "structured-block-spanish-title-passes"
+lc_case valid-block-two-groups; tap_check $? "structured-block-two-groups-pass"
+lc_case valid-block-crlf; tap_check $? "structured-block-crlf-passes"
+lc_case title-only-fails; tap_check $? "structured-block-title-only-fails"
+lc_case missing-format-fails; tap_check $? "structured-block-without-format-fails"
+lc_case missing-red-commit-fails; tap_check $? "structured-block-without-red-commit-fails"
+lc_case no-case-fails; tap_check $? "structured-block-without-case-fails"
+lc_case bad-sha-fails; tap_check $? "structured-block-bad-sha-fails"
+lc_case two-red-commits-fails; tap_check $? "structured-block-two-red-commits-fail"
+lc_case bad-format-fails; tap_check $? "structured-block-bad-format-fails"
+lc_case empty-stack-fails; tap_check $? "structured-block-empty-stack-fails"
+lc_case second-group-incomplete-fails; tap_check $? "structured-block-incomplete-second-group-fails"
+lc_case case-without-separator-fails; tap_check $? "structured-block-case-without-separator-fails"
+lc_case block-in-comment-fails; tap_check $? "structured-block-inside-comment-does-not-count"
+lc_case lines-after-details-do-not-count; tap_check $? "structured-block-lines-after-details-do-not-count"
+lc_case no-tests-still-passes; tap_check $? "structured-no-tests-reason-still-passes"
+lc_case title-with-no-tests-reason-fails; tap_check $? "structured-title-plus-no-tests-reason-fails"
+lc_case valid-block-with-no-tests-passes; tap_check $? "structured-valid-block-plus-no-tests-passes"
+lc_case malformed-block-with-no-tests-fails; tap_check $? "structured-malformed-block-plus-no-tests-fails"
+lc_case prose-no-tests-with-malformed-block-fails; tap_check $? "structured-prose-no-tests-plus-malformed-block-fails"
+lc_perf spaces; tap_check $? "structured-block-performance-spaces"
+lc_perf colons; tap_check $? "structured-block-performance-colons"
+lc_perf lines; tap_check $? "structured-block-performance-many-lines"
+lc_perf groups; tap_check $? "structured-block-performance-many-groups"
+lc_perf hex; tap_check $? "structured-block-performance-long-sha"
+lc_perf stars; tap_check $? "structured-block-performance-wrappers"
 # Every job of the workflow has a short timeout (a runaway job must not hold a runner for the 6-hour default).
 jobs=$(awk '/^jobs:/{j=1;next} j && /^  [a-z-]+:$/{n++} END{print n+0}' "$ROOT/.github/workflows/labels.yml")
 tm=$(grep -cE '^    timeout-minutes: 2( |$)' "$ROOT/.github/workflows/labels.yml")

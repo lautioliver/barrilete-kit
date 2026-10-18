@@ -11,9 +11,7 @@
 ## How to test it
 
 <!-- TDD: paste the "Red before implementing" block from .claude/skills/implement-issue/red.sh
-     and the commit of the red tests (test(...): ...). If there is no behavior to test
+     as is (it carries the red commit sha, and per stack its format and failing cases). If there is no behavior to test
      (docs, config) or a part cannot be tested here, say it as "no tests: <reason>". -->
-
-Commit of the red tests:
 
 Closes #
