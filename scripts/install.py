@@ -41,10 +41,11 @@ PENDIENTES = ".agent-kit/pending"
 LABELS_GITHUB = {"bug", "documentation", "duplicate", "enhancement", "good first issue", "help wanted", "invalid",
                  "question", "wontfix"}
 MAPA = "docs/agents-map.json"
-AVISO_RED = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
-             "files a commit adds or changes. red.sh needs the section and rejects a map without it. If your tests are not "
-             "bash, replace that entry with your stack's: docs/guides/red-per-runner.md (in the kit, "
-             "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
+# RED_AGREGADA and RED_GUIA (and `con_red`, in update.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
+RED_AGREGADA = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
+                "files a commit adds or changes. red.sh needs the section and rejects a map without it.")
+RED_GUIA = ("To configure your stack's entry, see docs/guides/red-per-runner.md (in the kit, "
+            "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
 
 
 def con_red(texto, kit):
@@ -377,7 +378,13 @@ def resumen(plan, propios, ref, draft):
     for r, _ in de("merge"):
         print(f"  - Merged into yours (review the diff): {r}")
     if any(r == MAPA for r, _ in de("merge")):
-        print(f"  - {AVISO_RED}")
+        aviso = f"{RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}"
+        print(f"  - {aviso.replace('I added', 'I would add') if draft else aviso}")
+    if any(r == MAPA for r, _ in de("pending")):
+        try:  # con_red also tells whether the project's map can be read as a JSON object
+            con_red(leer(MAPA), "{}")
+        except (ValueError, UnicodeDecodeError) as e:
+            print(f"  - {MAPA}: could not check its `red` section ({e}). red.sh needs it: add it by hand. {RED_GUIA}")
     for r, d in de("rename"):
         print(f"  - Workflow with the same name: the kit's {os.path.basename(r)} is installed as {os.path.basename(d)}")
     if any(r == ".github/labels.yml" for r, _ in de("add")):

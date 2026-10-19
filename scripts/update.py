@@ -31,10 +31,11 @@ NO_TRAER = {"README.md", "README.es.md", "README.en.md", "LICENSE", ".agent-kit.
 PENDIENTES = ".agent-kit/pending"
 USO = "Usage: python3 scripts/update.py [--version vX.Y.Z] [--template <url or path>]"
 MAPA = "docs/agents-map.json"
-AVISO_RED = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
-             "files a commit adds or changes. red.sh needs the section and rejects a map without it. If your tests are not "
-             "bash, replace that entry with your stack's: docs/guides/red-per-runner.md (in the kit, "
-             "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
+# RED_AGREGADA and RED_GUIA (and `con_red`, in update.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
+RED_AGREGADA = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
+                "files a commit adds or changes. red.sh needs the section and rejects a map without it.")
+RED_GUIA = ("To configure your stack's entry, see docs/guides/red-per-runner.md (in the kit, "
+            "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
 
 
 def con_red(texto, kit):
@@ -374,7 +375,7 @@ def completar_red(kit):
         with open(MAPA, encoding="utf-8") as f, open(kit, encoding="utf-8") as g:
             texto = con_red(f.read(), g.read())
     except (ValueError, OSError) as e:
-        return False, f"{MAPA}: could not check its `red` section ({e}). Add it by hand: " + AVISO_RED
+        return False, f"{MAPA}: could not check its `red` section ({e}). red.sh needs it: add it by hand. " + RED_GUIA
     if texto is None:
         return False, None
     with open(MAPA, "w", encoding="utf-8") as f:
@@ -567,7 +568,7 @@ def main():
               "renames tipo:x to type:x (and the rest) keeping the ones set on issues and PRs. The old retros branch "
               "agentes/retros stays as it is; if you protect branches, allow pushes to agents/retros.")
     if red_agregada:
-        print(f"\nRed: {AVISO_RED}")
+        print(f"\nRed: {RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}")
     if aviso_red:
         print(f"\nWarning: {aviso_red}")
     for titulo, accion in (("Merged (review the diff)", "fusionar"),

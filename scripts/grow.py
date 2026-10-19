@@ -24,25 +24,11 @@ PLANTILLA = os.environ.get("AGENT_KIT_TEMPLATE", "https://github.com/lautioliver
 NO_TRAER = {"README.md", "README.es.md", "README.en.md", "LICENSE", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
 PENDIENTES = ".agent-kit/pending"
 MAPA = "docs/agents-map.json"
-AVISO_RED = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
-             "files a commit adds or changes. red.sh needs the section and rejects a map without it. If your tests are not "
-             "bash, replace that entry with your stack's: docs/guides/red-per-runner.md (in the kit, "
-             "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
-
-
-def con_red(texto, kit):
-    """The project's map with the kit's `red` section added; None if it already has one or there is nothing to add.
-    ValueError if the project's map is not a JSON object."""
-    try:
-        mio, del_kit = json.loads(texto), json.loads(kit)
-    except ValueError as e:
-        raise ValueError(f"it is not valid JSON ({e})")
-    if not isinstance(mio, dict):
-        raise ValueError("it is not a JSON object")
-    if "red" in mio or not isinstance(del_kit, dict) or "red" not in del_kit:
-        return None
-    mio["red"] = del_kit["red"]
-    return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
+# RED_AGREGADA and RED_GUIA (and `con_red`, in update.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
+RED_AGREGADA = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
+                "files a commit adds or changes. red.sh needs the section and rejects a map without it.")
+RED_GUIA = ("To configure your stack's entry, see docs/guides/red-per-runner.md (in the kit, "
+            "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
 
 
 def completar_mapa(texto, kit):
@@ -205,7 +191,7 @@ def main():
         print(f"\nCompleted: {', '.join(completados)} keeps your sections (your `red` among them) and gets the ones of the "
               "full map. Fill in its TODO paths.")
     if red_agregada:
-        print(f"\nRed: {AVISO_RED}")
+        print(f"\nRed: {RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}")
     if pendientes:
         print(f"\nPending: you modified them, so I did not overwrite them. The full version is in {PENDIENTES}/:")
         for p in pendientes:
