@@ -244,8 +244,10 @@ PY
 guia_seccion() { # guia_seccion <archivo> <título>: el texto de la sección ## <título>
   awk -v t="## $2" '$0==t{p=1;next} /^## /{p=0} p' "$1"
 }
+# (en la plantilla están las dos; un proyecto instalado tiene una sola, en su idioma, como red-per-runner.md)
 for idioma in en es; do
   if [ "$idioma" = en ]; then g="$RAIZ/docs/guides/red-per-runner.md"; else g="$RAIZ/docs/guides/red-per-runner.es.md"; fi
+  [ -f "$g" ] || continue
   run=$(guia_entrada "$g" bash)
   grep -qF '# file: ' <<<"$run" && grep -q 'Bail out!' <<<"$run"; tap_check $? "[<idioma>] la entrada bash de la guía comprueba el # file: de cada script (D3)" "[$idioma] la entrada bash de la guía comprueba el # file: de cada script (D3)"
   run=$(guia_entrada "$g" cargo-nextest)
