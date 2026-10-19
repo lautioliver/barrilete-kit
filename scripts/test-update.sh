@@ -633,4 +633,33 @@ grep -q "red-per-runner" <<<"$s"
 tap_check $? "grow avisa de la guía por runner cuando agrega red"
 cd "$TMP" || exit 1
 
+# Un mapa que no se puede leer (no es JSON): el aviso no dice que se agregó nada, y cada script lo deja como estaba.
+D="$TMP/mapa-roto"
+proyecto "$D" completo
+cd "$D" || exit 1
+printf 'esto no es json\n' >docs/agents-map.json
+git add -A
+git commit -qm "mapa roto"
+tap_run s 0 python3 scripts/update.py --template "$P"
+grep -q "I added" <<<"$s"
+[ $? -eq 1 ]
+tap_check $? "update con un mapa ilegible avisa que no pudo revisar red, sin decir que agregó algo"
+grep -q "red-per-runner" <<<"$s"
+tap_check $? "update con un mapa ilegible remite a la guía por runner"
+cd "$TMP" || exit 1
+
+D="$TMP/crece-mapa-roto"
+proyecto "$D" chico
+cd "$D" || exit 1
+printf 'esto no es json\n' >docs/agents-map.json
+git add -A
+git commit -qm "mapa chico roto"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+m=$(cat docs/agents-map.json)
+[ "$m" = "esto no es json" ]
+tap_check $? "grow con un mapa ilegible no lo toca"
+es -f ".agent-kit/pending/docs/agents-map.json"
+tap_check $? "grow con un mapa ilegible deja el mapa completo en pending"
+cd "$TMP" || exit 1
+
 tap_done

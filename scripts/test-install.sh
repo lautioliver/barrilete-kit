@@ -460,4 +460,19 @@ n=$(python3 "$TMP/map-view.py" names 2>&1)
 tap_check $? "install en un repo sin mapa trae el del kit con la sección red"
 cd "$TMP" || exit 1
 
+# Un mapa ilegible del repo queda como estaba, va el del kit a pending y el resumen avisa sin decir que agregó red.
+U15R="$TMP/usuario-mapa-roto"
+(repo_con_mapa "$U15R" 'esto no es json') >/dev/null 2>&1
+cd "$U15R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+m=$(cat docs/agents-map.json)
+[ "$m" = "esto no es json" ]
+tap_check $? "install con un mapa ilegible lo deja como estaba"
+grep -q "could not check" <<<"$s"
+tap_check $? "install con un mapa ilegible avisa que no pudo revisar la sección red"
+grep -q "I added" <<<"$s"
+[ $? -eq 1 ]
+tap_check $? "install con un mapa ilegible no dice que agregó red"
+cd "$TMP" || exit 1
+
 tap_done
