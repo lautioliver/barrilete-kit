@@ -406,4 +406,58 @@ mkdir -p "$TMP/vacio"
 c=0; s=$(trap - ERR; cd "$TMP/vacio" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1) || c=$?; tap_status "$c" 1
 [ "$c" -ne 0 ] && grep -qi "git repo" <<<"$s"; tap_check $? "fuera de un repo git falla con un mensaje claro"
 
+# Migración a la validación estructurada del rojo (#154): un repo que ya tiene su docs/agents-map.json recibe
+# la sección red sin perder lo suyo, y el mapa del kit queda en pending para integrar el resto.
+cat >"$TMP/map-view.py" <<'PY'
+import json, sys
+m = json.load(open("docs/agents-map.json"))
+q = sys.argv[1]
+if q == "names":
+    print(",".join(x["name"] for x in m.get("red", [])))
+elif q == "keys":
+    print(",".join(m))
+elif q == "bash":
+    e = [x for x in m.get("red", []) if x.get("name") == "bash"]
+    print(len(e), e[0]["format"], e[0]["when"][0], "{out}" in e[0]["run"]) if e else print(0)
+elif q == "propio":
+    print(m.get("propio"), ",".join(m.get("ignore_check", [])), len(m.get("docs", [])))
+PY
+U12R="$TMP/usuario-mapa"
+repo_con_mapa() { # repo_con_mapa <dir> <json del mapa>
+  repo "$1"
+  printf '%s\n' "$2" >docs/agents-map.json
+  git add -A
+  git commit -qm mapa
+}
+(repo_con_mapa "$U12R" '{"docs": [], "propio": 1}') >/dev/null 2>&1
+cd "$U12R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+m=$(python3 "$TMP/map-view.py" propio 2>&1)
+n=$(python3 "$TMP/map-view.py" names 2>&1)
+[ "$m $n" = "1  0 bash" ]
+tap_check $? "install agrega la sección red al docs/agents-map.json del repo sin perder lo suyo"
+es -f ".agent-kit/pending/docs/agents-map.json"
+tap_check $? "install deja el mapa completo del kit en pending para integrar el resto"
+grep -q "red-per-runner" <<<"$s"
+tap_check $? "install avisa que agregó red y remite a la guía por runner"
+cd "$TMP" || exit 1
+
+U13R="$TMP/usuario-mapa-red"
+(repo_con_mapa "$U13R" '{"red": [{"name": "pytest", "when": ["**/test_*.py"], "run": "pytest --junitxml={out}", "format": "junit"}]}') >/dev/null 2>&1
+cd "$U13R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+n=$(python3 "$TMP/map-view.py" names 2>&1)
+[ "$n" = "pytest" ]
+tap_check $? "install no toca la sección red que el repo ya tenía"
+cd "$TMP" || exit 1
+
+U14R="$TMP/usuario-sin-mapa"
+(repo "$U14R") >/dev/null 2>&1
+cd "$U14R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+n=$(python3 "$TMP/map-view.py" names 2>&1)
+[ "$n" = "bash" ]
+tap_check $? "install en un repo sin mapa trae el del kit con la sección red"
+cd "$TMP" || exit 1
+
 tap_done
