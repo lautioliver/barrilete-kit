@@ -477,7 +477,7 @@ for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/
     grep -qF -- "$t" "$ROOT/$f" || formas="$formas $f:$t"
   done
 done
-[ -z "$formas" ]; tap_check $? "170: the guides forbid the backtick form and tap_run around a function or sh -c in the red" "missing:${formas:- none}"
+[ -z "$formas" ]; ok=$?; tap_check "$ok" "170: the guides forbid the backtick form and tap_run around a function or sh -c in the red" "missing:${formas:- none}"
 sed -n '1,/^_TAP_BASE=/p' "$ROOT/scripts/agents/tap.sh" >"$TMP/header"
 grep -qF '`prog`' "$TMP/header" && grep -qF 'setup_fn' "$TMP/header"; tap_check $? "170: the header of tap.sh lists the backtick form and tap_run around a function"
 
