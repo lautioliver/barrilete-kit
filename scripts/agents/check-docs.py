@@ -9,6 +9,8 @@ Checks:
   `Scope: kit` (the init only deletes `Ámbito: kit`) is a warning, and so is a docs/decisions/kit/ ADR missing from an
   index in a project (no scripts/init-template.sh).
 - Required documents and paths of docs/agents-map.json that do not exist.
+- The `red` section of the map (ADR-002 D2): an array of stacks with name (unique), when (non-empty list of globs), run
+  (with {out}), format (junit or tap) and an optional timeout (positive integer); there is no `report` field.
 - Example paths (TODO/...) and checks without a command left in docs/agents-map.json
   after the init.
 - Map paths (docs, sensitive, verify) that match no file (except the ones marked as optional
@@ -94,9 +96,10 @@ if "--list" in sys.argv[1:]:
 MAPA = json.load(open("docs/agents-map.json", encoding="utf-8")) if os.path.exists("docs/agents-map.json") else {}
 IGNORAR = []
 avisos = []
-hermano_de_idioma = None  # small mode has no agents_map.py nor map: parity (the only user) is off there
-if MAPA:
-    # Without a map (small mode) there are no paths to validate and agents_map.py is not needed.
+hermano_de_idioma = None  # small mode has no agents_map.py and its map has only `red`: parity (the only user) is off there
+SOLO_RED = bool(MAPA) and set(MAPA) <= {"red"}  # small mode: its map has only the `red` section, so there are no paths to validate
+if MAPA and not SOLO_RED:
+    # A full map needs agents_map.py: without it this fails here, closed, and not later.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from agents_map import glob_a_regex, hermano_de_idioma  # noqa: E402
     IGNORAR = [glob_a_regex(g) for g in MAPA.get("ignore_check", [])]
@@ -247,7 +250,7 @@ def estructura(ruta):
 
 # Language siblings (ADR-001): X.md in English and X.es.md in Spanish. Only with "parity": true in the map:
 # the template turns it on when its content is translated (#115); the init turns it off in the projects.
-EXENTOS = [glob_a_regex(g) for g in MAPA.get("parity_ignore", [])] if MAPA else []
+EXENTOS = [glob_a_regex(g) for g in MAPA.get("parity_ignore", [])] if MAPA.get("parity_ignore") else []
 if MAPA.get("parity"):
     pares = [a for a in md_files(aplicar_ignore=False)
              if hermano_de_idioma(a) and not any(r.match(a) for r in EXENTOS)]
@@ -270,7 +273,7 @@ if MAPA.get("parity"):
 # .github/i18n/ISSUE_TEMPLATE/<name>.es.yml (ADR-001, R-1; the rule is hermano_de_idioma() in agents_map.py). They are
 # compared by what does not carry prose: type, id, labels, required and the number of options.
 FORMS_EN, FORMS_ES = ".github/ISSUE_TEMPLATE", ".github/i18n/ISSUE_TEMPLATE"
-# hermano_de_idioma is imported at the top, with the map: small mode deletes agents_map.py and has no map, forms or parity.
+# hermano_de_idioma is imported at the top, with the map: small mode deletes agents_map.py, its map has only `red`, and it has no forms or parity.
 # One option of an inline list: a quoted string (it can carry a comma: "Yes, I did") or text up to the next comma.
 OPCION = re.compile(r"""\s*(?:"[^"]*"|'[^']*'|[^,"'][^,]*)\s*(?:,|$)""")
 
@@ -376,6 +379,55 @@ if MAPA.get("parity"):
         elif etiquetas(en) != etiquetas(es):
             errores.append(f"{es}: its labels (names, colors or aliases) differ from {en} (one of the two is out of date).")
 
+RED_CAMPOS = {"name", "when", "run", "format", "timeout"}
+
+
+def validar_red(red):
+    """Errors of the `red` section (ADR-002 D2): an array of stacks with name, when, run ({out}), format, timeout."""
+    if not isinstance(red, list):
+        return ["docs/agents-map.json: red must be an array of stacks (name, when, run, format, timeout), like verify (ADR-002 D2)"]
+    if not red:
+        return ["docs/agents-map.json: red is empty: red.sh rejects an empty section. Declare a stack or remove the section (ADR-002 D2)"]
+    errs, nombres = [], set()
+    for i, e in enumerate(red):
+        if not isinstance(e, dict):
+            errs.append(f"docs/agents-map.json: red[{i}] must be an object (name, when, run, format, timeout), not {type(e).__name__}")
+            continue
+        nombre = e.get("name")
+        if not isinstance(nombre, str) or not nombre.strip():
+            errs.append(f"docs/agents-map.json: red[{i}] needs a 'name' (a non-empty text): red.sh <stack> picks the entry by it")
+            ref = f"red[{i}]"
+        else:
+            ref = f"red '{nombre}'"
+            if not re.fullmatch(r"[A-Za-z0-9._-]+", nombre):
+                errs.append(f"docs/agents-map.json: {ref}: 'name' must match [A-Za-z0-9._-]+ (letters, digits, dot, underscore, hyphen): it is part of the path of {{out}} and red.sh rejects any other")
+            if nombre in nombres:
+                errs.append(f"docs/agents-map.json: {ref} appears more than once: red.sh <stack> would be ambiguous")
+            nombres.add(nombre)
+        pre = f"docs/agents-map.json: {ref}:"
+        when = e.get("when")
+        if not (isinstance(when, list) and when and all(isinstance(g, str) and g for g in when)):
+            errs.append(f"{pre} 'when' must be a non-empty list of globs of test files")
+        run = e.get("run")
+        if not isinstance(run, str) or "{out}" not in run:
+            errs.append(f"{pre} 'run' must be a command that contains {{out}}: red.sh replaces it with the path where the report is written")
+        if e.get("format") not in ("junit", "tap"):
+            errs.append(f"{pre} 'format' must be \"junit\" or \"tap\" (it is {e.get('format')!r})")
+        if "timeout" in e:
+            tm = e["timeout"]
+            if isinstance(tm, bool) or not isinstance(tm, int) or tm <= 0:
+                errs.append(f"{pre} 'timeout' must be a positive integer (seconds), not {tm!r}")
+        if "report" in e:
+            errs.append(f"{pre} there is no 'report' field: put {{out}} inside 'run' (ADR-002 D2)")
+        otros = sorted(set(e) - RED_CAMPOS - {"report"})
+        if otros:
+            errs.append(f"{pre} unknown field(s): {', '.join(otros)} (valid: {', '.join(sorted(RED_CAMPOS))})")
+    return errs
+
+
+if MAPA and "red" in MAPA:
+    errores.extend(validar_red(MAPA["red"]))
+
 if MAPA:
     mapa = MAPA
     for f in mapa.get("required", []):
@@ -400,7 +452,7 @@ if MAPA:
 
     # Map paths that match no file: if src/auth/ was renamed and the map still says
     # src/auth/**, the agent would never see that it touched something sensitive. Only after the init.
-    if not os.path.exists("scripts/init-template.sh"):
+    if not os.path.exists("scripts/init-template.sh") and any(k in mapa for k in ("docs", "sensitive", "verify")):
         r = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
         repo = [l for l in r.stdout.splitlines() if l] if r.returncode == 0 else []
         globs = [("docs", regla.get("reason", ""), g) for regla in mapa.get("docs", []) for g in regla.get("when", [])]

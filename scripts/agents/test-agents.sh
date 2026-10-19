@@ -165,4 +165,94 @@ PY
 ); tap_check $? "verify: renames corre cuando cambian scripts, docs, skills, el mapa o los workflows"
 fi
 
+# 6. check-docs.py valida la sección red del mapa (ADR-002 D2, #152). En un proyecto inicializado check-docs falla
+# igual por los TODO del mapa, así que se miran solo sus líneas de la sección red ("docs/agents-map.json: red ...").
+# Reemplaza la sección red del mapa de la copia por el JSON que se pasa (o la borra con DEL).
+poner_red() {
+  local c=0
+  RED_JSON="$1" python3 - "$TMP/r/docs/agents-map.json" <<'PY' || c=$?
+import json, os, sys
+ruta = sys.argv[1]
+m = json.load(open(ruta, encoding="utf-8"))
+if os.environ["RED_JSON"] == "DEL":
+    m.pop("red", None)
+else:
+    m["red"] = json.loads(os.environ["RED_JSON"])
+open(ruta, "w", encoding="utf-8").write(json.dumps(m, ensure_ascii=False, indent=2) + "\n")
+PY
+  tap_status "$c" 0
+}
+errores_red() { local o; o=$(check); grep '^- docs/agents-map.json: red' <<<"$o" || [ $? -eq 1 ]; }
+OK='{"name":"py","when":["**/test_*.py"],"run":"pytest --junitxml={out}","format":"junit","timeout":600}'
+# Una entrada inválida: check-docs informa un error de red con todos los fragmentos. Se usa como:
+# rechaza <entrada JSON> <fragmento>...; tap_check $? "id literal"
+rechaza() {
+  local entrada="$1"; shift
+  poner_red "[$entrada]"
+  local salida f r=0
+  salida=$(errores_red)
+  [ -n "$salida" ] || r=1
+  for f in "$@"; do grep -q -- "$f" <<<"$salida" || r=1; done
+  return $r
+}
+
+copia
+poner_red "[$OK]"
+r=0; [ -z "$(errores_red)" ] || r=1; tap_check $r "check-docs acepta una entrada red válida (pytest, junit, timeout)"
+poner_red '[{"name":"b","when":["**/test-*.sh"],"run":"TAP_OUT={out} bash t.sh","format":"tap"}]'
+r=0; [ -z "$(errores_red)" ] || r=1; tap_check $r "check-docs acepta una entrada red válida sin timeout (es opcional)"
+poner_red DEL
+r=0; [ -z "$(errores_red)" ] || r=1; tap_check $r "check-docs acepta un mapa sin sección red (se lee como vacía)"
+
+r=0; rechaza '{"name":"sinout","when":["**/*.py"],"run":"pytest","format":"junit"}' "red 'sinout'" '{out}' || r=1; tap_check $r "check-docs rechaza una entrada red sin {out} en run"
+r=0; rechaza '{"name":"fmt","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"xml"}' "red 'fmt'" 'junit' 'tap' || r=1; tap_check $r "check-docs rechaza un format que no es junit ni tap"
+r=0; rechaza '{"name":"nofmt","when":["**/*.py"],"run":"pytest --junitxml={out}"}' "red 'nofmt'" 'format' || r=1; tap_check $r "check-docs rechaza una entrada red sin format"
+r=0; rechaza '{"name":"nowhen","run":"pytest --junitxml={out}","format":"junit"}' "red 'nowhen'" 'when' || r=1; tap_check $r "check-docs rechaza una entrada red sin when"
+r=0; rechaza '{"name":"vacio","when":[],"run":"pytest --junitxml={out}","format":"junit"}' "red 'vacio'" 'when' || r=1; tap_check $r "check-docs rechaza un when vacío"
+r=0; rechaza '{"name":"textos","when":"**/*.py","run":"pytest --junitxml={out}","format":"junit"}' "red 'textos'" 'when' || r=1; tap_check $r "check-docs rechaza un when que no es una lista de textos"
+r=0; rechaza '{"name":"tout","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit","timeout":"600"}' "red 'tout'" 'timeout' || r=1; tap_check $r "check-docs rechaza un timeout que no es un entero"
+r=0; rechaza '{"name":"cero","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit","timeout":0}' "red 'cero'" 'timeout' || r=1; tap_check $r "check-docs rechaza un timeout cero o negativo"
+r=0; rechaza '{"name":"bool","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit","timeout":true}' "red 'bool'" 'timeout' || r=1; tap_check $r "check-docs rechaza un timeout booleano (true no es un entero)"
+r=0; rechaza '{"name":"rep","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit","report":"{out}"}' "red 'rep'" 'report' || r=1; tap_check $r "check-docs rechaza el campo report, que no existe (el camino va en {out})"
+r=0; rechaza '{"when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red\[0\]" 'name' || r=1; tap_check $r "check-docs rechaza una entrada red sin name"
+r=0; rechaza '"pytest"' "red\[0\]" 'object' || r=1; tap_check $r "check-docs rechaza una entrada red que no es un objeto"
+
+# red.sh solo acepta names con [A-Za-z0-9._-]+ (van en el camino de {out}) y una sección red no vacía: check-docs falla antes.
+r=0; rechaza '{"name":"unit tests","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red 'unit tests'" 'name' || r=1; tap_check $r "check-docs rechaza un name con espacios (red.sh lo rechaza)"
+r=0; rechaza '{"name":"py/unit","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red 'py/unit'" 'name' || r=1; tap_check $r "check-docs rechaza un name con barra (red.sh lo rechaza)"
+r=0; rechaza '{"name":" py","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red ' py'" 'name' || r=1; tap_check $r "check-docs rechaza un name con espacio al borde (red.sh lo rechaza)"
+poner_red '[]'
+errores_red | grep -q "empty"; tap_check $? "check-docs rechaza una sección red vacía (red.sh la rechaza)"
+poner_red "[$OK,$OK]"
+errores_red | grep -q "more than once"; tap_check $? "check-docs rechaza dos entradas red con el mismo name (red.sh <stack> sería ambiguo)"
+poner_red '{"name":"py"}'
+errores_red | grep -q "array"; tap_check $? "check-docs rechaza una sección red que no es un arreglo"
+poner_red '[{"name":"a","when":["**/*.py"],"run":"x","format":"zzz"}]'
+[ "$(errores_red | grep -c "red 'a'")" -ge 2 ]; tap_check $? "check-docs informa todos los problemas de una entrada, no solo el primero"
+
+# 7. La guía por runner (en y es): sus entradas tienen que ser seguras de copiar.
+guia_entrada() { # guia_entrada <archivo> <name>: el bloque json de la entrada, o nada
+  python3 - "$1" "$2" <<'PY'
+import json, re, sys
+for b in re.findall(r"```json\n(.*?)\n```", open(sys.argv[1], encoding="utf-8").read(), re.S):
+    e = json.loads(b)
+    if e.get("name") == sys.argv[2]:
+        print(e["run"])
+        break
+PY
+}
+guia_seccion() { # guia_seccion <archivo> <título>: el texto de la sección ## <título>
+  awk -v t="## $2" '$0==t{p=1;next} /^## /{p=0} p' "$1"
+}
+# (en la plantilla están las dos; un proyecto instalado tiene una sola, en su idioma, como red-per-runner.md)
+for idioma in en es; do
+  if [ "$idioma" = en ]; then g="$RAIZ/docs/guides/red-per-runner.md"; else g="$RAIZ/docs/guides/red-per-runner.es.md"; fi
+  [ -f "$g" ] || continue
+  run=$(guia_entrada "$g" bash)
+  grep -qF '# file: ' <<<"$run" && grep -q 'Bail out!' <<<"$run"; tap_check $? "[<idioma>] la entrada bash de la guía comprueba el # file: de cada script (D3)" "[$idioma] la entrada bash de la guía comprueba el # file: de cada script (D3)"
+  run=$(guia_entrada "$g" cargo-nextest)
+  grep -q 'rm -f target/nextest/red/junit.xml' <<<"$run"; tap_check $? "[<idioma>] la entrada nextest de la guía borra el reporte viejo antes de correr" "[$idioma] la entrada nextest de la guía borra el reporte viejo antes de correr"
+  grep -qi 'unverified\|sin verificar' <(guia_seccion "$g" "cargo (nextest)"); tap_check $? "[<idioma>] la guía marca la entrada nextest como sin verificar" "[$idioma] la guía marca la entrada nextest como sin verificar"
+done
+
 tap_done

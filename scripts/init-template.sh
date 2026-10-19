@@ -179,7 +179,8 @@ V=$(cat VERSION 2>/dev/null || true)
 export V
 rm -f VERSION CHANGELOG.md
 # The "init" check of the map runs that test: without it, it is a dead rule. Same for the kit-only entries.
-if [ -f docs/agents-map.json ]; then
+# --small: its map has only `red` (ADR-002 D2), there is nothing of the full map to adjust.
+if [ -z "$CHICO" ] && [ -f docs/agents-map.json ]; then
   python3 - <<'PY'
 import json
 ruta = "docs/agents-map.json"
