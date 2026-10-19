@@ -422,11 +422,11 @@ run_tap 'c=0; out=$(trap - ERR; sh -c "kill -SEGV \$\$") || c=$?; tap_status "$c
 tap_ok "never"
 tap_done' file
 has_bail && rc_not 0; tap_check $? "170: tap_status bails out on a signal status (128 or more) that is not the expected one"
-run_tap 'tap_run out 0 sh -c "(while :; do echo y; done) | head -1 >/dev/null; exit 0"
+run_tap 'tap_run out 0 sh -c "kill -PIPE \$\$"
 tap_ok "reader left early"
 tap_done' file
 has "ok 1 - reader left early" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "170: a reader that leaves early (SIGPIPE, 141) is not a crash"
-run_tap '(while :; do echo y; done) | head -1 >/dev/null; tap_ok "reader of a pipeline left early"
+run_tap 'sh -c "kill -PIPE \$\$" | cat >/dev/null; tap_ok "reader of a pipeline left early"
 tap_done' file
 has "ok 1 - reader of a pipeline left early" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "170: the left side of a pipeline that dies of SIGPIPE is allowed"
 run_tap 'python3 /nonexistent/missing-script.py 2>/dev/null
