@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # Runs the real script of the `labels` job of .github/workflows/labels.yml with a fake GitHub
 # and checks what it says about the PR body (issue #143): an unfilled "<reason>" fails with a clear message.
 # Usage: bash scripts/agents/test-labels-check.sh
@@ -10,7 +11,9 @@ tap_begin "$0"
 # Usage: <condition>; tap_check $? "description"
 
 command -v node >/dev/null || { tap_fail "node is installed"; tap_done; }
-node - "$ROOT/.github/workflows/labels.yml" >&2 <<'JS'
+# The scripts exit with 3 when a case has another verdict than the expected one: 1 and 2 are what a crash gives (tap_run).
+labels_out=
+tap_run labels_out 0 node - "$ROOT/.github/workflows/labels.yml" <<'JS'
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[2], 'utf8');
 // The script of the `labels:` job: the block after its `script: |`, up to the end of the file.
@@ -139,10 +142,11 @@ const more = [
       if (!good) bad++;
     }
   }
-  process.exit(bad ? 1 : 0);
+  process.exit(bad ? 3 : 0);
 })();
 JS
-tap_check $? "the labels check reports the unfilled reasons (full script, fake GitHub)"
+printf '%s\n' "$labels_out" >&2
+[ "$TAP_RC" -eq 0 ]; tap_check $? "the labels check reports the unfilled reasons (full script, fake GitHub)"
 # The structured red block (ADR-002 D9, issue #153): the title is not enough, the block needs `red commit:` once, and per
 # group `stack:`, `format:` and at least one `- <file>::<name>` under `failing cases:`. One case per tap_check: the id of
 # each is a literal, so red.sh can tell which cases this change adds.
@@ -210,18 +214,19 @@ const perf = {
     const failed = await run(body);
     const good = re === null ? failed === null : failed !== null && re.test(failed);
     if (!good) console.log('got: ' + JSON.stringify(failed));
-    process.exit(good ? 0 : 1);
+    process.exit(good ? 0 : 3);
   }
   // perf: the title, the hostile text, and nothing else; it has to end quickly, with any verdict.
   const t0 = performance.now();
   await run(T + perf[name] + E);
   const ms = performance.now() - t0;
   if (ms >= 200) console.log('took ' + Math.round(ms) + ' ms');
-  process.exit(ms < 200 ? 0 : 1);
+  process.exit(ms < 200 ? 0 : 3);
 })();
 JS
-lc_case() { node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" case "$1" >&2; }
-lc_perf() { perl -e 'alarm 10; exec @ARGV' node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" perf "$1" >&2; }
+lc_out=
+lc_case() { tap_run lc_out 0 node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" case "$1"; printf '%s\n' "$lc_out" >&2; [ "$TAP_RC" -eq 0 ]; }
+lc_perf() { tap_run lc_out 0 perl -e 'alarm 10; exec @ARGV' node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" perf "$1"; printf '%s\n' "$lc_out" >&2; [ "$TAP_RC" -eq 0 ]; }
 lc_case valid-block; tap_check $? "structured-block-valid-passes"
 lc_case valid-block-es-title; tap_check $? "structured-block-spanish-title-passes"
 lc_case valid-block-two-groups; tap_check $? "structured-block-two-groups-pass"

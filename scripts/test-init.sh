@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # Tests de init-template.sh sobre una copia de la plantilla, en modo completo y chico:
 # lo que AGENTS.md dice que está ignorado lo está, y los scripts de agentes no ensucian el árbol.
 # Uso: bash scripts/test-init.sh
@@ -36,7 +37,7 @@ for modo in completo chico; do
   ! grep -q 'README.es.md\|lang:start' "$p/README.md"; tap_check $? "[<modo>] el README del proyecto no tiene el selector de idioma (lo borra el init)" "[$modo] el README del proyecto no tiene el selector de idioma (lo borra el init)"
   n=$(cd "$p" && git check-ignore .env .env.local scripts/agents/__pycache__ | wc -l | tr -d ' ')
   es "$n" = 3; tap_check $? "[<modo>] .env, .env.local y __pycache__ están ignorados" "[$modo] .env, .env.local y __pycache__ están ignorados"
-  ! (cd "$p" && git check-ignore -q .env.example); tap_check $? "[<modo>] .env.example no está ignorado" "[$modo] .env.example no está ignorado"
+  c=0; (trap - ERR; cd "$p" && git check-ignore -q .env.example) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "[<modo>] .env.example no está ignorado" "[$modo] .env.example no está ignorado"
 
   echo "SECRET=x" >"$p/.env"
   if [ -f "$p/scripts/agents/verify.py" ]; then
@@ -45,7 +46,7 @@ for modo in completo chico; do
   fi
   # Completo: el mapa trae TODO de ejemplo y check-docs falla a propósito hasta que el proyecto los completa;
   # lo que no puede fallar son los links, rutas ni índices. Chico: no tiene mapa y tiene que pasar entero.
-  s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1); c=$?
+  c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" "$([ "$modo" = chico ] && echo 0 || echo 1)"
   # La salida tiene que ser la del check (un resumen), nunca un traceback: un traceback no menciona esos errores y el grep de abajo pasaría igual.
   ! grep -q Traceback <<<"$s" && grep -q '^Docs ' <<<"$s"; tap_check $? "[<modo>] check-docs.py del proyecto recién creado termina con su resumen, sin Traceback" "[$modo] check-docs.py del proyecto recién creado termina con su resumen, sin Traceback"
   if [ "$modo" = chico ]; then es "$c" -eq 0; else ! grep -q 'missing path\|broken link\|missing from the index\|does not exist' <<<"$s"; fi
@@ -60,7 +61,7 @@ for modo in completo chico; do
   # shellcheck disable=SC2016  # backticks de Markdown, literales
   ! grep -rEq 'nor to `main`|ni a `main` ni a `main`|neither to `main`|ni a `main` ni' --exclude-dir=.git "$p"; tap_check $? "[<modo>] con base main no queda 'ni a main ni a main' (ni 'neither to main nor to main')" "[$modo] con base main no queda 'ni a main ni a main' (ni 'neither to main nor to main')"
   # #143: lo que es del kit (su ADR-001, el instalador, la épica #33, el CHANGELOG del kit) no viaja a la documentación instalada.
-  ! grep -rEn "kit's .ADR-001|ADR-001. del kit|install\.py|#122|[eé]pic(a)? #33|kit's .CHANGELOG|CHANGELOG.md. del kit|\-\-lang" --include='*.md' --include='*.py' --include='*.txt' "$p/docs" "$p/AGENTS.md" "$p/.claude/skills" "$p/.claude/agents" 2>/dev/null | grep -v '/test-[a-z-]*\.sh:' >"$TMP/kit-$modo.txt"
+  grep -rEn "kit's .ADR-001|ADR-001. del kit|install\.py|#122|[eé]pic(a)? #33|kit's .CHANGELOG|CHANGELOG.md. del kit|\-\-lang" --include='*.md' --include='*.py' --include='*.txt' "$p/docs" "$p/AGENTS.md" "$p/.claude/skills" "$p/.claude/agents" 2>/dev/null | grep -v '/test-[a-z-]*\.sh:' >"$TMP/kit-$modo.txt" || true  # no line is the good result
   es ! -s "$TMP/kit-$modo.txt"; tap_check $? "[<modo>] la documentación instalada no cita el ADR-001 del kit, install.py, #122, la épica #33 ni --lang" "[$modo] la documentación instalada no cita el ADR-001 del kit, install.py, #122, la épica #33 ni --lang"
   [ -s "$TMP/kit-$modo.txt" ] && sed 's/^/       /' "$TMP/kit-$modo.txt" | head -5
   es -z "$(cd "$p" && git status --porcelain)"; tap_check $? "[<modo>] después de correr los scripts, git status queda limpio" "[$modo] después de correr los scripts, git status queda limpio"
@@ -321,7 +322,7 @@ copiar "$p"
 grep -q '"parity": false' "$p/docs/agents-map.json"; tap_check $? "[completo] el init deja parity apagado en el mapa del proyecto"
 ! grep -q 'CLAUDE.md' <(python3 -c "import json; print(json.load(open('$p/docs/agents-map.json'))['parity_ignore'])"); tap_check $? "[completo] el init saca CLAUDE.md del parity_ignore del proyecto (es ruido de la plantilla)"
 printf '# Guía\n' >"$p/docs/manual.es.md"
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 [ -f "$p/docs/manual.es.md" ] && ! grep -q 'manual' <<<"$s"; tap_check $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"
 # Un .yml del perfil chico gana a su hermano completo, cualquiera sea el archivo (no solo labels.yml).
 p="$TMP/yml-general"
@@ -336,8 +337,9 @@ grep -qx SAMPLE-EN "$p/SAMPLE.md" && python3 -c "import json,sys; sys.exit(0 if 
 tap_check $? "[sin --lang] el idioma por defecto es en y queda registrado"
 for malo in "--lang fr" "--lang" "--lang="; do
   p="$TMP/lang-malo"; rm -rf "$p"; copiar "$p"
+  c=0
   # shellcheck disable=SC2086  # $malo se parte a propósito en opción y valor
-  s=$(cd "$p" && ./scripts/init-template.sh Demo $malo 2>&1); c=$?
+  s=$(trap - ERR; cd "$p" && ./scripts/init-template.sh Demo $malo 2>&1) || c=$?; tap_status "$c" 1
   [ "$c" -ne 0 ] && grep -q -- '--lang' <<<"$s" && [ -e "$p/scripts/init-template.sh" ]
   tap_check $? "el init rechaza '<malo>' con un mensaje sobre --lang y sin tocar nada" "el init rechaza '$malo' con un mensaje sobre --lang y sin tocar nada"
 done
@@ -360,7 +362,7 @@ for combinacion in "completo main" "chico main" "completo develop" "chico develo
   while read -r t; do
     if ! salida=$(cd "$p" && bash "$t" 2>&1); then
       rotos+="$t "
-      grep -E '^FAIL|^ {7}[^ ]|fallaron' <<<"$salida" | sed "s|^|       [$modo, base $base] $t: |"
+      grep -E '^FAIL|^ {7}[^ ]|fallaron' <<<"$salida" | sed "s|^|       [$modo, base $base] $t: |" || true  # no line to show is not an error
     fi
   done < <(cd "$p" && git ls-files '*test-*.sh')
   es -z "$rotos"; tap_check $? "[<modo>, base <base>] los test-*.sh del proyecto pasan<rotos>" "[$modo, base $base] los test-*.sh del proyecto pasan${rotos:+ (fallan: $rotos)}"
@@ -368,7 +370,7 @@ done
 
 # check-docs.py falla si AGENTS.md dice que algo está ignorado y no lo está.
 p="$TMP/completo"
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 ! grep -q 'is ignored, but' <<<"$s"; tap_check $? "check-docs.py no se queja si lo que AGENTS.md dice ignorado lo está"
 # Una frase que dice que algo NO está ignorado no es una afirmación de que lo esté.
 cp "$p/AGENTS.md" "$TMP/AGENTS.md"
@@ -376,24 +378,24 @@ cp "$p/AGENTS.md" "$TMP/AGENTS.md"
 echo '- `dist/` no está ignorado: se commitea.' >>"$p/AGENTS.md"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `build/` is not ignored: it is committed.' >>"$p/AGENTS.md"
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 ! grep -q 'dist/\|build/' <<<"$s"; tap_check $? "check-docs.py no se queja de una frase que dice que algo no está ignorado"
 cp "$TMP/AGENTS.md" "$p/AGENTS.md"
 (cd "$p" && git rm -q .gitignore)
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1
 [ "$c" -ne 0 ] && grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s"; tap_check $? "check-docs.py falla si AGENTS.md dice que .env* está ignorado y no lo está"
 # Una línea que afirma una cosa y niega otra: la negación no tapa la afirmación.
 grep -Ev 'ignorad|ignored' "$TMP/AGENTS.md" >"$p/AGENTS.md"
 # shellcheck disable=SC2016  # backticks de Markdown literales
 echo '- `.env*` están ignorados; `dist/` no está ignorado.' >>"$p/AGENTS.md"
-s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s" && ! grep -q 'dist/' <<<"$s"; tap_check $? "check-docs.py valida la afirmación aunque la misma línea niegue otra cosa"
 
 # La negación se decide por cada patrón, aunque la afirmación y la negación estén en la misma frase.
 # Sin .gitignore: tiene que reclamar por .env* y nunca por dist/.
 while IFS= read -r frase; do
   grep -Ev 'ignorad|ignored' "$TMP/AGENTS.md" >"$p/AGENTS.md"; printf -- '- %s\n' "$frase" >>"$p/AGENTS.md"
-  s=$(cd "$p" && python3 scripts/agents/check-docs.py 2>&1)
+  c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
   grep -q 'AGENTS.md.*\.env.*ignored' <<<"$s" && ! grep -q 'dist/' <<<"$s"; tap_check $? "check-docs.py valida .env* en: <frase>" "check-docs.py valida .env* en: $frase"
 done <<'FRASES'
 `.env*` está ignorado y `dist/` no está ignorado.

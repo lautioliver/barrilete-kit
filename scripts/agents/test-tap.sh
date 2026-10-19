@@ -25,11 +25,11 @@ run_tap() {
 }
 run_tap_child() {
   if [ "${2:-}" = "dir" ]; then
-    (cd "$ROOT" && TAP_OUT="$TMP" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"); echo $? >"$TMP/rc"
+    (trap - ERR; cd "$ROOT" || exit; TAP_OUT="$TMP" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
   elif [ "${2:-}" = "file" ]; then
-    (cd "$ROOT" && TAP_OUT="$TMP/tap" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"); echo $? >"$TMP/rc"
+    (trap - ERR; cd "$ROOT" || exit; TAP_OUT="$TMP/tap" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
   else
-    (cd "$ROOT" && env -u TAP_OUT bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"); echo $? >"$TMP/rc"
+    (trap - ERR; cd "$ROOT" || exit; env -u TAP_OUT bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
   fi
 }
 rc_is() { [ "$(cat "$TMP/rc")" -eq "$1" ]; }
@@ -38,9 +38,9 @@ rc_not() { [ "$(cat "$TMP/rc")" -ne "$1" ]; }
 count_is() { [ "$(count "$2" "$3")" -eq "$1" ]; }
 has() { grep -qxF -- "$1" "$2" 2>/dev/null; }
 # Usage: count <regex> <file>: how many lines match (0 if the file does not exist).
-count() { local n; n=$(grep -c -- "$1" "$2" 2>/dev/null); echo "${n:-0}"; }
+count() { local n; n=$(grep -c -- "$1" "$2" 2>/dev/null || true); echo "${n:-0}"; }
 # Usage: line_of <regex> <file>: the number of the first line that matches (0 if none).
-line_of() { local n; n=$(grep -n -- "$1" "$2" 2>/dev/null | head -1 | cut -d: -f1); echo "${n:-0}"; }
+line_of() { local n; n=$(grep -n -- "$1" "$2" 2>/dev/null | head -1 | cut -d: -f1 || true); echo "${n:-0}"; }
 before_cases() { local f; f=$(line_of '^# file: ' "$TMP/tap"); [ "$f" -gt 0 ] && [ "$f" -lt "$(line_of '^ok 1' "$TMP/tap")" ]; }
 empty() { [ ! -s "$1" ]; }
 nonempty() { [ -s "$1" ]; }
@@ -70,7 +70,7 @@ rc_is 1; check $? "exits with 1 when a case fails"
 has "FAIL - second" "$TMP/stderr"; check $? "reports a failing case on stderr as FAIL - id, for the CI log"
 
 run_tap 'true; tap_check $? "passes by status"
-false; tap_check $? "fails by status"
+[ 1 -eq 0 ]; tap_check $? "fails by status"
 tap_done' file
 has "ok 1 - passes by status" "$TMP/tap" && has "not ok 2 - fails by status" "$TMP/tap"; check $? "tap_check turns a status into ok or not ok"
 rc_is 1; check $? "a failing command that the test checks with its status is not an unexpected error"
@@ -186,7 +186,7 @@ has 'ok 1 - fixes \#12' "$TMP/tap"; check $? "a # in the id is escaped, as TAP 1
 # 7b. Several scripts, one stream: the numbering continues and there is a single plan at the end.
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_ok "a"\ntap_ok "b"\ntap_done\n' "$ROOT" >"$TMP/one.sh"
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_fail "c"\ntap_done\n' "$ROOT" >"$TMP/two.sh"
-rm -f "$TMP/tap3"; (cd "$ROOT" && TAP_OUT="$TMP/tap3" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap3" bash "$TMP/two.sh") 2>/dev/null
+rm -f "$TMP/tap3"; (trap - ERR; cd "$ROOT" || exit; TAP_OUT="$TMP/tap3" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap3" bash "$TMP/two.sh") 2>/dev/null || true  # the script exits with 1 or 4 on purpose
 has "ok 2 - b" "$TMP/tap3" && has "not ok 3 - c" "$TMP/tap3"; check $? "a second script writing the same file continues the numbering"
 count_is 1 '^1\.\.' "$TMP/tap3" && [ "$(tail -1 "$TMP/tap3")" = "1..3" ]; check $? "two scripts in one file leave a single plan, at the end, with the total"
 count_is 2 '^# file: ' "$TMP/tap3"; check $? "each script writes its own # file: line"
@@ -224,9 +224,150 @@ nogrep "input a" "$TMP/tap" && has "# desc: only one" "$TMP/tap"; check $? "a pa
 
 # 8e. A bail out leaves no plan from an earlier script in the stream.
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_ok "d"\nexit 4\n' "$ROOT" >"$TMP/three.sh"
-rm -f "$TMP/tap4"; (cd "$ROOT" && TAP_OUT="$TMP/tap4" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap4" bash "$TMP/three.sh") 2>/dev/null
+rm -f "$TMP/tap4"; (trap - ERR; cd "$ROOT" || exit; TAP_OUT="$TMP/tap4" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap4" bash "$TMP/three.sh") 2>/dev/null || true  # the script exits with 1 or 4 on purpose
 has_bail4() { grep -q '^Bail out!' "$TMP/tap4" 2>/dev/null; }
 has_bail4 && nogrep '^1\.\.' "$TMP/tap4"; check $? "a bail out removes the plan an earlier script wrote"
+
+# 8f. A crash is never an assertion (ADR-002 D6, issue #165). Without set -e a command that fails with 1 or 2 looks
+# like a status the test checks on purpose, so the helper tells them apart by the command: an assertion
+# (test, [, [[, grep, diff, cmp) that fails with status 1 may fail a case; any other command that fails is a Bail out!.
+run_tap 'python3 -c "raise SystemExit(1)" 2>/dev/null
+tap_check $? "a setup step that crashes with status 1"
+tap_done' file
+has_bail && rc_not 0 && nogrep '^not ok' "$TMP/tap"; tap_check $? "a program that crashes with 1 and is read by tap_check emits Bail out!, not a failed case"
+run_tap 'python3 /nonexistent/missing-script.py 2>/dev/null
+tap_check $? "a script that does not exist yet"
+tap_done' file
+has_bail && rc_not 0 && nogrep '^not ok' "$TMP/tap"; tap_check $? "a program that crashes with 2 and is read by tap_check emits Bail out!, not a failed case"
+run_tap 's=$(python3 -c "raise SystemExit(1)" 2>/dev/null)
+[ "$s" = expected ]
+tap_check $? "compares the output of a step that crashed"
+tap_done' file
+has_bail && rc_not 0 && nogrep '^not ok' "$TMP/tap"; tap_check $? "a setup step that crashes and nobody checks emits Bail out! before the assertion"
+run_tap 'tap_ok "before"
+python3 -c "raise SystemExit(1)" 2>/dev/null
+tap_done' file
+has_bail && rc_not 0; tap_check $? "a failing command right before tap_done emits Bail out!"
+run_tap 'tap_ok "before"
+python3 -c "raise SystemExit(1)" 2>/dev/null
+tap_ok "after"
+tap_done' file
+has_bail && nogrep '^1\.\.' "$TMP/tap"; tap_check $? "a failing command that nothing reads emits Bail out! and leaves no plan"
+
+run_tap '[ a = b ]; tap_check $? "test fails"
+grep -q zzz /dev/null; tap_check $? "grep finds nothing"
+[[ a = b ]]; tap_check $? "double brackets fail"
+tap_done' file
+has "not ok 1 - test fails" "$TMP/tap" && has "not ok 2 - grep finds nothing" "$TMP/tap" && has "not ok 3 - double brackets fail" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a failing test, grep or [[ is a failed case, not a Bail out!"
+rc_is 1; tap_check $? "a failed assertion still exits with 1"
+run_tap 'test 1 -eq abc 2>/dev/null
+tap_check $? "syntax error of test"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap"; tap_check $? "test failing with status 2 (a usage error) emits Bail out!"
+run_tap 'grep -q x /nonexistent/file 2>/dev/null
+tap_check $? "grep on a missing file"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap"; tap_check $? "grep failing with status 2 (it could not read) emits Bail out!"
+
+run_tap 'crashes() { python3 -c "raise SystemExit(1)" 2>/dev/null; }
+crashes; tap_check $? "an undeclared function"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap"; tap_check $? "a function that is not declared as an assertion emits Bail out! when it fails"
+run_tap 'has_file() { [ -f "$1" ]; }
+has_file /nonexistent/file; tap_check $? "a helper that ends in test"
+tap_done' file
+has "not ok 1 - a helper that ends in test" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a function whose failing command is an assertion fails the case, with nothing to declare"
+
+# 8g. The crash can be anywhere: inside an argument, a pipeline, a function or a subshell. Each of these
+# was a failed case (a valid red) while the helper only looked at the status of the assertion itself.
+run_tap '[ "$(python3 /nonexistent/missing-script.py 2>/dev/null)" = 3 ]; tap_check $? "crash in a command substitution"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash inside the substitution of an assertion emits Bail out!"
+run_tap 'python3 /nonexistent/missing-script.py 2>/dev/null | grep -q "^3$"; tap_check $? "crash at the head of a pipeline"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash at the head of a pipeline emits Bail out!"
+run_tap 'grep -q x <<<"$(python3 -c "import nope" 2>/dev/null)"; tap_check $? "crash in a here-string"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash inside a here-string emits Bail out!"
+run_tap 'grep -q x <(python3 /nonexistent/missing-script.py 2>/dev/null); tap_check $? "crash in a process substitution"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash inside a process substitution emits Bail out!"
+run_tap 'diff <(python3 /nonexistent/missing-script.py 2>/dev/null) <(echo 3) >/dev/null; tap_check $? "crash in a diff argument"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash inside a diff argument emits Bail out!"
+run_tap '[ "$(python3 -c "import nope" 2>/dev/null | wc -l)" -eq 3 ]; tap_check $? "crash before wc"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash before wc in a substitution emits Bail out!"
+run_tap 'setup() { python3 -c "import nope" 2>/dev/null; [ -f /nonexistent ]; }
+setup; tap_check $? "setup function"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash inside a function, before its last command, emits Bail out!"
+run_tap 'setup() { python3 -c "import nope" 2>/dev/null; true; }
+setup
+[ -f /nonexistent/effect ]; tap_check $? "effect of a setup that crashed"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a setup function that crashes and returns 0 emits Bail out! instead of failing a later assertion"
+run_tap '( python3 /nonexistent/missing-script.py 2>/dev/null; [ x = y ] ); tap_check $? "crash in a subshell"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "a crash inside a subshell emits Bail out!"
+run_tap 'tap_ok "before"
+( python3 /nonexistent/missing-script.py 2>/dev/null; : )
+tap_ok "after"
+tap_done' file
+has_bail && nogrep '^1\.\.' "$TMP/tap"; tap_check $? "a crash in a subshell leaves no plan"
+
+# 8h. What stays a failed case: an assertion, wherever it runs, and a pipeline that ends in one.
+run_tap 'printf "a\n" | grep -q b; tap_check $? "pipeline that does not match"
+printf "a\n" | grep -q a; tap_check $? "pipeline that matches"
+[ "$(printf 3)" = 4 ]; tap_check $? "substitution that works"
+tap_done' file
+has "not ok 1 - pipeline that does not match" "$TMP/tap" && has "ok 2 - pipeline that matches" "$TMP/tap" && has "not ok 3 - substitution that works" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "an assertion that fails at the end of a pipeline, or on a substitution that works, is a failed case"
+
+# 8i. tap_run: a program that is expected to fail, compared with the status the test expects.
+run_tap 'tap_run out 64 sh -c "echo hi; exit 64"
+[ "$out" = hi ]; tap_check $? "output of a failing program"
+[ "$TAP_RC" -eq 64 ]; tap_check $? "status of a failing program"
+tap_done' file
+has "ok 1 - output of a failing program" "$TMP/tap" && has "ok 2 - status of a failing program" "$TMP/tap" && rc_is 0; tap_check $? "tap_run keeps the output and the status of a program that fails as expected"
+run_tap 'tap_run out 64 python3 /nonexistent/missing-script.py
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "tap_run bails out when the program ends with 2 and the test expected another status"
+run_tap 'tap_run out 0 python3 -c "raise SystemExit(1)"
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "tap_run bails out when the program ends with 1 and the test expected 0"
+run_tap 'tap_run out 64 sh -c "exit 0"
+[ "$TAP_RC" -eq 64 ]; tap_check $? "program that should have failed"
+tap_done' file
+has "not ok 1 - program that should have failed" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "tap_run leaves a status that is not a crash code to the test: a failed case"
+run_tap 'tap_run out 0 true
+tap_run out 1 sh -c "exit 1"
+tap_ok "fine"
+tap_done' file
+rc_is 0; tap_check $? "tap_run accepts the status the test expected, 0 or not"
+
+# 8j. tap_status and tap_no_traceback: the same rule for a command line that ran with its ERR trap off.
+run_tap 'c=0; out=$(trap - ERR; sh -c "echo refused; exit 64") || c=$?; tap_status "$c" 64
+[ "$out" = refused ]; tap_check $? "output of a refused command"
+c=0; out=$(trap - ERR; sh -c "exit 0") || c=$?; tap_status "$c" 64
+[ "$c" -eq 64 ]; tap_check $? "a command that should have refused"
+tap_done' file
+has "ok 1 - output of a refused command" "$TMP/tap" && has "not ok 2 - a command that should have refused" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "tap_status keeps the expected status and leaves a status that is not a crash code to the test"
+run_tap 'c=0; out=$(trap - ERR; python3 /nonexistent/missing-script.py 2>&1) || c=$?; tap_status "$c" 64
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "tap_status bails out when the status is 2 and the test expected another one"
+run_tap 'tap_no_traceback "all good"
+tap_no_traceback "Traceback (most recent call last):
+  File x"
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "tap_no_traceback bails out when the output has a Python traceback"
+
+run_tap 'if python3 -c "raise SystemExit(1)" 2>/dev/null; then tap_fail "x"; else tap_ok "else branch"; fi
+tap_done' file
+has "ok 1 - else branch" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a command in an if condition is the test's own business"
 
 # 9. The kit's own tests use the helper (what the issue migrates).
 SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh | sort)
@@ -245,7 +386,8 @@ done
 # tap_begin runs before any cd of the script: with a relative $0 it would resolve from the wrong folder.
 tarde=""
 for s in $SCRIPTS; do
-  b=$(grep -n '^tap_begin ' "$ROOT/$s" | head -1 | cut -d: -f1); c=$(grep -n '^cd ' "$ROOT/$s" | head -1 | cut -d: -f1)
+  b=$(grep -n '^tap_begin ' "$ROOT/$s" | head -1 | cut -d: -f1 || true)  # no match: no line
+  c=$(grep -n '^cd ' "$ROOT/$s" | head -1 | cut -d: -f1 || true)
   [ -z "$c" ] || [ "${b:-999999}" -lt "$c" ] || tarde="$tarde $s"
 done
 [ -z "$tarde" ]; check $? "tap_begin comes before the first cd of each test" "after the cd:${tarde:- none}"

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # shellcheck disable=SC2016  # los backticks de Markdown y los regex de los tests van entre comillas simples a propósito
 # Tests de routing.py y cleanup.sh con un gh falso y un repo local (no usa GitHub).
 # Uso: bash .claude/skills/orchestrate/test-orchestrate.sh
@@ -89,12 +90,12 @@ s=$(ruteo 28); es "$(head -1 <<<"$s")" = sonnet; tap_check $? "una ruta sensible
 issue 25 open "type:docs" "Explicar el package manager y la arquitectura."
 s=$(ruteo 25); es "$(head -1 <<<"$s")" = haiku; tap_check $? "palabras sueltas que no son rutas sensibles no cambian el ruteo"
 mkdir -p "$TMP/sin-repo"; printf '#!/bin/sh\necho "no git remotes found" >&2; exit 1\n' >"$TMP/sin-repo/gh"; chmod +x "$TMP/sin-repo/gh"
-s=$(cd "$P" && PATH="$TMP/sin-repo:$PATH" python3 "$AQUI/routing.py" 1 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$P" && PATH="$TMP/sin-repo:$PATH" python3 "$AQUI/routing.py" 1 2>&1) || c=$?; tap_status "$c" 2
 ! es "$c" -eq 0 && grep -qi "repo" <<<"$s"; tap_check $? "si gh no encuentra el repo, lo dice (no un 404 del issue)"
 mv "$P/docs/agents-map.json" "$TMP/mapa.json"
 s=$(ruteo 1); es "$(head -1 <<<"$s")" = sonnet; tap_check $? "sin mapa no se pueden descartar rutas sensibles → sonnet"
 mv "$TMP/mapa.json" "$P/docs/agents-map.json"
-(cd "$P" && python3 "$AQUI/routing.py" 999 >/dev/null 2>&1); c=$?
+c=0; (trap - ERR; cd "$P" && python3 "$AQUI/routing.py" 999 >/dev/null 2>&1) || c=$?; tap_status "$c" 2
 ! es "$c" -eq 0; tap_check $? "un issue que no existe sale con error"
 
 # 2. cleanup.sh: worktrees de issues cerrados, sin pisar trabajo ni retros pendientes.
@@ -106,7 +107,7 @@ issue 12 closed "type:task" "Cerrado con cambios sin commitear."
 issue 13 closed "type:task" "Cerrado y limpio, el segundo."
 echo sucio >"$WT/12/sucio.txt"
 
-s=$(cd "$P" && "$AQUI/cleanup.sh" 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$P" && "$AQUI/cleanup.sh" 2>&1) || c=$?; tap_status "$c" 0
 tap_check $c "cleanup.sh sin --delete termina bien"
 grep -q "$WT/10" <<<"$s" && grep -q "$WT/13" <<<"$s"; tap_check $? "lista los worktrees de issues cerrados"
 ! grep -q "$WT/11" <<<"$s"; tap_check $? "no lista los de issues abiertos"
@@ -115,28 +116,28 @@ es -d "$WT/10"; tap_check $? "sin --delete no borra nada"
 
 # Con una retro pendiente no borra ninguno.
 mkdir -p "$P/.git/pending-retros"; echo r >"$P/.git/pending-retros/x.md"
-s=$(cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1) || c=$?; tap_status "$c" 1
 ! es "$c" -eq 0 && es -d "$WT/10" && grep -q "pending-retros" <<<"$s"; tap_check $? "con retros pendientes no borra y dice por qué"
 rm -rf "$P/.git/pending-retros"
 # Las pendientes del directorio viejo (0.9, retros-pendientes) también cuentan.
 mkdir -p "$P/.git/retros-pendientes"; echo r >"$P/.git/retros-pendientes/x.md"
-s=$(cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1) || c=$?; tap_status "$c" 1
 ! es "$c" -eq 0 && es -d "$WT/10"; tap_check $? "con retros pendientes en el directorio viejo tampoco borra"
 rm -rf "$P/.git/retros-pendientes"
 
 # Si no puede leer un issue, no lo da por "nada que limpiar": lo dice y sale con error.
 mkdir -p "$WT"; git -C "$P" worktree add -q -b claude/14-x "$WT/14" 2>/dev/null
-s=$(cd "$P" && "$AQUI/cleanup.sh" 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$P" && "$AQUI/cleanup.sh" 2>&1) || c=$?; tap_status "$c" 1
 ! es "$c" -eq 0 && grep -q "#14" <<<"$s"; tap_check $? "si no puede leer el estado de un issue, lo dice y sale con error"
 git -C "$P" worktree remove "$WT/14"; git -C "$P" branch -q -D claude/14-x
 
 # Un worktree que no se puede borrar (bloqueado) se reporta y el script sale con error.
 git -C "$P" worktree lock "$WT/13"
-s=$(cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1) || c=$?; tap_status "$c" 1
 ! es "$c" -eq 0 && grep -q "could not remove.*$WT/13" <<<"$s" && ! es -d "$WT/10"; tap_check $? "un worktree que no se puede borrar se reporta, y los demás se borran"
 git -C "$P" worktree unlock "$WT/13"
 
-s=$(cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1); c=$?
+c=0; s=$(trap - ERR; cd "$P" && "$AQUI/cleanup.sh" --delete 2>&1) || c=$?; tap_status "$c" 0
 tap_check $c "cleanup.sh --delete termina bien"
 
 # Ramas de issues cerrados: se decide por el estado del PR en GitHub (sirve con squash y rebase).

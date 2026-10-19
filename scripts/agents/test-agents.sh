@@ -16,14 +16,22 @@ AGENTES=".claude/agents"
 
 # Copia del repo con lo commiteado y lo que está en el working tree.
 copia() {
-  rm -rf "$TMP/r"; mkdir -p "$TMP/r"
-  (cd "$RAIZ" && git ls-files -co --exclude-standard -z | tar --null -T - -cf -) | tar -xf - -C "$TMP/r"
+  rm -rf "$TMP/r" || true  # best effort: the copy of an earlier case may have read-only files
+  mkdir -p "$TMP/r"
+  (cd "$RAIZ" && git ls-files -co --exclude-standard -z | tar --null -T - -cf - 2>/dev/null || true) | tar -xf - -C "$TMP/r"  # a file the index lists and the tree lost only warns
   (cd "$TMP/r" && git init -q && git add -A && git commit -qm base)
 }
-check() { (cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>&1); }
+check() {
+  local o c=0
+  o=$(trap - ERR; cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>&1) || c=$?
+  tap_status "$c" 1
+  tap_no_traceback "$o"
+  printf '%s\n' "$o"
+}
 # check-docs sin errores de los subagentes. En un proyecto recién inicializado check-docs falla
 # igual por los TODO del mapa, así que se mira solo lo de los subagentes.
-sin_errores_agentes() { ! check | grep -q "$AGENTES\|subagent-contract"; }
+# (the missing Spanish sibling of a throwaway x.md is the parity check, not the subagent's frontmatter or contract)
+sin_errores_agentes() { local o; o=$(check); o=$(grep -v 'Spanish sibling' <<<"$o" || true); ! grep -q "$AGENTES\|subagent-contract" <<<"$o"; }
 frontmatter() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1"; }
 
 # 1. Los tres roles existen con su modelo y herramientas acotadas.
@@ -93,10 +101,10 @@ lista=$(listar '*.sh'); grep -qx "scripts/agents/test-agents.sh" <<<"$lista"; ta
 ! grep -q "^ajeno/" <<<"$lista"; tap_check $? "con .agent-kit.json, --list '*.sh' no devuelve los .sh ajenos"
 lista=$(listar '*test-*.sh'); grep -qx "scripts/agents/test-agents.sh" <<<"$lista" && ! grep -q "^ajeno/" <<<"$lista"
 tap_check $? "con .agent-kit.json, --list '*test-*.sh' no devuelve los tests propios del proyecto"
-(cd "$TMP/r" && python3 scripts/agents/check-docs.py --list >/dev/null 2>&1); codigo=$?
+codigo=0; (trap - ERR; cd "$TMP/r" && python3 scripts/agents/check-docs.py --list >/dev/null 2>&1) || codigo=$?; tap_status "$codigo" 2
 if [ "$codigo" -eq 2 ]; then tap_ok "--list sin glob es un error de uso (no corre el check completo)"; else tap_fail "--list sin glob es un error de uso (no corre el check completo)"; fi
 cp "$TMP/r/.agent-kit.json" "$TMP/kit.bak"; echo '{roto' >"$TMP/r/.agent-kit.json"
-(cd "$TMP/r" && python3 scripts/agents/check-docs.py --list '*.sh' >/dev/null 2>&1); codigo=$?
+codigo=0; (trap - ERR; cd "$TMP/r" && python3 scripts/agents/check-docs.py --list '*.sh' >/dev/null 2>&1) || codigo=$?; tap_status "$codigo" 1
 if [ "$codigo" -ne 0 ]; then tap_ok "un .agent-kit.json inválido hace fallar --list (no devuelve una lista vacía)"; else tap_fail "un .agent-kit.json inválido hace fallar --list (no devuelve una lista vacía)"; fi
 salida=$(check); grep -q "\.agent-kit.json" <<<"$salida" && ! grep -q Traceback <<<"$salida"; tap_check $? "un .agent-kit.json inválido es un error claro del check, sin traceback"
 cp "$TMP/kit.bak" "$TMP/r/.agent-kit.json"
