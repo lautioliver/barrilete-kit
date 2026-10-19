@@ -414,11 +414,11 @@ run_tap 'c=0; out=$(trap - ERR; sh -c "kill -SEGV \$\$") || c=$?; tap_status "$c
 tap_ok "never"
 tap_done' file
 has_bail && rc_not 0; tap_check $? "170: tap_status bails out on a signal status (128 or more) that is not the expected one"
-run_tap 'tap_run out 0 sh -c "yes | head -1 >/dev/null; exit 0"
+run_tap 'tap_run out 0 sh -c "(while :; do echo y; done) | head -1 >/dev/null; exit 0"
 tap_ok "reader left early"
 tap_done' file
 has "ok 1 - reader left early" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "170: a reader that leaves early (SIGPIPE, 141) is not a crash"
-run_tap 'yes | head -1 >/dev/null; tap_ok "reader of a pipeline left early"
+run_tap '(while :; do echo y; done) | head -1 >/dev/null; tap_ok "reader of a pipeline left early"
 tap_done' file
 has "ok 1 - reader of a pipeline left early" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "170: the left side of a pipeline that dies of SIGPIPE is allowed"
 run_tap 'python3 /nonexistent/missing-script.py 2>/dev/null
@@ -444,12 +444,13 @@ done
 falta=""
 for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md .claude/skills/review-pr/SKILL.md .claude/skills/review-pr/SKILL.es.md; do
   for t in 'local x=$(prog)' 'trap - ERR' '|| true' '( prog )' 'tap_status' 'tap_run' '&&'; do
+    [ -f "$ROOT/$f" ] || continue  # an installed project keeps one language
     grep -qF -- "$t" "$ROOT/$f" || falta="$falta $f:$t"
   done
 done
 [ -z "$falta" ]; tap_check $? "170: implement-issue and review-pr (en and es) list every form that cannot be told from a crash" "missing:${falta:- none}"
-grep -q "forbidden" "$ROOT/.claude/skills/implement-issue/SKILL.md" && grep -q "prohib" "$ROOT/.claude/skills/implement-issue/SKILL.es.md"; tap_check $? "170: implement-issue forbids those forms in the red commit (en and es)"
-grep -qi "red commit adds" "$ROOT/.claude/skills/review-pr/SKILL.md" && grep -q "commit en rojo" "$ROOT/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "170: review-pr flags them in the lines the red commit adds (en and es)"
+grep -qE "forbidden|prohib" "$ROOT/.claude/skills/implement-issue/SKILL.md" && { [ ! -f "$ROOT/.claude/skills/implement-issue/SKILL.es.md" ] || grep -q "prohib" "$ROOT/.claude/skills/implement-issue/SKILL.es.md"; }; tap_check $? "170: implement-issue forbids those forms in the red commit (en and es)"
+grep -qiE "red commit adds|commit en rojo" "$ROOT/.claude/skills/review-pr/SKILL.md" && { [ ! -f "$ROOT/.claude/skills/review-pr/SKILL.es.md" ] || grep -q "commit en rojo" "$ROOT/.claude/skills/review-pr/SKILL.es.md"; }; tap_check $? "170: review-pr flags them in the lines the red commit adds (en and es)"
 # A second status argument to tap_check takes the place of the id: it takes the second $? as the id and loses the literal one (#170).
 perdidos=""
 for s in $SCRIPTS scripts/agents/test-tap.sh; do
