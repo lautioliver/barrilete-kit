@@ -422,11 +422,11 @@ run_tap 'c=0; out=$(trap - ERR; sh -c "kill -SEGV \$\$") || c=$?; tap_status "$c
 tap_ok "never"
 tap_done' file
 has_bail && rc_not 0; tap_check $? "170: tap_status bails out on a signal status (128 or more) that is not the expected one"
-run_tap 'tap_run out 0 sh -c "kill -PIPE \$\$"
+run_tap 'tap_run out 0 sh -c "exit 141"
 tap_ok "never"
 tap_done' file
 has_bail && rc_not 0; tap_check $? "170: tap_run bails out when the program itself dies of SIGPIPE (141)"
-run_tap 'c=0; out=$(trap - ERR; sh -c "kill -PIPE \$\$") || c=$?; tap_status "$c" 0
+run_tap 'c=0; out=$(trap - ERR; sh -c "exit 141") || c=$?; tap_status "$c" 0
 tap_ok "never"
 tap_done' file
 has_bail && rc_not 0; tap_check $? "170: tap_status bails out on 141 when another status was expected"
