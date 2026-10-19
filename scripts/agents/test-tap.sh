@@ -192,6 +192,10 @@ count_is 1 '^1\.\.' "$TMP/tap3" && [ "$(tail -1 "$TMP/tap3")" = "1..3" ]; check 
 count_is 2 '^# file: ' "$TMP/tap3"; check $? "each script writes its own # file: line"
 
 # 8. A script with nothing to run.
+run_tap 'tap_skip "not here" "needs bash 4"
+tap_ok "here"
+tap_done' file
+has "ok 1 - not here # SKIP needs bash 4" "$TMP/tap" && has "ok 2 - here" "$TMP/tap" && rc_is 0; check $? "tap_skip writes ok N - id # SKIP reason and the run goes on"
 run_tap 'tap_skip_all "does not apply here"' file
 has "1..0 # SKIP does not apply here" "$TMP/tap" && rc_is 0; check $? "tap_skip_all writes 1..0 # SKIP and exits with 0"
 
@@ -370,9 +374,11 @@ tap_done' file
 has "ok 1 - else branch" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a command in an if condition is the test's own business"
 
 # 8k. #170: what the second review of #165 still got through (each of these was a valid red with status 2).
+if [ "${BASH_VERSINFO[0]}" -ge 4 ]; then
 run_tap '[ "$(python3 /nonexistent/missing-script.py)" = 3 ]; tap_check $? "lone program in a substitution, no redirection"
 tap_done' file
 has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a lone program in a substitution, with no redirection, emits Bail out!"
+else tap_skip "170: a lone program in a substitution, with no redirection, emits Bail out!" "bash 3.2 runs a lone external command of a substitution with exec: its ERR trap never runs (forbidden in the red, see the header of tap.sh)"; fi
 run_tap 'python3 -c "raise SystemExit(0)" | python3 /nonexistent/missing-script.py | grep -q 3; tap_check $? "crash in the middle of a pipeline"
 tap_done' file
 has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a crash in the middle of a pipeline emits Bail out!"
@@ -382,9 +388,11 @@ has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a crash 
 run_tap '[ "$(cd /tmp && python3 /nonexistent/missing-script.py)" = 3 ]; tap_check $? "cd then program"
 tap_done' file
 has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a crash after a cd in a substitution emits Bail out!"
+if [ "${BASH_VERSINFO[0]}" -ge 4 ]; then
 run_tap '[ -z "$(python3 /nonexistent/missing-script.py)" ]; tap_check $? "empty substitution"
 tap_done' file
 has_bail && nogrep '^ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a crash whose output is empty is not a pass"
+else tap_skip "170: a crash whose output is empty is not a pass" "bash 3.2 runs a lone external command of a substitution with exec: its ERR trap never runs (forbidden in the red, see the header of tap.sh)"; fi
 run_tap 'python3 /nonexistent/missing-script.py >/dev/null && grep -q 3 /dev/null; tap_check $? "program then grep in an and-list"
 tap_done' file
 has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: tap_check bails out on a status 2 from the left of an and-list"
@@ -443,7 +451,7 @@ done
 # The forms bash cannot tell from a crash are forbidden in the red commit and reviewed (#170).
 falta=""
 for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md .claude/skills/review-pr/SKILL.md .claude/skills/review-pr/SKILL.es.md; do
-  for t in 'local x=$(prog)' 'trap - ERR' '|| true' '( prog )' 'tap_status' 'tap_run' '&&'; do
+  for t in 'local x=$(prog)' 'trap - ERR' '|| true' '( prog )' '$( prog )' 'tap_status' 'tap_run' '&&'; do
     [ -f "$ROOT/$f" ] || continue  # an installed project keeps one language
     grep -qF -- "$t" "$ROOT/$f" || falta="$falta $f:$t"
   done

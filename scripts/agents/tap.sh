@@ -9,6 +9,7 @@
 #   tap_ok    "literal id" ["description"]
 #   tap_fail  "literal id" ["description"]
 #   tap_check $? "literal id" ["description"]   # 0 is ok, 1 is not ok, any other status is a bail out
+#   tap_skip  "literal id" "reason"       # a case that does not apply here: ok N - id # SKIP reason
 #   tap_done                             # writes the plan 1..N and exits (1 if a case failed)
 #   tap_skip_all "reason"                # for a script that does not apply: 1..0 # SKIP, exits 0
 #
@@ -71,6 +72,7 @@ _TAP_IDS=()
 _TAP_VERDICTS=()
 _TAP_DESCS=()
 _TAP_REPS=()
+_TAP_SKIPS=()
 _TAP_DONE=0
 _TAP_BAILED=0
 _TAP_AT_EXIT=""
@@ -195,7 +197,7 @@ _tap_flush() {
     n=$((_TAP_BASE + i + 1))
     esc=${_TAP_IDS[$i]//\\/\\\\}
     esc=${esc//#/\\#}
-    _tap_line "${_TAP_VERDICTS[$i]} $n - $esc"
+    _tap_line "${_TAP_VERDICTS[$i]} $n - $esc${_TAP_SKIPS[$i]:+ # SKIP ${_TAP_SKIPS[$i]}}"
     d=${_TAP_DESCS[$i]}
     while [ -n "$d" ]; do
       _tap_line "# desc: ${d%%$'\n'*}"
@@ -203,7 +205,7 @@ _tap_flush() {
     done
   done
   _TAP_BASE=$((_TAP_BASE + ${#_TAP_IDS[@]}))
-  _TAP_IDS=(); _TAP_VERDICTS=(); _TAP_DESCS=(); _TAP_REPS=()
+  _TAP_IDS=(); _TAP_VERDICTS=(); _TAP_DESCS=(); _TAP_REPS=(); _TAP_SKIPS=()
 }
 
 # Usage: _tap_case <ok|not ok> <id> [description]
@@ -237,6 +239,14 @@ _tap_case() {
   fi
 }
 
+# Usage: tap_skip <id> <reason>: a case that does not apply here ("ok N - id # SKIP reason"), visible in the stream.
+tap_skip() {
+  _tap_case "ok" "${1:?tap_skip needs an id}" "SKIP: $(_tap_flat "${2:-}")"
+  local i
+  for ((i = 0; i < ${#_TAP_IDS[@]}; i++)); do
+    [ "${_TAP_IDS[$i]}" != "$1" ] || _TAP_SKIPS[i]=$(_tap_flat "${2:-}")
+  done
+}
 tap_ok() { _tap_case "ok" "$@"; }
 tap_fail() { _tap_case "not ok" "$@"; }
 tap_check() {
