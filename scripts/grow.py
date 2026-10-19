@@ -23,6 +23,38 @@ import tempfile
 PLANTILLA = os.environ.get("AGENT_KIT_TEMPLATE", "https://github.com/lautioliver/barrilete-kit")
 NO_TRAER = {"README.md", "README.es.md", "README.en.md", "LICENSE", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
 PENDIENTES = ".agent-kit/pending"
+MAPA = "docs/agents-map.json"
+AVISO_RED = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
+             "files a commit adds or changes. red.sh needs the section and rejects a map without it. If your tests are not "
+             "bash, replace that entry with your stack's: docs/guides/red-per-runner.md (in the kit, "
+             "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
+
+
+def con_red(texto, kit):
+    """The project's map with the kit's `red` section added; None if it already has one or there is nothing to add.
+    ValueError if the project's map is not a JSON object."""
+    try:
+        mio, del_kit = json.loads(texto), json.loads(kit)
+    except ValueError as e:
+        raise ValueError(f"it is not valid JSON ({e})")
+    if not isinstance(mio, dict):
+        raise ValueError("it is not a JSON object")
+    if "red" in mio or not isinstance(del_kit, dict) or "red" not in del_kit:
+        return None
+    mio["red"] = del_kit["red"]
+    return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
+
+
+def completar_mapa(texto, kit):
+    """The full map with the project's sections on top: what the project had (its `red` above all) is kept and the
+    sections it lacks come from the kit. ValueError if either is not a JSON object."""
+    try:
+        mio, completo = json.loads(texto), json.loads(kit)
+    except ValueError as e:
+        raise ValueError(f"it is not valid JSON ({e})")
+    if not isinstance(mio, dict) or not isinstance(completo, dict):
+        raise ValueError("it is not a JSON object")
+    return json.dumps({**completo, **mio}, ensure_ascii=False, indent=2) + "\n", "red" not in mio
 
 
 def salir(msg):
@@ -96,6 +128,7 @@ def main():
         version = json.load(open(os.path.join(tmp, ".agent-kit.json"), encoding="utf-8")).get("version")
 
         agregados, reemplazados, pendientes, iguales, retenidos, errores = [], [], [], 0, [], []
+        completados, red_agregada = [], False
         registradas = kit.get("files", {})
 
         # The small mode architecture is project content: it is moved to where full mode expects it.
@@ -128,6 +161,18 @@ def main():
                 shutil.copy2(origen, ruta)
                 reemplazados.append(ruta)
             else:
+                if ruta == MAPA:  # the small map has only `red`: it is completed, not left for the project to merge
+                    try:
+                        with open(ruta, encoding="utf-8") as f, open(origen, encoding="utf-8") as g:
+                            texto, sin_red = completar_mapa(f.read(), g.read())
+                        with open(ruta, "w", encoding="utf-8") as f:
+                            f.write(texto)
+                    except (ValueError, OSError):
+                        pass  # not JSON, or unreadable: it goes to pending like any modified file
+                    else:
+                        completados.append(ruta)
+                        red_agregada = sin_red
+                        continue
                 destino = os.path.join(PENDIENTES, ruta)
                 os.makedirs(os.path.dirname(destino), exist_ok=True)
                 shutil.copy2(origen, destino)
@@ -156,6 +201,11 @@ def main():
           f"{iguales} already equal, {len(pendientes)} pending.")
     if movido:
         print(f"Moved: {movido}")
+    if completados:
+        print(f"\nCompleted: {', '.join(completados)} keeps your sections (your `red` among them) and gets the ones of the "
+              "full map. Fill in its TODO paths.")
+    if red_agregada:
+        print(f"\nRed: {AVISO_RED}")
     if pendientes:
         print(f"\nPending: you modified them, so I did not overwrite them. The full version is in {PENDIENTES}/:")
         for p in pendientes:
