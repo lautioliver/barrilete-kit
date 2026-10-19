@@ -112,6 +112,7 @@ What it touches:
 | `.claude/settings.json` | JSON merge: adds the guardrails hook to your hooks. If the file is not valid JSON, has no `hooks` object or is a symlink, the kit's version goes to `.agent-kit/pending/` instead |
 | Workflow with the same name | The kit's is installed as `barrilete-<name>.yml` |
 | `.github/labels.yml` | The kit's labels plus the ones the repo had at install time (`gh label list`), so the first sync deletes none of them |
+| `docs/agents-map.json` you already have | Keeps yours and adds the kit's `red` section if it has none (`red.sh` rejects a map without it, ADR-002); the kit's full map goes to `.agent-kit/pending/` |
 | Any other file you already have (for example `AGENTS.md`, `docs/README.md`, the PR template) | Keeps yours; the kit's version goes to `.agent-kit/pending/` |
 
 Review it before you commit anything. The installer doesn't commit: review `git status` and the diff. Then:
@@ -303,6 +304,7 @@ The small mode keeps only the README in the chosen language (English by default;
 
 - Files the project never touched are replaced with the full version.
 - Files it modified are **not overwritten**: the full version lands in `.agent-kit/pending/` for you to merge in.
+- A `docs/agents-map.json` it modified is **not** left in pending: it keeps its sections (its `red` among them) and gets the ones of the full map; if it had no `red`, it gets the kit's `bash` entry.
 - The small project's architecture moves to `docs/development/architecture.md`.
 
 It doesn't commit: you review the diff and open a PR.
@@ -325,6 +327,7 @@ It initializes the new version with the project's data and compares it file by f
 
 - Files the project never touched are replaced, new ones are added and files the template removed are deleted.
 - Files both sides changed are merged with `git merge-file`. On a conflict **nothing is overwritten**: the merge with markers lands in `.agent-kit/pending/`.
+- A `docs/agents-map.json` without a `red` section gets the kit's `bash` entry and a warning that points to `docs/guides/red-per-runner.md` (ADR-002 D8; `red.sh` rejects a map without `red`).
 - Files the project deleted don't come back.
 
 A project created with 0.9 (Spanish names) is migrated in the same run to the new names, keys and labels, keeping its changes; how to run and review it is in `CHANGELOG.md` (#116).

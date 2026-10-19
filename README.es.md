@@ -114,6 +114,7 @@ Qué toca:
 | `.claude/settings.json` | Fusión JSON: agrega el hook de barandas a tus hooks. Si el archivo no es JSON válido, no tiene objeto `hooks` o es un enlace simbólico, la versión del kit va a `.agent-kit/pending/` en su lugar |
 | Workflow con el mismo nombre | El del kit se instala como `barrilete-<nombre>.yml` |
 | `.github/labels.yml` | Los labels del kit más los que el repo tenía al instalar (`gh label list`), así el primer sync no borra ninguno de ellos |
+| Un `docs/agents-map.json` que ya tengas | Deja el tuyo y le agrega la sección `red` del kit si no la tiene (`red.sh` rechaza un mapa sin ella, ADR-002); el mapa completo del kit va a `.agent-kit/pending/` |
 | Cualquier otro archivo que ya tengas (por ejemplo `AGENTS.md`, `docs/README.md`, el template de PR) | Deja el tuyo; la versión del kit va a `.agent-kit/pending/` |
 
 Revisalo antes de commitear nada. El instalador no commitea: mirá `git status` y el diff. Después:
@@ -305,6 +306,7 @@ El modo chico deja solo el README en el idioma elegido (en inglés por defecto; 
 
 - Los archivos que el proyecto nunca tocó se reemplazan por la versión completa.
 - Los que modificó **no se pisan**: la versión completa queda en `.agent-kit/pending/` para integrarla.
+- Un `docs/agents-map.json` que modificó **no** queda en pendientes: conserva sus secciones (su `red` entre ellas) y recibe las del mapa completo; si no tenía `red`, recibe la entrada `bash` del kit.
 - La arquitectura del proyecto chico pasa a `docs/development/architecture.md`.
 
 No commitea: revisás el diff y abrís un PR.
@@ -327,6 +329,7 @@ Inicializa la versión nueva con los datos del proyecto y la compara archivo por
 
 - Lo que el proyecto no tocó se reemplaza, lo nuevo se agrega y lo que la plantilla sacó se borra.
 - Lo que tocaron los dos lados se fusiona con `git merge-file`. Si hay conflicto, **no se pisa**: la fusión con marcas queda en `.agent-kit/pending/`.
+- Un `docs/agents-map.json` sin sección `red` recibe la entrada `bash` del kit y un aviso que remite a `docs/guides/red-per-runner.md` (ADR-002 D8; `red.sh` rechaza un mapa sin `red`).
 - Lo que el proyecto borró no vuelve.
 
 Un proyecto creado con 0.9 (nombres en español) se migra en la misma corrida a los nombres, claves y labels nuevos, conservando sus cambios; cómo correrlo y revisarlo está en el `CHANGELOG.md` (#116).
