@@ -328,7 +328,7 @@ tap_done' file
 has "not ok 1 - pipeline that does not match" "$TMP/tap" && has "ok 2 - pipeline that matches" "$TMP/tap" && has "not ok 3 - substitution that works" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "an assertion that fails at the end of a pipeline, or on a substitution that works, is a failed case"
 
 # 8i. tap_run: a program that is expected to fail, compared with the status the test expects.
-run_tap 'tap_run out 64 sh -c "echo hi; exit 64"
+run_tap 'tap_run out 64 python3 -c "print(\"hi\"); raise SystemExit(64)"
 [ "$out" = hi ]; tap_check $? "output of a failing program"
 [ "$TAP_RC" -eq 64 ]; tap_check $? "status of a failing program"
 tap_done' file
@@ -423,9 +423,13 @@ tap_ok "never"
 tap_done' file
 has_bail && rc_not 0; tap_check $? "170: tap_status bails out on a signal status (128 or more) that is not the expected one"
 run_tap 'tap_run out 0 sh -c "kill -PIPE \$\$"
-tap_ok "reader left early"
+tap_ok "never"
 tap_done' file
-has "ok 1 - reader left early" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "170: a reader that leaves early (SIGPIPE, 141) is not a crash"
+has_bail && rc_not 0; tap_check $? "170: tap_run bails out when the program itself dies of SIGPIPE (141)"
+run_tap 'c=0; out=$(trap - ERR; sh -c "kill -PIPE \$\$") || c=$?; tap_status "$c" 0
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "170: tap_status bails out on 141 when another status was expected"
 run_tap 'sh -c "kill -PIPE \$\$" | cat >/dev/null; tap_ok "reader of a pipeline left early"
 tap_done' file
 has "ok 1 - reader of a pipeline left early" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "170: the left side of a pipeline that dies of SIGPIPE is allowed"
@@ -433,6 +437,49 @@ run_tap 'python3 /nonexistent/missing-script.py 2>/dev/null
 tap_ok "never"
 tap_done' file
 nogrep 'or declare the failure expected' "$TMP/tap" && nogrep '|| true' "$TMP/tap" && has_bail; tap_check $? "170: the Bail out! message does not suggest || true"
+
+# 8l. #170, extra round: forms whose crash tap_run or bash 3.2 cannot see.
+if [ "${BASH_VERSINFO[0]}" -ge 4 ]; then
+run_tap '[ "`python3 /nonexistent/missing-script.py`" = 3 ]; tap_check $? "backtick substitution with a lone program"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a lone program in a backtick substitution emits Bail out!"
+else tap_skip "170: a lone program in a backtick substitution emits Bail out!" "bash 3.2 runs a lone external command of a substitution with exec: its ERR trap never runs (forbidden in the red, see the header of tap.sh)"; fi
+run_tap 'setup() { python3 /nonexistent/missing-script.py 2>/dev/null; echo 4; }
+tap_run out 0 setup
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "170: tap_run refuses a shell function: a crash inside it would be hidden"
+run_tap 'tap_run out 0 sh -c "python3 /nonexistent/missing-script.py; echo 4"
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "170: tap_run refuses sh -c with more than one command"
+run_tap 'tap_run out 0 bash -c "python3 /nonexistent/missing-script.py || echo 4"
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "170: tap_run refuses bash -c with || in its script"
+run_tap 'tap_run out 64 sh -c "exit 64"
+[ "$TAP_RC" -eq 64 ]; tap_check $? "single command of sh -c"
+tap_done' file
+has "ok 1 - single command of sh -c" "$TMP/tap" && rc_is 0; tap_check $? "170: tap_run still takes sh -c with a single command"
+run_tap 'tap_ok "same id"
+tap_skip "same id" "later"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "170: tap_skip bails out on an id that already has a verdict"
+run_tap 'tap_skip "same id" "now"
+tap_ok "same id"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "170: a verdict bails out on an id that was skipped"
+formas=""
+for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md .claude/skills/review-pr/SKILL.md .claude/skills/review-pr/SKILL.es.md; do
+  [ -f "$ROOT/$f" ] || continue
+  grep -q 'tap_run' "$ROOT/$f" || continue  # the small profile has its own guides, with no red section
+  for t in '`prog`' 'tap_run out 0 setup_fn' 'sh -c'; do
+    grep -qF -- "$t" "$ROOT/$f" || formas="$formas $f:$t"
+  done
+done
+[ -z "$formas" ]; tap_check $? "170: the guides forbid the backtick form and tap_run around a function or sh -c in the red" "missing:${formas:- none}"
+sed -n '1,/^_TAP_BASE=/p' "$ROOT/scripts/agents/tap.sh" >"$TMP/header"
+grep -qF '`prog`' "$TMP/header" && grep -qF 'setup_fn' "$TMP/header"; tap_check $? "170: the header of tap.sh lists the backtick form and tap_run around a function"
 
 # 9. The kit's own tests use the helper (what the issue migrates).
 SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh | sort)
