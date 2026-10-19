@@ -169,7 +169,8 @@ fi
 # igual por los TODO del mapa, así que se miran solo sus líneas de la sección red ("docs/agents-map.json: red ...").
 # Reemplaza la sección red del mapa de la copia por el JSON que se pasa (o la borra con DEL).
 poner_red() {
-  RED_JSON="$1" python3 - "$TMP/r/docs/agents-map.json" <<'PY'
+  local c=0
+  RED_JSON="$1" python3 - "$TMP/r/docs/agents-map.json" <<'PY' || c=$?
 import json, os, sys
 ruta = sys.argv[1]
 m = json.load(open(ruta, encoding="utf-8"))
@@ -179,8 +180,9 @@ else:
     m["red"] = json.loads(os.environ["RED_JSON"])
 open(ruta, "w", encoding="utf-8").write(json.dumps(m, ensure_ascii=False, indent=2) + "\n")
 PY
+  tap_status "$c" 0
 }
-errores_red() { check | grep '^- docs/agents-map.json: red' || true; }
+errores_red() { local o; o=$(check); grep '^- docs/agents-map.json: red' <<<"$o" || [ $? -eq 1 ]; }
 OK='{"name":"py","when":["**/test_*.py"],"run":"pytest --junitxml={out}","format":"junit","timeout":600}'
 # Una entrada inválida: check-docs informa un error de red con todos los fragmentos. Se usa como:
 # rechaza <entrada JSON> <fragmento>...; tap_check $? "id literal"
