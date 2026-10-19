@@ -96,9 +96,10 @@ if "--list" in sys.argv[1:]:
 MAPA = json.load(open("docs/agents-map.json", encoding="utf-8")) if os.path.exists("docs/agents-map.json") else {}
 IGNORAR = []
 avisos = []
-hermano_de_idioma = None  # small mode has no agents_map.py nor map: parity (the only user) is off there
-if MAPA and os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "agents_map.py")):
-    # Without agents_map.py (small mode: its map has only the `red` section) there are no paths to validate.
+hermano_de_idioma = None  # small mode has no agents_map.py and its map has only `red`: parity (the only user) is off there
+SOLO_RED = bool(MAPA) and set(MAPA) <= {"red"}  # small mode: its map has only the `red` section, so there are no paths to validate
+if MAPA and not SOLO_RED:
+    # A full map needs agents_map.py: without it this fails here, closed, and not later.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from agents_map import glob_a_regex, hermano_de_idioma  # noqa: E402
     IGNORAR = [glob_a_regex(g) for g in MAPA.get("ignore_check", [])]
@@ -272,7 +273,7 @@ if MAPA.get("parity"):
 # .github/i18n/ISSUE_TEMPLATE/<name>.es.yml (ADR-001, R-1; the rule is hermano_de_idioma() in agents_map.py). They are
 # compared by what does not carry prose: type, id, labels, required and the number of options.
 FORMS_EN, FORMS_ES = ".github/ISSUE_TEMPLATE", ".github/i18n/ISSUE_TEMPLATE"
-# hermano_de_idioma is imported at the top, with the map: small mode deletes agents_map.py and has no map, forms or parity.
+# hermano_de_idioma is imported at the top, with the map: small mode deletes agents_map.py, its map has only `red`, and it has no forms or parity.
 # One option of an inline list: a quoted string (it can carry a comma: "Yes, I did") or text up to the next comma.
 OPCION = re.compile(r"""\s*(?:"[^"]*"|'[^']*'|[^,"'][^,]*)\s*(?:,|$)""")
 
@@ -385,6 +386,8 @@ def validar_red(red):
     """Errors of the `red` section (ADR-002 D2): an array of stacks with name, when, run ({out}), format, timeout."""
     if not isinstance(red, list):
         return ["docs/agents-map.json: red must be an array of stacks (name, when, run, format, timeout), like verify (ADR-002 D2)"]
+    if not red:
+        return ["docs/agents-map.json: red is empty: red.sh rejects an empty section. Declare a stack or remove the section (ADR-002 D2)"]
     errs, nombres = [], set()
     for i, e in enumerate(red):
         if not isinstance(e, dict):
@@ -396,6 +399,8 @@ def validar_red(red):
             ref = f"red[{i}]"
         else:
             ref = f"red '{nombre}'"
+            if not re.fullmatch(r"[A-Za-z0-9._-]+", nombre):
+                errs.append(f"docs/agents-map.json: {ref}: 'name' must match [A-Za-z0-9._-]+ (letters, digits, dot, underscore, hyphen): it is part of the path of {{out}} and red.sh rejects any other")
             if nombre in nombres:
                 errs.append(f"docs/agents-map.json: {ref} appears more than once: red.sh <stack> would be ambiguous")
             nombres.add(nombre)

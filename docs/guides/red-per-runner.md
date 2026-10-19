@@ -6,7 +6,7 @@ Each entry has `name`, `when` (globs of test files), `run` (with `{out}`: `red.s
 
 ## bash (TAP)
 
-A bash test sources `scripts/agents/tap.sh` and calls `tap_check $? "literal id"` for each case; the id is a literal written in the source and what varies goes in the description. `run` must make the helper write to `{out}` through `TAP_OUT`, never redirect stdout. `run-tests.sh` stands for your own script that runs the `test-*.sh` files.
+A bash test sources `scripts/agents/tap.sh` and calls `tap_check $? "literal id"` for each case; the id is a literal written in the source and what varies goes in the description. This is the entry the kit ships in the default `docs/agents-map.json`. It runs only the `test-*.sh` files the red commit adds or changes, each one with `TAP_OUT={out}` (the helper writes there, never redirect stdout), and checks that each script wrote its `# file: <path>` line: a script that dies before it sources `tap.sh` leaves no cases, and without that check a valid failure of another script would hide it, so the entry appends `Bail out!`. If you write your own entry, keep that check.
 
 ```json
 {
@@ -15,8 +15,8 @@ A bash test sources `scripts/agents/tap.sh` and calls `tap_check $? "literal id"
     "**/test-*.sh"
   ],
   "format": "tap",
-  "run": "TAP_OUT={out} bash run-tests.sh",
-  "timeout": 600
+  "run": "rc=0; while IFS= read -r -d '' t; do TAP_OUT={out} bash \"$t\" </dev/null || rc=1; grep -qxF \"# file: $t\" {out} || echo \"Bail out! $t wrote no TAP\" >>{out}; done < <(git diff -z --name-only --diff-filter=AM HEAD^ HEAD -- ':(glob)**/test-*.sh'); exit $rc",
+  "timeout": 1800
 }
 ```
 
@@ -105,16 +105,16 @@ Install `cargo2junit`. `RUSTC_BOOTSTRAP=1` enables the JSON output on stable. `r
 
 ## cargo (nextest)
 
-Add a profile to `.config/nextest.toml`: `[profile.red.junit]` with `path = "junit.xml"`. nextest writes the report under `target/nextest/red/`, so `run` copies it to `{out}` and keeps the exit code of the tests.
+Add a profile to `.config/nextest.toml`: `[profile.red.junit]` with `path = "junit.xml"`. nextest writes the report under `target/nextest/red/`, so `run` copies it to `{out}` and keeps the exit code of the tests. The `rm -f` runs first so a failed build cannot leave a report from an earlier run to be copied. This entry is unverified: the command, the profile path and the copy step were never run here (the corpus has a handwritten nextest report only).
 
 ```json
 {
-  "name": "cargo",
+  "name": "cargo-nextest",
   "when": [
     "**/*.rs"
   ],
   "format": "junit",
-  "run": "cargo nextest run --profile red; rc=$?; cp target/nextest/red/junit.xml {out}; exit $rc",
+  "run": "rm -f target/nextest/red/junit.xml; cargo nextest run --profile red; rc=$?; cp target/nextest/red/junit.xml {out}; exit $rc",
   "timeout": 1200
 }
 ```
