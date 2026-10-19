@@ -31,7 +31,7 @@ check() {
 # check-docs sin errores de los subagentes. En un proyecto recién inicializado check-docs falla
 # igual por los TODO del mapa, así que se mira solo lo de los subagentes.
 # (only the missing Spanish sibling of the throwaway x.md is filtered: it is the parity check, not the subagent's frontmatter or contract)
-errores_agentes() { local o; o=$(check); o=$(grep -v 'x.md: missing its Spanish sibling' <<<"$o" || true); grep "$AGENTES\|subagent-contract" <<<"$o" || true; }
+errores_agentes() { local o; o=$(check); o=$(sed "\#^- $AGENTES/x\.md: missing its Spanish sibling#d" <<<"$o"); sed -nE "\#$AGENTES|subagent-contract#p" <<<"$o"; }
 sin_errores_agentes() { local o; o=$(errores_agentes); [ -z "$o" ]; }
 frontmatter() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1"; }
 
