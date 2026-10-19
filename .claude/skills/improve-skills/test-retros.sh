@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # Tests de retro.sh y signals.sh contra un remoto local (no usa GitHub).
 # Uso: bash .claude/skills/improve-skills/test-retros.sh
 set -uo pipefail
@@ -67,7 +68,7 @@ igual "$(cd "$TMP/a" && git diff --cached --name-only)" sucio.txt; tap_check $? 
 
 # Sin frontmatter obligatorio, no publica.
 printf '**Desvíos:** nada\n' >"$TMP/mal.md"
-! (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/mal.md" >/dev/null 2>&1); tap_check $? "rechaza una retro sin skill ni issue"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/mal.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "rechaza una retro sin skill ni issue"
 
 # 2. Dos retros desde clones desactualizados (y la misma skill e issue el mismo día) no se pisan.
 retro b review-pr 1 "desde b" >/dev/null 2>&1 || true
@@ -79,7 +80,7 @@ s=$(cd "$TMP/a" && "$AQUI/signals.sh" 2>&1)
 grep -q primera <<<"$s" && grep -q "desde a" <<<"$s" && grep -q "desde b" <<<"$s"; tap_check $? "signals.sh sin consolidar muestra todas"
 punta=$(sed -n 's/.*consolidate up to: \([0-9a-f]\{7,\}\).*/\1/p' <<<"$s" | head -1)
 grep -Eq '^[0-9a-f]{40}$' <<<"$punta"; tap_check $? "signals.sh imprime el commit completo para consolidar"
-(cd "$TMP/a" && "$AQUI/retro.sh" --consolidated deadbee https://example.test/pull/7 >/dev/null 2>&1); igual $? 64; tap_check $? "--consolidated rechaza un commit que no existe"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" --consolidated deadbee https://example.test/pull/7 >/dev/null 2>&1) || c=$?; tap_status "$c" 64; igual "$c" 64; tap_check $? $? "--consolidated rechaza un commit que no existe"
 (cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$punta" https://example.test/pull/7 >/dev/null 2>&1) || true
 cons=$(git --git-dir="$TMP/remoto.git" show "$RAMA:consolidated.md" 2>/dev/null)
 grep -q "^consolidated-until: $punta" <<<"$cons" && grep -q "pull/7" <<<"$cons"; tap_check $? "consolidated.md guarda hasta dónde y el PR"
@@ -91,7 +92,7 @@ grep -q "## CI failures" <<<"$s"; tap_check $? "signals.sh no falla sin gh"
 # Ruta relativa desde una subcarpeta del repo.
 mkdir -p "$TMP/a/docs"
 printf -- '---\nskill: implement-issue\nissue: 3\n---\nrelativa\n' >"$TMP/a/docs/rel.md"
-(cd "$TMP/a/docs" && ../.claude/skills/improve-skills/retro.sh rel.md >/dev/null 2>&1)
+(cd "$TMP/a/docs" && ../.claude/skills/improve-skills/retro.sh rel.md >/dev/null 2>&1) || true
 archivos | grep -q 'implement-issue-3\.md$'; tap_check $? "acepta una ruta relativa desde una subcarpeta"
 
 # review-pr sin issue: alcanza con el PR.
@@ -107,7 +108,7 @@ cat >"$TMP/shim/git" <<SH
 if [ "\$1" = push ] && [ ! -f "$TMP/carrera" ]; then
   touch "$TMP/carrera"
   printf -- '---\nskill: implement-issue\nissue: 8\n---\nintrusa\n' >"$TMP/intrusa.md"
-  (cd "$TMP/b" && PATH="$TMP/bin:\${PATH#$TMP/shim:}" "$AQUI/retro.sh" "$TMP/intrusa.md" >/dev/null 2>&1)
+  (cd "$TMP/b" && PATH="$TMP/bin:\${PATH#$TMP/shim:}" "$AQUI/retro.sh" "$TMP/intrusa.md" >/dev/null 2>&1) || true
 fi
 exec "$real" "\$@"
 SH
@@ -120,7 +121,7 @@ grep -q retrying <<<"$err"; tap_check $? "en una carrera reintenta"
 # Un push que falla por otra razón no se reintenta, muestra el error y deja la retro a mano.
 git clone -q "$TMP/remoto.git" "$TMP/c" 2>/dev/null
 (cd "$TMP/c" && git remote set-url origin "$TMP/no-existe.git")
-err=$(cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/carrera.md" 2>&1 >/dev/null); cod=$?
+cod=0; err=$(trap - ERR; cd "$TMP/c" && "$AQUI/retro.sh" "$TMP/carrera.md" 2>&1 >/dev/null) || cod=$?; tap_status "$cod" 1
 ! igual "$cod" 0 && ! grep -q retrying <<<"$err"; tap_check $? "sin acceso al remoto falla sin reintentar"
 grep -q 'no-existe' <<<"$err"; tap_check $? "muestra el error de git"
 ls "$TMP/c/.git/pending-retros/"*.md >/dev/null 2>&1; tap_check $? "deja la retro en .git/pending-retros"
@@ -139,14 +140,14 @@ git -C "$TMP/vacio" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implem
 # Revisión del PR #39.
 # --consolidated solo acepta commits de la rama de retros.
 otro=$(cd "$TMP/a" && git rev-parse HEAD)
-(cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$otro" https://example.test/pull/8 >/dev/null 2>&1); igual $? 64; tap_check $? "--consolidated rechaza un commit que no es de <RAMA>" "--consolidated rechaza un commit que no es de $RAMA"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$otro" https://example.test/pull/8 >/dev/null 2>&1) || c=$?; tap_status "$c" 64; igual "$c" 64; tap_check $? $? "--consolidated rechaza un commit que no es de <RAMA>" "--consolidated rechaza un commit que no es de $RAMA"
 
 # Frontmatter con CRLF y comillas se acepta; sin cerrar se rechaza.
 printf -- '---\r\nskill: "implement-issue"\r\nissue: 11\r\n---\r\ncrlf\r\n' >"$TMP/crlf.md"
 (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/crlf.md" >/dev/null 2>&1)
 archivos | grep -q 'implement-issue-11\.md$'; tap_check $? "acepta frontmatter con CRLF y comillas"
 printf -- '---\nskill: implement-issue\nissue: 12\nsin cierre\n' >"$TMP/abierto.md"
-! (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/abierto.md" >/dev/null 2>&1); tap_check $? "rechaza un frontmatter sin cerrar"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/abierto.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "rechaza un frontmatter sin cerrar"
 
 # Con commit.gpgSign y una firma que falla, igual guarda (la rama de retros no se firma).
 (cd "$TMP/a" && git config commit.gpgSign true && git config gpg.program false)
@@ -158,7 +159,7 @@ archivos | grep -q 'implement-issue-13\.md$'; tap_check $? "guarda aunque el rep
 # En un worktree, la pendiente queda en el .git común (sobrevive a git worktree remove).
 git -C "$TMP/c" worktree add -q "$TMP/cw" 2>/dev/null
 printf -- '---\nskill: implement-issue\nissue: 14\n---\nworktree\n' >"$TMP/wt.md"
-(cd "$TMP/cw" && "$AQUI/retro.sh" "$TMP/wt.md" >/dev/null 2>&1)
+(cd "$TMP/cw" && "$AQUI/retro.sh" "$TMP/wt.md" >/dev/null 2>&1) || true  # exits non-zero when it leaves the retro pending (no remote)
 git -C "$TMP/c" worktree remove --force "$TMP/cw" 2>/dev/null
 pend=$(find "$TMP/c/.git/pending-retros" -name "*implement-issue-14*.md" 2>/dev/null | head -1)
 grep -q . <<<"$pend"; tap_check $? "en un worktree la pendiente sobrevive a git worktree remove"
@@ -216,7 +217,7 @@ printf -- '---\nskill: orchestrate\nrun: ayer\npr: 47\n---\nmal formada\n' >"$TM
 archivos | grep -Eq 'retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-orchestrate-pr47\.md$'; tap_check $? "corrida mal formada cae al pr y la retro se nombra prN"
 
 printf -- '---\nskill: implement-issue\nrun: 20261008-1530\n---\ncorrida fuera de orquestar\n' >"$TMP/corr-ii.md"
-! (cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-ii.md" >/dev/null 2>&1); tap_check $? "run: solo vale con skill orchestrate: implement-issue sin issue ni pr se rechaza"
+c=0; (trap - ERR; cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-ii.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "run: solo vale con skill orchestrate: implement-issue sin issue ni pr se rechaza"
 
 # Campos vacíos y espacios al final (revisión de #46).
 printf -- '---\nskill: implement-issue\nissue: 61\nmodel:\nrole:\n---\nvacios\n' >"$TMP/vacios.md"
@@ -255,7 +256,7 @@ tap_check $? "el contrato dice cómo abrirla (origin/), qué hacer con el sufijo
 
 # Claves y valores viejos (0.9) en una retro pendiente: se normalizan a los nuevos y se conserva agente_sha.
 printf -- '---\nskill: orquestar\nissue: 33\nmodelo: haiku\nrol: implementador-liviano\nagente_sha: 1111111111111111111111111111111111111111\nrutas: docs/x.md\nfecha: 2026-01-02\n---\nvieja\n' >"$TMP/v1.md"
-(cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v1.md" >/dev/null 2>&1); c=$?
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/v1.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 0
 tap_check "$c" "retro.sh acepta una retro con skill: orquestar (0.9)"
 archivos | grep -Eq 'retros/[0-9-]+-orchestrate-33(-[0-9]+)?\.md$'; tap_check $? "la retro vieja se guarda como orchestrate-<n>"
 r=$(for f in $(archivos | grep -E 'orchestrate-33'); do git --git-dir="$TMP/remoto.git" show "$RAMA:$f"; done)
@@ -336,7 +337,7 @@ marca=$(git -C "$TMP/s2" rev-parse "refs/heads/$RAMA_VIEJA")
   && crear_rama "$RAMA_VIEJA" retros/2026-01-03-implement-issue-2.md '---\nskill: implement-issue\nissue: 2\n---\nposterior\n')
 s=$(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/signals.sh" 2>&1)
 grep -q posterior <<<"$s" && ! grep -q anterior <<<"$s"; tap_check $? "signals.sh respeta el consolidado.md viejo de agentes/retros"
-(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/retro.sh" --consolidated "$(git rev-parse "refs/heads/$RAMA_VIEJA")" https://example.test/pull/9 >/dev/null 2>&1)
+(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/retro.sh" --consolidated "$(git rev-parse "refs/heads/$RAMA_VIEJA")" https://example.test/pull/9 >/dev/null 2>&1) || true
 s=$(cd "$TMP/s2" && "$TMP/s2/.claude/skills/improve-skills/signals.sh" 2>&1)
 ! grep -q 'consolidate up to: ' <<<"$s"; tap_check $? "signals.sh no ofrece consolidar ramas sin retros nuevas"
 

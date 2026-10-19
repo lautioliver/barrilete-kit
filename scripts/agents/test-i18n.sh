@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 # Tests del par de idiomas X.md / X.es.md (#113): el check de paridad de check-docs.py y el aviso de agents_map.py.
 # Corre sobre una copia del repo, así no toca el working tree. Los pares son de ejemplo (el contenido real se traduce en #115).
 # Uso: bash scripts/agents/test-i18n.sh
@@ -14,11 +15,18 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=test GI
 unset BASE
 
 copia() {
-  rm -rf "$TMP/r"; mkdir -p "$TMP/r"
-  (cd "$RAIZ" && git ls-files -co --exclude-standard -z | tar --null -T - -cf -) | tar -xf - -C "$TMP/r"
+  rm -rf "$TMP/r" || true  # best effort: the copy of an earlier case may have read-only files
+  mkdir -p "$TMP/r"
+  (cd "$RAIZ" && git ls-files -co --exclude-standard -z | tar --null -T - -cf - 2>/dev/null || true) | tar -xf - -C "$TMP/r"  # a file the index lists and the tree lost only warns
   (cd "$TMP/r" && git init -q -b main && git add -A && git commit -qm base)
 }
-check() { (cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>&1); }
+check() {
+  local o c=0
+  o=$(trap - ERR; cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>&1) || c=$?
+  tap_status "$c" 1
+  tap_no_traceback "$o"
+  printf '%s\n' "$o"
+}
 # El interruptor "parity" del mapa: la plantilla lo trae prendido; los tests lo fijan en la copia según el caso.
 parity() { python3 - "$TMP/r/docs/agents-map.json" "$1" <<'PY'
 import json, sys
@@ -320,12 +328,12 @@ for orden in 1 2; do
   printf '# ADR-099 — Prueba\n\n## Status\n\nAccepted\n\nScope: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.md"
   printf '# ADR-099 — Prueba\n\n## Estado\n\nAceptado\n\nÁmbito: kit\n' >"$TMP/r/docs/decisions/ADR-099-prueba.es.md"
   # touch -t no cambia el orden de os.listdir: se fuerza el orden con un os.listdir propio (ascendente en 1, descendente en 2).
-  s=$(cd "$TMP/r" && python3 -c "
+  c=0; s=$(trap - ERR; cd "$TMP/r" && python3 -c "
 import os, runpy, sys
 real = os.listdir
 os.listdir = lambda p='.': sorted(real(p), reverse=($orden == 2))
 sys.argv = ['check-docs.py']
-runpy.run_path('scripts/agents/check-docs.py', run_name='__main__')" 2>&1)
+runpy.run_path('scripts/agents/check-docs.py', run_name='__main__')" 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
   grep -q 'Warning: .*ADR-099-prueba.md .*Scope: kit' <<<"$s" && ! grep -q 'ADR-099-prueba.es.md is missing from the index' <<<"$s" && grep -q 'ADR-099-prueba.md is missing from the index' <<<"$s"
   tap_check $? "ADR con hermano .es.md (prueba <orden>): avisa 'Scope: kit' del .md y el índice pide solo el .md" "ADR con hermano .es.md (prueba $orden): avisa 'Scope: kit' del .md y el índice pide solo el .md"
 done
@@ -410,7 +418,7 @@ grep -q 'cambió el modelo de pagos' "$TMP/r/docs/agents-map.json" && grep -q 'i
 # antes y después: lo que se compara es que el índice no agrega ningún error, que es lo que decide si el CI de docs se pone en rojo.
 copia
 rm "$TMP/r/scripts/init-template.sh"
-base=$(check | grep '^- ' | sort)
+base=$(check | grep '^- ' | sort) || true
 for indice in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do
   copia
   rm "$TMP/r/scripts/init-template.sh"
