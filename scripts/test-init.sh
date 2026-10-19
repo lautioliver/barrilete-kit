@@ -37,7 +37,7 @@ for modo in completo chico; do
   ! grep -q 'README.es.md\|lang:start' "$p/README.md"; tap_check $? "[<modo>] el README del proyecto no tiene el selector de idioma (lo borra el init)" "[$modo] el README del proyecto no tiene el selector de idioma (lo borra el init)"
   n=$(cd "$p" && git check-ignore .env .env.local scripts/agents/__pycache__ | wc -l | tr -d ' ')
   es "$n" = 3; tap_check $? "[<modo>] .env, .env.local y __pycache__ están ignorados" "[$modo] .env, .env.local y __pycache__ están ignorados"
-  c=0; (trap - ERR; cd "$p" && git check-ignore -q .env.example) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "[<modo>] .env.example no está ignorado" "[$modo] .env.example no está ignorado"
+  c=0; (trap - ERR; cd "$p" && git check-ignore -q .env.example) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? "[<modo>] .env.example no está ignorado" "[$modo] .env.example no está ignorado"
 
   echo "SECRET=x" >"$p/.env"
   if [ -f "$p/scripts/agents/verify.py" ]; then

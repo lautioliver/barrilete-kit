@@ -68,7 +68,7 @@ igual "$(cd "$TMP/a" && git diff --cached --name-only)" sucio.txt; tap_check $? 
 
 # Sin frontmatter obligatorio, no publica.
 printf '**Desvíos:** nada\n' >"$TMP/mal.md"
-c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/mal.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "rechaza una retro sin skill ni issue"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/mal.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? "rechaza una retro sin skill ni issue"
 
 # 2. Dos retros desde clones desactualizados (y la misma skill e issue el mismo día) no se pisan.
 retro b review-pr 1 "desde b" >/dev/null 2>&1 || true
@@ -80,7 +80,7 @@ s=$(cd "$TMP/a" && "$AQUI/signals.sh" 2>&1)
 grep -q primera <<<"$s" && grep -q "desde a" <<<"$s" && grep -q "desde b" <<<"$s"; tap_check $? "signals.sh sin consolidar muestra todas"
 punta=$(sed -n 's/.*consolidate up to: \([0-9a-f]\{7,\}\).*/\1/p' <<<"$s" | head -1)
 grep -Eq '^[0-9a-f]{40}$' <<<"$punta"; tap_check $? "signals.sh imprime el commit completo para consolidar"
-c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" --consolidated deadbee https://example.test/pull/7 >/dev/null 2>&1) || c=$?; tap_status "$c" 64; igual "$c" 64; tap_check $? $? "--consolidated rechaza un commit que no existe"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" --consolidated deadbee https://example.test/pull/7 >/dev/null 2>&1) || c=$?; tap_status "$c" 64; igual "$c" 64; tap_check $? "--consolidated rechaza un commit que no existe"
 (cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$punta" https://example.test/pull/7 >/dev/null 2>&1) || true
 cons=$(git --git-dir="$TMP/remoto.git" show "$RAMA:consolidated.md" 2>/dev/null)
 grep -q "^consolidated-until: $punta" <<<"$cons" && grep -q "pull/7" <<<"$cons"; tap_check $? "consolidated.md guarda hasta dónde y el PR"
@@ -140,14 +140,14 @@ git -C "$TMP/vacio" ls-tree -r --name-only "$RAMA" 2>/dev/null | grep -q 'implem
 # Revisión del PR #39.
 # --consolidated solo acepta commits de la rama de retros.
 otro=$(cd "$TMP/a" && git rev-parse HEAD)
-c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$otro" https://example.test/pull/8 >/dev/null 2>&1) || c=$?; tap_status "$c" 64; igual "$c" 64; tap_check $? $? "--consolidated rechaza un commit que no es de <RAMA>" "--consolidated rechaza un commit que no es de $RAMA"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" --consolidated "$otro" https://example.test/pull/8 >/dev/null 2>&1) || c=$?; tap_status "$c" 64; igual "$c" 64; tap_check $? "--consolidated rechaza un commit que no es de <RAMA>" "--consolidated rechaza un commit que no es de $RAMA"
 
 # Frontmatter con CRLF y comillas se acepta; sin cerrar se rechaza.
 printf -- '---\r\nskill: "implement-issue"\r\nissue: 11\r\n---\r\ncrlf\r\n' >"$TMP/crlf.md"
 (cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/crlf.md" >/dev/null 2>&1)
 archivos | grep -q 'implement-issue-11\.md$'; tap_check $? "acepta frontmatter con CRLF y comillas"
 printf -- '---\nskill: implement-issue\nissue: 12\nsin cierre\n' >"$TMP/abierto.md"
-c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/abierto.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "rechaza un frontmatter sin cerrar"
+c=0; (trap - ERR; cd "$TMP/a" && "$AQUI/retro.sh" "$TMP/abierto.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? "rechaza un frontmatter sin cerrar"
 
 # Con commit.gpgSign y una firma que falla, igual guarda (la rama de retros no se firma).
 (cd "$TMP/a" && git config commit.gpgSign true && git config gpg.program false)
@@ -217,7 +217,7 @@ printf -- '---\nskill: orchestrate\nrun: ayer\npr: 47\n---\nmal formada\n' >"$TM
 archivos | grep -Eq 'retros/[0-9]{4}-[0-9]{2}-[0-9]{2}-orchestrate-pr47\.md$'; tap_check $? "corrida mal formada cae al pr y la retro se nombra prN"
 
 printf -- '---\nskill: implement-issue\nrun: 20261008-1530\n---\ncorrida fuera de orquestar\n' >"$TMP/corr-ii.md"
-c=0; (trap - ERR; cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-ii.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? $? "run: solo vale con skill orchestrate: implement-issue sin issue ni pr se rechaza"
+c=0; (trap - ERR; cd "$TMP/g" && "$AQUI/retro.sh" "$TMP/corr-ii.md" >/dev/null 2>&1) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? "run: solo vale con skill orchestrate: implement-issue sin issue ni pr se rechaza"
 
 # Campos vacíos y espacios al final (revisión de #46).
 printf -- '---\nskill: implement-issue\nissue: 61\nmodel:\nrole:\n---\nvacios\n' >"$TMP/vacios.md"
