@@ -360,7 +360,8 @@ for combinacion in "completo main" "chico main" "completo develop" "chico develo
   # investigar si el log del CI solo dice qué archivo falló.
   rotos=""
   while read -r t; do
-    if ! salida=$(cd "$p" && bash "$t" 2>&1); then
+    c=0; salida=$(trap - ERR; cd "$p" && bash "$t" 2>&1) || c=$?; tap_status "$c" 1  # a nested test that fails is a failed case here
+    if [ "$c" -ne 0 ]; then
       rotos+="$t "
       grep -E '^FAIL|^ {7}[^ ]|fallaron' <<<"$salida" | sed "s|^|       [$modo, base $base] $t: |" || true  # no line to show is not an error
     fi

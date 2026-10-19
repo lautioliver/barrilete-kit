@@ -453,12 +453,14 @@ falta=""
 for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md .claude/skills/review-pr/SKILL.md .claude/skills/review-pr/SKILL.es.md; do
   for t in 'local x=$(prog)' 'trap - ERR' '|| true' '( prog )' '$( prog )' 'tap_status' 'tap_run' '&&'; do
     [ -f "$ROOT/$f" ] || continue  # an installed project keeps one language
+    grep -q 'tap_run' "$ROOT/$f" || continue  # the small profile has its own guides, with no red section
     grep -qF -- "$t" "$ROOT/$f" || falta="$falta $f:$t"
   done
 done
 [ -z "$falta" ]; tap_check $? "170: implement-issue and review-pr (en and es) list every form that cannot be told from a crash" "missing:${falta:- none}"
-grep -qE "forbidden|prohib" "$ROOT/.claude/skills/implement-issue/SKILL.md" && { [ ! -f "$ROOT/.claude/skills/implement-issue/SKILL.es.md" ] || grep -q "prohib" "$ROOT/.claude/skills/implement-issue/SKILL.es.md"; }; tap_check $? "170: implement-issue forbids those forms in the red commit (en and es)"
-grep -qiE "red commit adds|commit en rojo" "$ROOT/.claude/skills/review-pr/SKILL.md" && { [ ! -f "$ROOT/.claude/skills/review-pr/SKILL.es.md" ] || grep -q "commit en rojo" "$ROOT/.claude/skills/review-pr/SKILL.es.md"; }; tap_check $? "170: review-pr flags them in the lines the red commit adds (en and es)"
+forms_doc() { local f="$ROOT/.claude/skills/$1"; [ ! -f "$f" ] || ! grep -q 'tap_run' "$f" || grep -qE "$2" "$f"; }
+forms_doc implement-issue/SKILL.md "forbidden|prohib" && forms_doc implement-issue/SKILL.es.md "prohib"; tap_check $? "170: implement-issue forbids those forms in the red commit (en and es)"
+forms_doc review-pr/SKILL.md "red commit adds|commit en rojo" && forms_doc review-pr/SKILL.es.md "commit en rojo"; tap_check $? "170: review-pr flags them in the lines the red commit adds (en and es)"
 # A second status argument to tap_check takes the place of the id: it takes the second $? as the id and loses the literal one (#170).
 perdidos=""
 for s in $SCRIPTS scripts/agents/test-tap.sh; do
