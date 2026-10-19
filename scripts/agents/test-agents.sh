@@ -31,7 +31,8 @@ check() {
 # check-docs sin errores de los subagentes. En un proyecto recién inicializado check-docs falla
 # igual por los TODO del mapa, así que se mira solo lo de los subagentes.
 # (the missing Spanish sibling of a throwaway x.md is the parity check, not the subagent's frontmatter or contract)
-sin_errores_agentes() { local o; o=$(check); o=$(grep -v 'Spanish sibling' <<<"$o" || true); ! grep -q "$AGENTES\|subagent-contract" <<<"$o"; }
+errores_agentes() { local o; o=$(check); o=$(grep -v 'Spanish sibling' <<<"$o" || true); grep "$AGENTES\|subagent-contract" <<<"$o" || true; }
+sin_errores_agentes() { local o; o=$(errores_agentes); [ -z "$o" ]; }
 frontmatter() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1"; }
 
 # 1. Los tres roles existen con su modelo y herramientas acotadas.
@@ -81,6 +82,9 @@ printf -- '---\r\nname: x\r\ndescription: d\r\ntools: Read\r\nmodel: haiku\r\n--
 sin_errores_agentes; tap_check $? "check-docs acepta un subagente con fin de línea CRLF"
 printf -- '---\nname: "x"\ndescription: d\ntools: Read\nmodel: "haiku"\n---\nVer %s.\n' "$CONTRATO" >"$TMP/r/$AGENTES/x.md"
 sin_errores_agentes; tap_check $? "check-docs acepta valores entre comillas"
+printf -- '---\nname: y\ndescription: d\ntools: Read\nmodel: haiku\n---\nVer %s.\n' "$CONTRATO" >"$TMP/r/$AGENTES/y.es.md"
+errores_agentes >"$TMP/errs"; grep -q "second agent" "$TMP/errs"; tap_check $? "el filtro de sin_errores_agentes deja pasar el error de un .es.md dentro de .claude/agents"
+rm -f "$TMP/r/$AGENTES/y.es.md"
 
 # 5. En un repo con .agent-kit.json, check-docs y los listados solo miran los archivos del kit.
 copia

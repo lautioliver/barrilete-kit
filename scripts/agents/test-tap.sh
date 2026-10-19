@@ -369,6 +369,63 @@ run_tap 'if python3 -c "raise SystemExit(1)" 2>/dev/null; then tap_fail "x"; els
 tap_done' file
 has "ok 1 - else branch" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "a command in an if condition is the test's own business"
 
+# 8k. #170: what the second review of #165 still got through (each of these was a valid red with status 2).
+run_tap '[ "$(python3 /nonexistent/missing-script.py)" = 3 ]; tap_check $? "lone program in a substitution, no redirection"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a lone program in a substitution, with no redirection, emits Bail out!"
+run_tap 'python3 -c "raise SystemExit(0)" | python3 /nonexistent/missing-script.py | grep -q 3; tap_check $? "crash in the middle of a pipeline"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a crash in the middle of a pipeline emits Bail out!"
+run_tap 'out=$(python3 /nonexistent/missing-script.py); [ "$out" = 3 ]; tap_check $? "assigned substitution"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a crash in an assigned substitution emits Bail out!"
+run_tap '[ "$(cd /tmp && python3 /nonexistent/missing-script.py)" = 3 ]; tap_check $? "cd then program"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a crash after a cd in a substitution emits Bail out!"
+run_tap '[ -z "$(python3 /nonexistent/missing-script.py)" ]; tap_check $? "empty substitution"
+tap_done' file
+has_bail && nogrep '^ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a crash whose output is empty is not a pass"
+run_tap 'python3 /nonexistent/missing-script.py >/dev/null && grep -q 3 /dev/null; tap_check $? "program then grep in an and-list"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: tap_check bails out on a status 2 from the left of an and-list"
+run_tap 'tap_check 2 "status 2"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: tap_check bails out on any status other than 0 and 1"
+run_tap 'tap_check 127 "status 127"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "170: tap_check bails out on status 127"
+run_tap 'tap_check 1 "failed"
+tap_check 0 "passed"
+tap_done' file
+has "not ok 1 - failed" "$TMP/tap" && has "ok 2 - passed" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "170: tap_check still takes 0 and 1"
+run_tap 'tap_helper() { python3 -c "raise SystemExit(1)" 2>/dev/null; [ -f /nonexistent/out ]; }
+tap_helper; tap_check $? "helper named tap_"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a test function named tap_* is not exempt from the ERR trap"
+run_tap '_tap_mine() { python3 -c "raise SystemExit(1)" 2>/dev/null; [ -f /nonexistent/out ]; }
+_tap_mine; tap_check $? "helper named _tap_"
+tap_done' file
+has_bail && nogrep '^not ok' "$TMP/tap" && rc_not 0; tap_check $? "170: a test function named _tap_* is not exempt from the ERR trap"
+run_tap 'tap_run out 64 sh -c "kill -ABRT \$\$"
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "170: tap_run bails out on a signal status (128 or more) that is not the expected one"
+run_tap 'c=0; out=$(trap - ERR; sh -c "kill -SEGV \$\$") || c=$?; tap_status "$c" 64
+tap_ok "never"
+tap_done' file
+has_bail && rc_not 0; tap_check $? "170: tap_status bails out on a signal status (128 or more) that is not the expected one"
+run_tap 'tap_run out 0 sh -c "yes | head -1 >/dev/null; exit 0"
+tap_ok "reader left early"
+tap_done' file
+has "ok 1 - reader left early" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "170: a reader that leaves early (SIGPIPE, 141) is not a crash"
+run_tap 'yes | head -1 >/dev/null; tap_ok "reader of a pipeline left early"
+tap_done' file
+has "ok 1 - reader of a pipeline left early" "$TMP/tap" && nogrep '^Bail out!' "$TMP/tap"; tap_check $? "170: the left side of a pipeline that dies of SIGPIPE is allowed"
+run_tap 'python3 /nonexistent/missing-script.py 2>/dev/null
+tap_ok "never"
+tap_done' file
+nogrep 'or declare the failure expected' "$TMP/tap" && nogrep '|| true' "$TMP/tap" && has_bail; tap_check $? "170: the Bail out! message does not suggest || true"
+
 # 9. The kit's own tests use the helper (what the issue migrates).
 SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh | sort)
 n=0; sin=""
@@ -383,6 +440,22 @@ for s in $SCRIPTS scripts/agents/test-tap.sh; do
   grep -nE '(tap_(ok|fail)|tap_check [^ ]+|check \$\?) "[^"]*\$' "$ROOT/$s" | grep -vE '(tap_(ok|fail)|tap_check [^ ]+|check \$\?) "\$\{?[A-Za-z0-9_@*]+\}?"' >"$TMP/dyn" && dinamicos="$dinamicos $s:$(head -1 "$TMP/dyn" | cut -d: -f1)"
 done
 [ -z "$dinamicos" ]; check $? "the id of each case is a literal, never built at run time" "first offender:${dinamicos:- none}"
+# The forms bash cannot tell from a crash are forbidden in the red commit and reviewed (#170).
+falta=""
+for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md .claude/skills/review-pr/SKILL.md .claude/skills/review-pr/SKILL.es.md; do
+  for t in 'local x=$(prog)' 'trap - ERR' '|| true' '( prog )' 'tap_status' 'tap_run' '&&'; do
+    grep -qF -- "$t" "$ROOT/$f" || falta="$falta $f:$t"
+  done
+done
+[ -z "$falta" ]; tap_check $? "170: implement-issue and review-pr (en and es) list every form that cannot be told from a crash" "missing:${falta:- none}"
+grep -q "forbidden" "$ROOT/.claude/skills/implement-issue/SKILL.md" && grep -q "prohib" "$ROOT/.claude/skills/implement-issue/SKILL.es.md"; tap_check $? "170: implement-issue forbids those forms in the red commit (en and es)"
+grep -qi "red commit adds" "$ROOT/.claude/skills/review-pr/SKILL.md" && grep -q "commit en rojo" "$ROOT/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "170: review-pr flags them in the lines the red commit adds (en and es)"
+# A second status argument to tap_check takes the place of the id: it takes the second $? as the id and loses the literal one (#170).
+perdidos=""
+for s in $SCRIPTS scripts/agents/test-tap.sh; do
+  grep -qE 'tap_check \$\? \$\?|check \$\? \$\?' "$ROOT/$s" && perdidos="$perdidos $s"
+done
+[ -z "$perdidos" ]; tap_check $? "170: no test passes the status twice to tap_check (the second one would be the id)" "still:${perdidos:- none}"
 # tap_begin runs before any cd of the script: with a relative $0 it would resolve from the wrong folder.
 tarde=""
 for s in $SCRIPTS; do
