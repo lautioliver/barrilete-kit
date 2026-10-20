@@ -37,7 +37,7 @@ git -C <root> fetch -q origin        # only once, before launching: parallel fet
 
 `prepare.sh` validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. If it fails for an issue, do not launch it and note it for the final message.
 
-Launch the subagents in parallel, in a single message, with the Agent tool: `subagent_type` `implementer-light` (Haiku) or `implementer` (Sonnet). Without `isolation`: the worktree already exists. In the prompt: issue number, worktree path, base branch (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` in your checkout: it is the version that runs, even if the worktree has another), `skill_sha` (the same with `.claude/skills/implement-issue/SKILL.md`) and that it follows its definition. To the reviewer: PR number, the orchestrator's checkout path, `agent_sha` of `reviewer.md` and `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`). **Never more than 3 implementing at once**, counting the relaunched ones.
+Launch the subagents in parallel, in a single message, with the Agent tool: `subagent_type` `implementer-light` (Haiku) or `implementer` (Sonnet). Without `isolation`: the worktree already exists. In the prompt: issue number, worktree path, base branch (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` in your checkout: it is the version that runs, even if the worktree has another), `skill_sha` (the same with `.claude/skills/implement-issue/SKILL.md`) and that it follows its definition, and that it must **not invoke `/code-review` through the Skill tool** (a forked skill moves your checkout): it does the bug pass by hand and declares `no code-review: <reason>`. To the reviewer: PR number, the orchestrator's checkout path, `agent_sha` of `reviewer.md` and `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), and the same ban on `/code-review` through the Skill tool (it declares `no code-review: <reason>` in `review:`). **Never more than 3 implementing at once**, counting the relaunched ones.
 
 ## 4. With each result
 
@@ -65,7 +65,7 @@ After the extra round, the PR goes back to the reviewer. If it comes back with b
 
 Only one, when they have all finished:
 
-- **PRs**: link, model that did it, CI status (`gh pr checks <pr>`), the implementer's `self-review` (if `/code-review` did not run, highlight it), the reviewer's verdict and findings in one line each.
+- **PRs**: link, model that did it, CI status (`gh pr checks <pr>`), the implementer's `self-review` (if `/code-review` did not run, highlight which PRs had none: under `/orchestrate` that is expected, and the person decides whether to run it themselves), the reviewer's verdict and findings in one line each.
 - **Pending questions**: all together, with their issue, to answer in one go.
 - **Escalated and relaunched**: which issue, from which model to which and why.
 - **Decisions on blockers**: what you chose and why.

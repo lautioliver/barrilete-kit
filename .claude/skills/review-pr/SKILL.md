@@ -12,19 +12,21 @@ An agent that generates code needs another one to question it. This review is do
 ## 1. Context
 
 ```bash
-gh pr view <n>                       # title, body, labels, issue it closes
-gh pr diff <n>
-gh pr checks <n>
+cd <root> && gh pr view <n>          # title, body, labels, issue it closes
+cd <root> && gh pr diff <n>
+cd <root> && gh pr checks <n>
 cd <root> && python3 scripts/agents/agents_map.py --pr <n>
 ```
 
 `<root>` is the trusted checkout: your own session's, on the base branch (not the PR's branch), or the orchestrator's if it launched you. The reviewer always runs the kit scripts (`red.sh`, `agents_map.py`, `retro.sh`) from the trusted checkout, on the base branch. It does not run `verify.py`: CI covers it, and `verify.py` runs the `run` commands of the PR's map. It runs the PR's tests in the review worktree, at the red commit and at the tip, knowing they are PR code: this is unavoidable to check TDD. The red commit may contain tests, fixtures and stubs. It never runs any other PR code (scripts, hooks, installers).
 
+Every `gh` command carries the `cd <root> &&` (or `-R <owner>/<repo>`): a subagent's working directory may be another repo's, and `gh` would point there.
+
 Read the issue it closes (and its epic, if it has one): the review is against what was asked, not against what the PR says it does.
 
 ## 2. Code review
 
-`/code-review` is mandatory, for bugs, regressions and edge cases. Before it, `git fetch origin` (the local base may be behind and bring files into the review that are not the PR's), and run it on the PR's diff: `/code-review origin/<base>...<head>`, where `<base>` is the PR's base (`gh pr view <n> --json baseRefName -q .baseRefName`) and `<head>` its tip **by name** (the ref you fetched, such as `refs/review/<pr>-<suffix>`, or the PR branch): `HEAD` is the session's checkout, not the PR's, and the diff comes out empty. An empty diff is not a reason to skip it: fix the range. Only if the `/code-review` command does not exist in your session, do that pass by hand and say so in the review.
+`/code-review` is mandatory, for bugs, regressions and edge cases. Before it, `git fetch origin` (the local base may be behind and bring files into the review that are not the PR's), and run it on the PR's diff: `/code-review origin/<base>...<head>`, where `<base>` is the PR's base (`gh pr view <n> --json baseRefName -q .baseRefName`) and `<head>` its tip **by name** (the ref you fetched, such as `refs/review/<pr>-<suffix>`, or the PR branch): `HEAD` is the session's checkout, not the PR's, and the diff comes out empty. An empty diff is not a reason to skip it: fix the range. Only if the `/code-review` command does not exist in your session, or whoever launched you forbids invoking it (under `/orchestrate` it moves the orchestrator's checkout), do that pass by hand and say so in the review (`no code-review: <reason>`).
 
 ## 3. What is specific to the project
 
@@ -39,6 +41,8 @@ Read the issue it closes (and its epic, if it has one): the review is against wh
 | Tests (TDD)? | Do they come from the acceptance criteria? The PR brings the structured **red** block (ADR-002 D7): `red commit: <sha>` and, per stack, `stack:`, `format:` and the failing cases `- <file>::<name>`. Go back to that sha in your review worktree, never in the person's main checkout (`git switch --detach <sha>` there; if you have none, create one: `git fetch -q origin "+refs/pull/<n>/head:refs/review/<n>-<suffix>"` and `git worktree add --detach <path> refs/review/<n>-<suffix>`, with `<suffix>` picked once (`date +%Y%m%d%H%M%S`); check that `git -C <path> rev-parse HEAD` equals `gh pr view <n> --json headRefOid -q .headRefOid`, or stop and say so; when you are done, `git worktree remove <path>` and `git update-ref -d refs/review/<n>-<suffix>`), check the sha is in the PR's history and from there run `<root>/.claude/skills/implement-issue/red.sh [<stack>]` **without the `<stack>` argument** (so it runs every stack whose `when` matches, as the author did; `<stack>` is only for re-running one stack once the sets are compared) (the script and its `red` section are the trusted ones, from the base branch, never the PR's; the tests it runs are the PR's). Confirm they fail on an assertion and **compare, stack by stack, the failing cases it prints with the ones in the block, as a set** (order and repeats do not matter; a stack with no group, or a group of a stack that did not run, is a mismatch). If they do not match, it is a **to fix** finding. At the PR's tip, the tests pass. In a bash test, these forms are the places where `tap.sh` stops seeing a crash (see its header) and are **forbidden in the red commit**: `|| true`, `trap - ERR`, `local x=$(prog)`, a lone `( prog )`, a `$( prog )` or a backtick `` `prog` `` that is a single external command with no redirection (bash 3.2 never sees its crash), `tap_run` expecting 1 or 2, any `tap_status`, `tap_run` around a shell function, `sh -c`/`bash -c` or anything that runs more than one program (`tap_run out 0 setup_fn`; `tap_run` refuses a function and a plain `sh`/`bash -c` script with `;`, `&`, `|` or a newline, but not `eval f`, `builtin eval`, `env bash -c`, `bash --norc -c`, `ksh -c`, `xargs sh -c` or a backtick inside an `sh -c` script, which are forbidden too), and any program, whatever the status of its crash, to the left of `&&`/`||` or in an `if`/`while`/`!` condition. If any appears in the lines the red commit adds, it is a **to fix** finding (outside the red, in the setup of the kit's own tests, they are accepted if they are listed in the header of `tap.sh`). `tap_no_traceback` is not one of them: it only stops. A `tap_skip` in the red must not depend on the result of the code under test (the shell version is fine). Also check that no failing case of the red rests on a program that one of these forms let crash. If the PR changes the `red` section of `docs/agents-map.json`, it is a sensitive change that needs a person's approval (as CI does): validate with the base's section and say so; if the base has no `red` yet, the person decides. Without a verifiable red and without a justified `no tests:` (or `sin tests: <motivo>`), it is a **to fix** finding. |
 | Docs up to date? | `agents_map.py` flags docs **NOT MODIFIED**: did they need touching? Does the new thing contradict `architecture.md`? |
 | Conventions? | Title, labels, PR body, `Closes #n`, code conventions from AGENTS.md. |
+
+Around the TDD check: install the test dependencies in the review worktree without running PR code (`docs/guides/red-per-runner.md`: for example `npm ci --ignore-scripts` if the PR does not change `package.json` or the lock file; if it does, do not install, say so, and the TDD check stays unverified for a person to decide). To compare the block, `red.sh` leaves `pr-block.md` (the path it prints): `diff` it against the block of the PR body (`gh pr view <n> --json body -q .body | tr -d '\r'`, the red block lines), instead of by eye; the comparison by set above is what counts. A difference in the `red commit:` sha or in a group is a **to fix** finding.
 
 ## 4. Findings
 
@@ -57,6 +61,8 @@ Show the findings to the user. Publishing them on the PR is a comment visible to
 ```bash
 gh pr review <n> --comment --body-file <file>
 ```
+
+Right before returning (or publishing), read again the PR body and `cd <root> && gh pr checks <n>`: they may have changed during the review (a push, a new CI result), and the review has to be about what is there now.
 
 If another agent launched you and you cannot ask the user, do not publish: return the findings and the draft to whoever launched you, who is the one who asks for confirmation.
 
