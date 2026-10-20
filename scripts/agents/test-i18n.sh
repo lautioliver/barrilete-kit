@@ -441,7 +441,7 @@ for skill in implement-issue review-pr; do
       grep -qF -- "\`$v\`" "$f"
       tap_check $? "[<skill>, <idioma>] la guía nombra como prohibida una variante de tap_run que no rechaza" "[$skill, $idioma] falta la variante $v"
     done
-    if [ "$idioma" = en ]; then v='a backtick inside an `sh -c` script'; else v='una comilla invertida dentro de un script `sh -c`'; fi
+    if [ "$idioma" = en ]; then v='a backtick or a `$(…)` inside an `sh -c` script'; else v='una comilla invertida o un `$(…)` dentro de un script `sh -c`'; fi
     grep -qF -- "$v" "$f"
     tap_check $? "[<skill>, <idioma>] la guía nombra la comilla invertida dentro de un sh -c como prohibida" "[$skill, $idioma] falta: $v"
   done

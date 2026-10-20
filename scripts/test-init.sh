@@ -387,6 +387,7 @@ for combinacion in "completo main" "chico main" "completo develop" "chico develo
   done
   # Un test del proyecto instalado que falla o se cae corta la corrida: tap_run muestra el final de su salida
   # (las líneas FAIL) en el Bail out!, y una falla que no se repite (#77) se puede investigar con el log del CI.
+  # El primer test anidado que falla corta toda la corrida (falla cerrada, ADR-002): el tap_ok de abajo no puede fallar.
   while read -r t; do
     tap_run salida 0 bash "$p/$t"
   done < <(cd "$p" && git ls-files '*test-*.sh')
