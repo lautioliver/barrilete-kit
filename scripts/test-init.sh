@@ -189,6 +189,7 @@ for idioma in en es; do
   if grep -q "$regla" "$p/AGENTS.md" && grep -q "$regla" "$p/docs/github-naming-convention.md" && ! grep -rq "$otra" "$p/AGENTS.md" "$p/docs"; then r=0; else r=1; fi
   tap_check $r "[real completo --lang <idioma>] <BRANCH_RULE> sale en el idioma de la instalación (AGENTS.md y la convención)" "[real completo --lang $idioma] <BRANCH_RULE> sale en el idioma de la instalación (AGENTS.md y la convención)"
   # #175: con el mapa completado (sin los TODO de ejemplo), check-docs pasa entero en los dos idiomas: ningún enlace nombra un .es.md que el init borra.
+  out=""
   tap_run out 0 python3 - "$p" <<'PYEOF'
 import re, subprocess, sys
 p = sys.argv[1]
@@ -199,8 +200,10 @@ t = re.sub(r'("run": ")TODO[^"]*', r'\1true', t)
 open(mapa, "w", encoding="utf-8").write(t)
 r = subprocess.run([sys.executable, "scripts/agents/check-docs.py"], cwd=p, capture_output=True, text=True)
 print(r.stdout + r.stderr)
+# 0 y 1 son el veredicto del check; cualquier otro código (un crash) sale tal cual y el test se detiene
+sys.exit(r.returncode if r.returncode not in (0, 1) else 0)
 PYEOF
-  # shellcheck disable=SC2154  # $out lo asigna tap_run
+  tap_no_traceback "$out"
   grep -q '^Docs OK\.' <<<"$out"; tap_check $? "[real completo --lang <idioma>] check-docs pasa con el mapa completado (ningún enlace a un .es.md borrado)" "[real completo --lang $idioma] check-docs pasa con el mapa completado (ningún enlace a un .es.md borrado)"
   if [ "$idioma" = es ]; then
     grep -q 'Sos el implementador' "$p/.claude/agents/implementer.md" && grep -q '^# Implementar issue' "$p/.claude/skills/implement-issue/SKILL.md"
