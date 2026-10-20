@@ -33,7 +33,7 @@ TDD: los tests salen de los **criterios de aceptación** del issue, no del códi
 
 - **Bug** (`type:bug`) → skill `debug`: el test rojo reproduce el bug. **Schema** → skill `db-migration`: el plan con rollback va antes.
 - Si el test necesita algo que no existe (una función, un campo), agregá lo mínimo para que cargue: la firma o un stub que devuelva algo incorrecto. Nada de lógica.
-- **Dependencias:** un worktree nuevo no tiene `.venv` ni `node_modules`, y las entradas de `red` los necesitan (`.venv/bin/python`, `npx vitest`). Las instalás vos en tu worktree antes del rojo (`docs/guides/red-per-runner.es.md`), y no las commiteás (mirá `git status`).
+- **Dependencias:** un worktree nuevo no tiene `.venv` ni `node_modules`, y las entradas de `red` los necesitan (`.venv/bin/python`, `npx vitest`). Las instalás vos en tu worktree antes del rojo (`docs/guides/red-per-runner.md`), y no las commiteás (mirá `git status`).
 - **Commiteá los tests en rojo** (`test(<scope>): …`) y corrélos para tener la evidencia:
   ```bash
   .claude/skills/implement-issue/red.sh [<stack>]

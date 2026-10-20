@@ -42,7 +42,7 @@ Leé el issue que cierra (y su épica, si tiene): la revisión es contra lo que 
 | ¿Docs al día? | `agents_map.py` marca docs **NOT MODIFIED**: ¿hacía falta tocarlos? ¿Lo nuevo contradice `architecture.md`? |
 | ¿Convenciones? | Título, labels, cuerpo del PR, `Closes #n`, convenciones de código de AGENTS.md. |
 
-Alrededor de la verificación del TDD: instalá las dependencias de los tests en el worktree de revisión sin correr código del PR (`docs/guides/red-per-runner.es.md`: por ejemplo `npm ci --ignore-scripts` si el PR no cambia `package.json` ni el lock; si los cambia, no instales y decilo). Para comparar el bloque, `red.sh` deja `pr-block.md` (la ruta que imprime): hacele `diff` contra el bloque del cuerpo del PR (`gh pr view <n> --json body -q .body`, las líneas del bloque rojo), en vez de a ojo. Una diferencia en el sha de `red commit:` o en un grupo es un hallazgo **a corregir**.
+Alrededor de la verificación del TDD: instalá las dependencias de los tests en el worktree de revisión sin correr código del PR (`docs/guides/red-per-runner.md`: por ejemplo `npm ci --ignore-scripts` si el PR no cambia `package.json` ni el lock; si los cambia, no instales y decilo). Para comparar el bloque, `red.sh` deja `pr-block.md` (la ruta que imprime): hacele `diff` contra el bloque del cuerpo del PR (`gh pr view <n> --json body -q .body`, las líneas del bloque rojo), en vez de a ojo. Una diferencia en el sha de `red commit:` o en un grupo es un hallazgo **a corregir**.
 
 ## 4. Hallazgos
 
