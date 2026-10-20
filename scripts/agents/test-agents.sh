@@ -265,15 +265,19 @@ done
 for f in "$CONTRATO" "${CONTRATO%.md}.es.md" .claude/skills/orchestrate/SKILL.md .claude/skills/orchestrate/SKILL.es.md \
   .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md \
   "$AGENTES/implementer.md" "$AGENTES/implementer-light.md" .claude/i18n/agents/implementer.es.md .claude/i18n/agents/implementer-light.es.md; do
+  [ -e "$RAIZ/$f" ] || continue  # the Spanish sibling does not exist in a project installed with --lang es
   grep -q 'retro_sh' "$RAIZ/$f" 2>/dev/null; tap_check $? "<f>: nombra retro_sh (la ruta del retro.sh del checkout del orquestador)" "$f: nombra retro_sh (la ruta del retro.sh del checkout del orquestador)"
 done
 for f in .claude/skills/orchestrate/SKILL.md .claude/skills/orchestrate/SKILL.es.md; do
+  [ -e "$RAIZ/$f" ] || continue
   grep -Eq '(In the prompt|En el prompt):.*retro_sh' "$RAIZ/$f" 2>/dev/null; tap_check $? "<f>: el prompt de los implementadores incluye retro_sh" "$f: el prompt de los implementadores incluye retro_sh"
 done
 for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md; do
+  [ -e "$RAIZ/$f" ] || continue
   grep -Eq '^retro_dir=.*git -C <worktree> archive origin/<base> ' "$RAIZ/$f" 2>/dev/null; tap_check $? "<f>: sin orquestador usa el retro.sh de origin/<base> (git archive a un temporal)" "$f: sin orquestador usa el retro.sh de origin/<base> (git archive a un temporal)"
 done
 for f in "$CONTRATO" "${CONTRATO%.md}.es.md"; do
+  [ -e "$RAIZ/$f" ] || continue
   grep -Eq "(never|nunca).*(worktree's|del worktree).*retro\.sh|retro\.sh.*(never|nunca).*(worktree|PR)" "$RAIZ/$f" 2>/dev/null; tap_check $? "<f>: dice que nunca se corre el retro.sh del worktree" "$f: dice que nunca se corre el retro.sh del worktree"
 done
 

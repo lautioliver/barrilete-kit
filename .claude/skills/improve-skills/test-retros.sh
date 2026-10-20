@@ -365,7 +365,7 @@ printf '#!/usr/bin/env bash\ntouch "%s/ejecutado"\nexit 0\n' "$TMP" >"$TMP/w/.cl
 (cd "$TMP/w" && git commit -qam "retro.sh del PR")
 printf -- '---\nskill: implement-issue\nissue: 132\npr: 99\nmodel: sonnet\nrole: implementer\n---\n**Desvíos:** base\n' >"$TMP/rb.md"
 orden=$(grep -m1 '^retro_dir=.*git -C <worktree> archive origin/<base> ' "$AQUI/../implement-issue/SKILL.md" || true)
-orden=$(sed -e "s#<worktree>#$TMP/w#g; s#<base>#main#g; s#<file>#$TMP/rb.md#g" <<<"$orden")
+orden=$(sed -e "s#<worktree>#$TMP/w#g; s#<base>#main#g; s#<file>#$TMP/rb.md#g; s#<archivo.md>#$TMP/rb.md#g" <<<"$orden")
 bash -c "$orden" >"$TMP/rb.out" 2>&1
 [ ! -e "$TMP/ejecutado" ]; tap_check $? "el retro.sh modificado en el worktree no se ejecuta al guardar la retro"
 archivos | grep -q 'implement-issue-132\.md$'; tap_check $? "con el retro.sh de la rama base la retro se guarda igual"
