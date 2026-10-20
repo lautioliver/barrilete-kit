@@ -359,4 +359,22 @@ printf -- '---\nskill: implement-issue\nissue: 79\npr: 99\nmodel: sonnet\nrole: 
 c3=$(git --git-dir="$TMP/remoto.git" show "$RAMA:$(archivos | grep 'implement-issue-79\.md$')" 2>/dev/null)
 grep -q "^agent_sha: $h64\$" <<<"$c3" && grep -q "^skill_sha: $h64b\$" <<<"$c3"; tap_check $? "agent_sha y skill_sha de 64 caracteres (SHA-256) se conservan"
 
+# Guardar la retro con el retro.sh de la rama base: uno modificado en el worktree no se ejecuta (#132).
+clonar "$TMP/w"
+git -C "$TMP/w" fetch -q
+git -C "$TMP/w" reset -q --hard origin/main
+git -C "$TMP/w" switch -q -c claude/132-x
+printf '#!/usr/bin/env bash\ntouch "%s/ejecutado"\nexit 0\n' "$TMP" >"$TMP/w/.claude/skills/improve-skills/retro.sh"
+git -C "$TMP/w" commit -qam "retro.sh del PR"
+printf -- '---\nskill: implement-issue\nissue: 132\npr: 99\nmodel: sonnet\nrole: implementer\n---\n**Desvíos:** base\n' >"$TMP/rb.md"
+orden=$(sed -n '/^retro_dir=.*git -C <worktree> archive origin\/<base> /p' "$AQUI/../implement-issue/SKILL.md" | head -1)
+[ -n "$orden" ]; tap_check $? "el SKILL trae el comando para guardar la retro sin orquestador"
+orden=$(sed -e "s#<worktree>#$TMP/w#g; s#<base>#main#g; s#<file.md>#$TMP/rb.md#g; s#<archivo.md>#$TMP/rb.md#g; s#<file>#$TMP/rb.md#g" <<<"$orden")
+printf '%s\n' "$orden" >"$TMP/orden.sh"
+# El caso bajo prueba es justamente esa línea documentada (fetch, archive, tar, cd, retro.sh): corre varios programas a propósito,
+# y tap_run recibe el script como un solo programa (no un sh -c).
+tap_run out 0 bash "$TMP/orden.sh"
+[ ! -e "$TMP/ejecutado" ]; tap_check $? "el retro.sh modificado en el worktree no se ejecuta al guardar la retro"
+archivos | grep -q 'implement-issue-132\.md$'; tap_check $? "con el retro.sh de la rama base la retro se guarda igual"
+
 tap_done

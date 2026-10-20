@@ -192,7 +192,7 @@ else
 fi
 # install.py is for repos that do not have the kit yet; a project with it uses update.py.
 rm -- scripts/init-template.sh scripts/test-init.sh scripts/test-renames.sh scripts/install.py scripts/test-install.sh  # only make sense with the template
-rm -f scripts/test-update.sh  # builds template versions: it needs the init
+rm -f scripts/test-update.sh scripts/test-update-prep.sh  # builds template versions: it needs the init
 rm -f scripts/agents/test-i18n.sh  # tests the kit's own docs (it assumes the template content)
 # The template version stays in .agent-kit.json; VERSION and CHANGELOG.md belong to the template.
 V=$(cat VERSION 2>/dev/null || true)

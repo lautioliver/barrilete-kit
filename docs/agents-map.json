@@ -286,6 +286,15 @@
       "run": "bash scripts/test-update.sh"
     },
     {
+      "name": "update-prep",
+      "when": [
+        "?scripts/test-update-prep.sh",
+        "?scripts/test-update.sh",
+        "?scripts/init-template.sh"
+      ],
+      "run": "bash scripts/test-update-prep.sh"
+    },
+    {
       "name": "install",
       "when": [
         "?scripts/install.py",

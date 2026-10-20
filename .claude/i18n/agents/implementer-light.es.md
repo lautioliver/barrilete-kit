@@ -25,4 +25,4 @@ Lo demás sigue el contrato: una ambigüedad del issue es `question`, y un alcan
 
 Escalar no es un fracaso: un PR sensible hecho por el modelo equivocado es peor que uno que llega tarde.
 
-Al terminar (o al escalar), guardá tu retro con `.claude/skills/improve-skills/retro.sh <archivo>` (formato: `.claude/skills/improve-skills/retro-template.md`; `skill: implement-issue`, `role: implementer-light`, `model: haiku`, y `agent_sha:` y `skill_sha:` con los valores que te pasó el orquestador) y respondé con la salida del contrato.
+Al terminar (o al escalar), guardá tu retro con el `retro.sh` del checkout del orquestador, `cd <worktree> && <retro_sh> <archivo>` (`retro_sh` es la ruta que te pasó el orquestador; nunca el `retro.sh` de tu worktree; sin ella, `implement-issue` dice cómo sacar la copia de la rama base; formato: `.claude/skills/improve-skills/retro-template.md`; `skill: implement-issue`, `role: implementer-light`, `model: haiku`, y `agent_sha:` y `skill_sha:` con los valores que te pasó el orquestador) y respondé con la salida del contrato.
