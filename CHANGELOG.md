@@ -6,6 +6,8 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 ## [Sin publicar]
 
+- **La línea del flujo en la terminal** (#181). `scripts/agents/flow.py` dice en una línea en qué paso está la rama (`plan ● ─ ▸implement ─ review ─ ● merge   #42 · no PR yet`). El paso sale de la rama, del PR y del label `status:blocked`, con 30 s de caché y refresco en segundo plano para que el prompt no espere a la red. No depende del agente: va en la status line de Claude Code (`--statusline`), en el prompt de zsh o bash, en la barra de tmux (Codex CLI o cualquier agente) y en un panel con `--watch` (Cursor, VS Code, cualquier ADE), y sale en JSON para una extensión. `init-template.sh` pregunta si activarla en la status line de Claude Code (o `--flow-line` / `--no-flow-line`), lo registra como `flow_line` en `.agent-kit.json`, y `update.py`, `grow.py` e `install.py` lo respetan. En la plantilla, la línea lleva la carita de Barrilete del estado: `(● ●)`, `(• • •)`, `(✕ ✕)` o `(^ ^)`, y grande en `--watch`. En los proyectos no aparece, como el resto de la marca. Guía: `docs/guides/flow-line.md`.
+
 ## [1.0.0] - 2026-10-19
 
 Primera versión estable (#91). Los controles ya no dependen solo del prompt: barandas con hooks, un rojo que se valida con un reporte estructurado (JUnit o TAP) y que el revisor vuelve a correr desde su checkout confiable (ADR-002), actualizaciones con `update.py`, instalación en proyectos existentes y todo en inglés con su versión en español (ADR-001). Probada de punta a punta en `en` y en `es` (#115, #155). Trae rupturas respecto de 0.9: leé las entradas marcadas **Ruptura** y la tabla de renombres antes de actualizar.
