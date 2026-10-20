@@ -385,18 +385,12 @@ for combinacion in "completo main" "chico main" "completo develop" "chico develo
     grep -qxF "    branches: $esperado" "$p/.github/workflows/$w.yml" && ! grep -q 'for the template itself' "$p/.github/workflows/$w.yml"
     tap_check $? "[<modo>, base <base>] <w>.yml corre en los pushes a <esperado>" "[$modo, base $base] $w.yml corre en los pushes a $esperado"
   done
-  # Si uno falla, se muestran sus líneas FAIL: una falla que no se repite (#77) no se puede
-  # investigar si el log del CI solo dice qué archivo falló.
-  rotos=""
+  # Un test del proyecto instalado que falla o se cae corta la corrida: tap_run muestra el final de su salida
+  # (las líneas FAIL) en el Bail out!, y una falla que no se repite (#77) se puede investigar con el log del CI.
   while read -r t; do
-    c=0
-    salida=$(trap - ERR; cd "$p" && bash "$t" 2>&1) || c=$?  # a test that fails is reported below, it is not a crash of this one
-    if [ "$c" -ne 0 ]; then
-      rotos+="$t "
-      grep -E '^FAIL|^ {7}[^ ]|fallaron' <<<"$salida" | sed "s|^|       [$modo, base $base] $t: |" || true  # no line to show is not an error
-    fi
+    tap_run salida 0 bash "$p/$t"
   done < <(cd "$p" && git ls-files '*test-*.sh')
-  es -z "$rotos"; tap_check $? "[<modo>, base <base>] los test-*.sh del proyecto instalado pasan todos<rotos>" "[$modo, base $base] los test-*.sh del proyecto instalado pasan todos${rotos:+ (fallan: $rotos)}"
+  tap_ok "[<modo>, base <base>] los test-*.sh del proyecto instalado pasan todos" "[$modo, base $base] los test-*.sh del proyecto instalado pasan todos"
 done
 
 # check-docs.py falla si AGENTS.md dice que algo está ignorado y no lo está.

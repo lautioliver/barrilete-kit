@@ -57,7 +57,9 @@
 #     "||" (bash 3.2 still calls the trap inside a substitution), so the crash is hidden: use tap_run;
 #   - tap_run around a shell function, "sh -c" or "bash -c" with several commands, or anything that runs more than one
 #     program ("tap_run out 0 setup_fn"): tap_run turns the ERR trap off, so a crash before the last command is hidden.
-#     tap_run refuses a function and an sh/bash -c script with ; & | or a newline; the safe form is a single program;
+#     tap_run refuses a function and a plain sh/bash -c script with ; & | or a newline; the safe form is a single program.
+#     It does not see eval f, builtin eval, env bash -c, bash --norc -c, ksh -c, xargs sh -c or a backtick inside an sh -c
+#     script (a crash with status 2 is a valid red there on bash 3.2): they are forbidden too (#173);
 #   - a failure in the middle of "a && b" or "a || b", and in a condition (if, while, "!"), whatever the status of the
 #     crash: bash does not call the trap, and "|| c=$?", "|| :" or "!" consume the status. Only "a && b; tap_check $?"
 #     passes the status on, and tap_check bails out on any status other than 0 and 1 (a status 1, a traceback, is not seen);
@@ -300,7 +302,7 @@ tap_run() {
   printf -v "$__var" '%s' "$__out"
   [ "$TAP_RC" -eq "$__want" ] && return 0
   if _tap_crash_status "$TAP_RC"; then
-    _tap_crash "unexpected status $TAP_RC from $(_tap_flat "$*") (expected $__want): a crash cannot be told from a failed case"
+    _tap_crash "unexpected status $TAP_RC from $(_tap_flat "$*") (expected $__want): a crash cannot be told from a failed case. End of its output: $(_tap_flat "${__out: -600}")"
   fi
   return 0
 }
