@@ -285,6 +285,7 @@ done
 for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md; do
   [ -e "$RAIZ/$f" ] || continue
   ! grep -q '^``` ' "$RAIZ/$f"; tap_check $? "<f>: el cierre del bloque de código de la retro está solo en su línea" "$f: el cierre del bloque de código de la retro está solo en su línea"
+  # shellcheck disable=SC2016  # the backticks are part of the regex, not an expansion
   ! grep -Eq '`retro\.sh` (with no arguments|sin argumentos)' "$RAIZ/$f"; tap_check $? "<f>: no manda a correr retro.sh sin argumentos (sería el del worktree)" "$f: no manda a correr retro.sh sin argumentos (sería el del worktree)"
   grep -Eq '^retro_dir=.*git -C <worktree> fetch -q origin <base> && ' "$RAIZ/$f"; tap_check $? "<f>: el comando sin orquestador trae origin/<base> antes del archive" "$f: el comando sin orquestador trae origin/<base> antes del archive"
   grep -Eq 'git archive. (command )?fails|el comando .git archive. falla' "$RAIZ/$f"; tap_check $? "<f>: dice qué hacer si el git archive falla" "$f: dice qué hacer si el git archive falla"
