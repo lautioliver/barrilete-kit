@@ -523,4 +523,14 @@ for s in $SCRIPTS; do
 done
 [ -z "$tarde" ]; check $? "tap_begin comes before the first cd of each test" "after the cd:${tarde:- none}"
 
+# 8m. #173: the Bail out! of tap_run shows what the program printed, FAIL lines first (a nested test that fails).
+run_tap 'tap_run out 0 python3 -c "print(\"short-mark\" + \"er-out\"); raise SystemExit(1)"
+tap_ok "never"
+tap_done' file
+grep -q '^Bail out!.*short-marker-out' "$TMP/tap"; tap_check $? "173: the Bail out! of tap_run includes a short output of the program"
+run_tap 'tap_run out 0 python3 -c "print(\"FAIL - early \" + \"id\\n       early \" + \"detail\\n\" + \"ok filler\\n\" * 200); raise SystemExit(1)"
+tap_ok "never"
+tap_done' file
+grep -q '^Bail out!.*FAIL - early id.*early detail' "$TMP/tap"; tap_check $? "173: the Bail out! of tap_run includes the FAIL lines of a long output, not only its end"
+
 tap_done

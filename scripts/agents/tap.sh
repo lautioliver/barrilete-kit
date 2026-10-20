@@ -57,7 +57,10 @@
 #     "||" (bash 3.2 still calls the trap inside a substitution), so the crash is hidden: use tap_run;
 #   - tap_run around a shell function, "sh -c" or "bash -c" with several commands, or anything that runs more than one
 #     program ("tap_run out 0 setup_fn"): tap_run turns the ERR trap off, so a crash before the last command is hidden.
-#     tap_run refuses a function and an sh/bash -c script with ; & | or a newline; the safe form is a single program;
+#     tap_run refuses a function and a plain sh/bash -c script with ; & | or a newline; the safe form is a single program.
+#     It does not see, for example, eval f, builtin eval, command eval, env bash -c, bash --norc -c, ksh -c, nice sh -c,
+#     xargs sh -c, a backtick or a $(...) inside an sh -c script, or any other wrapper or substitution that runs more than
+#     one program (a crash with status 2 is a valid red there on bash 3.2): they are forbidden too (#173);
 #   - a failure in the middle of "a && b" or "a || b", and in a condition (if, while, "!"), whatever the status of the
 #     crash: bash does not call the trap, and "|| c=$?", "|| :" or "!" consume the status. Only "a && b; tap_check $?"
 #     passes the status on, and tap_check bails out on any status other than 0 and 1 (a status 1, a traceback, is not seen);
@@ -282,6 +285,23 @@ _tap_crash_status() {
   [ "$1" -ge 128 ] 2>/dev/null
 }
 
+# Usage: _tap_out_detail <output>: what to show of a program's output in a Bail out!: its FAIL lines (and their indented
+# detail lines) if it has any, the first 20; else its last 10 lines. It cuts on line boundaries.
+_tap_out_detail() {
+  local line n=0 kept=0 fails="" lines=() start i
+  while IFS= read -r line; do
+    lines[n]=$line
+    n=$((n + 1))
+    case $line in
+      FAIL*|"       "[!\ ]*) if [ "$kept" -lt 20 ]; then fails="$fails$line"$'\n'; kept=$((kept + 1)); fi ;;
+    esac
+  done <<<"$1"
+  if [ "$kept" -gt 0 ]; then printf '%s' "$fails"; return 0; fi
+  start=0
+  if [ "$n" -gt 10 ]; then start=$((n - 10)); fi
+  for ((i = start; i < n; i++)); do printf '%s\n' "${lines[$i]}"; done
+}
+
 # Usage: tap_run <var> <expected status> <command> [args]: runs a program that is expected to fail (or to succeed),
 # with its output in $var (stdout and stderr) and its status in $TAP_RC. It does not trip the ERR trap, since
 # the test says what status it expects: a status that is not that one and is 1, 2, 126, 127 or 128 or more is what a crash gives, so
@@ -300,7 +320,7 @@ tap_run() {
   printf -v "$__var" '%s' "$__out"
   [ "$TAP_RC" -eq "$__want" ] && return 0
   if _tap_crash_status "$TAP_RC"; then
-    _tap_crash "unexpected status $TAP_RC from $(_tap_flat "$*") (expected $__want): a crash cannot be told from a failed case"
+    _tap_crash "unexpected status $TAP_RC from $(_tap_flat "$*") (expected $__want): a crash cannot be told from a failed case. Its output: $(_tap_flat "$(_tap_out_detail "$__out")")"
   fi
   return 0
 }
