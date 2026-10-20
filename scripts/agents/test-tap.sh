@@ -3,7 +3,6 @@
 # the output file out of the test's reach, and that the kit's own tests use it.
 # Usage: bash scripts/agents/test-tap.sh
 # shellcheck disable=SC2016  # the scripts under test are written in single quotes on purpose
-# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-tap-XXXXXX")" && pwd -P)
@@ -553,13 +552,13 @@ if [ -f "$ROOT/scripts/install.py" ] && [ -f "$ROOT/scripts/test-install.sh" ]; 
     '    sys.exit(1)' \
     'sys.argv[0] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "install-real.py")' \
     'runpy.run_path(sys.argv[0], run_name="__main__")' >"$FAKE/scripts/install.py"
-  printf '#!/usr/bin/env bash\nbash "$1"\nexit 0\n' >"$TMP/runner.sh"
+  printf '#!/usr/bin/env bash\nbash "$1"\necho $? >"$2"\nexit 0\n' >"$TMP/runner.sh"
   out=""
-  tap_run out 0 env STUB_FAIL=--draft bash "$TMP/runner.sh" "$FAKE/scripts/test-install.sh"
-  grep -q '^Bail out!.*STUB-OUT---draft' <<<"$out"
+  tap_run out 0 env STUB_FAIL=--draft bash "$TMP/runner.sh" "$FAKE/scripts/test-install.sh" "$TMP/nested-rc"
+  grep -q '^Bail out!.*STUB-OUT---draft' <<<"$out" && [ "$(<"$TMP/nested-rc")" = 1 ]
   tap_check $? "182: test-install.sh shows the output of install.py when the --draft case fails" "nested run: $(tail -c 300 <<<"$out")"
-  tap_run out 0 env STUB_FAIL=usuario-grow-ref bash "$TMP/runner.sh" "$FAKE/scripts/test-install.sh"
-  grep -q '^Bail out!.*STUB-OUT-usuario-grow-ref' <<<"$out"
+  tap_run out 0 env STUB_FAIL=usuario-grow-ref bash "$TMP/runner.sh" "$FAKE/scripts/test-install.sh" "$TMP/nested-rc"
+  grep -q '^Bail out!.*STUB-OUT-usuario-grow-ref' <<<"$out" && [ "$(<"$TMP/nested-rc")" = 1 ]
   tap_check $? "139: test-install.sh shows the output of install.py when a preparation install fails" "nested run: $(tail -c 300 <<<"$out")"
   # A nested run is a whole test-install.sh (minutes), so only the draft case (#182) and the preparation install of the grow.py
   # case (#139) run. The rest are looked at in the source: an install.py call that is not one of the expected-to-fail
@@ -567,8 +566,8 @@ if [ -f "$ROOT/scripts/install.py" ] && [ -f "$ROOT/scripts/test-install.sh" ]; 
   # Usage: install_offenders <test file> <out file>: the lines of the test that call install.py (or the instalar wrapper) in a
   # way that can hide its output. It ends with 0 on purpose: the last grep ends with 1 when it finds nothing.
   install_offenders() {
-    grep -n 'install\.py' "$1" >"$2.all"
-    grep -vE 'tap_run|tap_status "\$c" 1|^[0-9]+:(#|instalar\(\)|.*(\[ -e|rm -f|cd "\$P5"))' "$2.all" >"$2"
+    grep -nE 'install\.py|instalar Demo' "$1" >"$2.all"
+    grep -vE 'tap_run|tap_status "\$c" 1|^[0-9]+:(#|instalar\(\)|! \[ -e "\$U/scripts/install\.py"|  cd "\$P5" && rm -f scripts/install\.py)' "$2.all" >"$2"
     return 0
   }
   install_offenders "$ROOT/scripts/test-install.sh" "$TMP/offenders"

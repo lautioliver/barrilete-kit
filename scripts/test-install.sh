@@ -355,6 +355,7 @@ grep -q 'withheld\|not installed' <<<"$s"; tap_check $? "el resumen nombra lo qu
 (cd "$U9" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 cd "$U10" || exit 1
 tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" -- --small
+es "$TAP_RC" -eq 0; tap_check $? "la instalación de preparación de usuario-ref-chico sale con 0"
 cd "$TMP" || exit 1
 (cd "$U10" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 c=0; s=$(trap - ERR; cd "$U9" && python3 scripts/update.py --template "$P5" 2>&1) || c=$?; tap_status "$c" 1
@@ -390,6 +391,7 @@ mkdir -p "$P6"
 U12="$TMP/usuario-grow-ref"; (repo "$U12") >/dev/null 2>&1
 cd "$U12" || exit 1
 tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P6" -- --small
+es "$TAP_RC" -eq 0; tap_check $? "la instalación de preparación de usuario-grow-ref sale con 0"
 cd "$TMP" || exit 1
 (cd "$U12" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 (
@@ -419,6 +421,7 @@ tap_check $? "grow.py + update.py: con un tag que sí contiene C, update.py vuel
 U13="$TMP/usuario-ref-ajeno"; (repo "$U13") >/dev/null 2>&1
 cd "$U13" || exit 1
 tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+es "$TAP_RC" -eq 0; tap_check $? "la instalación de preparación de usuario-ref-ajeno sale con 0"
 cd "$TMP" || exit 1
 (cd "$U13" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 REF13=$(python3 -c "import json; print(json.load(open('$U13/.agent-kit.json'))['ref'])")

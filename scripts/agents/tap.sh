@@ -70,6 +70,11 @@
 #     example "[ \"$(python3 missing.py)\" = 3 ]" or "[ -z \"`prog`\" ]") is a failed assertion or even a pass. Bash 5
 #     forks and sees it. A redirection ("$(prog 2>/dev/null)") or a second command forces the fork on 3.2 too.
 #
+# The one accepted way to look at a nested test that ends with a Bail out! (#182): a runner script that ends with 0 and
+# saves the nested status ("bash \"$1\"; echo $? >\"$2\"; exit 0"), run as "tap_run out 0 bash runner.sh nested.sh rc-file". The case then
+# checks a marker that only the code under test prints in "$out" and the saved status. Do not use it to hide the status
+# of a program: tap_run on a single program, expecting 0, is still the rule.
+#
 # A test runs in the same shell as this file, so it could still read _TAP_PATH or write to fd 8: it is
 # not a sandbox, only a path that the test has no reason to touch.
 
