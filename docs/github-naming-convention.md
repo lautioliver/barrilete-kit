@@ -124,6 +124,8 @@ TODO: `<scope-1>`, `<scope-2>`, `db`, `api`, `docs`
 
 > Rule: if a change touches several scopes, omit the scope or split it into several commits.
 
+> While the list above still has its `TODO:`, the only valid scopes are `db`, `api` and `docs`; for anything else, omit the scope.
+
 ### Additional rules
 - Description in the imperative, lowercase, no final period, ≤ 72 characters.
 - One commit = one logical change.

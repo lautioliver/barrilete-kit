@@ -119,6 +119,10 @@ Agregá un perfil a `.config/nextest.toml`: `[profile.red.junit]` con `path = "j
 }
 ```
 
+## Dependencias en un worktree nuevo
+
+Un worktree nuevo no tiene `.venv` ni `node_modules`, y las entradas de arriba los necesitan (`.venv/bin/python`, `npx vitest`). El **implementador** los instala en su worktree antes del rojo (`python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`, `npm ci`). El **revisor** los instala en su worktree de revisión sin correr código del PR: `npm ci --ignore-scripts` (solo si el PR no cambia `package.json` ni el lock; si los cambia, no instala y lo dice), y la misma idea en otros runners (sin hooks de instalación). Nunca corre el instalador ni los scripts del propio PR.
+
 ## Comprobarlo
 
 Corré `python3 scripts/agents/check-docs.py` para validar la sección, después commiteá un test que falla y corré `.claude/skills/implement-issue/red.sh [<stack>]`: el código 0 es un rojo válido.

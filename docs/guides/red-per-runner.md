@@ -119,6 +119,10 @@ Add a profile to `.config/nextest.toml`: `[profile.red.junit]` with `path = "jun
 }
 ```
 
+## Dependencies in a fresh worktree
+
+A new worktree has no `.venv` or `node_modules`, and the entries above need them (`.venv/bin/python`, `npx vitest`). The **implementer** installs them in its worktree before the red (`python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`, `npm ci`). The **reviewer** installs them in its review worktree without running PR code: `npm ci --ignore-scripts` (only if the PR does not change `package.json` or the lock file; if it does, it does not install and says so), and the same idea for other runners (no install hooks). Never run the PR's own installer or scripts.
+
 ## Check it
 
 Run `python3 scripts/agents/check-docs.py` to validate the section, then commit a failing test and run `.claude/skills/implement-issue/red.sh [<stack>]`: exit 0 is a valid red.

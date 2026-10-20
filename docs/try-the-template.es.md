@@ -28,6 +28,10 @@ Hacelos en orden y anotá qué pasó en cada uno. Si algo no anda, no lo arregle
 8. **Merge:** lo hacés vos.
 9. **Si te queda tiempo:** `/orchestrate` con dos o tres issues (modo completo, Claude Code), o repetí los pasos 5 a 7 en otra herramienta.
 
+## Si el CI no arranca
+
+Síntoma en el paso 1 o 2: ni el push a `main` ni los PRs disparan los workflows (solo corre `workflow_dispatch`). Se vio en repos creados desde la plantilla. Lo que lo destrabó: pushear una rama que cambie un archivo de `.github/workflows/` (aunque sea un comentario) y abrir un PR desde ella. Anotalo si te pasa: es un dato.
+
 ## Qué anotar
 
 - **Dónde te trabaste:** el paso, qué hiciste y el error textual.

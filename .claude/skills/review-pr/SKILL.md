@@ -12,13 +12,15 @@ An agent that generates code needs another one to question it. This review is do
 ## 1. Context
 
 ```bash
-gh pr view <n>                       # title, body, labels, issue it closes
-gh pr diff <n>
-gh pr checks <n>
+cd <root> && gh pr view <n>          # title, body, labels, issue it closes
+cd <root> && gh pr diff <n>
+cd <root> && gh pr checks <n>
 cd <root> && python3 scripts/agents/agents_map.py --pr <n>
 ```
 
 `<root>` is the trusted checkout: your own session's, on the base branch (not the PR's branch), or the orchestrator's if it launched you. The reviewer always runs the kit scripts (`red.sh`, `agents_map.py`, `retro.sh`) from the trusted checkout, on the base branch. It does not run `verify.py`: CI covers it, and `verify.py` runs the `run` commands of the PR's map. It runs the PR's tests in the review worktree, at the red commit and at the tip, knowing they are PR code: this is unavoidable to check TDD. The red commit may contain tests, fixtures and stubs. It never runs any other PR code (scripts, hooks, installers).
+
+Every `gh` command carries the `cd <root> &&` (or `-R <owner>/<repo>`): a subagent's working directory may be another repo's, and `gh` would point there.
 
 Read the issue it closes (and its epic, if it has one): the review is against what was asked, not against what the PR says it does.
 
@@ -40,6 +42,8 @@ Read the issue it closes (and its epic, if it has one): the review is against wh
 | Docs up to date? | `agents_map.py` flags docs **NOT MODIFIED**: did they need touching? Does the new thing contradict `architecture.md`? |
 | Conventions? | Title, labels, PR body, `Closes #n`, code conventions from AGENTS.md. |
 
+Around the TDD check: install the test dependencies in the review worktree without running PR code (`docs/guides/red-per-runner.md`: for example `npm ci --ignore-scripts` if the PR does not change `package.json` or the lock file; if it does, do not install and say so). To compare the block, `red.sh` leaves `pr-block.md` (the path it prints): `diff` it against the block of the PR body (`gh pr view <n> --json body -q .body`, the red block lines), instead of by eye. A difference in the `red commit:` sha or in a group is a **to fix** finding.
+
 ## 4. Findings
 
 Each finding with: **file:line**, what is wrong, why it matters (what fails and when), and a suggestion. Classify them:
@@ -57,6 +61,8 @@ Show the findings to the user. Publishing them on the PR is a comment visible to
 ```bash
 gh pr review <n> --comment --body-file <file>
 ```
+
+Right before returning (or publishing), read again the PR body and `cd <root> && gh pr checks <n>`: they may have changed during the review (a push, a new CI result), and the review has to be about what is there now.
 
 If another agent launched you and you cannot ask the user, do not publish: return the findings and the draft to whoever launched you, who is the one who asks for confirmation.
 

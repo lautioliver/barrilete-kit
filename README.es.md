@@ -88,6 +88,9 @@ Plantilla de repo para trabajar con agentes de código **sin perder el control**
 > [!IMPORTANT]
 > El check de docs falla a propósito mientras queden rutas `TODO/` en `docs/agents-map.json`: con rutas de ejemplo, un agente nunca detectaría que tocó algo sensible. Las rutas con `?` adelante son alternativas de stack opcionales; las propias van sin `?`, así el check falla si dejan de existir.
 
+> [!TIP]
+> **¿El CI no arranca en el repo nuevo?** Síntoma: ni el push a `main` ni los PRs disparan los workflows (solo corre `workflow_dispatch`). Pasa en repos creados desde una plantilla. Lo que lo destrabó: pushear una rama que cambie un archivo de `.github/workflows/` (aunque sea un comentario) y abrir un PR desde ella; desde ahí los workflows corren.
+
 ### 📥 Sumar a un proyecto existente
 
 ¿Ya tenés un repo? El instalador suma el kit sin pisar tus archivos. Corrilo desde la raíz del proyecto, con el working tree limpio:
