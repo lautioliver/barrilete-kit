@@ -13,9 +13,21 @@ tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
 
-# Un paso de preparación (git, el init del proyecto): corre <comando> en <dir>, guarda su salida en <dir>.prep.log
-# y, si falla, dice qué comando falló y muestra esa salida. No corta el test: los checks que siguen fallan solos.
-prep() { : >"$1.prep.log"; }
+# Un paso de preparación (git, el init del proyecto): corre <comando> en <dir> y guarda su salida en <dir>.prep.log.
+# Si falla, dice qué comando falló y con qué estado, muestra su salida y salta los pasos que siguen en ese <dir>.
+# No corta el test: los checks que siguen fallan solos, y ahora el log dice por qué.
+prep() {
+  local dir=$1 st=0
+  shift
+  [ -e "$dir.prep.failed" ] && return 0
+  (cd "$dir" && "$@") >"$dir.prep.step" 2>&1 || st=$?
+  cat "$dir.prep.step" >>"$dir.prep.log"
+  if [ "$st" -ne 0 ]; then
+    : >"$dir.prep.failed"
+    { echo "prep: falló (estado $st): $* en $dir"; sed 's/^/  | /' "$dir.prep.step"; } >&2
+  fi
+  return 0
+}
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 
@@ -71,8 +83,12 @@ proyecto() {
   git -C "$P" archive "$ref" | tar -xf - -C "$dir"
   local extra=(); [ "$modo" = chico ] && extra=(--small)
   [ -n "$idioma" ] && extra+=(--lang "$idioma")
-  (cd "$dir" && git init -q -b main && git add -A && git commit -qm plantilla \
-    && ./scripts/init-template.sh Demo main ${extra[@]+"${extra[@]}"} && git add -A && git commit -qm init) >/dev/null 2>&1
+  prep "$dir" git init -q -b main
+  prep "$dir" git add -A
+  prep "$dir" git commit -qm plantilla
+  prep "$dir" ./scripts/init-template.sh Demo main ${extra[@]+"${extra[@]}"}
+  prep "$dir" git add -A
+  prep "$dir" git commit -qm init
 }
 
 D="$TMP/completo"
@@ -278,15 +294,19 @@ CHICO=""; POS=()
 for a in "$@"; do case "$a" in --chico) CHICO=1 ;; *) POS+=("$a") ;; esac; done
 export P="${POS[0]}" B="${POS[1]:-main}" F=${AGENT_KIT_FECHA:-2026-01-01} R="regla" MODO_KIT=$([ -n "$CHICO" ] && echo chico || echo completo)
 cd "$(git rev-parse --show-toplevel)"
+LISTA=$(mktemp "${TMPDIR:-/tmp}/init09-lista-XXXXXX")   # fuera del proyecto: no entra en lo que se copia, borra ni registra
+trap 'rm -f "$LISTA"' EXIT
 if [ -n "$CHICO" ]; then
-  (cd perfiles/chico && find . -type f ! -name BORRAR) | while read -r f; do mkdir -p "$(dirname "$f")"; cp "perfiles/chico/$f" "$f"; done
+  (cd perfiles/chico && find . -type f ! -name BORRAR) >"$LISTA"
+  while read -r f; do mkdir -p "$(dirname "$f")"; cp "perfiles/chico/$f" "$f"; done <"$LISTA"
   rm -rf .claude/skills/review-pr .claude/skills/orquestar
 fi
 rm -rf perfiles .github/marca docs/probar-la-plantilla.md .github/ISSUE_TEMPLATE/5-prueba.yml docs/decisions/ADR-001-*
-{ find . -name '*.es.md' -not -path './.git/*'; } | while read -r f; do rm -f -- "$f"; done
+find . -name '*.es.md' -not -path './.git/*' >"$LISTA"
+while read -r f; do rm -f -- "$f"; done <"$LISTA"
 [ -z "$CHICO" ] && rm -f scripts/crecer.py
-{ grep -rlE '<PROJECT>|<BASE_BRANCH>|<DATE>|<BRANCH_RULE>' --exclude-dir=.git . || true; } \
-  | xargs perl -pi -e 's/<PROJECT>/$ENV{P}/g; s/<BASE_BRANCH>/$ENV{B}/g; s/<DATE>/$ENV{F}/g; s/<BRANCH_RULE>/$ENV{R}/g'
+{ grep -rlE '<PROJECT>|<BASE_BRANCH>|<DATE>|<BRANCH_RULE>' --exclude-dir=.git . || true; } >"$LISTA"
+xargs perl -pi -e 's/<PROJECT>/$ENV{P}/g; s/<BASE_BRANCH>/$ENV{B}/g; s/<DATE>/$ENV{F}/g; s/<BRANCH_RULE>/$ENV{R}/g' <"$LISTA"
 V=$(cat VERSION); export V
 rm -f scripts/init-plantilla.sh VERSION CHANGELOG.md scripts/test-*.sh
 python3 - <<'PY'
@@ -335,11 +355,15 @@ proyecto09() {
   mkdir -p "$dir"
   git -C "$P09" archive v0.9.0 | tar -xf - -C "$dir"
   local extra=(); [ "$modo" = chico ] && extra=(--chico)
-  (cd "$dir" && git init -q -b main && git add -A && git commit -qm plantilla \
-    && AGENT_KIT_FECHA=2026-01-01 ./scripts/init-plantilla.sh Demo main ${extra[@]+"${extra[@]}"} && git add -A && git commit -qm init) >/dev/null 2>&1
+  prep "$dir" git init -q -b main
+  prep "$dir" git add -A
+  prep "$dir" git commit -qm plantilla
+  prep "$dir" env AGENT_KIT_FECHA=2026-01-01 ./scripts/init-plantilla.sh Demo main ${extra[@]+"${extra[@]}"}
+  prep "$dir" git add -A
+  prep "$dir" git commit -qm init
   if [ -n "$idioma" ]; then
-    (cd "$dir" && python3 -c "import json; k=json.load(open('.agent-kit.json')); k['language']='$idioma'; json.dump(k, open('.agent-kit.json', 'w'), ensure_ascii=False, indent=2)" \
-      && git commit -qam idioma) >/dev/null 2>&1
+    prep "$dir" python3 -c "import json; k=json.load(open('.agent-kit.json')); k['language']='$idioma'; json.dump(k, open('.agent-kit.json', 'w'), ensure_ascii=False, indent=2)"
+    prep "$dir" git commit -qam idioma
   fi
 }
 # Cambios propios en archivos que la 0.10 renombró.
