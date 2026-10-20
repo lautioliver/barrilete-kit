@@ -6,6 +6,8 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 ## [Sin publicar]
 
+- **Los implementadores guardan la retro con el `retro.sh` de la rama base** (#132). `/orchestrate` les pasa `retro_sh` (el `retro.sh` de su checkout) y `implement-issue` y el contrato la exigen; sin orquestador se usa `git archive origin/<base>` a un temporal. Un `retro.sh` modificado por el PR ya no corre antes de la revisión. No hay otro script que escriba datos compartidos fuera del PR, y el perfil `--small` no trae retros.
+
 ## [1.0.0] - 2026-10-19
 
 Primera versión estable (#91). Los controles ya no dependen solo del prompt: barandas con hooks, un rojo que se valida con un reporte estructurado (JUnit o TAP) y que el revisor vuelve a correr desde su checkout confiable (ADR-002), actualizaciones con `update.py`, instalación en proyectos existentes y todo en inglés con su versión en español (ADR-001). Probada de punta a punta en `en` y en `es` (#115, #155). Trae rupturas respecto de 0.9: leé las entradas marcadas **Ruptura** y la tabla de renombres antes de actualizar.
