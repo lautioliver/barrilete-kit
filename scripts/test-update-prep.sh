@@ -21,6 +21,7 @@ if [ -f "$RAIZ/scripts/test-update.sh" ] && [ -f "$RAIZ/scripts/init-template.sh
   git -C "$FAKE" init -q
   printf '#!/usr/bin/env bash\necho STUB-OUT-init\nexit 1\n' >"$FAKE/scripts/init-template.sh"
   # The runner ends with 0 on purpose and saves the status of the nested test: the cases look at what it printed.
+  # shellcheck disable=SC2016  # the runner expands its own arguments
   printf '#!/usr/bin/env bash\nbash "$1"\necho $? >"$2"\nexit 0\n' >"$TMP/runner.sh"
   out=""
   tap_run out 0 bash "$TMP/runner.sh" "$FAKE/scripts/test-update.sh" "$TMP/nested-rc"
