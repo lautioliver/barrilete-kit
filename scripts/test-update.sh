@@ -14,31 +14,18 @@ tap_at_exit "rm -rf \"\$TMP\""
 es() { test "$@"; }
 
 # Un paso de preparación (git, el init del proyecto): corre <comando> en <dir> y guarda su salida en <dir>.prep.log.
-# Si falla, dice qué comando falló y con qué estado, muestra su salida y salta los pasos que siguen en ese <dir>.
-# No corta el test: los checks que siguen fallan solos, y ahora el log dice por qué.
+# Si falla, dice qué comando falló y con qué estado, muestra su salida y devuelve ese estado: el ERR trap de tap.sh
+# corta el test ahí (una falla de preparación no es un caso fallido). Lo prueba test-update-prep.sh.
 prep() {
   local dir=$1 st=0
   shift
-  [ -e "$dir.prep.failed" ] && return 0
   (cd "$dir" && "$@") >"$dir.prep.step" 2>&1 || st=$?
   cat "$dir.prep.step" >>"$dir.prep.log"
   if [ "$st" -ne 0 ]; then
-    : >"$dir.prep.failed"
     { echo "prep: falló (estado $st): $* en $dir"; sed 's/^/  | /' "$dir.prep.step"; } >&2
+    return "$st"
   fi
-  return 0
 }
-export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
-export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
-
-# Si la preparación falla, el test muestra por qué.
-mkdir -p "$TMP/prep-falla" "$TMP/prep-ok"
-out=$(prep "$TMP/prep-falla" ls /ruta/que/no/existe 2>&1)
-grep -q "falló" <<<"$out" && grep -q "ls /ruta/que/no/existe" <<<"$out" && grep -q "No such file" <<<"$out"
-tap_check $? "una preparación que falla muestra qué comando falló y su salida"
-out=$(prep "$TMP/prep-ok" ls -d . 2>&1)
-[ -z "$out" ] && grep -qx "\." "$TMP/prep-ok.prep.log"
-tap_check $? "una preparación que anda no escribe nada y deja su salida en el log"
 
 # La plantilla tal como está en el árbol, en un repo con dos versiones etiquetadas.
 P="$TMP/plantilla"
