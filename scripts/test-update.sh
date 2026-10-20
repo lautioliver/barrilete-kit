@@ -9,7 +9,8 @@ TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-update-XXXXXX")" && pwd -P)
 # shellcheck source=/dev/null
 . "$RAIZ/scripts/agents/tap.sh"
 tap_begin "$0"
-tap_at_exit "rm -rf \"\$TMP\""
+# build.log: la salida de los bloques que arman las plantillas de prueba; si algo falla ahí, el log dice qué.
+tap_at_exit "[ ! -s \"\$TMP/build.log\" ] || { echo '--- salida de la preparación de las plantillas:' >&2; tail -n 40 \"\$TMP/build.log\" >&2; }; rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
 
@@ -53,7 +54,7 @@ mkdir -p "$P"
   echo "Hello v0.2" >.claude/skills/debug/lang.md && echo "Hola v0.2" >.claude/skills/debug/lang.es.md
   chmod 755 .claude/skills/debug/modo.sh
   git add -A && git commit -qm v0.2.0 && git tag v0.2.0
-) >/dev/null 2>&1
+) >>"$TMP/build.log" 2>&1
 
 # Un tag "viejo" que solo tiene el init con el nombre y los flags de 0.9 (init-plantilla.sh, --chico, AGENT_KIT_FECHA).
 (
@@ -61,7 +62,7 @@ mkdir -p "$P"
     && git mv scripts/init-template.sh scripts/init-plantilla.sh \
     && perl -pi -e 's/--small/--chico/g; s/AGENT_KIT_DATE/AGENT_KIT_FECHA/g; s/init-template\.sh/init-plantilla.sh/g' scripts/init-plantilla.sh \
     && echo 0.0.5 >VERSION && git add -A && git commit -qm v0.0.5 && git tag v0.0.5 && git checkout -q main
-) >/dev/null 2>&1
+) >>"$TMP/build.log" 2>&1
 
 # Proyecto iniciado con v0.1.0: <modo> en <dir>.
 proyecto() {
@@ -90,7 +91,7 @@ es -f "$D/scripts/update.py"; tap_check $? "el proyecto completo trae update.py"
   echo "cambio del proyecto" >>.claude/skills/debug/viejo2.md
   git rm -q .claude/skills/debug/borrado.md
   git commit -qam "cambios del proyecto"
-) >/dev/null 2>&1
+) >>"$TMP/build.log" 2>&1
 
 echo sucio >>"$D/AGENTS.md"
 c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>&1) || c=$?; tap_status "$c" 1
@@ -197,7 +198,7 @@ proyecto "$D" completo
   python3 -c "import json; k=json.load(open('.agent-kit.json')); k.pop('version', None); json.dump(k, open('.agent-kit.json', 'w'), indent=2)"
   perl -pi -e 's/^# .*/# AGENTS.md — Demo (editado)/ if $. == 1' AGENTS.md
   git commit -qam anterior
-) >/dev/null 2>&1
+) >>"$TMP/build.log" 2>&1
 c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>&1) || c=$?; tap_status "$c" 0
 [ "$c" -eq 0 ] && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md" \
   && grep -q "Demo (editado)" "$D/AGENTS.md" && [ -f "$D/.agent-kit/pending/AGENTS.md" ]
@@ -326,7 +327,7 @@ mkdir -p "$P09"
     && echo "Línea nueva de la plantilla 0.10." >>.claude/skills/create-issue/SKILL.md \
     && perl -pi -e 's/^# .*/# Plantilla 0.10/ if $. == 1' docs/github-naming-convention.md \
     && git add -A && git commit -qm v0.10.0 && git tag v0.10.0
-) >/dev/null 2>&1
+) >>"$TMP/build.log" 2>&1
 git -C "$P09" rev-parse -q --verify v0.9.0 >/dev/null && git -C "$P09" rev-parse -q --verify v0.10.0 >/dev/null
 tap_check $? "[0.9] la plantilla de prueba tiene los tags v0.9.0 (nombres viejos) y v0.10.0"
 git -C "$P09" show v0.9.0:docs/mapa-agentes.json | grep -q '"sensibles"' && git -C "$P09" show v0.9.0:scripts/agentes/verificar.py >/dev/null 2>&1 \
