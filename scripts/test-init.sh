@@ -200,6 +200,7 @@ open(mapa, "w", encoding="utf-8").write(t)
 r = subprocess.run([sys.executable, "scripts/agents/check-docs.py"], cwd=p, capture_output=True, text=True)
 print(r.stdout + r.stderr)
 PYEOF
+  # shellcheck disable=SC2154  # $out lo asigna tap_run
   grep -q '^Docs OK\.' <<<"$out"; tap_check $? "[real completo --lang <idioma>] check-docs pasa con el mapa completado (ningún enlace a un .es.md borrado)" "[real completo --lang $idioma] check-docs pasa con el mapa completado (ningún enlace a un .es.md borrado)"
   if [ "$idioma" = es ]; then
     grep -q 'Sos el implementador' "$p/.claude/agents/implementer.md" && grep -q '^# Implementar issue' "$p/.claude/skills/implement-issue/SKILL.md"
