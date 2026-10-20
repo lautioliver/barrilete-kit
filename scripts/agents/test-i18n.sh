@@ -433,5 +433,27 @@ grep -v "decisions/ADR-001-" "$TMP/r/docs/README.md" >"$TMP/r/x" && mv "$TMP/r/x
 s=$(check)
 grep -q -- '- docs/README.md: the ADR ADR-001-language-labels-and-names-in-english.md is missing from the index' <<<"$s"
 tap_check $? "proyecto: un ADR propio (docs/decisions/) que falta en el índice sigue siendo un error"
+# La guía de tap_run (#173): las variantes que tap_run no rechaza se nombran como prohibidas, en en y es, en implement-issue y review-pr.
+for skill in implement-issue review-pr; do
+  for idioma in en es; do
+    if [ "$idioma" = en ]; then f="$RAIZ/.claude/skills/$skill/SKILL.md"; else f="$RAIZ/.claude/skills/$skill/SKILL.es.md"; fi
+    for v in 'eval f' 'builtin eval' 'env bash -c' 'bash --norc -c' 'ksh -c' 'xargs sh -c'; do
+      grep -qF -- "\`$v\`" "$f"
+      tap_check $? "[<skill>, <idioma>] la guía nombra como prohibida una variante de tap_run que no rechaza" "[$skill, $idioma] falta la variante $v"
+    done
+    if [ "$idioma" = en ]; then v='a backtick inside an `sh -c` script'; else v='una comilla invertida dentro de un script `sh -c`'; fi
+    grep -qF -- "$v" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía nombra la comilla invertida dentro de un sh -c como prohibida" "[$skill, $idioma] falta: $v"
+  done
+done
+
+# Los tests del kit cumplen la regla que exige el kit (#173): sin "|| r=1" ni "&& r=0" en test-agents.sh, y el bucle de tests anidados de test-init.sh sin trap - ERR.
+# Los patrones usan [x] para no coincidir con su propio texto.
+grep -q -e '|| r=[1]' -e '&& r=[0]' "$RAIZ/scripts/agents/test-agents.sh"
+[ $? -eq 1 ]
+tap_check $? "test-agents.sh no deja un programa a la izquierda de || o && para armar r"
+grep -q 'ba[s]h "\$t" 2>&1) || c=' "$RAIZ/scripts/test-init.sh"
+[ $? -eq 1 ]
+tap_check $? "test-init.sh corre los tests anidados sin trap - ERR ni la forma || c="
 
 tap_done
