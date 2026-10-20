@@ -28,6 +28,10 @@ Do them in order and note what happened in each one. If something doesn't work, 
 8. **Merge:** you do it.
 9. **If you have time left:** `/orchestrate` with two or three issues (full mode, Claude Code), or repeat steps 5 to 7 in another tool.
 
+## If CI does not start
+
+Symptom in step 1 or 2: neither the push to `main` nor the PRs trigger the workflows (only `workflow_dispatch` runs). It was seen in repos created from the template. What unblocked it: a PR opened from a branch that changed a file under `.github/workflows/` (it can be closed without merging if the change is not needed). Note it if it happens to you: it is data.
+
 ## What to note
 
 - **Where you got stuck:** the step, what you did and the exact error.

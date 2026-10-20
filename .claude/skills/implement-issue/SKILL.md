@@ -33,6 +33,7 @@ TDD: the tests come from the issue's **acceptance criteria**, not from the code 
 
 - **Bug** (`type:bug`) → skill `debug`: the red test reproduces the bug. **Schema** → skill `db-migration`: the plan with rollback goes first.
 - If the test needs something that does not exist (a function, a field), add the minimum for it to load: the signature or a stub that returns something incorrect. No logic.
+- **Dependencies:** a fresh worktree has no `.venv` or `node_modules`, and the `red` entries need them (`.venv/bin/python`, `npx vitest`). You install them in your worktree before the red (`docs/guides/red-per-runner.md`), and you do not commit them (check `git status`; adding them to the project's `.gitignore` is the safe way, the template's does not).
 - **Commit the red tests** (`test(<scope>): …`), then run them for evidence:
   ```bash
   .claude/skills/implement-issue/red.sh [<stack>]
@@ -52,7 +53,7 @@ TDD: the tests come from the issue's **acceptance criteria**, not from the code 
 ## 5. Self-review
 
 Review the full diff against `<BASE_BRANCH>` before opening the PR:
-- `/code-review` is mandatory: run it on the branch's diff, not on the whole repo, and resolve what it finds: `/code-review origin/<base>...<branch>` (with the Skill tool if you are a subagent), where `<base>` is the PR's base (`<BASE_BRANCH>`, or the `BASE` the orchestrator gave you) and `<branch>` is your branch **by name**: from a subagent, `HEAD` is the session's checkout, not your worktree, and the diff comes out empty. An empty diff is not a reason to skip it: fix the range. Only if the `/code-review` command does not exist in your session, review yourself (bugs, edge cases, dead code, secrets, files that should not be there) and say it in the PR and in `self-review:` (`no code-review: <reason>`).
+- `/code-review` is mandatory: run it on the branch's diff, not on the whole repo, and resolve what it finds: `/code-review origin/<base>...<branch>` (with the Skill tool if you are a subagent), where `<base>` is the PR's base (`<BASE_BRANCH>`, or the `BASE` the orchestrator gave you) and `<branch>` is your branch **by name**: from a subagent, `HEAD` is the session's checkout, not your worktree, and the diff comes out empty. An empty diff is not a reason to skip it: fix the range. Only if the `/code-review` command does not exist in your session, or the orchestrator forbids invoking it (under `/orchestrate` it moves the orchestrator's checkout), review yourself (bugs, edge cases, dead code, secrets, files that should not be there) and say it in the PR and in `self-review:` (`no code-review: <reason>`, e.g. `no code-review: forbidden under /orchestrate, bug pass by hand`).
 - Each finding you fix follows the same cycle: a test that reproduces the finding, `red.sh` against the current code, fix, green.
 
 Also, if `python3 scripts/agents/agents_map.py` says you touched **sensitive paths**, run `/security-review` (if available) or review by hand auth, permissions, inputs, secrets and data exposure, and confirm that the autonomy approval is on record. Also review by hand the **ADR invariants** the change touches (what can never happen: two entries with the same input, a double charge…): a generic security review does not know them, and that is where the serious errors tend to be.
@@ -69,7 +70,7 @@ With everything committed, `python3 scripts/agents/verify.py` runs what applies 
 
 ## 8. Open the PR
 
-`git push origin HEAD` (without `-u`: it writes `.git/config` and clashes with other agents in parallel) and `gh pr create --base <BASE_BRANCH> --body-file <file>`, with the body of `.github/pull_request_template.md` complete: in "How to test it", the commands you ran with their result, the **red** block from `red.sh` as is, with its `red commit:` sha (without that, the reviewer cannot check that the tests prove something). Labels: the issue's `type:` and `area:`, plus `business-logic` or `breaking-change` if they apply. CI validates the title (`pr-title.yml`), the labels, `Closes #<n>` (or `Refs #<n>` if the PR does not close the issue) and the structured red block, with `red commit:`, and per group `stack:`, `format:` and at least one failing case (`labels.yml`): if it fails, fix the PR.
+`git push origin HEAD` (without `-u`: it writes `.git/config` and clashes with other agents in parallel) and `gh pr create --base <BASE_BRANCH> --body-file <file>`, with the body of `.github/pull_request_template.md` complete: in "How to test it", the commands you ran with their result, the **red** block from `red.sh` as is, with its `red commit:` sha (without that, the reviewer cannot check that the tests prove something). Labels: the issue's `type:` and `area:` (if it has no `area:`, pick the one that matches the paths you touched and say so in the PR), plus `business-logic` or `breaking-change` if they apply. CI validates the title (`pr-title.yml`), the labels, `Closes #<n>` (or `Refs #<n>` if the PR does not close the issue) and the structured red block, with `red commit:`, and per group `stack:`, `format:` and at least one failing case (`labels.yml`): if it fails, fix the PR.
 
 ## 9. Wait for CI and deliver
 
