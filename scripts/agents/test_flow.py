@@ -12,10 +12,14 @@ import flow  # noqa: E402
 
 FLOW = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flow.py")
 
-# Fake gh: answers what FAKE_PR and FAKE_LABELS say; without them it fails like gh without network.
+# Fake gh: answers what FAKE_PR and FAKE_LABELS say. Without FAKE_PR the branch has no PR (gh's own message);
+# without FAKE_LABELS, or with FAKE_OFFLINE (both calls) or FAKE_PR_FAILS (the PR one), it fails like gh without network.
 GH_FALSO = """#!/bin/sh
+[ -n "$FAKE_OFFLINE" ] && { echo "error connecting to api.github.com" >&2; exit 1; }
 case "$1" in
-  pr) [ -n "$FAKE_PR" ] && printf '%s\\n' "$FAKE_PR" && exit 0; echo "no pull requests found" >&2; exit 1;;
+  pr) [ -n "$FAKE_PR_FAILS" ] && { echo "error connecting to api.github.com" >&2; exit 1; }
+      [ -n "$FAKE_PR" ] && printf '%s\\n' "$FAKE_PR" && exit 0
+      echo 'no pull requests found for branch "x"' >&2; exit 1;;
   issue) [ -n "$FAKE_LABELS" ] && printf '%s\\n' "$FAKE_LABELS" && exit 0; echo "error connecting" >&2; exit 1;;
 esac
 exit 1
@@ -132,6 +136,28 @@ class Formatos(unittest.TestCase):
         self.assertEqual(l.count("\001"), l.count("\002"))
 
 
+class Trabajando(unittest.TestCase):
+    """While the agent works (hooks --busy on/off): spinner, time and eyes that move."""
+
+    e = {"brand": True, "branch": "claude/7-x", "issue": 7, "pr": 9, "step": "review", "note": None,
+         "face": "working", "steps": flow.PASOS}
+
+    def test_los_ojos_se_mueven_cuadro_a_cuadro(self):
+        caras = [flow.cara_chica("working", "plain", c) for c in range(4)]
+        self.assertEqual(caras, ["(● ●)", "(●● )", "(● ●)", "( ●●)"])
+        self.assertEqual(flow.cara_chica("blocked", "plain", 1), "(✕ ✕)")  # blocked does not look around
+
+    def test_trabajando_suma_spinner_y_tiempo(self):
+        l = flow.linea(dict(self.e, busy_since=time.time() - 75), "plain")
+        self.assertRegex(l, r"PR #9 in review   [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] working 1m 1[56]s$")
+
+    def test_sin_trabajar_no_hay_spinner(self):
+        self.assertNotIn("working", flow.linea(dict(self.e, busy_since=None), "plain"))
+
+    def test_duracion(self):
+        self.assertEqual([flow.duracion(s) for s in (0, 59, 61, 3600 + 120)], ["0s", "59s", "1m 01s", "1h 02m"])
+
+
 class DeVerdad(unittest.TestCase):
     """flow.py run as a process, in a real repo and with a fake gh on the PATH."""
 
@@ -145,8 +171,8 @@ class DeVerdad(unittest.TestCase):
         os.chmod(os.path.join(binario, "gh"), 0o755)
         self.env = dict(os.environ, PATH=binario + os.pathsep + os.environ["PATH"], GIT_CONFIG_GLOBAL=os.devnull,
                         GIT_CONFIG_NOSYSTEM="1", FAKE_LABELS="[]")
-        self.env.pop("FAKE_PR", None)
-        self.env.pop("NO_COLOR", None)
+        for v in ("FAKE_PR", "FAKE_OFFLINE", "FAKE_PR_FAILS", "NO_COLOR"):
+            self.env.pop(v, None)
         self.git("init", "-q", "-b", "main", self.repo, cwd=self.tmp.name)
         self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "base")
 
@@ -165,12 +191,21 @@ class DeVerdad(unittest.TestCase):
     def cache(self):
         return os.path.join(self.repo, ".git", flow.CACHE_NOMBRE)
 
-    def vencer_cache(self):
+    def leer_cache(self):
         with open(self.cache()) as f:
-            c = json.load(f)
-        c["t"] -= flow.CACHE_TTL + 1
+            return json.load(f)["ramas"]
+
+    def vencer_cache(self):
+        ramas = self.leer_cache()
+        for d in ramas.values():
+            d["t"] -= flow.CACHE_TTL + 1
         with open(self.cache(), "w") as f:
-            json.dump(c, f)
+            json.dump({"ramas": ramas}, f)
+
+    def refrescar(self, rama, issue):
+        """The background refresh, run in the foreground so the test does not poll."""
+        subprocess.run([sys.executable, FLOW, "--refresh", self.cache(), rama, issue], cwd=self.repo, env=self.env,
+                       check=True)
 
     def esperar(self, texto, **kw):
         """The background process writes the new cache: polls until the line shows it."""
@@ -214,6 +249,27 @@ class DeVerdad(unittest.TestCase):
         self.git("checkout", "-q", "-b", "claude/42-algo")
         self.assertTrue(self.flow("--format", "plain").startswith("(● ●) plan ●"))
 
+    def test_los_hooks_busy_prenden_y_apagan_la_animacion(self):
+        self.env["TMPDIR"] = self.tmp.name  # the marks go to the system temp dir: here, the test's
+        self.git("checkout", "-q", "-b", "claude/42-algo")
+        hook = json.dumps({"session_id": "s/1", "cwd": self.repo})
+        estado = json.dumps({"session_id": "s/1", "workspace": {"current_dir": self.repo}})
+        self.assertEqual(self.flow("--busy", "on", entrada=hook), "")  # a hook prints nothing
+        self.assertRegex(self.flow("--statusline", "--format", "plain", entrada=estado), r"working \d+s$")
+        otra = json.dumps({"session_id": "s2", "workspace": {"current_dir": self.repo}})
+        self.assertNotIn("working", self.flow("--statusline", "--format", "plain", entrada=otra))  # per session
+        self.flow("--busy", "off", entrada=hook)
+        self.assertNotIn("working", self.flow("--statusline", "--format", "plain", entrada=estado))
+
+    def test_una_marca_vieja_no_cuenta(self):
+        self.env["TMPDIR"] = self.tmp.name
+        marcas = os.path.join(self.tmp.name, "agent-kit-flow")
+        os.makedirs(marcas)
+        with open(os.path.join(marcas, "s1"), "w") as f:
+            json.dump(time.time() - flow.OCUPADO_MAX - 1, f)  # a turn whose Stop never came
+        estado = json.dumps({"session_id": "s1", "workspace": {"current_dir": self.repo}})
+        self.assertNotIn("working", self.flow("--statusline", "--format", "plain", entrada=estado))
+
     def test_fuera_de_un_repo_no_imprime_nada(self):
         r = subprocess.run([sys.executable, FLOW, "--dir", self.tmp.name], env=self.env, capture_output=True,
                            text=True)
@@ -221,7 +277,7 @@ class DeVerdad(unittest.TestCase):
 
     def test_sin_gh_la_primera_vez_no_inventa_que_no_hay_pr(self):
         self.git("checkout", "-q", "-b", "claude/5-x")
-        del self.env["FAKE_LABELS"]
+        self.env["FAKE_OFFLINE"] = "1"
         self.assertTrue(self.flow("--format", "plain").endswith("#5 · no data from GitHub"))
 
     def test_cache_vencida_se_muestra_y_se_refresca_de_fondo(self):
@@ -254,10 +310,47 @@ class DeVerdad(unittest.TestCase):
         self.env["FAKE_PR"] = json.dumps(pr_abierto(number=6))
         self.flow("--format", "plain")
         self.vencer_cache()
-        del self.env["FAKE_LABELS"], self.env["FAKE_PR"]  # gh no longer answers
-        subprocess.run([sys.executable, FLOW, "--refresh", self.cache(), "claude/5-x", "5"], cwd=self.repo,
-                       env=self.env, check=True)
+        self.env["FAKE_OFFLINE"] = "1"  # gh no longer answers
+        self.refrescar("claude/5-x", "5")
         self.assertIn("PR #6 in review", self.flow("--format", "plain"))
+
+    def test_si_solo_falla_el_pr_no_aparece_un_no_pr_yet_falso(self):
+        self.git("checkout", "-q", "-b", "claude/5-x")
+        self.env["FAKE_PR"] = json.dumps(pr_abierto(number=6))
+        self.flow("--format", "plain")
+        self.vencer_cache()
+        self.env["FAKE_PR_FAILS"] = "1"  # timeout or rate limit on the PR call; the issue answers
+        self.refrescar("claude/5-x", "5")
+        self.assertIn("PR #6 in review", self.flow("--format", "plain"))
+
+    def test_si_solo_falla_el_issue_no_se_esconde_el_blocked(self):
+        self.git("checkout", "-q", "-b", "claude/5-x")
+        self.env["FAKE_LABELS"] = '["status:blocked"]'
+        self.flow("--format", "plain")
+        self.vencer_cache()
+        del self.env["FAKE_LABELS"]  # the issue call fails; the PR one answers
+        self.env["FAKE_PR"] = json.dumps(pr_abierto(number=6))
+        self.refrescar("claude/5-x", "5")
+        self.assertTrue(self.flow("--format", "plain").startswith("✖ blocked"))
+
+    def test_volver_a_una_rama_conocida_no_espera_a_gh(self):
+        self.git("checkout", "-q", "-b", "claude/5-x")
+        self.env["FAKE_PR"] = json.dumps(pr_abierto(number=6))
+        self.flow("--format", "plain")
+        self.git("checkout", "-q", "-b", "claude/7-y")
+        self.flow("--format", "plain")
+        self.git("checkout", "-q", "claude/5-x")
+        self.env["FAKE_OFFLINE"] = "1"  # if it asked gh again, the line would lose the PR
+        self.assertIn("#5 · PR #6 in review", self.flow("--format", "plain"))
+        self.assertEqual(sorted(self.leer_cache()), ["claude/5-x", "claude/7-y"])
+
+    def test_la_cache_guarda_hasta_un_maximo_de_ramas(self):
+        ruta = self.cache()
+        for i in range(flow.CACHE_RAMAS + 3):
+            flow.guardar_rama(ruta, f"claude/{i}-x", {"t": i, "ok": True, "pr": None, "labels": []})
+        ramas = self.leer_cache()
+        self.assertEqual(len(ramas), flow.CACHE_RAMAS)
+        self.assertNotIn("claude/0-x", ramas)  # the oldest went first
 
 
 if __name__ == "__main__":
