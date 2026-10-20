@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2319  # "<condición>; tap_check $?" es el patrón de los tests (tap.sh)
 # Tests de los subagentes (.claude/agents/) y de su validación en check-docs.py.
 # Corre sobre una copia del repo (git archive), así no toca el working tree.
 # Uso: bash scripts/agents/test-agents.sh
