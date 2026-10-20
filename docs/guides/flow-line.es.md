@@ -17,7 +17,7 @@ Los dos ● son los nudos que quedan en manos de las personas: aprobar el plan y
 | El issue con `status:blocked` | ✖ blocked, sea cual sea el paso |
 | Una rama troncal o sin número de issue | ningún paso marcado |
 
-`/plan-feature` no deja rastro en git, así que el nudo del plan nunca es el paso actual. Lo que le pregunta a GitHub (`gh`) queda 30 segundos en caché en el directorio de git. Pasado ese tiempo, la línea sigue mostrando lo que tenía mientras un proceso de fondo lo refresca, así ningún prompt espera a la red. Sin `gh` o sin red, muestra lo que sabe git.
+`/plan-feature` no deja rastro en git, así que el nudo del plan nunca es el paso actual. Lo que le pregunta a GitHub (`gh`) queda 30 segundos en caché, por rama, en el directorio de git. Pasado ese tiempo, la línea sigue mostrando lo que tenía mientras un proceso de fondo lo refresca, así el prompt no espera a la red; solo el primer prompt en una rama que nunca vio espera a `gh` (hasta 4 segundos sin red). Una consulta que falla conserva lo que tenía la caché: un timeout del PR no se convierte en "no PR yet", y uno del issue no esconde un `status:blocked`. Sin `gh` o sin red, muestra lo que sabe git.
 
 ## Dónde mostrarla
 
@@ -33,16 +33,29 @@ La status line de Codex CLI solo acepta sus ítems propios, no un comando, así 
 
 ### Claude Code
 
-`init-template.sh` pregunta si activarla cuando corre en una terminal; `--flow-line` o `--no-flow-line` contestan de antemano. La elección queda como `flow_line` en `.agent-kit.json`, y `update.py` y `grow.py` la mantienen. Para activarla después, a mano, en `.claude/settings.json` (compartido) o `.claude/settings.local.json` (solo vos):
+`init-template.sh` pregunta si activarla cuando corre en una terminal; `--flow-line` o `--no-flow-line` contestan de antemano. La elección queda como `flow_line` en `.agent-kit.json`, y `update.py` y `grow.py` la mantienen. Para activarla después, a mano, en `.claude/settings.json` (compartido) o `.claude/settings.local.json` (solo vos; si lo sumás a un `hooks` que ya existe, conservá el de guardrails):
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] && exec python3 \"$f\" --statusline"
+    "command": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" --statusline",
+    "refreshInterval": 1
+  },
+  "hooks": {
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" --busy on"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" --busy off"}]}]
   }
 }
 ```
+
+**Mientras el agente trabaja, la línea se mueve.** Los dos hooks marcan el turno: `UserPromptSubmit` prende la marca con la hora en que empezó y `Stop` la apaga (una marca por sesión, en el directorio temporal del sistema; una marca de más de 6 horas se ignora, por si una sesión murió sin `Stop`). `refreshInterval: 1` hace que Claude Code corra el comando cada segundo (hace falta Claude Code 2.1.97 o posterior; uno anterior lo ignora y solo refresca con cada mensaje), así que mientras tanto la línea muestra un spinner y el tiempo que va, y en la plantilla la carita mira a los costados:
+
+```
+( ●●) plan ● ─ ▸implement ─ review ─ ● merge   #42 · no PR yet   ⠹ working 1m 12s
+```
+
+Los otros harnesses no tienen hooks equivalentes, así que ahí la línea no se mueve.
 
 ### Prompt de la shell
 
