@@ -30,7 +30,7 @@ Do them in order and note what happened in each one. If something doesn't work, 
 
 ## If CI does not start
 
-Symptom in step 1 or 2: neither the push to `main` nor the PRs trigger the workflows (only `workflow_dispatch` runs). It was seen in repos created from the template. What unblocked it: push a branch that changes a file under `.github/workflows/` (even a comment) and open a PR from it. Note it if it happens to you: it is data.
+Symptom in step 1 or 2: neither the push to `main` nor the PRs trigger the workflows (only `workflow_dispatch` runs). It was seen in repos created from the template. What unblocked it: a PR opened from a branch that changed a file under `.github/workflows/` (it can be closed without merging if the change is not needed). Note it if it happens to you: it is data.
 
 ## What to note
 

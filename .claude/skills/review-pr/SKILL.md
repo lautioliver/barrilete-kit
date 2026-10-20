@@ -26,7 +26,7 @@ Read the issue it closes (and its epic, if it has one): the review is against wh
 
 ## 2. Code review
 
-`/code-review` is mandatory, for bugs, regressions and edge cases. Before it, `git fetch origin` (the local base may be behind and bring files into the review that are not the PR's), and run it on the PR's diff: `/code-review origin/<base>...<head>`, where `<base>` is the PR's base (`gh pr view <n> --json baseRefName -q .baseRefName`) and `<head>` its tip **by name** (the ref you fetched, such as `refs/review/<pr>-<suffix>`, or the PR branch): `HEAD` is the session's checkout, not the PR's, and the diff comes out empty. An empty diff is not a reason to skip it: fix the range. Only if the `/code-review` command does not exist in your session, do that pass by hand and say so in the review.
+`/code-review` is mandatory, for bugs, regressions and edge cases. Before it, `git fetch origin` (the local base may be behind and bring files into the review that are not the PR's), and run it on the PR's diff: `/code-review origin/<base>...<head>`, where `<base>` is the PR's base (`gh pr view <n> --json baseRefName -q .baseRefName`) and `<head>` its tip **by name** (the ref you fetched, such as `refs/review/<pr>-<suffix>`, or the PR branch): `HEAD` is the session's checkout, not the PR's, and the diff comes out empty. An empty diff is not a reason to skip it: fix the range. Only if the `/code-review` command does not exist in your session, or whoever launched you forbids invoking it (under `/orchestrate` it moves the orchestrator's checkout), do that pass by hand and say so in the review (`no code-review: <reason>`).
 
 ## 3. What is specific to the project
 
@@ -42,7 +42,7 @@ Read the issue it closes (and its epic, if it has one): the review is against wh
 | Docs up to date? | `agents_map.py` flags docs **NOT MODIFIED**: did they need touching? Does the new thing contradict `architecture.md`? |
 | Conventions? | Title, labels, PR body, `Closes #n`, code conventions from AGENTS.md. |
 
-Around the TDD check: install the test dependencies in the review worktree without running PR code (`docs/guides/red-per-runner.md`: for example `npm ci --ignore-scripts` if the PR does not change `package.json` or the lock file; if it does, do not install and say so). To compare the block, `red.sh` leaves `pr-block.md` (the path it prints): `diff` it against the block of the PR body (`gh pr view <n> --json body -q .body`, the red block lines), instead of by eye. A difference in the `red commit:` sha or in a group is a **to fix** finding.
+Around the TDD check: install the test dependencies in the review worktree without running PR code (`docs/guides/red-per-runner.md`: for example `npm ci --ignore-scripts` if the PR does not change `package.json` or the lock file; if it does, do not install, say so, and the TDD check stays unverified for a person to decide). To compare the block, `red.sh` leaves `pr-block.md` (the path it prints): `diff` it against the block of the PR body (`gh pr view <n> --json body -q .body | tr -d '\r'`, the red block lines), instead of by eye; the comparison by set above is what counts. A difference in the `red commit:` sha or in a group is a **to fix** finding.
 
 ## 4. Findings
 

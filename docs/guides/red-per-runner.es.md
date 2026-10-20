@@ -121,7 +121,7 @@ Agregá un perfil a `.config/nextest.toml`: `[profile.red.junit]` con `path = "j
 
 ## Dependencias en un worktree nuevo
 
-Un worktree nuevo no tiene `.venv` ni `node_modules`, y las entradas de arriba los necesitan (`.venv/bin/python`, `npx vitest`). El **implementador** los instala en su worktree antes del rojo (`python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`, `npm ci`). El **revisor** los instala en su worktree de revisión sin correr código del PR: `npm ci --ignore-scripts` (solo si el PR no cambia `package.json` ni el lock; si los cambia, no instala y lo dice), y la misma idea en otros runners (sin hooks de instalación). Nunca corre el instalador ni los scripts del propio PR.
+Un worktree nuevo no tiene `.venv` ni `node_modules`, y las entradas de arriba los necesitan (`.venv/bin/python`, `npx vitest`). El **implementador** los instala en su worktree antes del rojo (`python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`, `npm ci`). El **revisor** los instala en su worktree de revisión sin correr código del PR: `npm ci --ignore-scripts` (solo si el PR no cambia `package.json`, el lock ni `.npmrc`) o `python3 -m pip install --only-binary=:all: -r requirements.txt` (solo si el PR no cambia `requirements*.txt`, `pyproject.toml` ni `setup.*`: pip no tiene `--ignore-scripts`, y una compilación desde fuente o `-e .` correría el backend de build del PR). Si el PR cambia esos archivos, no instala, lo marca, y la verificación del TDD queda sin comprobar hasta que decida una persona. Nunca corre el instalador ni los scripts del propio PR.
 
 ## Comprobarlo
 

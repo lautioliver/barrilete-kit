@@ -37,7 +37,7 @@ git -C <raíz> fetch -q origin        # una sola vez, antes de lanzar: fetch en 
 
 `prepare.sh` valida, asigna, crea el worktree en `../<repo>-wt/<n>` e imprime `Worktree: <ruta>`. Si falla para un issue, no lo lances y anotalo para el mensaje final.
 
-Lanzá los subagentes en paralelo, en un solo mensaje, con la herramienta Agent: `subagent_type` `implementer-light` (Haiku) o `implementer` (Sonnet). Sin `isolation`: el worktree ya existe. En el prompt: número de issue, ruta del worktree, rama base (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` en tu checkout: es la versión que corre, aunque el worktree tenga otra), `skill_sha` (lo mismo con `.claude/skills/implement-issue/SKILL.md`) y que siga su definición. Al revisor: número de PR, la ruta del checkout del orquestador, `agent_sha` de `reviewer.md` y `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`). **Nunca más de 3 implementando a la vez**, contando los relanzados.
+Lanzá los subagentes en paralelo, en un solo mensaje, con la herramienta Agent: `subagent_type` `implementer-light` (Haiku) o `implementer` (Sonnet). Sin `isolation`: el worktree ya existe. En el prompt: número de issue, ruta del worktree, rama base (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` en tu checkout: es la versión que corre, aunque el worktree tenga otra), `skill_sha` (lo mismo con `.claude/skills/implement-issue/SKILL.md`) y que siga su definición, y que **no invoque `/code-review` con la herramienta Skill** (una skill bifurcada mueve tu checkout): hace la pasada de bugs a mano y declara `no code-review: <motivo>`. Al revisor: número de PR, la ruta del checkout del orquestador, `agent_sha` de `reviewer.md` y `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`). **Nunca más de 3 implementando a la vez**, contando los relanzados.
 
 ## 4. Con cada resultado
 
@@ -65,7 +65,7 @@ Después de la ronda extra, el PR vuelve al revisor. Si vuelve con bloqueantes, 
 
 Uno solo, cuando terminaron todos:
 
-- **PRs**: link, modelo que lo hizo, estado del CI (`gh pr checks <pr>`), `self-review` del implementador (si no corrió `/code-review`, destacalo), veredicto del revisor y hallazgos en una línea cada uno.
+- **PRs**: link, modelo que lo hizo, estado del CI (`gh pr checks <pr>`), `self-review` del implementador (si no corrió `/code-review`, destacá qué PRs no lo tuvieron: bajo `/orchestrate` es lo esperado, y la persona decide si lo corre ella), veredicto del revisor y hallazgos en una línea cada uno.
 - **Consultas pendientes**: todas juntas, con su issue, para responder de una vez.
 - **Escalados y relanzados**: qué issue, de qué modelo a cuál y por qué.
 - **Decisiones en bloqueantes**: qué elegiste y por qué.

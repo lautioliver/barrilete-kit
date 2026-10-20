@@ -30,7 +30,7 @@ Hacelos en orden y anotá qué pasó en cada uno. Si algo no anda, no lo arregle
 
 ## Si el CI no arranca
 
-Síntoma en el paso 1 o 2: ni el push a `main` ni los PRs disparan los workflows (solo corre `workflow_dispatch`). Se vio en repos creados desde la plantilla. Lo que lo destrabó: pushear una rama que cambie un archivo de `.github/workflows/` (aunque sea un comentario) y abrir un PR desde ella. Anotalo si te pasa: es un dato.
+Síntoma en el paso 1 o 2: ni el push a `main` ni los PRs disparan los workflows (solo corre `workflow_dispatch`). Se vio en repos creados desde la plantilla. Lo que lo destrabó: un PR abierto desde una rama que cambiaba un archivo de `.github/workflows/` (se puede cerrar sin mergear si el cambio no hace falta). Anotalo si te pasa: es un dato.
 
 ## Qué anotar
 

@@ -121,7 +121,7 @@ Add a profile to `.config/nextest.toml`: `[profile.red.junit]` with `path = "jun
 
 ## Dependencies in a fresh worktree
 
-A new worktree has no `.venv` or `node_modules`, and the entries above need them (`.venv/bin/python`, `npx vitest`). The **implementer** installs them in its worktree before the red (`python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`, `npm ci`). The **reviewer** installs them in its review worktree without running PR code: `npm ci --ignore-scripts` (only if the PR does not change `package.json` or the lock file; if it does, it does not install and says so), and the same idea for other runners (no install hooks). Never run the PR's own installer or scripts.
+A new worktree has no `.venv` or `node_modules`, and the entries above need them (`.venv/bin/python`, `npx vitest`). The **implementer** installs them in its worktree before the red (`python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`, `npm ci`). The **reviewer** installs them in its review worktree without running PR code: `npm ci --ignore-scripts` (only if the PR does not change `package.json`, the lock file or `.npmrc`) or `python3 -m pip install --only-binary=:all: -r requirements.txt` (only if the PR does not change `requirements*.txt`, `pyproject.toml` or `setup.*`: pip has no `--ignore-scripts`, and a source build or `-e .` would run the PR's build backend). If the PR changes those files it does not install, flags it, and the TDD check stays unverified until a person decides. Never run the PR's own installer or scripts.
 
 ## Check it
 

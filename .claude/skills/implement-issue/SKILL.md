@@ -33,7 +33,7 @@ TDD: the tests come from the issue's **acceptance criteria**, not from the code 
 
 - **Bug** (`type:bug`) → skill `debug`: the red test reproduces the bug. **Schema** → skill `db-migration`: the plan with rollback goes first.
 - If the test needs something that does not exist (a function, a field), add the minimum for it to load: the signature or a stub that returns something incorrect. No logic.
-- **Dependencies:** a fresh worktree has no `.venv` or `node_modules`, and the `red` entries need them (`.venv/bin/python`, `npx vitest`). You install them in your worktree before the red (`docs/guides/red-per-runner.md`), and you do not commit them (check `git status`).
+- **Dependencies:** a fresh worktree has no `.venv` or `node_modules`, and the `red` entries need them (`.venv/bin/python`, `npx vitest`). You install them in your worktree before the red (`docs/guides/red-per-runner.md`), and you do not commit them (check `git status`; adding them to the project's `.gitignore` is the safe way, the template's does not).
 - **Commit the red tests** (`test(<scope>): …`), then run them for evidence:
   ```bash
   .claude/skills/implement-issue/red.sh [<stack>]

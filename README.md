@@ -87,7 +87,7 @@ A repo template for working with coding agents **without losing control**: clear
 > The docs check fails on purpose while `docs/agents-map.json` still has `TODO/` paths: with example paths, an agent would never notice it touched something sensitive. Paths starting with `?` are optional stack alternatives; your own paths go without `?`, so the check fails if they stop existing.
 
 > [!TIP]
-> **CI does not start in the new repo?** Symptom: neither the push to `main` nor the PRs trigger the workflows (only `workflow_dispatch` runs). It happens in repos created from a template. What unblocked it: push a branch that changes a file under `.github/workflows/` (even a comment) and open a PR from it; from then on the workflows run.
+> **CI does not start in the new repo?** Symptom: neither the push to `main` nor the PRs trigger the workflows (only `workflow_dispatch` runs). Seen in repos created from this template: no runs until a PR was opened from a branch that changed a file under `.github/workflows/`; after that the workflows ran. The PR can be closed without merging if the change is not needed.
 
 ### 📥 Add to an existing project
 

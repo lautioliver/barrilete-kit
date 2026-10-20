@@ -124,7 +124,7 @@ TODO: `<scope-1>`, `<scope-2>`, `db`, `api`, `docs`
 
 > Rule: if a change touches several scopes, omit the scope or split it into several commits.
 
-> While the list above still has its `TODO:`, the only valid scopes are `db`, `api` and `docs`; for anything else, omit the scope.
+> While the list above still has its `TODO:`, any scope is valid (as `.github/workflows/pr-title.yml` checks); when in doubt, omit it. Closing the list is a decision for the team.
 
 ### Additional rules
 - Description in the imperative, lowercase, no final period, ≤ 72 characters.
