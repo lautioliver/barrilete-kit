@@ -1,0 +1,264 @@
+"""Flow line tests (flow.py): the step comes from the branch, the PR and the labels of the issue."""
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import flow  # noqa: E402
+
+FLOW = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flow.py")
+
+# Fake gh: answers what FAKE_PR and FAKE_LABELS say; without them it fails like gh without network.
+GH_FALSO = """#!/bin/sh
+case "$1" in
+  pr) [ -n "$FAKE_PR" ] && printf '%s\\n' "$FAKE_PR" && exit 0; echo "no pull requests found" >&2; exit 1;;
+  issue) [ -n "$FAKE_LABELS" ] && printf '%s\\n' "$FAKE_LABELS" && exit 0; echo "error connecting" >&2; exit 1;;
+esac
+exit 1
+"""
+
+
+def datos(pr=None, labels=()):
+    return {"pr": pr, "labels": list(labels)}
+
+
+def pr_abierto(**campos):
+    return dict({"number": 1, "state": "OPEN", "isDraft": False, "reviewDecision": "", "latestReviews": []}, **campos)
+
+
+class Paso(unittest.TestCase):
+    def test_sin_pr_es_implement(self):
+        self.assertEqual(flow.paso_actual(datos()), "implement")
+
+    def test_pr_abierto_es_review(self):
+        self.assertEqual(flow.paso_actual(datos(pr_abierto())), "review")
+
+    def test_pr_en_draft_sigue_en_implement(self):
+        self.assertEqual(flow.paso_actual(datos(pr_abierto(isDraft=True))), "implement")
+
+    def test_pr_aprobado_espera_el_merge(self):
+        self.assertEqual(flow.paso_actual(datos(pr_abierto(reviewDecision="APPROVED"))), "merge")
+
+    def test_review_obligatoria_con_cambios_pedidos_sigue_en_review(self):
+        pr = pr_abierto(reviewDecision="CHANGES_REQUESTED", latestReviews=[{"state": "APPROVED"}])
+        self.assertEqual(flow.paso_actual(datos(pr)), "review")
+
+    def test_sin_review_obligatoria_una_aprobacion_alcanza(self):
+        pr = pr_abierto(reviewDecision=None, latestReviews=[{"state": "COMMENTED"}, {"state": "APPROVED"}])
+        self.assertEqual(flow.paso_actual(datos(pr)), "merge")
+
+    def test_sin_review_obligatoria_un_cambio_pedido_frena(self):
+        pr = pr_abierto(reviewDecision=None, latestReviews=[{"state": "APPROVED"}, {"state": "CHANGES_REQUESTED"}])
+        self.assertEqual(flow.paso_actual(datos(pr)), "review")
+
+    def test_pr_mergeado_es_retro(self):
+        self.assertEqual(flow.paso_actual(datos({"number": 1, "state": "MERGED"})), "retro")
+
+    def test_pr_cerrado_sin_merge_vuelve_a_implement(self):
+        self.assertEqual(flow.paso_actual(datos({"number": 1, "state": "CLOSED"})), "implement")
+
+    def test_blocked_gana_a_cualquier_paso(self):
+        pr = pr_abierto(reviewDecision="APPROVED")
+        self.assertEqual(flow.paso_actual(datos(pr, ["status:blocked"])), "blocked")
+
+
+class Rama(unittest.TestCase):
+    def test_ramas_con_issue(self):
+        for rama in ("claude/176-pulir", "feat/12-pagos", "fix/3-qr"):
+            self.assertTrue(flow.RAMA_RE.match(rama), rama)
+
+    def test_ramas_sin_issue(self):
+        for rama in ("main", "develop", "agents/retros", "lautioliver/discus", "feat/sin-numero", "release/1.2.0"):
+            self.assertFalse(flow.RAMA_RE.match(rama), rama)
+
+
+class Formatos(unittest.TestCase):
+    e = {"brand": False, "branch": "claude/7-x", "issue": 7, "pr": 9, "step": "review", "note": None,
+         "face": "working", "steps": flow.PASOS}
+
+    def test_plain_marca_el_paso(self):
+        self.assertEqual(flow.linea(self.e, "plain"),
+                         "plan ● ─ implement ─ ▸review ─ ● merge   #7 · PR #9 in review")
+
+    def test_la_marca_suma_la_carita_del_estado(self):
+        for cara, chica in (("working", "(● ●)"), ("planning", "(• • •)"), ("blocked", "(✕ ✕)"), ("ready", "(^ ^)")):
+            self.assertTrue(flow.linea(dict(self.e, brand=True, face=cara), "plain").startswith(chica + " plan ●"), cara)
+
+    def test_cada_paso_tiene_su_carita(self):
+        self.assertEqual([flow.CARA_DEL_PASO[p] for p in (None, "implement", "review", "merge", "retro", "blocked")],
+                         ["planning", "working", "working", "ready", "working", "blocked"])
+
+    def test_la_carita_grande_es_pareja(self):
+        for cara in flow.CARAS:
+            filas = flow.cara_grande(cara, "plain")
+            self.assertEqual(len(filas), 6)
+            self.assertEqual({len(f) for f in filas[1:]}, {16}, cara)  # the body, aligned under the propellers
+
+    def test_watch_con_marca_dibuja_la_carita_grande(self):
+        e = dict(self.e, brand=True, face="ready", step="merge")
+        filas = flow.vista_grande(e, "plain").split("\n")
+        self.assertIn("^   ^", filas[3])
+        self.assertTrue(filas[3].endswith("PR ready"))
+        self.assertTrue(filas[4].endswith("claude/7-x"))
+        self.assertEqual(filas[-1], "plan ● ─ implement ─ review ─ ▸● merge   #7 · PR #9 waiting for your merge")
+
+    def test_blocked_no_marca_ningun_paso(self):
+        l = flow.linea(dict(self.e, step="blocked"), "plain")
+        self.assertTrue(l.startswith("✖ blocked  plan ●"), l)
+        self.assertNotIn("▸", l)
+
+    def test_las_notas_aclaran_el_implement(self):
+        for nota, texto in (("draft", "PR #9 draft"), ("closed", "PR #9 closed, no merge"),
+                            ("offline", "no data from GitHub")):
+            self.assertTrue(flow.linea(dict(self.e, step="implement", note=nota), "plain").endswith(texto), nota)
+
+    def test_tmux_escapa_los_numeral(self):
+        l = flow.linea(self.e, "tmux")
+        self.assertIn("##7", l)
+        self.assertIn("PR ##9", l)
+        self.assertNotIn("\033", l)
+
+    def test_zsh_envuelve_los_colores(self):
+        l = flow.linea(self.e, "zsh")
+        self.assertEqual(l.count("\033"), l.count("%{\033"))
+
+    def test_bash_envuelve_los_colores(self):
+        l = flow.linea(self.e, "bash")
+        self.assertEqual(l.count("\033"), l.count("\001\033"))
+        self.assertEqual(l.count("\001"), l.count("\002"))
+
+
+class DeVerdad(unittest.TestCase):
+    """flow.py run as a process, in a real repo and with a fake gh on the PATH."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = os.path.join(self.tmp.name, "repo")
+        binario = os.path.join(self.tmp.name, "bin")
+        os.makedirs(binario)
+        with open(os.path.join(binario, "gh"), "w") as f:
+            f.write(GH_FALSO)
+        os.chmod(os.path.join(binario, "gh"), 0o755)
+        self.env = dict(os.environ, PATH=binario + os.pathsep + os.environ["PATH"], GIT_CONFIG_GLOBAL=os.devnull,
+                        GIT_CONFIG_NOSYSTEM="1", FAKE_LABELS="[]")
+        self.env.pop("FAKE_PR", None)
+        self.env.pop("NO_COLOR", None)
+        self.git("init", "-q", "-b", "main", self.repo, cwd=self.tmp.name)
+        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "base")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def git(self, *args, cwd=None):
+        subprocess.run(["git", *args], cwd=cwd or self.repo, env=self.env, check=True, capture_output=True)
+
+    def flow(self, *args, entrada=None, directorio=None, cwd=None):
+        r = subprocess.run([sys.executable, FLOW, "--dir", directorio or self.repo, *args], env=self.env, cwd=cwd,
+                           input=entrada, capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.rstrip("\n")
+
+    def cache(self):
+        return os.path.join(self.repo, ".git", flow.CACHE_NOMBRE)
+
+    def vencer_cache(self):
+        with open(self.cache()) as f:
+            c = json.load(f)
+        c["t"] -= flow.CACHE_TTL + 1
+        with open(self.cache(), "w") as f:
+            json.dump(c, f)
+
+    def esperar(self, texto, **kw):
+        """The background process writes the new cache: polls until the line shows it."""
+        for _ in range(50):
+            l = self.flow("--format", "plain", **kw)
+            if texto in l:
+                return l
+            time.sleep(0.1)
+        return l
+
+    def test_troncal_sin_paso(self):
+        self.assertEqual(self.flow("--format", "plain"), "plan ● ─ implement ─ review ─ ● merge   main")
+
+    def test_rama_con_pr_en_review(self):
+        self.git("checkout", "-q", "-b", "claude/42-algo")
+        self.env["FAKE_PR"] = json.dumps(pr_abierto(number=50))
+        self.assertEqual(self.flow("--format", "plain"),
+                         "plan ● ─ implement ─ ▸review ─ ● merge   #42 · PR #50 in review")
+
+    def test_statusline_lee_el_directorio_del_json(self):
+        otro = os.path.join(self.tmp.name, "otro")
+        self.git("clone", "-q", self.repo, otro, cwd=self.tmp.name)
+        self.git("checkout", "-q", "-b", "feat/8-x", cwd=otro)
+        entrada = json.dumps({"workspace": {"current_dir": otro}})
+        self.assertIn("#8 · no PR yet", self.flow("--statusline", "--format", "plain", entrada=entrada))
+
+    def test_json(self):
+        self.git("checkout", "-q", "-b", "fix/3-qr")
+        self.env["FAKE_LABELS"] = '["status:blocked"]'
+        e = json.loads(self.flow("--format", "json"))
+        self.assertEqual((e["issue"], e["step"], e["pr"], e["note"]), (3, "blocked", None, None))
+        self.assertTrue(e["text"].startswith("✖ blocked"))
+
+    def test_face_imprime_la_carita_sin_repo(self):
+        r = subprocess.run([sys.executable, FLOW, "--face", "blocked", "--format", "plain"], capture_output=True,
+                           text=True, cwd=self.tmp.name)
+        self.assertEqual(r.stdout.splitlines()[3], " │ │  ✕   ✕  │ │")
+
+    def test_en_la_plantilla_aparece_la_carita(self):
+        os.makedirs(os.path.join(self.repo, ".github", "brand"))
+        self.git("checkout", "-q", "-b", "claude/42-algo")
+        self.assertTrue(self.flow("--format", "plain").startswith("(● ●) plan ●"))
+
+    def test_fuera_de_un_repo_no_imprime_nada(self):
+        r = subprocess.run([sys.executable, FLOW, "--dir", self.tmp.name], env=self.env, capture_output=True,
+                           text=True)
+        self.assertEqual((r.returncode, r.stdout), (0, "\n"))
+
+    def test_sin_gh_la_primera_vez_no_inventa_que_no_hay_pr(self):
+        self.git("checkout", "-q", "-b", "claude/5-x")
+        del self.env["FAKE_LABELS"]
+        self.assertTrue(self.flow("--format", "plain").endswith("#5 · no data from GitHub"))
+
+    def test_cache_vencida_se_muestra_y_se_refresca_de_fondo(self):
+        self.git("checkout", "-q", "-b", "claude/5-x")
+        self.flow("--format", "plain")  # fills the cache: no PR
+        self.vencer_cache()
+        self.env["FAKE_PR"] = json.dumps(pr_abierto(number=6, reviewDecision="APPROVED"))
+        self.assertIn("no PR yet", self.flow("--format", "plain"))  # does not wait for the network
+        self.assertIn("▸● merge   #5 · PR #6 waiting for your merge", self.esperar("waiting for your merge"))
+
+    def test_el_refresco_de_fondo_llega_con_dir_relativo(self):
+        self.git("checkout", "-q", "-b", "claude/5-x")
+        self.flow("--format", "plain", directorio="repo", cwd=self.tmp.name)
+        self.vencer_cache()
+        self.env["FAKE_PR"] = json.dumps(pr_abierto(number=6))
+        self.flow("--format", "plain", directorio="repo", cwd=self.tmp.name)
+        self.assertIn("PR #6 in review", self.esperar("in review", directorio="repo", cwd=self.tmp.name))
+
+    def test_si_solo_falla_el_issue_el_pr_se_refresca_igual(self):
+        self.git("checkout", "-q", "-b", "claude/5-x")
+        del self.env["FAKE_LABELS"]  # the issue does not answer (another repo, issues turned off)
+        self.flow("--format", "plain")
+        self.vencer_cache()
+        self.env["FAKE_PR"] = json.dumps(pr_abierto(number=6))
+        self.flow("--format", "plain")
+        self.assertIn("PR #6 in review", self.esperar("in review"))
+
+    def test_sin_red_se_queda_lo_que_habia(self):
+        self.git("checkout", "-q", "-b", "claude/5-x")
+        self.env["FAKE_PR"] = json.dumps(pr_abierto(number=6))
+        self.flow("--format", "plain")
+        self.vencer_cache()
+        del self.env["FAKE_LABELS"], self.env["FAKE_PR"]  # gh no longer answers
+        subprocess.run([sys.executable, FLOW, "--refresh", self.cache(), "claude/5-x", "5"], cwd=self.repo,
+                       env=self.env, check=True)
+        self.assertIn("PR #6 in review", self.flow("--format", "plain"))
+
+
+if __name__ == "__main__":
+    unittest.main()
