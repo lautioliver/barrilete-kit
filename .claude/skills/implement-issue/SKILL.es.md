@@ -88,7 +88,15 @@ Y frená. El merge lo hace una persona.
 
 ## Retro
 
-Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md` (o `retro.sh` sin argumentos), con el frontmatter completo, y después `.claude/skills/improve-skills/retro.sh <archivo.md>` (la guarda en la rama `agents/retros`; no toca tu rama). Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.
+Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md`, con el frontmatter completo, y después guardala con el `retro.sh` de la **rama base**, nunca el de tu worktree (o tu checkout) (es código del PR, aún sin revisar, y `retro.sh` escribe en la rama compartida `agents/retros`: un bug ahí ensuciaría el historial de todos antes de la revisión). La guarda en la rama `agents/retros` y no toca tu rama. Bajo `/orchestrate`, corré `cd <worktree> && <retro_sh> <archivo.md>` con la ruta `retro_sh` que te pasó el orquestador (la copia de su checkout). Sin orquestador (`/implement-issue` directo), sacá la copia de `origin/<base>` a un directorio temporal y corré esa:
+
+```bash
+retro_dir=$(mktemp -d); git -C <worktree> fetch -q origin <base> && git -C <worktree> archive origin/<base> .claude/skills/improve-skills | tar -x -C "$retro_dir" && cd <worktree> && "$retro_dir"/.claude/skills/improve-skills/retro.sh <archivo.md>
+```
+
+El directorio temporal queda a propósito (el reintento que imprime `retro.sh` si falla el push apunta al archivo pendiente, y el directorio conserva el script que corrió). Si el comando `git archive` falla (no hay `origin/<base>`, no hay red), no uses el `retro.sh` del worktree: guardá la retro como un archivo fuera del repo y avisale a la persona que quedó pendiente.
+
+Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.
 
 ## Si hay que soltar el issue
 

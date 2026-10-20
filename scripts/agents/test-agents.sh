@@ -261,4 +261,36 @@ for idioma in en es; do
   grep -qi 'unverified\|sin verificar' <(guia_seccion "$g" "cargo (nextest)"); tap_check $? "[<idioma>] la guía marca la entrada nextest como sin verificar" "[$idioma] la guía marca la entrada nextest como sin verificar"
 done
 
+# 3. La retro se guarda con el retro.sh de la rama base, no con el del worktree (#132).
+for f in "$CONTRATO" "${CONTRATO%.md}.es.md" .claude/skills/orchestrate/SKILL.md .claude/skills/orchestrate/SKILL.es.md \
+  .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md \
+  "$AGENTES/implementer.md" "$AGENTES/implementer-light.md" .claude/i18n/agents/implementer.es.md .claude/i18n/agents/implementer-light.es.md; do
+  [ -e "$RAIZ/$f" ] || continue  # the Spanish sibling does not exist in a project installed with --lang es
+  grep -q 'retro_sh' "$RAIZ/$f" 2>/dev/null; tap_check $? "<f>: nombra retro_sh (la ruta del retro.sh del checkout del orquestador)" "$f: nombra retro_sh (la ruta del retro.sh del checkout del orquestador)"
+done
+for f in .claude/skills/orchestrate/SKILL.md .claude/skills/orchestrate/SKILL.es.md; do
+  [ -e "$RAIZ/$f" ] || continue
+  grep -Eq '(In the prompt|En el prompt):.*retro_sh' "$RAIZ/$f" 2>/dev/null; tap_check $? "<f>: el prompt de los implementadores incluye retro_sh" "$f: el prompt de los implementadores incluye retro_sh"
+done
+for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md; do
+  [ -e "$RAIZ/$f" ] || continue
+  grep -Eq '^retro_dir=.*git -C <worktree> archive origin/<base> ' "$RAIZ/$f" 2>/dev/null; tap_check $? "<f>: sin orquestador usa el retro.sh de origin/<base> (git archive a un temporal)" "$f: sin orquestador usa el retro.sh de origin/<base> (git archive a un temporal)"
+done
+for f in "$CONTRATO" "${CONTRATO%.md}.es.md"; do
+  [ -e "$RAIZ/$f" ] || continue
+  # La viñeta de la retro, no cualquier línea del contrato (la del revisor ya habla de retro.sh y del worktree).
+  vi=$(grep -Ei 'You save the retro yourself|La retro la guardás vos' "$RAIZ/$f" 2>/dev/null)
+  grep -q 'retro_sh' <<<"$vi" && grep -Eiq 'never|nunca' <<<"$vi" && grep -Eiq "worktree" <<<"$vi"; tap_check $? "<f>: la viñeta de la retro nombra retro_sh y dice que nunca se corre el del worktree" "$f: la viñeta de la retro nombra retro_sh y dice que nunca se corre el del worktree"
+done
+for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md; do
+  [ -e "$RAIZ/$f" ] || continue
+  ! grep -q '^``` ' "$RAIZ/$f"; tap_check $? "<f>: el cierre del bloque de código de la retro está solo en su línea" "$f: el cierre del bloque de código de la retro está solo en su línea"
+  # shellcheck disable=SC2016  # the backticks are part of the regex, not an expansion
+  ! grep -Eq '`retro\.sh` (with no arguments|sin argumentos)' "$RAIZ/$f"; tap_check $? "<f>: no manda a correr retro.sh sin argumentos (sería el del worktree)" "$f: no manda a correr retro.sh sin argumentos (sería el del worktree)"
+  grep -Eq '^retro_dir=.*git -C <worktree> fetch -q origin <base> && ' "$RAIZ/$f"; tap_check $? "<f>: el comando sin orquestador trae origin/<base> antes del archive" "$f: el comando sin orquestador trae origin/<base> antes del archive"
+  grep -Eq 'git archive. (command )?fails|el comando .git archive. falla' "$RAIZ/$f"; tap_check $? "<f>: dice qué hacer si el git archive falla" "$f: dice qué hacer si el git archive falla"
+  grep -Eq 'left on purpose|queda a propósito' "$RAIZ/$f"; tap_check $? "<f>: dice que el directorio temporal queda a propósito" "$f: dice que el directorio temporal queda a propósito"
+  grep -Eq 'your worktree \(or your checkout\)|tu worktree \(o tu checkout\)' "$RAIZ/$f"; tap_check $? "<f>: sin orquestador habla del worktree o del checkout" "$f: sin orquestador habla del worktree o del checkout"
+done
+
 tap_done

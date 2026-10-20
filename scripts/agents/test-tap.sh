@@ -533,4 +533,64 @@ tap_ok "never"
 tap_done' file
 grep -q '^Bail out!.*FAIL - early id.*early detail' "$TMP/tap"; tap_check $? "173: the Bail out! of tap_run includes the FAIL lines of a long output, not only its end"
 
+# 8n. #182, #139: an install that fails in test-install.sh leaves install.py's output in the log. The kit is copied to
+# a fake root whose install.py is a stub: it runs the real one (install-real.py) unless STUB_FAIL is one of its arguments
+# or the name of the folder it runs in, and then it prints "STUB-OUT-<STUB_FAIL>" and ends with 1. The nested test
+# bails out there, and its Bail out! has to carry that line. The runner ends with 0 on purpose: what the cases look at
+# is what the nested test printed, not the status it ended with.
+# An installed project has no install.py or test-install.sh (the installer removes them): there is nothing to look at.
+if [ -f "$ROOT/scripts/install.py" ] && [ -f "$ROOT/scripts/test-install.sh" ]; then
+  FAKE="$TMP/fake-kit"
+  mkdir -p "$FAKE"
+  (cd "$ROOT" && git ls-files -z -co --exclude-standard | tar --null -T - -cf -) | (cd "$FAKE" && tar -xf -)
+  git -C "$FAKE" init -q
+  mv "$FAKE/scripts/install.py" "$FAKE/scripts/install-real.py"
+  printf '%s\n' 'import os, runpy, sys' \
+    'fail = os.environ.get("STUB_FAIL")' \
+    'if fail and fail in sys.argv[1:] + [os.path.basename(os.getcwd())]:' \
+    '    print("STUB-OUT-" + fail)' \
+    '    sys.exit(1)' \
+    'sys.argv[0] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "install-real.py")' \
+    'runpy.run_path(sys.argv[0], run_name="__main__")' >"$FAKE/scripts/install.py"
+  printf '#!/usr/bin/env bash\nbash "$1"\necho $? >"$2"\nexit 0\n' >"$TMP/runner.sh"
+  out=""
+  tap_run out 0 env STUB_FAIL=--draft bash "$TMP/runner.sh" "$FAKE/scripts/test-install.sh" "$TMP/nested-rc"
+  grep -q '^Bail out!.*STUB-OUT---draft' <<<"$out" && [ "$(<"$TMP/nested-rc")" = 1 ]
+  tap_check $? "182: test-install.sh shows the output of install.py when the --draft case fails" "nested run: $(tail -c 300 <<<"$out")"
+  tap_run out 0 env STUB_FAIL=usuario-grow-ref bash "$TMP/runner.sh" "$FAKE/scripts/test-install.sh" "$TMP/nested-rc"
+  grep -q '^Bail out!.*STUB-OUT-usuario-grow-ref' <<<"$out" && [ "$(<"$TMP/nested-rc")" = 1 ]
+  tap_check $? "139: test-install.sh shows the output of install.py when a preparation install fails" "nested run: $(tail -c 300 <<<"$out")"
+  # A nested run is a whole test-install.sh (minutes), so only the draft case (#182) and the preparation install of the grow.py
+  # case (#139) run. The rest are looked at in the source: an install.py call that is not one of the expected-to-fail
+  # ones (status 1, where the test checks the message) goes through tap_run expecting 0, which shows its output when it fails.
+  # Usage: install_offenders <test file> <out file>: the lines of the test that call install.py (or the instalar wrapper) in a
+  # way that can hide its output. It ends with 0 on purpose: the last grep ends with 1 when it finds nothing.
+  install_offenders() {
+    grep -nE 'install\.py|instalar Demo' "$1" >"$2.all"
+    grep -vE 'tap_run|tap_status "\$c" 1|^[0-9]+:(#|instalar\(\)|! \[ -e "\$U/scripts/install\.py"|  cd "\$P5" && rm -f scripts/install\.py)' "$2.all" >"$2"
+    return 0
+  }
+  install_offenders "$ROOT/scripts/test-install.sh" "$TMP/offenders"
+  if [ -s "$TMP/offenders" ]; then ok=1; else ok=0; fi; tap_check "$ok" "139: every install.py call of test-install.sh that must succeed goes through tap_run, which shows its output" "first offender: $(head -1 "$TMP/offenders")"
+  # The guard has to see the calls through the instalar wrapper, and a line that only contains rm -f is not an exception.
+  printf '%s\n' '# instalar Demo main: a comment' 'instalar() { (cd "$U" && python3 "$RAIZ/scripts/install.py" "$@" 2>&1); }' \
+    'c=0; s=$(instalar Demo main --template "$P") || c=$?; tap_status "$c" 1' \
+    'tap_run s 0 env python3 "$RAIZ/scripts/install.py" Demo main' \
+    '! [ -e "$U/scripts/install.py" ] && ! [ -e "$U/scripts/test-install.sh" ]' \
+    '  cd "$P5" && rm -f scripts/install.py scripts/test-install.sh && git init -q' \
+    'es "$c" -eq 0; tap_check $? "update.py funciona despues de instalar"' >"$TMP/fixture-ok.sh"
+  install_offenders "$TMP/fixture-ok.sh" "$TMP/fixture-ok.out"
+  if [ -s "$TMP/fixture-ok.out" ]; then ok=1; else ok=0; fi; tap_check "$ok" "184: the guard accepts the expected-to-fail calls, the tap_run calls and the known exceptions" "flagged: $(head -1 "$TMP/fixture-ok.out")"
+  printf '%s\n' 'c=0; s=$(instalar Demo main --template "$P"); tap_status "$c" 0' \
+    'rm -f x; python3 "$RAIZ/scripts/install.py" Demo main; tap_status "$c" 0' >"$TMP/fixture-bad.sh"
+  install_offenders "$TMP/fixture-bad.sh" "$TMP/fixture-bad.out"
+  if [ "$(wc -l <"$TMP/fixture-bad.out")" -eq 2 ]; then ok=0; else ok=1; fi; tap_check "$ok" "184: the guard flags an instalar call that must succeed and an install.py call with an rm -f next to it" "flagged: $(tr '\n' ' ' <"$TMP/fixture-bad.out")"
+else
+  tap_skip "182: test-install.sh shows the output of install.py when the --draft case fails" "the project has no install.py"
+  tap_skip "139: test-install.sh shows the output of install.py when a preparation install fails" "the project has no install.py"
+  tap_skip "139: every install.py call of test-install.sh that must succeed goes through tap_run, which shows its output" "the project has no install.py"
+  tap_skip "184: the guard accepts the expected-to-fail calls, the tap_run calls and the known exceptions" "the project has no install.py"
+  tap_skip "184: the guard flags an instalar call that must succeed and an install.py call with an rm -f next to it" "the project has no install.py"
+fi
+
 tap_done

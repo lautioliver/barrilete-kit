@@ -25,4 +25,4 @@ The rest follows the contract: an ambiguity in the issue is `question`, and a sc
 
 Escalating is not a failure: a sensitive PR made by the wrong model is worse than one that arrives late.
 
-When done (or when escalating), save your retro with `.claude/skills/improve-skills/retro.sh <file>` (format: `.claude/skills/improve-skills/retro-template.md`; `skill: implement-issue`, `role: implementer-light`, `model: haiku`, and `agent_sha:` and `skill_sha:` with the values the orchestrator gave you) and reply with the contract output.
+When done (or when escalating), save your retro with the `retro.sh` of the orchestrator's checkout, `cd <worktree> && <retro_sh> <file>` (`retro_sh` is the path the orchestrator gave you; never the `retro.sh` in your worktree; without it, `implement-issue` says how to get the base branch's copy; format: `.claude/skills/improve-skills/retro-template.md`; `skill: implement-issue`, `role: implementer-light`, `model: haiku`, and `agent_sha:` and `skill_sha:` with the values the orchestrator gave you) and reply with the contract output.
