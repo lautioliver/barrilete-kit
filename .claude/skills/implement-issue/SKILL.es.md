@@ -88,7 +88,11 @@ Y frená. El merge lo hace una persona.
 
 ## Retro
 
-Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md` (o `retro.sh` sin argumentos), con el frontmatter completo, y después `.claude/skills/improve-skills/retro.sh <archivo.md>` (la guarda en la rama `agents/retros`; no toca tu rama). Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.
+Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md` (o `retro.sh` sin argumentos), con el frontmatter completo, y después guardala con el `retro.sh` de la **rama base**, nunca el de tu worktree (es código del PR, aún sin revisar, y `retro.sh` escribe en la rama compartida `agents/retros`: un bug ahí ensuciaría el historial de todos antes de la revisión). La guarda en la rama `agents/retros` y no toca tu rama. Bajo `/orchestrate`, corré `cd <worktree> && <retro_sh> <archivo.md>` con la ruta `retro_sh` que te pasó el orquestador (la copia de su checkout). Sin orquestador (`/implement-issue` directo), sacá la copia de `origin/<base>` a un directorio temporal y corré esa:
+
+```bash
+retro_dir=$(mktemp -d); git -C <worktree> archive origin/<base> .claude/skills/improve-skills | tar -x -C "$retro_dir" && cd <worktree> && "$retro_dir"/.claude/skills/improve-skills/retro.sh <archivo.md>
+``` Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.
 
 ## Si hay que soltar el issue
 

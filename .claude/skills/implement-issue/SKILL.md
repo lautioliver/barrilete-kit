@@ -88,7 +88,11 @@ And stop. The merge is done by a person.
 
 ## Retro
 
-When done, save a short retro: format in `.claude/skills/improve-skills/retro-template.md` (or `retro.sh` with no arguments), with the full frontmatter, and then `.claude/skills/improve-skills/retro.sh <file.md>` (it saves it on the `agents/retros` branch; it does not touch your branch). Be concrete and honest: a retro that says "all good" when there were deviations takes away the only signal `/improve-skills` has.
+When done, save a short retro: format in `.claude/skills/improve-skills/retro-template.md` (or `retro.sh` with no arguments), with the full frontmatter, and then save it with the `retro.sh` of the **base branch**, never the one in your worktree (it is the PR's code, not yet reviewed, and `retro.sh` writes to the shared `agents/retros` branch: a bug in it would dirty everyone's history before the review). It saves it on the `agents/retros` branch and does not touch your branch. Under `/orchestrate`, run `cd <worktree> && <retro_sh> <file.md>` with the `retro_sh` path the orchestrator gave you (its checkout's copy). Without an orchestrator (`/implement-issue` directly), take the copy of `origin/<base>` into a temporary directory and run that one:
+
+```bash
+retro_dir=$(mktemp -d); git -C <worktree> archive origin/<base> .claude/skills/improve-skills | tar -x -C "$retro_dir" && cd <worktree> && "$retro_dir"/.claude/skills/improve-skills/retro.sh <file>
+``` Be concrete and honest: a retro that says "all good" when there were deviations takes away the only signal `/improve-skills` has.
 
 ## If you have to drop the issue
 
