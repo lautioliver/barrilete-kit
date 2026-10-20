@@ -101,14 +101,20 @@ tap_check $? "si no puede leer los labels del repo (gh falla) no instala: el syn
 mv "$FAKE_LABELS.off" "$FAKE_LABELS"
 
 # --- --draft: muestra el plan y no escribe. ---
-c=0; s=$(trap - ERR; instalar Demo main --template "$P" --draft) || c=$?; tap_status "$c" 0
+cd "$U" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" --draft
+c=$TAP_RC
+cd "$TMP" || exit 1
 es "$c" -eq 0 && es -z "$(git -C "$U" status --porcelain)" && ! [ -e "$U/.agent-kit" ] && ! [ -e "$U/.agent-kit.json" ]
 tap_check $? "--draft no escribe nada"
 grep -q 'barrilete-docs.yml' <<<"$s" && grep -q 'AGENTS.md' <<<"$s"
 tap_check $? "--draft muestra el plan (el workflow renombrado y lo que queda pendiente)"
 
 # --- Instalación. ---
-c=0; s=$(trap - ERR; instalar Demo main --template "$P") || c=$?; tap_status "$c" 0
+cd "$U" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+c=$TAP_RC
+cd "$TMP" || exit 1
 es "$c" -eq 0; tap_check $? "instala en un repo existente" "instala en un repo existente (salida: $(tail -1 <<<"$s"))"
 es "$(git -C "$U" rev-parse HEAD)" = "$HEAD0"; tap_check $? "no commitea"
 es "$(cat "$U/README.md")" = "# Mi app" && es "$(cat "$U/LICENSE")" = "MIT mía"
@@ -225,7 +231,10 @@ P2="$TMP/plantilla-sin-tags"
 git clone -q --no-tags "$P" "$P2" >/dev/null 2>&1
 U2="$TMP/usuario-chico"
 (repo "$U2") >/dev/null 2>&1
-c=0; s=$(trap - ERR; cd "$U2" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P2" -- --small 2>&1) || c=$?; tap_status "$c" 0
+cd "$U2" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P2" -- --small
+c=$TAP_RC
+cd "$TMP" || exit 1
 es "$c" -eq 0 && grep -q '"mode": "small"' "$U2/.agent-kit.json"
 tap_check $? "lo que va después de -- llega al init (--small deja mode small)"
 grep -q '"version": null' "$U2/.agent-kit.json"
@@ -250,7 +259,10 @@ JSON
   mkdir -p .github && printf -- '- name: "solo-mio"\n  color: "ABCDEF"\n  description: ""\n' >.github/labels.yml
   git add -A && git commit -qm borde
 ) >/dev/null 2>&1
-c=0; s=$(trap - ERR; cd "$U3" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1) || c=$?; tap_status "$c" 0
+cd "$U3" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+c=$TAP_RC
+cd "$TMP" || exit 1
 es "$c" -eq 0 && es -f "$U3/.agent-kit.json"; tap_check $? "[borde] un archivo donde el kit espera una carpeta no deja la instalación a medias" "[borde] un archivo donde el kit espera una carpeta no deja la instalación a medias (salida: $(tail -1 <<<"$s"))"
 es "$(cat "$U3/scripts")" = "no soy una carpeta" && es -f "$U3/.agent-kit/pending/scripts/update.py"
 tap_check $? "[borde] lo que no cabe queda en .agent-kit/pending/ y el archivo del proyecto no se toca"
@@ -267,7 +279,10 @@ tap_check $? "[borde] con un labels.yml propio el workflow de sync (delete-other
 # LICENSE: un proyecto sin LICENSE no recibe la del kit en el siguiente update.
 U5="$TMP/usuario-sin-licencia"
 (repo "$U5" && git rm -q LICENSE && git commit -qm "sin licencia") >/dev/null 2>&1
-c=0; s=$(trap - ERR; cd "$U5" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1) || c=$?; tap_status "$c" 0
+cd "$U5" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+c=$TAP_RC
+cd "$TMP" || exit 1
 (cd "$U5" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 (cd "$P" && echo 0.3.0 >VERSION && echo "# v0.3" >>.claude/skills/debug/SKILL.md && git add -A && git commit -qm v0.3.0 && git tag v0.3.0) >/dev/null 2>&1
 s=$(cd "$U5" && python3 scripts/update.py --template "$P" 2>&1); c2=$?
@@ -276,13 +291,19 @@ tap_check $? "update.py no agrega el LICENSE del kit a un proyecto instalado que
 # CLAUDE.md como symlink a AGENTS.md: no se escribe a través del link.
 U6="$TMP/usuario-symlink"
 (repo "$U6" && rm CLAUDE.md && ln -s AGENTS.md CLAUDE.md && git add -A && git commit -qm link) >/dev/null 2>&1
-c=0; s=$(trap - ERR; cd "$U6" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1) || c=$?; tap_status "$c" 0
+cd "$U6" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+c=$TAP_RC
+cd "$TMP" || exit 1
 es "$c" -eq 0 && [ -L "$U6/CLAUDE.md" ] && ! grep -q '@AGENTS.md' "$U6/AGENTS.md" && grep -qi 'symlink' <<<"$s"
 tap_check $? "CLAUDE.md symlink: no se escribe a través del link y el resumen lo avisa"
 # .github es un archivo: la instalación no queda a medias (también para labels.yml).
 U7="$TMP/usuario-github-archivo"
 (mkdir -p "$U7" && cd "$U7" && git init -q -b main && echo x >.github && echo hi >a.txt && git add -A && git commit -qm x) >/dev/null 2>&1
-c=0; s=$(trap - ERR; cd "$U7" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1) || c=$?; tap_status "$c" 0
+cd "$U7" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+c=$TAP_RC
+cd "$TMP" || exit 1
 es "$c" -eq 0 && es -f "$U7/.agent-kit.json" && es "$(cat "$U7/.github")" = x
 tap_check $? "[borde] .github como archivo no deja la instalación a medias" "[borde] .github como archivo no deja la instalación a medias (salida: $(tail -1 <<<"$s"))"
 U4="$TMP/usuario-base"
@@ -296,7 +317,10 @@ es "$c" -ne 0 && ! [ -e "$TMP/inyectado" ]; tap_check $? "[borde] un --template 
 # .gitignore con una negación del proyecto: el bloque no la anula.
 U8="$TMP/usuario-gitignore"
 (mkdir -p "$U8" && cd "$U8" && git init -q -b main && printf '.env*\n!.env.example\n' >.gitignore && echo hi >a.txt && git add -A && git commit -qm x) >/dev/null 2>&1
-c=0; s=$(trap - ERR; cd "$U8" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1) || c=$?; tap_status "$c" 0
+cd "$U8" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+c=$TAP_RC
+cd "$TMP" || exit 1
 es "$c" -eq 0 && ! (cd "$U8" && git check-ignore -q .env.example) && (cd "$U8" && git check-ignore -q .env)
 tap_check $? ".gitignore: el bloque # barrilete no anula el !.env.example del proyecto (y .env sigue ignorado)"
 
@@ -316,7 +340,10 @@ conlabels() { # conlabels <dir>: repo existente con un labels.yml propio
 }
 U9="$TMP/usuario-ref"; conlabels "$U9"
 U10="$TMP/usuario-ref-chico"; conlabels "$U10"
-c=0; s=$(trap - ERR; cd "$U9" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" 2>&1) || c=$?; tap_status "$c" 0
+cd "$U9" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5"
+c=$TAP_RC
+cd "$TMP" || exit 1
 es "$c" -eq 0 && python3 - "$U9" "$SHA2" <<'PY'
 import json, sys
 k = json.load(open(sys.argv[1] + "/.agent-kit.json"))
@@ -326,7 +353,10 @@ PY
 tap_check $? "el instalador registra el commit (ref) y lo que dejó afuera a propósito (withheld)"
 grep -q 'withheld\|not installed' <<<"$s"; tap_check $? "el resumen nombra lo que dejó afuera a propósito"
 (cd "$U9" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
-s=$(cd "$U10" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" -- --small 2>&1) || true
+cd "$U10" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P5" -- --small
+es "$TAP_RC" -eq 0; tap_check $? "la instalación de preparación de usuario-ref-chico sale con 0"
+cd "$TMP" || exit 1
 (cd "$U10" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 c=0; s=$(trap - ERR; cd "$U9" && python3 scripts/update.py --template "$P5" 2>&1) || c=$?; tap_status "$c" 1
 es "$c" -ne 0 && grep -qi 'does not contain' <<<"$s" && es -z "$(git -C "$U9" status --porcelain)"
@@ -359,7 +389,10 @@ mkdir -p "$P6"
 (cd "$P" && git archive v0.1.0 | tar -xf - -C "$P6") >/dev/null 2>&1
 (cd "$P6" && git init -q -b main && git add -A && git commit -qm A) >/dev/null 2>&1
 U12="$TMP/usuario-grow-ref"; (repo "$U12") >/dev/null 2>&1
-s=$(cd "$U12" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P6" -- --small 2>&1)
+cd "$U12" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P6" -- --small
+es "$TAP_RC" -eq 0; tap_check $? "la instalación de preparación de usuario-grow-ref sale con 0"
+cd "$TMP" || exit 1
 (cd "$U12" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 (
   cd "$P6" && echo 1.0.0 >VERSION && echo "# B" >>.claude/skills/debug/SKILL.md && git add -A && git commit -qm B && git tag v1.0.0 \
@@ -386,7 +419,10 @@ tap_check $? "grow.py + update.py: con un tag que sí contiene C, update.py vuel
 
 # Un ref que no está en la plantilla clonada (otro --template, un fork con otra historia): update.py frena sin tocar nada.
 U13="$TMP/usuario-ref-ajeno"; (repo "$U13") >/dev/null 2>&1
-s=$(cd "$U13" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" 2>&1)
+cd "$U13" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+es "$TAP_RC" -eq 0; tap_check $? "la instalación de preparación de usuario-ref-ajeno sale con 0"
+cd "$TMP" || exit 1
 (cd "$U13" && rm -rf .agent-kit/pending && git add -A && git commit -qm instala) >/dev/null 2>&1
 REF13=$(python3 -c "import json; print(json.load(open('$U13/.agent-kit.json'))['ref'])")
 c=0; s=$(trap - ERR; cd "$U13" && python3 scripts/update.py --template "$P5" 2>&1) || c=$?; tap_status "$c" 1
@@ -397,7 +433,10 @@ tap_check $? "update.py frena sin tocar nada si el ref instalado no está en la 
 # --lang es llega al init: el registro guarda el idioma.
 U11="$TMP/usuario-lang"
 (repo "$U11") >/dev/null 2>&1
-c=0; s=$(trap - ERR; cd "$U11" && PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" --lang es 2>&1) || c=$?; tap_status "$c" 0
+cd "$U11" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P" --lang es
+c=$TAP_RC
+cd "$TMP" || exit 1
 es "$c" -eq 0 && grep -q '"language": "es"' "$U11/.agent-kit.json"
 tap_check $? "--lang es llega al init y queda en .agent-kit.json" "--lang es llega al init y queda en .agent-kit.json (salida: $(tail -1 <<<"$s"))"
 
