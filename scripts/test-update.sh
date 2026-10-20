@@ -12,8 +12,21 @@ tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
+
+# Un paso de preparación (git, el init del proyecto): corre <comando> en <dir>, guarda su salida en <dir>.prep.log
+# y, si falla, dice qué comando falló y muestra esa salida. No corta el test: los checks que siguen fallan solos.
+prep() { : >"$1.prep.log"; }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
+
+# Si la preparación falla, el test muestra por qué.
+mkdir -p "$TMP/prep-falla" "$TMP/prep-ok"
+out=$(prep "$TMP/prep-falla" ls /ruta/que/no/existe 2>&1)
+grep -q "falló" <<<"$out" && grep -q "ls /ruta/que/no/existe" <<<"$out" && grep -q "No such file" <<<"$out"
+tap_check $? "una preparación que falla muestra qué comando falló y su salida"
+out=$(prep "$TMP/prep-ok" ls -d . 2>&1)
+[ -z "$out" ] && grep -qx "\." "$TMP/prep-ok.prep.log"
+tap_check $? "una preparación que anda no escribe nada y deja su salida en el log"
 
 # La plantilla tal como está en el árbol, en un repo con dos versiones etiquetadas.
 P="$TMP/plantilla"
