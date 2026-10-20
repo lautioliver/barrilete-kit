@@ -213,16 +213,17 @@ mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("
 open(ruta, "w", encoding="utf-8").write(json.dumps(mapa, ensure_ascii=False, indent=2) + "\n")
 PY
 fi
-# The flow line in Claude Code's status line, if it was chosen (a statusLine of the project's own is not overwritten).
+# The flow line in Claude Code's status line, if it was chosen (a statusLine of the project's own is not overwritten):
+# refreshed every second, and two hooks that mark when the agent is working, so the line moves meanwhile.
 if [ "$FLOW_LINE" = yes ]; then
   python3 - <<'PY'
 import json
 ruta = ".claude/settings.json"
 ajustes = json.load(open(ruta, encoding="utf-8"))
-ajustes.setdefault("statusLine", {
-    "type": "command",
-    "command": 'f="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py"; [ -f "$f" ] && exec python3 "$f" --statusline',
-})
+flow = 'f="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py"; [ -f "$f" ] || exit 0; exec python3 "$f" '
+ajustes.setdefault("statusLine", {"type": "command", "command": flow + "--statusline", "refreshInterval": 1})
+for evento, modo in (("UserPromptSubmit", "on"), ("Stop", "off")):
+    ajustes.setdefault("hooks", {}).setdefault(evento, []).append({"hooks": [{"type": "command", "command": flow + "--busy " + modo}]})
 open(ruta, "w", encoding="utf-8").write(json.dumps(ajustes, ensure_ascii=False, indent=2) + "\n")
 PY
 fi

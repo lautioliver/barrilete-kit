@@ -453,10 +453,13 @@ import json, sys
 p = sys.argv[1]
 ajustes = json.load(open(f"{p}/.claude/settings.json"))
 assert "scripts/agents/flow.py" in ajustes["statusLine"]["command"], ajustes
+assert ajustes["statusLine"]["refreshInterval"] == 1, ajustes
 assert ajustes["hooks"]["PreToolUse"], "the guardrails hook stays"
+for evento, modo in (("UserPromptSubmit", "on"), ("Stop", "off")):
+    assert any(h["command"].endswith("--busy " + modo) for g in ajustes["hooks"][evento] for h in g["hooks"]), evento
 assert json.load(open(f"{p}/.agent-kit.json"))["flow_line"] is True
 PY
-  tap_check $? "[<modo>] --flow-line agrega el statusLine, conserva el hook y registra flow_line: true" "[$modo] --flow-line agrega el statusLine, conserva el hook y registra flow_line: true"
+  tap_check $? "[<modo>] --flow-line agrega el statusLine (cada 1 s) y los hooks --busy, conserva el de guardrails y registra flow_line: true" "[$modo] --flow-line agrega el statusLine (cada 1 s) y los hooks --busy, conserva el de guardrails y registra flow_line: true"
   # El comando del statusLine, corrido como lo corre Claude Code: en un proyecto no aparece la marca.
   (cd "$p" && git add -A && git commit -qm init && git checkout -qb claude/7-algo)
   cmd=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['statusLine']['command'])" "$p/.claude/settings.json")
