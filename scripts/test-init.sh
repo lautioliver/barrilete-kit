@@ -36,6 +36,10 @@ for modo in completo chico; do
   (cd "$p" && git add -A && git commit -qm init)
 
   ! [ -e "$p/scripts/test-init.sh" ]; tap_check $? "[<modo>] el init borra este test (no sirve sin init-template.sh)" "[$modo] el init borra este test (no sirve sin init-template.sh)"
+  # Sin terminal y sin opción, la línea del flujo no se activa (#181), pero flow.py queda en los dos modos.
+  [ -f "$p/scripts/agents/flow.py" ] && ! grep -q statusLine "$p/.claude/settings.json" \
+    && python3 -c "import json,sys; sys.exit(json.load(open(sys.argv[1]))['flow_line'] is not False)" "$p/.agent-kit.json"
+  tap_check $? "[<modo>] sin --flow-line no hay statusLine y .agent-kit.json registra flow_line: false" "[$modo] sin --flow-line no hay statusLine y .agent-kit.json registra flow_line: false"
   ! [ -e "$p/docs/try-the-template.md" ] && ! [ -e "$p/.github/ISSUE_TEMPLATE/5-trial.yml" ]
   tap_check $? "[<modo>] el init borra la guía y el formulario de prueba (son de la plantilla, no del proyecto)" "[$modo] el init borra la guía y el formulario de prueba (son de la plantilla, no del proyecto)"
   ! grep -rq 'try-the-template' "$p"/README*.md; tap_check $? "[<modo>] el README del proyecto no enlaza la guía de prueba borrada" "[$modo] el README del proyecto no enlaza la guía de prueba borrada"
@@ -436,5 +440,33 @@ Están ignorados: `.env*`.
 `dist/` isn't ignored, `.env*` is ignored.
 Ignored: `.env*`.
 FRASES
+
+# La línea del flujo elegida en el init (#181): statusLine en .claude/settings.json, registrada para update.py y grow.py.
+for modo in completo chico; do
+  p="$TMP/flow-$modo"
+  copiar "$p"
+  extra=(); [ "$modo" = chico ] && extra=(--small)
+  (cd "$p" && ./scripts/init-template.sh Demo main ${extra[@]+"${extra[@]}"} --flow-line >/dev/null 2>&1)
+  tap_check $? "[<modo>] el init con --flow-line termina bien" "[$modo] el init con --flow-line termina bien"
+  python3 - "$p" <<'PY'
+import json, sys
+p = sys.argv[1]
+ajustes = json.load(open(f"{p}/.claude/settings.json"))
+assert "scripts/agents/flow.py" in ajustes["statusLine"]["command"], ajustes
+assert ajustes["hooks"]["PreToolUse"], "the guardrails hook stays"
+assert json.load(open(f"{p}/.agent-kit.json"))["flow_line"] is True
+PY
+  tap_check $? "[<modo>] --flow-line agrega el statusLine, conserva el hook y registra flow_line: true" "[$modo] --flow-line agrega el statusLine, conserva el hook y registra flow_line: true"
+  # El comando del statusLine, corrido como lo corre Claude Code: en un proyecto no aparece la marca.
+  (cd "$p" && git add -A && git commit -qm init && git checkout -qb claude/7-algo)
+  cmd=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['statusLine']['command'])" "$p/.claude/settings.json")
+  s=$(cd "$p" && printf '{"workspace":{"current_dir":"%s"}}' "$p" | NO_COLOR=1 PATH="/usr/bin:/bin" sh -c "$cmd" 2>&1)
+  grep -q '▸implement' <<<"$s" && grep -q '#7' <<<"$s" && ! grep -q '(● ●)' <<<"$s"
+  tap_check $? "[<modo>] el statusLine del proyecto muestra el paso y no la carita de la marca" "[$modo] el statusLine del proyecto muestra el paso y no la carita de la marca"
+done
+p="$TMP/no-flow"
+copiar "$p"
+(cd "$p" && ./scripts/init-template.sh Demo main --no-flow-line >/dev/null 2>&1) && ! grep -q statusLine "$p/.claude/settings.json"
+tap_check $? "--no-flow-line se acepta y no agrega el statusLine"
 
 tap_done

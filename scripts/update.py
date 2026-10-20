@@ -299,6 +299,11 @@ def inicializar(clon, ref, destino, kit):
         with open(os.path.join(destino, "scripts", "init-template.sh"), encoding="utf-8") as fh:
             if re.search(r"^\s*--lang\)", fh.read(), re.M):  # the option branch of its argument parser
                 args += ["--lang", kit["language"]]
+    # The flow line (#181): an origin version without the option did not have it either.
+    if kit.get("flow_line") and nuevo:
+        with open(os.path.join(destino, "scripts", "init-template.sh"), encoding="utf-8") as fh:
+            if re.search(r"^\s*--flow-line\)", fh.read(), re.M):
+                args.append("--flow-line")
     sh(*args, cwd=destino, env=dict(os.environ, **{"AGENT_KIT_DATE" if nuevo else "AGENT_KIT_FECHA": kit.get("date", "")}))
 
 

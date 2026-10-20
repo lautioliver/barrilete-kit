@@ -145,6 +145,19 @@ assert s["hooks"]["PostToolUse"][0]["hooks"][0]["command"] == "echo post"
 assert s["model"] == "sonnet"
 PY
 tap_check $? "settings.json conserva sus hooks y su configuración, y agrega el hook de guardrails una vez"
+! grep -q statusLine "$U/.claude/settings.json"; tap_check $? "sin -- --flow-line no se agrega el statusLine de la línea del flujo"
+# La línea del flujo (#181): con -- --flow-line el kit trae statusLine; entra si el proyecto no tiene uno propio.
+python3 - "$RAIZ/scripts" <<'PY'
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from install import fusionar_settings
+kit = json.dumps({"hooks": {}, "statusLine": {"type": "command", "command": "python3 scripts/agents/flow.py --statusline"}})
+con = json.loads(fusionar_settings('{"hooks": {}, "model": "sonnet"}', kit))
+assert "flow.py" in con["statusLine"]["command"] and con["model"] == "sonnet", con
+propio = '{"hooks": {}, "statusLine": {"type": "command", "command": "mi-linea"}}'
+assert fusionar_settings(propio, kit) is None  # nothing to add: its own status line stays
+PY
+tap_check $? "install.py agrega el statusLine de --flow-line y no pisa una status line propia"
 
 # Workflows.
 grep -q 'CI propio' "$U/.github/workflows/docs.yml" && grep -q 'Docs' "$U/.github/workflows/barrilete-docs.yml" \

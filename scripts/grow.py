@@ -106,6 +106,8 @@ def main():
                 if not re.search(r"^\s*--lang\)", fh.read(), re.M):
                     salir(f"the template at {plantilla} predates --lang, and the project was installed in {kit['language']}.")
             init += ["--lang", kit["language"]]  # grow keeps the language the project was installed in
+        if kit.get("flow_line"):  # and the flow line it chose (#181)
+            init.append("--flow-line")
         sh(*init, cwd=tmp)
         for viejo, nuevo in kit.get("renames", {}).items():  # a workflow the installer put under another name
             if os.path.isfile(os.path.join(tmp, viejo)):
