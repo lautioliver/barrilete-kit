@@ -40,6 +40,27 @@ PENDIENTES = ".agent-kit/pending"
 # Labels GitHub creates in every new repo: they stay as the project's own (deleting them is the project's call).
 LABELS_GITHUB = {"bug", "documentation", "duplicate", "enhancement", "good first issue", "help wanted", "invalid",
                  "question", "wontfix"}
+MAPA = "docs/agents-map.json"
+# RED_AGREGADA and RED_GUIA (and `con_red`, in update.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
+RED_AGREGADA = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
+                "files a commit adds or changes. red.sh needs the section and rejects a map without it.")
+RED_GUIA = ("To configure your stack's entry, see docs/guides/red-per-runner.md (in the kit, "
+            "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
+
+
+def con_red(texto, kit):
+    """The project's map with the kit's `red` section added; None if it already has one or there is nothing to add.
+    ValueError if the project's map is not a JSON object."""
+    try:
+        mio, del_kit = json.loads(texto), json.loads(kit)
+    except ValueError as e:
+        raise ValueError(f"it is not valid JSON ({e})")
+    if not isinstance(mio, dict):
+        raise ValueError("it is not a JSON object")
+    if "red" in mio or not isinstance(del_kit, dict) or "red" not in del_kit:
+        return None
+    mio["red"] = del_kit["red"]
+    return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
 USO = 'Usage: python3 install.py "Project name" [main|develop] [releases] [--small] [--draft] ' \
       "[--template <url or path>] [--version vX.Y.Z] [--lang en|es] [-- <init options>]"
 
@@ -287,6 +308,16 @@ def planear(nueva, labels_yml):
             plan.append(("pending", ruta, kit, None))
         elif huella(ruta) == huella(kit):
             plan.append(("same", ruta, kit, None))
+        elif ruta == MAPA:
+            # The project's own map stays and the kit's goes to pending, but a map without `red` gets that section:
+            # red.sh rejects it otherwise (ADR-002 D8).
+            try:
+                texto = con_red(leer(ruta), leer(kit))
+            except (ValueError, UnicodeDecodeError):
+                texto = None
+            plan.append(("pending", ruta, kit, None))
+            if texto is not None:
+                plan.append(("merge", ruta, kit, texto))
         elif ruta in FUSIONES:
             try:
                 texto = FUSIONES[ruta](leer(ruta), leer(kit))
@@ -346,6 +377,14 @@ def resumen(plan, propios, ref, draft):
           f"{len(de('pending'))} left in {PENDIENTES}/.")
     for r, _ in de("merge"):
         print(f"  - Merged into yours (review the diff): {r}")
+    if any(r == MAPA for r, _ in de("merge")):
+        aviso = f"{RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}"
+        print(f"  - {aviso.replace('I added', 'I would add') if draft else aviso}")
+    if any(r == MAPA for r, _ in de("pending")):
+        try:  # con_red also tells whether the project's map can be read as a JSON object
+            con_red(leer(MAPA), "{}")
+        except (ValueError, UnicodeDecodeError) as e:
+            print(f"  - {MAPA}: could not check its `red` section ({e}). red.sh needs it: add it by hand. {RED_GUIA}")
     for r, d in de("rename"):
         print(f"  - Workflow with the same name: the kit's {os.path.basename(r)} is installed as {os.path.basename(d)}")
     if any(r == ".github/labels.yml" for r, _ in de("add")):

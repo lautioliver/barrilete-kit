@@ -522,4 +522,144 @@ proyecto "$D" chico
 c=0; s=$(trap - ERR; cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1) || c=$?; tap_status "$c" 1
 [ "$c" -ne 0 ] && grep -q "0.9" <<<"$s" && grep -q "update.py" <<<"$s" && grep -qi "download" <<<"$s" && ! grep -q Traceback <<<"$s"; tap_check $? "grow.py con las claves viejas de .agent-kit.json explica que es de 0.9, cómo bajar update.py y sale con error, sin traceback"
 
+# Migración a la validación estructurada del rojo (#154, ADR-002 D8): los proyectos que no tienen la sección
+# `red` en docs/agents-map.json la reciben, con un aviso de cómo configurar su stack.
+cat >"$TMP/map-view.py" <<'PY'
+import json, sys
+m = json.load(open("docs/agents-map.json"))
+q = sys.argv[1]
+if q == "names":
+    print(",".join(x["name"] for x in m.get("red", [])))
+elif q == "keys":
+    print(",".join(m))
+elif q == "bash":
+    e = [x for x in m.get("red", []) if x.get("name") == "bash"]
+    print(len(e), e[0]["format"], e[0]["when"][0], "{out}" in e[0]["run"]) if e else print(0)
+elif q == "propio":
+    print(m.get("propio"), ",".join(m.get("ignore_check", [])), len(m.get("docs", [])))
+PY
+cat >"$TMP/mapa-red.py" <<'PY'
+import json, sys
+m = json.load(open("docs/agents-map.json"))
+for k in sys.argv[1:]:
+    m.pop(k, None)
+m["docs"] = []; m["sensitive"] = []; m["verify"] = []  # el proyecto completó sus rutas: check-docs.py solo mira lo demás
+m["ignore_check"] = m.get("ignore_check", []) + ["propio/**"]
+json.dump(m, open("docs/agents-map.json", "w"), indent=2)
+PY
+D="$TMP/sin-red"
+proyecto "$D" completo
+cd "$D" || exit 1
+python3 "$TMP/mapa-red.py" red
+git add -A
+git commit -qm "mapa de un proyecto 0.9, sin red"
+tap_run s 0 python3 scripts/update.py --template "$P"
+m=$(python3 "$TMP/map-view.py" bash 2>&1)
+[ "$m" = "1 tap **/test-*.sh True" ]
+tap_check $? "update agrega la sección red con la entrada bash del kit a un mapa que no la tiene"
+grep -q "red-per-runner" <<<"$s"
+tap_check $? "update avisa que agregó red y remite a la guía por runner"
+m=$(python3 "$TMP/map-view.py" propio 2>&1)
+[[ "$m" == "None "*propio/**" 0" ]]
+tap_check $? "update conserva lo que el proyecto ya tenía en el mapa al agregar red"
+git add -A
+tap_run s 0 python3 scripts/agents/check-docs.py
+tap_check $? "el proyecto 0.9 actualizado pasa check-docs.py con la sección red"
+cd "$TMP" || exit 1
+
+D="$TMP/con-red-propia"
+proyecto "$D" completo
+cd "$D" || exit 1
+python3 - <<'PY'
+import json
+m = json.load(open("docs/agents-map.json"))
+m["red"] = [{"name": "pytest", "when": ["**/test_*.py"], "run": "python3 -m pytest --junitxml={out}", "format": "junit"}]
+json.dump(m, open("docs/agents-map.json", "w"), indent=2)
+PY
+git add -A
+git commit -qm "red propia"
+tap_run s 0 python3 scripts/update.py --template "$P"
+m=$(python3 "$TMP/map-view.py" names 2>&1)
+[ "$m" = "pytest" ]
+tap_check $? "update no toca una sección red que el proyecto ya definió"
+cd "$TMP" || exit 1
+
+D="$TMP/chico-sin-mapa"
+proyecto "$D" chico
+cd "$D" || exit 1
+git rm -q docs/agents-map.json
+python3 -c "import json; k=json.load(open('.agent-kit.json')); k['files'].pop('docs/agents-map.json'); json.dump(k, open('.agent-kit.json', 'w'), indent=2)"
+git add -A
+git commit -qm "chico de antes de la sección red: sin mapa"
+tap_run s 0 python3 scripts/update.py --template "$P"
+m=$(python3 "$TMP/map-view.py" keys 2>&1)
+n=$(python3 "$TMP/map-view.py" names 2>&1)
+[ "$m $n" = "red bash" ]
+tap_check $? "update crea el mapa mínimo con solo red en un proyecto chico que no tiene mapa"
+cd "$TMP" || exit 1
+
+D="$TMP/crece-con-red"
+proyecto "$D" chico
+cd "$D" || exit 1
+python3 - <<'PY'
+import json
+m = json.load(open("docs/agents-map.json"))
+m["red"][0]["name"] = "mi-stack"
+json.dump(m, open("docs/agents-map.json", "w"), indent=2)
+PY
+git add -A
+git commit -qm "red propia en el chico"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+m=$(python3 "$TMP/map-view.py" keys 2>&1)
+n=$(python3 "$TMP/map-view.py" names 2>&1)
+[[ ",$m," == *,docs,*sensitive,*verify,*required,* && "$n" = "mi-stack" ]]
+tap_check $? "grow conserva la sección red del proyecto chico y completa el resto del mapa completo"
+! [ -e ".agent-kit/pending/docs/agents-map.json" ]
+tap_check $? "grow no deja el mapa en pendientes: lo completa"
+cd "$TMP" || exit 1
+
+D="$TMP/crece-sin-red"
+proyecto "$D" chico
+cd "$D" || exit 1
+echo '{}' >docs/agents-map.json
+git add -A
+git commit -qm "mapa chico vacío"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+m=$(python3 "$TMP/map-view.py" keys 2>&1)
+n=$(python3 "$TMP/map-view.py" names 2>&1)
+[[ ",$m," == *,docs,* && "$n" = "bash" ]]
+tap_check $? "grow agrega la entrada bash de red a un mapa chico que no la tiene"
+grep -q "red-per-runner" <<<"$s"
+tap_check $? "grow avisa de la guía por runner cuando agrega red"
+cd "$TMP" || exit 1
+
+# Un mapa que no se puede leer (no es JSON): el aviso no dice que se agregó nada, y cada script lo deja como estaba.
+D="$TMP/mapa-roto"
+proyecto "$D" completo
+cd "$D" || exit 1
+printf 'esto no es json\n' >docs/agents-map.json
+git add -A
+git commit -qm "mapa roto"
+tap_run s 0 python3 scripts/update.py --template "$P"
+grep -q "I added" <<<"$s"
+[ $? -eq 1 ]
+tap_check $? "update con un mapa ilegible avisa que no pudo revisar red, sin decir que agregó algo"
+grep -q "red-per-runner" <<<"$s"
+tap_check $? "update con un mapa ilegible remite a la guía por runner"
+cd "$TMP" || exit 1
+
+D="$TMP/crece-mapa-roto"
+proyecto "$D" chico
+cd "$D" || exit 1
+printf 'esto no es json\n' >docs/agents-map.json
+git add -A
+git commit -qm "mapa chico roto"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+m=$(cat docs/agents-map.json)
+[ "$m" = "esto no es json" ]
+tap_check $? "grow con un mapa ilegible no lo toca"
+es -f ".agent-kit/pending/docs/agents-map.json"
+tap_check $? "grow con un mapa ilegible deja el mapa completo en pending"
+cd "$TMP" || exit 1
+
 tap_done

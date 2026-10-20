@@ -30,6 +30,27 @@ PLANTILLA = os.environ.get("AGENT_KIT_TEMPLATE", "https://github.com/lautioliver
 NO_TRAER = {"README.md", "README.es.md", "README.en.md", "LICENSE", ".agent-kit.json", ".github/team.json"}
 PENDIENTES = ".agent-kit/pending"
 USO = "Usage: python3 scripts/update.py [--version vX.Y.Z] [--template <url or path>]"
+MAPA = "docs/agents-map.json"
+# RED_AGREGADA and RED_GUIA (and `con_red`, in update.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
+RED_AGREGADA = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
+                "files a commit adds or changes. red.sh needs the section and rejects a map without it.")
+RED_GUIA = ("To configure your stack's entry, see docs/guides/red-per-runner.md (in the kit, "
+            "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
+
+
+def con_red(texto, kit):
+    """The project's map with the kit's `red` section added; None if it already has one or there is nothing to add.
+    ValueError if the project's map is not a JSON object."""
+    try:
+        mio, del_kit = json.loads(texto), json.loads(kit)
+    except ValueError as e:
+        raise ValueError(f"it is not valid JSON ({e})")
+    if not isinstance(mio, dict):
+        raise ValueError("it is not a JSON object")
+    if "red" in mio or not isinstance(del_kit, dict) or "red" not in del_kit:
+        return None
+    mio["red"] = del_kit["red"]
+    return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
 
 
 def salir(msg):
@@ -345,6 +366,23 @@ def planear(nueva, base, registradas, retenidos=()):
     return plan
 
 
+def completar_red(kit):
+    """The project's map without a `red` section gets the kit's (ADR-002 D8): (added, warning or None).
+    `kit` is the map of the initialized template. A map the project deleted on purpose stays deleted."""
+    if not os.path.isfile(MAPA) or not os.path.isfile(kit):
+        return False, None
+    try:
+        with open(MAPA, encoding="utf-8") as f, open(kit, encoding="utf-8") as g:
+            texto = con_red(f.read(), g.read())
+    except (ValueError, OSError) as e:
+        return False, f"{MAPA}: could not check its `red` section ({e}). red.sh needs it: add it by hand. " + RED_GUIA
+    if texto is None:
+        return False, None
+    with open(MAPA, "w", encoding="utf-8") as f:
+        f.write(texto)
+    return True, None
+
+
 def renombrar(raiz, renombres):
     """Applies the project's renames (a workflow installed as barrilete-<name>.yml) to an initialized template."""
     for viejo, nuevo in renombres.items():
@@ -476,6 +514,7 @@ def main():
             movidos, bloqueados, avisos = migrar_arbol(".", registradas)
         plan = planear(nueva, base, registradas, set(kit.get("withheld", [])))
         hechos, errores = aplicar(plan, nueva)
+        red_agregada, aviso_red = completar_red(os.path.join(nueva, MAPA))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -528,6 +567,10 @@ def main():
         print("Labels: after the merge run the Labels workflow: labels.yml has the old names as `aliases`, so label-sync "
               "renames tipo:x to type:x (and the rest) keeping the ones set on issues and PRs. The old retros branch "
               "agentes/retros stays as it is; if you protect branches, allow pushes to agents/retros.")
+    if red_agregada:
+        print(f"\nRed: {RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}")
+    if aviso_red:
+        print(f"\nWarning: {aviso_red}")
     for titulo, accion in (("Merged (review the diff)", "fusionar"),
                            (f"With conflicts: I did not overwrite them, the merge with markers is in {PENDIENTES}/", "conflicto"),
                            ("Modified by you, with no origin version to merge: the new version is in "
