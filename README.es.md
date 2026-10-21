@@ -341,15 +341,16 @@ Muestra qué cambió según el changelog y no commitea: revisás el diff y abrí
 
 ### Desde 0.9
 
-Un proyecto de 0.9 no tiene `update.py`: el script de actualización que tiene en `scripts/` no sirve para migrarlo (busca el init viejo), así que actualizá así:
+Un proyecto de 0.9 no tiene `update.py`: su script de actualización viejo (su nombre de 0.9 está en la [tabla de renombres](CHANGELOG.md#tabla-de-renombres-09--nuevo)) no sirve para migrarlo, porque busca el init viejo. Actualizá así:
 
-1. Si el proyecto está en español, agregá `"language": "es"` a `.agent-kit.json` y commitealo **antes** de actualizar. Sin eso, el proyecto se trata como inglés. `update.py` no corre con cambios sin commitear.
+1. Si el proyecto está en español, agregá `"language": "es"` a `.agent-kit.json` y commitealo **antes** de actualizar. Sin eso, el proyecto se trata como inglés. `update.py` no corre con cambios sin commitear. Si ya lo corriste sin `language`: `git reset --hard && git clean -fd && rm -rf .agent-kit` (sirve aunque ya hayas hecho `git add -A`; `.agent-kit/` está ignorado, así que `git clean` no lo borra), agregalo, commitealo y volvé a correr.
 2. Bajá `update.py` de la versión nueva **fuera del repo** (así no cuenta como cambio) y corrélo desde la raíz del proyecto:
    ```bash
    curl -fsSLo /tmp/update.py https://raw.githubusercontent.com/lautioliver/barrilete-kit/<tag>/scripts/update.py && python3 /tmp/update.py
    ```
+   `<tag>` es la última versión, por ejemplo `v1.0.0`.
 3. Integrá lo que valga la pena de `.agent-kit/pending/` y borrá esa carpeta (`update.py` no corre mientras tenga archivos). Reemplazá la entrada `bash` de la sección `red` de `docs/agents-map.json` por la de tu stack (entradas listas para copiar en `docs/guides/red-per-runner.md`). Después, `git add -A` y `python3 scripts/agents/check-docs.py`.
-4. Después del merge, corré el workflow Labels.
+4. Después del merge, corré el workflow Labels. La rama vieja de retros (`agentes/retros`) queda como está: no la renombres a mano.
 
 <a name="herramientas"></a>
 

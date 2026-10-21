@@ -339,15 +339,16 @@ It shows what changed according to the changelog and doesn't commit: you review 
 
 ### From 0.9
 
-A 0.9 project has no `update.py`: the update script it has in `scripts/` can't migrate it (it looks for the old init), so update like this:
+A 0.9 project has no `update.py`: its old update script (its 0.9 name is in the [renames table](CHANGELOG.md#tabla-de-renombres-09--nuevo)) can't migrate it, because it looks for the old init. Update like this:
 
-1. If the project is in Spanish, add `"language": "es"` to `.agent-kit.json` and commit it **before** updating. Without it, the project is treated as English. `update.py` doesn't run with uncommitted changes.
+1. If the project is in Spanish, add `"language": "es"` to `.agent-kit.json` and commit it **before** updating. Without it, the project is treated as English. `update.py` doesn't run with uncommitted changes. If you already ran it without `language`: `git reset --hard && git clean -fd && rm -rf .agent-kit` (it works even after `git add -A`; `.agent-kit/` is ignored, so `git clean` doesn't remove it), add it, commit, and run again.
 2. Download `update.py` from the new version **outside the repo** (so it doesn't count as a change) and run it from the project root:
    ```bash
    curl -fsSLo /tmp/update.py https://raw.githubusercontent.com/lautioliver/barrilete-kit/<tag>/scripts/update.py && python3 /tmp/update.py
    ```
-3. Integrate what is worth keeping from `.agent-kit/pending/` and delete that folder (`update.py` won't run while it has files). Replace the bash entry of the `red` section in `docs/agents-map.json` with the one for your stack (ready-to-copy entries in `docs/guides/red-per-runner.md`). Then `git add -A` and `python3 scripts/agents/check-docs.py`.
-4. After the merge, run the Labels workflow.
+   `<tag>` is the latest tag, for example `v1.0.0`.
+3. Integrate what is worth keeping from `.agent-kit/pending/` and delete that folder (`update.py` won't run while it has files). Replace the `bash` entry of the `red` section in `docs/agents-map.json` with the one for your stack (ready-to-copy entries in `docs/guides/red-per-runner.md`). Then `git add -A` and `python3 scripts/agents/check-docs.py`.
+4. After the merge, run the Labels workflow. The old retros branch (`agentes/retros`) stays as it is: don't rename it by hand.
 
 <a name="tools"></a>
 
