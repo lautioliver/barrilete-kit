@@ -195,25 +195,32 @@ proyecto "$D" completo
 (
   cd "$D" || exit 1
   K=.claude/skills/implement-issue
-  mkdir -p $K/corpus/caso-a $K/corpus/caso-b
+  mkdir -p $K/corpus/caso-a $K/corpus/caso-b otro-dir
+  ln -s ../../../../otro-dir $K/corpus/enlace
+  echo "expect=2" >otro-dir/meta
   echo "expect=0" >$K/corpus/caso-a/meta
   echo "expect=1" >$K/corpus/caso-b/meta
   echo "echo test" >$K/test-red.sh
   python3 - <<'PY'
 import hashlib, json
 j = json.load(open(".agent-kit.json"))
-for r in (".claude/skills/implement-issue/corpus/caso-a/meta", ".claude/skills/implement-issue/corpus/caso-b/meta", ".claude/skills/implement-issue/test-red.sh"):
+for r in (".claude/skills/implement-issue/corpus/caso-a/meta", ".claude/skills/implement-issue/corpus/caso-b/meta", ".claude/skills/implement-issue/corpus/enlace/meta", ".claude/skills/implement-issue/test-red.sh"):
     j["files"][r] = hashlib.sha1(open(r, "rb").read()).hexdigest()
 json.dump(j, open(".agent-kit.json", "w"), ensure_ascii=False, indent=2)
 PY
   echo "cambio del proyecto" >>$K/corpus/caso-b/meta
-  git add -A && git commit -qm "como 1.0.0"
+  git add -A
+  git commit -qm "como 1.0.0"
 ) >>"$TMP/build.log" 2>&1
-c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>&1) || c=$?; tap_status "$c" 0
+cd "$D" || exit 1
+tap_run s 0 python3 scripts/update.py --template "$P"
+cd "$TMP" || exit 1
 ! [ -e "$D/.claude/skills/implement-issue/corpus/caso-a" ] && ! [ -e "$D/.claude/skills/implement-issue/test-red.sh" ]
 tap_check $? "[1.0.0] borra el corpus y test-red.sh que el proyecto no tocó"
 [ -f "$D/.claude/skills/implement-issue/corpus/caso-b/meta" ] && grep -q "caso-b" <<<"$s"
 tap_check $? "[1.0.0] conserva y avisa un archivo del corpus que el proyecto modificó"
+! [ -e "$D/otro-dir/meta" ] && ! grep -q "corpus/enlace/meta" "$D/.agent-kit.json" && ! grep -q "enlace/meta: " <<<"$s"
+tap_check $? "[1.0.0] un archivo que está detrás de una carpeta que es un enlace se borra y se saca del registro, sin error"
 
 # grow.py (chico → completo) también registra la versión de la plantilla que trae.
 D="$TMP/crece"
