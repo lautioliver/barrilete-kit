@@ -6,6 +6,7 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 ## [Sin publicar]
 
+- **Corrección: el corpus de `red.sh` ya no llega a los proyectos** (#191). `.claude/skills/implement-issue/corpus/` (842 archivos de fixtures) y `test-red.sh`, que lo corre, son la regresión del kit: el init los borra (completo y `--small`) y saca del mapa la verificación `red`, así que `install.py`, `update.py` y `grow.py` tampoco los traen. `update.py` borra los que un proyecto 1.0.0 ya recibió si no los modificó (si los tocó, los conserva y avisa). El CI del kit sigue corriendo `test-red.sh` con el corpus. Qué hacer: nada; el PR de la actualización trae menos archivos.
 - **Los implementadores guardan la retro con el `retro.sh` de la rama base** (#132). `/orchestrate` les pasa `retro_sh` (el `retro.sh` de su checkout) y `implement-issue` y el contrato la exigen; sin orquestador se usa `git archive origin/<base>` a un temporal. Un `retro.sh` modificado por el PR ya no corre antes de la revisión. No hay otro script que escriba datos compartidos fuera del PR, y el perfil `--small` no trae retros.
 
 ## [1.0.0] - 2026-10-19
