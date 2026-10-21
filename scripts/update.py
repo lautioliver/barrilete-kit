@@ -416,11 +416,15 @@ def aplicar(plan, nueva):
                         f.write(texto)
             elif accion == "borrar":
                 os.remove(ruta)
-                # The folders it leaves empty go too (the corpus of red.sh was 842 of them); a folder with anything else stays.
-                carpeta = os.path.dirname(ruta)
-                while carpeta and not os.listdir(carpeta):
-                    os.rmdir(carpeta)
-                    carpeta = os.path.dirname(carpeta)
+                # The folders it leaves empty go too (the corpus of red.sh was 842 of them); a folder with anything else
+                # stays. The file is already deleted: a failure here is not an error of the file.
+                try:
+                    carpeta = os.path.dirname(ruta)
+                    while carpeta and not os.path.islink(carpeta) and not os.listdir(carpeta):
+                        os.rmdir(carpeta)
+                        carpeta = os.path.dirname(carpeta)
+                except OSError:
+                    pass
         except OSError as e:
             errores.append(f"{ruta}: {e}")
             continue
