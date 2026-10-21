@@ -416,6 +416,11 @@ def aplicar(plan, nueva):
                         f.write(texto)
             elif accion == "borrar":
                 os.remove(ruta)
+                # The folders it leaves empty go too (the corpus of red.sh was 842 of them); a folder with anything else stays.
+                carpeta = os.path.dirname(ruta)
+                while carpeta and not os.listdir(carpeta):
+                    os.rmdir(carpeta)
+                    carpeta = os.path.dirname(carpeta)
         except OSError as e:
             errores.append(f"{ruta}: {e}")
             continue
