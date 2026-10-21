@@ -341,7 +341,7 @@ Muestra qué cambió según el changelog y no commitea: revisás el diff y abrí
 
 ### Desde 0.9
 
-Un proyecto de 0.9 tiene un script `actualizar.py` en su carpeta `scripts/`, que no sirve para migrarlo (busca el init viejo). No lo uses: actualizá así:
+Un proyecto de 0.9 no tiene `update.py`: el script de actualización que tiene en `scripts/` no sirve para migrarlo (busca el init viejo), así que actualizá así:
 
 1. Si el proyecto está en español, agregá `"language": "es"` a `.agent-kit.json` y commitealo **antes** de actualizar. Sin eso, el proyecto se trata como inglés. `update.py` no corre con cambios sin commitear.
 2. Bajá `update.py` de la versión nueva **fuera del repo** (así no cuenta como cambio) y corrélo desde la raíz del proyecto:

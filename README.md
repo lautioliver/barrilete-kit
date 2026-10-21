@@ -339,7 +339,7 @@ It shows what changed according to the changelog and doesn't commit: you review 
 
 ### From 0.9
 
-A 0.9 project has an `actualizar.py` script in its `scripts/` folder, which can't migrate it (it looks for the old init). Don't use it: update like this:
+A 0.9 project has no `update.py`: the update script it has in `scripts/` can't migrate it (it looks for the old init), so update like this:
 
 1. If the project is in Spanish, add `"language": "es"` to `.agent-kit.json` and commit it **before** updating. Without it, the project is treated as English. `update.py` doesn't run with uncommitted changes.
 2. Download `update.py` from the new version **outside the repo** (so it doesn't count as a change) and run it from the project root:
