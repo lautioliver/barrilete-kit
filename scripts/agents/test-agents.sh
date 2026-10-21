@@ -280,7 +280,9 @@ for f in "$CONTRATO" "${CONTRATO%.md}.es.md"; do
   [ -e "$RAIZ/$f" ] || continue
   # La viñeta de la retro, no cualquier línea del contrato (la del revisor ya habla de retro.sh y del worktree).
   vi=$(grep -Ei 'You save the retro yourself|La retro la guardás vos' "$RAIZ/$f" 2>/dev/null)
-  grep -q 'retro_sh' <<<"$vi" && grep -Eiq 'never|nunca' <<<"$vi" && grep -Eiq "worktree" <<<"$vi"; tap_check $? "<f>: la viñeta de la retro nombra retro_sh y dice que nunca se corre el del worktree" "$f: la viñeta de la retro nombra retro_sh y dice que nunca se corre el del worktree"
+  grep -q 'retro_sh' <<<"$vi"; tap_check $? "<f>: la viñeta de la retro nombra retro_sh" "$f: la viñeta de la retro nombra retro_sh"
+  grep -Eiq 'never|nunca' <<<"$vi"; tap_check $? "<f>: la viñeta de la retro dice que nunca se corre el del worktree (never/nunca)" "$f: la viñeta de la retro dice que nunca se corre el del worktree (never/nunca)"
+  grep -Eiq "worktree" <<<"$vi"; tap_check $? "<f>: la viñeta de la retro nombra el worktree" "$f: la viñeta de la retro nombra el worktree"
 done
 for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md; do
   [ -e "$RAIZ/$f" ] || continue
