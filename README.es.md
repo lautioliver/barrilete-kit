@@ -341,7 +341,7 @@ Muestra qué cambió según el changelog y no commitea: revisás el diff y abrí
 
 ### Desde 0.9
 
-Un proyecto de 0.9 no tiene `update.py`: su script de actualización viejo (su nombre de 0.9 está en la [tabla de renombres](CHANGELOG.md#tabla-de-renombres-09--nuevo)) no sirve para migrarlo, porque busca el init viejo. Actualizá así:
+Un proyecto de 0.9 no tiene `update.py`: su script de actualización viejo (su nombre de 0.9 está en la tabla de renombres de `CHANGELOG.md`) no sirve para migrarlo, porque busca el init viejo. Actualizá así:
 
 1. Si el proyecto está en español, agregá `"language": "es"` a `.agent-kit.json` y commitealo **antes** de actualizar. Sin eso, el proyecto se trata como inglés. `update.py` no corre con cambios sin commitear. Si ya lo corriste sin `language`: `git reset --hard && git clean -fd && rm -rf .agent-kit` (sirve aunque ya hayas hecho `git add -A`; `.agent-kit/` está ignorado, así que `git clean` no lo borra), agregalo, commitealo y volvé a correr.
 2. Bajá `update.py` de la versión nueva **fuera del repo** (así no cuenta como cambio) y corrélo desde la raíz del proyecto:
