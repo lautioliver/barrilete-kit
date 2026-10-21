@@ -154,7 +154,7 @@ rm -rf profiles
 # The brand (Barrilete) and the trial guide belong to the template, not to the new project.
 rm -rf .github/brand
 rm -f docs/try-the-template.md .github/ISSUE_TEMPLATE/5-trial.yml
-for f in README.md README.es.md AGENTS.md docs/github-naming-convention.md .claude/skills/git-workflow/SKILL.md docs/README.md docs/llms.txt; do
+for f in README.md README.es.md AGENTS.md docs/github-naming-convention.md .claude/skills/git-workflow/SKILL.md docs/README.md docs/llms.txt docs/guides/flow-line.md docs/guides/flow-line.es.md; do
   [ -f "$f" ] || continue
   # brand: what is Barrilete's. template: what is only useful in the template repo (the trial guide).
   perl -0pi -e 's/<!-- (brand|template|lang):start -->.*?<!-- \1:end -->\n\n?//gs' "$f"
@@ -220,7 +220,7 @@ if [ "$FLOW_LINE" = yes ]; then
 import json
 ruta = ".claude/settings.json"
 ajustes = json.load(open(ruta, encoding="utf-8"))
-flow = 'f="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py"; [ -f "$f" ] || exit 0; exec python3 "$f" '
+flow = 'f="${CLAUDE_PROJECT_DIR:-.}/scripts/agents/flow.py"; [ -f "$f" ] || f="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py"; [ -f "$f" ] || exit 0; exec python3 "$f" '
 ajustes.setdefault("statusLine", {"type": "command", "command": flow + "--statusline", "refreshInterval": 1})
 for evento, modo in (("UserPromptSubmit", "on"), ("Stop", "off")):
     ajustes.setdefault("hooks", {}).setdefault(evento, []).append({"hooks": [{"type": "command", "command": flow + "--busy " + modo}]})

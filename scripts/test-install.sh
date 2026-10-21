@@ -529,4 +529,18 @@ assert fusionar_settings(propio, kit) is None  # nothing to add: its own status 
 PY
 tap_check $? "el instalador agrega el statusLine de --flow-line y no pisa una status line propia"
 
+# Con una status line propia, los hooks --busy de la línea del flujo tampoco entran (no hay nada que mover).
+python3 - "$RAIZ/scripts" <<'PY'
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from install import fusionar_settings
+busy = {"hooks": [{"type": "command", "command": "python3 scripts/agents/flow.py --busy on"}]}
+kit = json.dumps({"hooks": {"UserPromptSubmit": [busy]}, "statusLine": {"type": "command", "command": "python3 scripts/agents/flow.py --statusline"}})
+propio = '{"hooks": {}, "statusLine": {"type": "command", "command": "mi-linea"}}'
+assert fusionar_settings(propio, kit) is None, "its own status line: nothing from the flow line goes in"
+con = json.loads(fusionar_settings('{"hooks": {}}', kit))
+assert con["hooks"]["UserPromptSubmit"] and con["statusLine"], con
+PY
+tap_check $? "el instalador agrega los hooks --busy solo si entra el statusLine de la línea del flujo"
+
 tap_done

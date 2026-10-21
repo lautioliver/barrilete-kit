@@ -239,12 +239,16 @@ def fusionar_settings(texto, kit):
         raise ValueError("settings.json has no hooks object")
     hooks = usuario.setdefault("hooks", {})
     cambio = False
+    # The flow line's --busy hooks only make sense with its statusLine: if the project keeps a status line of its own, they stay out.
+    con_linea = "statusLine" in nuevo and ("statusLine" not in usuario or "flow.py" in str(usuario["statusLine"]))
     for evento, grupos in nuevo.get("hooks", {}).items():
         propios = hooks.setdefault(evento, [])
         if not isinstance(propios, list):
             raise ValueError(f"hooks.{evento} is not a list")
         for grupo in grupos:
             for hook in grupo.get("hooks", []):
+                if "flow.py" in str(hook.get("command", "")) and not con_linea:
+                    continue
                 if any(mismo_hook(h, hook) for g in propios if isinstance(g, dict) for h in g.get("hooks", [])):
                     continue
                 destino = next((g for g in propios if isinstance(g, dict) and g.get("matcher") == grupo.get("matcher")

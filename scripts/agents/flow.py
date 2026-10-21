@@ -75,7 +75,8 @@ CARAS = {
     "ready": ("  ^   ^  ", AZUL, AMBAR),
 }
 # While the agent works (hooks --busy on/off, docs/guides/flow-line.md): a spinner, the time and eyes that move.
-OCUPADO_DIR = os.path.join(tempfile.gettempdir(), "agent-kit-flow")
+# One dir per user: in a shared /tmp another user's dir (or a planted one) would not be ours to write.
+OCUPADO_DIR = os.path.join(tempfile.gettempdir(), f"agent-kit-flow-{os.getuid() if hasattr(os, 'getuid') else 'user'}")
 OCUPADO_MAX = 6 * 3600  # a mark older than this is a turn whose Stop never came (a killed session)
 GIRO = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 MIRADA = {"working": ["● ●", "●● ", "● ●", " ●●"], "planning": ["• · ·", "· • ·", "· · •", "· • ·"]}
@@ -202,8 +203,9 @@ def guardar(ruta, datos):
         with open(tmp, "w") as f:
             json.dump(datos, f)
         os.replace(tmp, ruta)  # atomic: a prompt never reads a half-written file
+        return True
     except OSError:
-        pass
+        return False
 
 
 def leer(ruta):
@@ -212,6 +214,13 @@ def leer(ruta):
             return json.load(f)
     except (OSError, ValueError):
         return {}
+
+
+def ramas_guardadas(ruta):
+    """The branches in the cache; a cache that is not what we wrote (not an object, entries that are not) counts as empty."""
+    datos = leer(ruta)
+    ramas = datos.get("ramas") if isinstance(datos, dict) else None
+    return {r: d for r, d in ramas.items() if isinstance(d, dict)} if isinstance(ramas, dict) else {}
 
 
 def aprobado(pr):
@@ -224,23 +233,25 @@ def aprobado(pr):
 
 def guardar_rama(ruta, rama, datos, si_sigue=None):
     """Writes the branch's data in the cache, re-read just before so another branch's write is not lost.
-    With `si_sigue`, only if the branch's entry still has that time (a refresh that landed meanwhile wins)."""
-    ramas = leer(ruta).get("ramas", {})
-    if si_sigue is not None and ramas.get(rama, {}).get("t") != si_sigue:
-        return
+    With `si_sigue`, only if the branch's entry still has that time (a refresh that landed meanwhile wins).
+    True if it wrote."""
+    ramas = ramas_guardadas(ruta)
+    if si_sigue is not None and ramas.get(rama, {}).get("t", 0) != si_sigue:
+        return False
     ramas[rama] = datos
     viejas = sorted(ramas, key=lambda r: ramas[r].get("t", 0))[:-CACHE_RAMAS]
-    guardar(ruta, {"ramas": {r: d for r, d in ramas.items() if r not in viejas}})
+    return guardar(ruta, {"ramas": {r: d for r, d in ramas.items() if r not in viejas}})
 
 
 def datos_github(cwd, ruta, rama, issue):
     """Cached data; stale → shown anyway and refreshed in the background; missing → asked now."""
-    cache = leer(ruta).get("ramas", {}).get(rama)
+    cache = ramas_guardadas(ruta).get(rama)
     if cache:
         if time.time() - cache.get("t", 0) >= CACHE_TTL:
-            visto = cache["t"]
+            visto = cache.get("t", 0)
             cache = dict(cache, t=time.time())  # so another prompt does not start another query while this one runs
-            guardar_rama(ruta, rama, cache, si_sigue=visto)
+            if not guardar_rama(ruta, rama, cache, si_sigue=visto):
+                return cache  # nothing written (read-only dir, or another prompt got there): no refresh from here
             try:
                 subprocess.Popen([sys.executable, os.path.abspath(__file__), "--refresh", ruta, rama, issue],
                                  cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
@@ -346,7 +357,7 @@ def main(argv=None):
         argv = sys.argv[1:]
     if argv[:1] == ["--refresh"]:  # background process started by datos_github
         ruta, rama, issue = argv[1:4]
-        previo = leer(ruta).get("ramas", {}).get(rama)  # what a failed call keeps: no false "no PR yet"
+        previo = ramas_guardadas(ruta).get(rama)  # what a failed call keeps: no false "no PR yet"
         guardar_rama(ruta, rama, consultar_github(os.getcwd(), rama, issue, previo))
         return 0
     p = argparse.ArgumentParser(description="Shows which step of the flow the current branch is in.")

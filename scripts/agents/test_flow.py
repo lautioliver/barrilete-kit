@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import flow  # noqa: E402
@@ -263,7 +264,7 @@ class DeVerdad(unittest.TestCase):
 
     def test_una_marca_vieja_no_cuenta(self):
         self.env["TMPDIR"] = self.tmp.name
-        marcas = os.path.join(self.tmp.name, "agent-kit-flow")
+        marcas = os.path.join(self.tmp.name, os.path.basename(flow.OCUPADO_DIR))
         os.makedirs(marcas)
         with open(os.path.join(marcas, "s1"), "w") as f:
             json.dump(time.time() - flow.OCUPADO_MAX - 1, f)  # a turn whose Stop never came
@@ -343,6 +344,27 @@ class DeVerdad(unittest.TestCase):
         self.env["FAKE_OFFLINE"] = "1"  # if it asked gh again, the line would lose the PR
         self.assertIn("#5 · PR #6 in review", self.flow("--format", "plain"))
         self.assertEqual(sorted(self.leer_cache()), ["claude/5-x", "claude/7-y"])
+
+    def test_una_cache_que_no_es_un_objeto_cuenta_como_vacia(self):
+        self.git("checkout", "-q", "-b", "claude/5-x")
+        for contenido in ("[1, 2]", '{"ramas": [1]}', '{"ramas": {"claude/5-x": 3}}', "7"):
+            with open(self.cache(), "w") as f:
+                f.write(contenido)
+            self.assertIn("#5", self.flow("--format", "plain"), contenido)
+
+    def test_el_refresco_de_fondo_solo_arranca_si_se_escribio_la_cache(self):
+        ruta = self.cache()
+        ahora = time.time()
+        vieja = {"t": ahora - flow.CACHE_TTL - 1, "ok": True, "pr": None, "labels": []}
+        for escribe, lanzado in ((True, 1), (False, 0)):
+            flow.guardar(ruta, {"ramas": {"claude/5-x": vieja}})
+            with mock.patch.object(flow.subprocess, "Popen") as popen, \
+                    mock.patch.object(flow, "guardar_rama", return_value=escribe):
+                flow.datos_github(self.repo, ruta, "claude/5-x", "5")
+            self.assertEqual(popen.call_count, lanzado, f"guardar_rama devuelve {escribe}")
+
+    def test_las_marcas_van_en_un_directorio_por_usuario(self):
+        self.assertTrue(os.path.basename(flow.OCUPADO_DIR).startswith("agent-kit-flow-"))
 
     def test_la_cache_guarda_hasta_un_maximo_de_ramas(self):
         ruta = self.cache()

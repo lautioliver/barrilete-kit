@@ -39,12 +39,12 @@ Codex CLI's status line only takes its built-in items, not a command, so tmux or
 {
   "statusLine": {
     "type": "command",
-    "command": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" --statusline",
+    "command": "f=\"${CLAUDE_PROJECT_DIR:-.}/scripts/agents/flow.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" --statusline",
     "refreshInterval": 1
   },
   "hooks": {
-    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" --busy on"}]}],
-    "Stop": [{"hooks": [{"type": "command", "command": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" --busy off"}]}]
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "f=\"${CLAUDE_PROJECT_DIR:-.}/scripts/agents/flow.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" --busy on"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "f=\"${CLAUDE_PROJECT_DIR:-.}/scripts/agents/flow.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" --busy off"}]}]
   }
 }
 ```
@@ -54,6 +54,8 @@ Codex CLI's status line only takes its built-in items, not a command, so tmux or
 ```
 ( ●●) plan ● ─ ▸implement ─ review ─ ● merge   #42 · no PR yet   ⠹ working 1m 12s
 ```
+
+**Known gaps.** Claude Code does not fire `Stop` when you interrupt with Esc, and it fires `StopFailure` (not `Stop`) on an API error, so after either one the spinner keeps counting until your next prompt (`UserPromptSubmit` overwrites the mark) or until the 6 hours pass. The kit adds no hook for them: if it bothers you, add your own `StopFailure` hook that runs the same command with `--busy off`.
 
 The other harnesses have no equivalent hooks, so there the line does not move.
 
@@ -101,8 +103,13 @@ python3 scripts/agents/flow.py --format json
 
 ## Colors
 
-Shades of the kit's palette that read on a dark and on a light terminal (contrast of at least 3:1 on both; the brand's amber and blue do not read on white, nor its grey on black): amber for the knots, blue for the current step, grey for the rest and red for blocked. `NO_COLOR=1` or `--format plain` turns them off. The rest is the brand's: see [Barrilete's faces](#barriletes-faces).
+Shades of the kit's palette that read on a dark and on a light terminal (contrast of at least 3:1 on both; the brand's amber and blue do not read on white, nor its grey on black): amber for the knots, blue for the current step, grey for the rest and red for blocked. `NO_COLOR=1` or `--format plain` turns them off.
 
+<!-- brand:start -->
+The rest is the brand's: see [Barrilete's faces](#barriletes-faces).
+<!-- brand:end -->
+
+<!-- brand:start -->
 ## Barrilete's faces
 
 In the template repo (with `.github/brand/`) the line starts with Barrilete's face for the step, the states of `.github/brand/states/`, and `--watch` draws it big beside what it means. `init-template.sh` deletes that folder, so a project shows the line without faces, like the rest of the brand.
@@ -126,6 +133,7 @@ plan ● ─ implement ─ review ─ ▸● merge   #42 · PR #50 waiting for y
 ```
 
 `flow.py --face working|planning|blocked|ready` prints the big face on its own; the init uses it to say goodbye. The JSON brings `face` so an extension can draw it its own way.
+<!-- brand:end -->
 
 ## Tests
 

@@ -466,6 +466,23 @@ PY
   s=$(cd "$p" && printf '{"workspace":{"current_dir":"%s"}}' "$p" | NO_COLOR=1 PATH="/usr/bin:/bin" sh -c "$cmd" 2>&1)
   grep -q '▸implement' <<<"$s" && grep -q '#7' <<<"$s" && ! grep -q '(● ●)' <<<"$s"
   tap_check $? "[<modo>] el statusLine del proyecto muestra el paso y no la carita de la marca" "[$modo] el statusLine del proyecto muestra el paso y no la carita de la marca"
+  # Con otro cwd (Claude Code puede correr el comando desde otro directorio) CLAUDE_PROJECT_DIR lleva al script; sin él, git rev-parse.
+  s=$(cd "$TMP" && printf '{"workspace":{"current_dir":"%s"}}' "$p" | NO_COLOR=1 CLAUDE_PROJECT_DIR="$p" PATH="/usr/bin:/bin" sh -c "$cmd" 2>&1)
+  grep -q '▸implement' <<<"$s" && grep -q 'CLAUDE_PROJECT_DIR' <<<"$cmd" && grep -q 'rev-parse --show-toplevel' <<<"$cmd"
+  tap_check $? "[<modo>] el comando del statusLine prueba CLAUDE_PROJECT_DIR y después git rev-parse" "[$modo] el comando del statusLine prueba CLAUDE_PROJECT_DIR y después git rev-parse"
+  # La guía de la línea del flujo nombra a Barrilete solo en bloques brand: el proyecto no los trae, y sus enlaces y anclas siguen sanos.
+  python3 - "$p" "$modo" <<'PY'
+import glob, subprocess, sys
+p, modo = sys.argv[1:3]
+guias = glob.glob(f"{p}/docs/guides/flow-line*.md")
+assert bool(guias) == (modo == "completo"), "the guide stays in the full project and goes with docs/guides in the small one"
+for g in guias:
+    t = open(g, encoding="utf-8").read()
+    assert "barrilete" not in t.lower() and "brand:" not in t, g
+r = subprocess.run([sys.executable, "scripts/agents/check-docs.py"], cwd=p, capture_output=True, text=True)
+assert "flow-line" not in r.stdout + r.stderr, r.stdout + r.stderr
+PY
+  tap_check $? "[<modo>] la guía flow-line del proyecto no menciona a Barrilete y check-docs no marca nada de ella" "[$modo] la guía flow-line del proyecto no menciona a Barrilete y check-docs no marca nada de ella"
 done
 p="$TMP/no-flow"
 copiar "$p"
