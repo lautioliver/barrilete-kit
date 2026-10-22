@@ -19,6 +19,7 @@ POS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --small) CHICO=1 ;;
+    --flow-line|--no-flow-line) ;; # stub of the red commit (#181): accepted, it does nothing yet
     --lang=*) LANG_KIT="${1#--lang=}" ;;
     --lang)
       [ $# -ge 2 ] || { echo "$USO"; echo "--lang needs a value: en or es."; exit 1; }
