@@ -17,7 +17,8 @@ It initializes the kit in a temporary folder with the project data and then, for
   - it is the same → registers it;
   - README, LICENSE → never touches them;
   - .gitignore → adds what is missing in a `# barrilete` block; CLAUDE.md → adds `@AGENTS.md` if missing;
-  - .claude/settings.json → JSON merge: adds the guardrails hook to its hooks;
+  - .claude/settings.json → JSON merge: adds the guardrails hook to its hooks (and the flow line's statusLine with
+    `-- --flow-line`, if the project has no status line of its own);
   - a workflow with the same name → the kit's is installed as barrilete-<name>.yml (`renames` in .agent-kit.json);
   - .github/labels.yml → the kit's labels plus the ones the repo already has (`gh label list`), so the sync deletes none;
   - any other file the project already has → keeps the project's; the kit's version goes to .agent-kit/pending/.
@@ -238,12 +239,16 @@ def fusionar_settings(texto, kit):
         raise ValueError("settings.json has no hooks object")
     hooks = usuario.setdefault("hooks", {})
     cambio = False
+    # The flow line's --busy hooks only make sense with its statusLine: if the project keeps a status line of its own, they stay out.
+    con_linea = "statusLine" in nuevo and ("statusLine" not in usuario or "flow.py" in str(usuario["statusLine"]))
     for evento, grupos in nuevo.get("hooks", {}).items():
         propios = hooks.setdefault(evento, [])
         if not isinstance(propios, list):
             raise ValueError(f"hooks.{evento} is not a list")
         for grupo in grupos:
             for hook in grupo.get("hooks", []):
+                if "flow.py" in str(hook.get("command", "")) and not con_linea:
+                    continue
                 if any(mismo_hook(h, hook) for g in propios if isinstance(g, dict) for h in g.get("hooks", [])):
                     continue
                 destino = next((g for g in propios if isinstance(g, dict) and g.get("matcher") == grupo.get("matcher")
@@ -253,6 +258,9 @@ def fusionar_settings(texto, kit):
                     destino = propios[-1]
                 destino["hooks"].append(hook)
                 cambio = True
+    if "statusLine" in nuevo and "statusLine" not in usuario:  # the flow line, if chosen; a status line of its own stays
+        usuario["statusLine"] = nuevo["statusLine"]
+        cambio = True
     return json.dumps(usuario, ensure_ascii=False, indent=2) + "\n" if cambio else None
 
 

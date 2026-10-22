@@ -37,8 +37,8 @@ for modo in completo chico; do
 
   ! [ -e "$p/scripts/test-init.sh" ]; tap_check $? "[<modo>] el init borra este test (no sirve sin init-template.sh)" "[$modo] el init borra este test (no sirve sin init-template.sh)"
   # Sin terminal y sin opción, la línea del flujo no se activa (#181), pero flow.py queda en los dos modos.
-  fl=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('flow_line'))" "$p/.agent-kit.json" 2>&1)
-  [ -f "$p/scripts/agents/flow.py" ] && ! grep -q statusLine "$p/.claude/settings.json" && [ "$fl" = False ]
+  [ -f "$p/scripts/agents/flow.py" ] && ! grep -q statusLine "$p/.claude/settings.json" \
+    && python3 -c "import json,sys; sys.exit(json.load(open(sys.argv[1]))['flow_line'] is not False)" "$p/.agent-kit.json"
   tap_check $? "[<modo>] sin --flow-line no hay statusLine y .agent-kit.json registra flow_line: false" "[$modo] sin --flow-line no hay statusLine y .agent-kit.json registra flow_line: false"
   ! [ -e "$p/.claude/skills/implement-issue/corpus" ]; tap_check $? "[<modo>] el init borra el corpus de red.sh (son fixtures del kit)" "[$modo] el init borra el corpus de red.sh (son fixtures del kit)"
   ! [ -e "$p/.claude/skills/implement-issue/test-red.sh" ]; tap_check $? "[<modo>] el init borra test-red.sh (corre el corpus: sin él no sirve)" "[$modo] el init borra test-red.sh (corre el corpus: sin él no sirve)"
@@ -453,30 +453,21 @@ for modo in completo chico; do
   extra=(); [ "$modo" = chico ] && extra=(--small)
   (cd "$p" && ./scripts/init-template.sh Demo main ${extra[@]+"${extra[@]}"} --flow-line >/dev/null 2>&1)
   tap_check $? "[<modo>] el init con --flow-line termina bien" "[$modo] el init con --flow-line termina bien"
-  # Una aserción de python que falla imprime "bad" (exit 0): es un caso fallido, no un crash.
-  r=$(python3 - "$p" 2>&1 <<'PY'
+  python3 - "$p" <<'PY'
 import json, sys
 p = sys.argv[1]
 ajustes = json.load(open(f"{p}/.claude/settings.json"))
-try:
-    assert "scripts/agents/flow.py" in ajustes.get("statusLine", {}).get("command", ""), ajustes
-    assert ajustes["statusLine"]["refreshInterval"] == 1, ajustes
-    assert ajustes["hooks"]["PreToolUse"], "the guardrails hook stays"
-    for evento, modo in (("UserPromptSubmit", "on"), ("Stop", "off")):
-        assert any(h["command"].endswith("--busy " + modo) for g in ajustes["hooks"].get(evento, []) for h in g["hooks"]), evento
-    assert json.load(open(f"{p}/.agent-kit.json")).get("flow_line") is True
-    print("ok")
-except AssertionError as e:
-    print("bad", e)
+assert "scripts/agents/flow.py" in ajustes["statusLine"]["command"], ajustes
+assert ajustes["statusLine"]["refreshInterval"] == 1, ajustes
+assert ajustes["hooks"]["PreToolUse"], "the guardrails hook stays"
+for evento, modo in (("UserPromptSubmit", "on"), ("Stop", "off")):
+    assert any(h["command"].endswith("--busy " + modo) for g in ajustes["hooks"][evento] for h in g["hooks"]), evento
+assert json.load(open(f"{p}/.agent-kit.json"))["flow_line"] is True
 PY
-)
-  [ "$r" = ok ]
   tap_check $? "[<modo>] --flow-line agrega el statusLine (cada 1 s) y los hooks --busy, conserva el de guardrails y registra flow_line: true" "[$modo] --flow-line agrega el statusLine (cada 1 s) y los hooks --busy, conserva el de guardrails y registra flow_line: true"
   # El comando del statusLine, corrido como lo corre Claude Code: en un proyecto no aparece la marca.
-  git -C "$p" add -A
-  git -C "$p" commit -qm init
-  git -C "$p" checkout -qb claude/7-algo
-  cmd=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('statusLine', {}).get('command', ''))" "$p/.claude/settings.json" 2>&1)
+  (cd "$p" && git add -A && git commit -qm init && git checkout -qb claude/7-algo)
+  cmd=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['statusLine']['command'])" "$p/.claude/settings.json")
   s=$(cd "$p" && printf '{"workspace":{"current_dir":"%s"}}' "$p" | NO_COLOR=1 PATH="/usr/bin:/bin" sh -c "$cmd" 2>&1)
   grep -q '▸implement' <<<"$s" && grep -q '#7' <<<"$s" && ! grep -q '(● ●)' <<<"$s"
   tap_check $? "[<modo>] el statusLine del proyecto muestra el paso y no la carita de la marca" "[$modo] el statusLine del proyecto muestra el paso y no la carita de la marca"
@@ -485,29 +476,22 @@ PY
   grep -q '▸implement' <<<"$s" && grep -q 'CLAUDE_PROJECT_DIR' <<<"$cmd" && grep -q 'rev-parse --show-toplevel' <<<"$cmd"
   tap_check $? "[<modo>] el comando del statusLine prueba CLAUDE_PROJECT_DIR y después git rev-parse" "[$modo] el comando del statusLine prueba CLAUDE_PROJECT_DIR y después git rev-parse"
   # La guía de la línea del flujo nombra a Barrilete solo en bloques brand: el proyecto no los trae, y sus enlaces y anclas siguen sanos.
-  r=$(python3 - "$p" "$modo" 2>&1 <<'PY'
+  python3 - "$p" "$modo" <<'PY'
 import glob, subprocess, sys
 p, modo = sys.argv[1:3]
 guias = glob.glob(f"{p}/docs/guides/flow-line*.md")
-try:
-    assert bool(guias) == (modo == "completo"), "the guide stays in the full project and goes with docs/guides in the small one"
-    for g in guias:
-        t = open(g, encoding="utf-8").read()
-        assert "barrilete" not in t.lower() and "brand:" not in t, g
-    r = subprocess.run([sys.executable, "scripts/agents/check-docs.py"], cwd=p, capture_output=True, text=True)
-    assert "flow-line" not in r.stdout + r.stderr, r.stdout + r.stderr
-    print("ok")
-except AssertionError as e:
-    print("bad", e)
+assert bool(guias) == (modo == "completo"), "the guide stays in the full project and goes with docs/guides in the small one"
+for g in guias:
+    t = open(g, encoding="utf-8").read()
+    assert "barrilete" not in t.lower() and "brand:" not in t, g
+r = subprocess.run([sys.executable, "scripts/agents/check-docs.py"], cwd=p, capture_output=True, text=True)
+assert "flow-line" not in r.stdout + r.stderr, r.stdout + r.stderr
 PY
-)
-  [ "$r" = ok ]
   tap_check $? "[<modo>] la guía flow-line del proyecto no menciona a Barrilete y check-docs no marca nada de ella" "[$modo] la guía flow-line del proyecto no menciona a Barrilete y check-docs no marca nada de ella"
 done
 p="$TMP/no-flow"
 copiar "$p"
-(cd "$p" && ./scripts/init-template.sh Demo main --no-flow-line >/dev/null 2>&1)
-! grep -q statusLine "$p/.claude/settings.json"
+(cd "$p" && ./scripts/init-template.sh Demo main --no-flow-line >/dev/null 2>&1) && ! grep -q statusLine "$p/.claude/settings.json"
 tap_check $? "--no-flow-line se acepta y no agrega el statusLine"
 
 tap_done

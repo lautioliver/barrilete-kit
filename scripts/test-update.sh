@@ -193,19 +193,15 @@ for modo in completo chico; do
   D="$TMP/flow-$modo"
   proyecto "$D" "$modo" v0.1.0 "" --flow-line
   con_flow_line "$D"; tap_check $? "[<modo> --flow-line] el init deja el statusLine y flow_line: true" "[$modo --flow-line] el init deja el statusLine y flow_line: true"
-  cd "$D" || exit 1
-  tap_run s 0 python3 scripts/update.py --template "$P"
-  cd "$TMP" || exit 1
-  [ "$TAP_RC" -eq 0 ] && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md" && con_flow_line "$D" \
+  c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>&1) || c=$?; tap_status "$c" 0
+  [ "$c" -eq 0 ] && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md" && con_flow_line "$D" \
     && ! [ -e "$D/.agent-kit/pending/.claude/settings.json" ]
   tap_check $? "[<modo> --flow-line] update.py conserva el statusLine y flow_line: true" "[$modo --flow-line] update.py conserva el statusLine y flow_line: true"
 done
 D="$TMP/flow-crece"
 proyecto "$D" chico v0.1.0 "" --flow-line
-cd "$D" || exit 1
-tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
-cd "$TMP" || exit 1
-[ "$TAP_RC" -eq 0 ] && grep -q '"mode": "full"' "$D/.agent-kit.json" && con_flow_line "$D"
+c=0; s=$(trap - ERR; cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1) || c=$?; tap_status "$c" 0
+[ "$c" -eq 0 ] && grep -q '"mode": "full"' "$D/.agent-kit.json" && con_flow_line "$D"
 tap_check $? "grow.py conserva el statusLine y flow_line: true"
 
 # Modo chico.

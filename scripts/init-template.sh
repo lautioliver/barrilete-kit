@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Replaces the template placeholders and deletes itself.
-# Usage: ./scripts/init-template.sh "Project name" [main|develop] [releases] [--small] [--lang en|es]
+# Usage: ./scripts/init-template.sh "Project name" [main|develop] [releases] [--small] [--lang en|es] [--flow-line|--no-flow-line]
 #   base branch: main (default) or develop.
 #   releases:  only with develop. Adds the develop → release/vX.Y.Z → main flow
 #              to publish versions without touching production (app with active users).
@@ -11,15 +11,20 @@
 #              sibling X.es.md; in both cases the leftover .es.md files are deleted (ADR-001). The siblings of the
 #              agents and of the issue forms live in .claude/i18n/agents/ and .github/i18n/ISSUE_TEMPLATE/.
 #              It is recorded as "language" in .agent-kit.json.
+#   --flow-line / --no-flow-line: whether Claude Code's status line shows the flow line (scripts/agents/flow.py,
+#              docs/guides/flow-line.md). Without either, it is asked when there is a terminal; otherwise, no.
+#              It is recorded as "flow_line" in .agent-kit.json, so update.py and grow.py reproduce it.
 set -euo pipefail
-USO="Usage: $0 \"Project name\" [main|develop] [releases] [--small] [--lang en|es]"
+USO="Usage: $0 \"Project name\" [main|develop] [releases] [--small] [--lang en|es] [--flow-line|--no-flow-line]"
 CHICO=""
+FLOW_LINE=""
 LANG_KIT="en"
 POS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --small) CHICO=1 ;;
-    --flow-line|--no-flow-line) ;; # stub of the red commit (#181): accepted, it does nothing yet
+    --flow-line) FLOW_LINE=yes ;;
+    --no-flow-line) FLOW_LINE=no ;;
     --lang=*) LANG_KIT="${1#--lang=}" ;;
     --lang)
       [ $# -ge 2 ] || { echo "$USO"; echo "--lang needs a value: en or es."; exit 1; }
@@ -43,6 +48,20 @@ fi
 if [ -n "$CHICO" ] && [ "$MODO" = "releases" ]; then
   echo "$USO"; echo "'--small' cannot be combined with 'releases': if you need releases, use the full mode."; exit 1
 fi
+# Only asked with a person at the terminal: update.py, grow.py and install.py run the init without one.
+if [ -z "$FLOW_LINE" ]; then
+  FLOW_LINE=no
+  if [ -t 0 ] && [ -t 1 ]; then
+    if [ "$LANG_KIT" = es ]; then
+      printf '¿Mostrar en la status line de Claude Code en qué paso del flujo está la rama? [s/N] '
+    else
+      printf "Show in Claude Code's status line which step of the flow the branch is in? [y/N] "
+    fi
+    read -r resp || resp=""
+    case "$resp" in [sSyY]*) FLOW_LINE=yes ;; esac
+  fi
+fi
+export FLOW_LINE
 # AGENT_KIT_DATE: the original date of the project, so update.py reproduces its init.
 F=${AGENT_KIT_DATE:-$(date +%Y-%m-%d)}
 export F
@@ -135,7 +154,7 @@ rm -rf profiles
 # The brand (Barrilete) and the trial guide belong to the template, not to the new project.
 rm -rf .github/brand
 rm -f docs/try-the-template.md .github/ISSUE_TEMPLATE/5-trial.yml
-for f in README.md README.es.md AGENTS.md docs/github-naming-convention.md .claude/skills/git-workflow/SKILL.md docs/README.md docs/llms.txt; do
+for f in README.md README.es.md AGENTS.md docs/github-naming-convention.md .claude/skills/git-workflow/SKILL.md docs/README.md docs/llms.txt docs/guides/flow-line.md docs/guides/flow-line.es.md; do
   [ -f "$f" ] || continue
   # brand: what is Barrilete's. template: what is only useful in the template repo (the trial guide).
   perl -0pi -e 's/<!-- (brand|template|lang):start -->.*?<!-- \1:end -->\n\n?//gs' "$f"
@@ -197,6 +216,20 @@ mapa["parity_ignore"] = [g for g in mapa.get("parity_ignore", []) if g not in ("
 open(ruta, "w", encoding="utf-8").write(json.dumps(mapa, ensure_ascii=False, indent=2) + "\n")
 PY
 fi
+# The flow line in Claude Code's status line, if it was chosen (a statusLine of the project's own is not overwritten):
+# refreshed every second, and two hooks that mark when the agent is working, so the line moves meanwhile.
+if [ "$FLOW_LINE" = yes ]; then
+  python3 - <<'PY'
+import json
+ruta = ".claude/settings.json"
+ajustes = json.load(open(ruta, encoding="utf-8"))
+flow = 'f="${CLAUDE_PROJECT_DIR:-.}/scripts/agents/flow.py"; [ -f "$f" ] || f="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/flow.py"; [ -f "$f" ] || exit 0; exec python3 "$f" '
+ajustes.setdefault("statusLine", {"type": "command", "command": flow + "--statusline", "refreshInterval": 1})
+for evento, modo in (("UserPromptSubmit", "on"), ("Stop", "off")):
+    ajustes.setdefault("hooks", {}).setdefault(evento, []).append({"hooks": [{"type": "command", "command": flow + "--busy " + modo}]})
+open(ruta, "w", encoding="utf-8").write(json.dumps(ajustes, ensure_ascii=False, indent=2) + "\n")
+PY
+fi
 # Init registry: with what data the project was created and the hash of each file as it
 # was left. grow.py uses it to know which files the project did not touch and can replace.
 MODO_KIT=$([ -n "$CHICO" ] && echo small || echo full) RELEASES="$MODO" python3 - <<'PY'
@@ -210,9 +243,11 @@ for base, dirs, files in os.walk("."):
             archivos[ruta] = hashlib.sha1(open(ruta, "rb").read()).hexdigest()
 json.dump({
     "project": os.environ["P"], "base_branch": os.environ["B"], "releases": os.environ["RELEASES"] == "releases",
-    "mode": os.environ["MODO_KIT"], "language": os.environ["LANG_KIT"], "date": os.environ["F"], "version": os.environ["V"] or None,
+    "mode": os.environ["MODO_KIT"], "language": os.environ["LANG_KIT"],
+    "flow_line": os.environ["FLOW_LINE"] == "yes", "date": os.environ["F"], "version": os.environ["V"] or None,
     "files": dict(sorted(archivos.items())),
 }, open(".agent-kit.json", "w"), ensure_ascii=False, indent=2)
 PY
+[ -t 1 ] && python3 scripts/agents/flow.py --face ready 2>/dev/null || true
 echo "Done. Pending (TODO:):"
 grep -rn "TODO:" --exclude-dir=.git . | cut -c1-120 || true
