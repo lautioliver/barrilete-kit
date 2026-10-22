@@ -36,6 +36,8 @@ for modo in completo chico; do
   (cd "$p" && git add -A && git commit -qm init)
 
   ! [ -e "$p/scripts/test-init.sh" ]; tap_check $? "[<modo>] el init borra este test (no sirve sin init-template.sh)" "[$modo] el init borra este test (no sirve sin init-template.sh)"
+  ! [ -e "$p/.claude/skills/implement-issue/corpus" ]; tap_check $? "[<modo>] el init borra el corpus de red.sh (son fixtures del kit)" "[$modo] el init borra el corpus de red.sh (son fixtures del kit)"
+  ! [ -e "$p/.claude/skills/implement-issue/test-red.sh" ]; tap_check $? "[<modo>] el init borra test-red.sh (corre el corpus: sin él no sirve)" "[$modo] el init borra test-red.sh (corre el corpus: sin él no sirve)"
   ! [ -e "$p/docs/try-the-template.md" ] && ! [ -e "$p/.github/ISSUE_TEMPLATE/5-trial.yml" ]
   tap_check $? "[<modo>] el init borra la guía y el formulario de prueba (son de la plantilla, no del proyecto)" "[$modo] el init borra la guía y el formulario de prueba (son de la plantilla, no del proyecto)"
   ! grep -rq 'try-the-template' "$p"/README*.md; tap_check $? "[<modo>] el README del proyecto no enlaza la guía de prueba borrada" "[$modo] el README del proyecto no enlaza la guía de prueba borrada"
@@ -77,6 +79,7 @@ for modo in completo chico; do
   else
     python3 -c "import json,sys; r=json.load(open('$p/docs/agents-map.json'))['red']; sys.exit(0 if r and all('{out}' in e['run'] and e['format'] in ('junit','tap') for e in r) else 1)" 2>/dev/null; tap_check $? "[<modo>] el mapa instalado trae la sección red por defecto (bash/TAP con {out})" "[$modo] el mapa instalado trae la sección red por defecto (bash/TAP con {out})"
     ! grep -q '^- docs/agents-map.json: red' <<<"$s"; tap_check $? "[<modo>] check-docs del proyecto recién creado no rechaza la sección red por defecto" "[$modo] check-docs del proyecto recién creado no rechaza la sección red por defecto"
+    python3 -c "import json,sys; sys.exit(1 if any(v.get('name') == 'red' for v in json.load(open('$p/docs/agents-map.json')).get('verify', [])) else 0)" 2>/dev/null; tap_check $? "[<modo>] el init saca del mapa la verificación red (apuntaba al corpus y a test-red.sh borrados)" "[$modo] el init saca del mapa la verificación red (apuntaba al corpus y a test-red.sh borrados)"
     ! grep -q '"name": "init"' "$p/docs/agents-map.json"; tap_check $? "[<modo>] el init saca del mapa la verificación init (su test ya no existe)" "[$modo] el init saca del mapa la verificación init (su test ya no existe)"
     ! grep -q 'ADR-001\|CHANGELOG' "$p/docs/agents-map.json"; tap_check $? "[<modo>] el init saca del mapa lo que ignora de los archivos del kit (no debe ocultar el ADR-001 del proyecto)" "[$modo] el init saca del mapa lo que ignora de los archivos del kit (no debe ocultar el ADR-001 del proyecto)"
   fi
@@ -180,6 +183,7 @@ for idioma in en es; do
   p="$TMP/real-completo-$idioma"
   copiar "$p"
   (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" >/dev/null 2>&1); tap_check $? "[real completo --lang <idioma>] el init termina bien" "[real completo --lang $idioma] el init termina bien"
+  ! [ -e "$p/.claude/skills/implement-issue/corpus" ]; tap_check $? "[real completo --lang <idioma>] no queda implement-issue/corpus" "[real completo --lang $idioma] no queda implement-issue/corpus"
   nombres=$(grep -h '^name:' "$p"/.claude/agents/*.md); repetidos=$(sort <<<"$nombres" | uniq -d); sueltos=$(find "$p/.claude/agents" -name '*.es.md')
   if [ -z "$repetidos" ] && [ "$(wc -l <<<"$nombres" | tr -d ' ')" = 3 ] && [ -z "$sueltos" ]; then r=0; else r=1; fi
   tap_check $r "[real completo --lang <idioma>] cada name: aparece una sola vez en .claude/agents/ (3 agentes, ningún .es.md)" "[real completo --lang $idioma] cada name: aparece una sola vez en .claude/agents/ (3 agentes, ningún .es.md)"
@@ -272,6 +276,7 @@ for idioma in en es; do
   p="$TMP/real-chico-$idioma"
   copiar "$p"
   (cd "$p" && ./scripts/init-template.sh Demo main --small --lang "$idioma" >/dev/null 2>&1); tap_check $? "[real chico --lang <idioma>] el init termina bien" "[real chico --lang $idioma] el init termina bien"
+  ! [ -e "$p/.claude/skills/implement-issue/corpus" ]; tap_check $? "[real chico --lang <idioma>] no queda implement-issue/corpus" "[real chico --lang $idioma] no queda implement-issue/corpus"
   # #152: en los dos idiomas el proyecto chico trae el mapa mínimo (solo red) y check-docs lo acepta.
   k=$(claves_mapa "$p/docs/agents-map.json"); [ "$k" = "['red']" ]; tap_check $? "[real chico --lang <idioma>] docs/agents-map.json tiene solo la sección red" "[real chico --lang $idioma] docs/agents-map.json tiene solo la sección red"
   (cd "$p" && python3 scripts/agents/check-docs.py >/dev/null 2>&1); tap_check $? "[real chico --lang <idioma>] check-docs pasa con el mapa mínimo, sin agents_map.py" "[real chico --lang $idioma] check-docs pasa con el mapa mínimo, sin agents_map.py"
