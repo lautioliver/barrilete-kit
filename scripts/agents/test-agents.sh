@@ -280,13 +280,15 @@ for f in "$CONTRATO" "${CONTRATO%.md}.es.md"; do
   [ -e "$RAIZ/$f" ] || continue
   # La viñeta de la retro, no cualquier línea del contrato (la del revisor ya habla de retro.sh y del worktree).
   vi=$(grep -Ei 'You save the retro yourself|La retro la guardás vos' "$RAIZ/$f" 2>/dev/null)
-  grep -q 'retro_sh' <<<"$vi" && grep -Eiq 'never|nunca' <<<"$vi" && grep -Eiq "worktree" <<<"$vi"; tap_check $? "<f>: la viñeta de la retro nombra retro_sh y dice que nunca se corre el del worktree" "$f: la viñeta de la retro nombra retro_sh y dice que nunca se corre el del worktree"
+  grep -q 'retro_sh' <<<"$vi"; tap_check $? "<f>: la viñeta de la retro nombra retro_sh" "$f: la viñeta de la retro nombra retro_sh"
+  grep -Eiq 'never|nunca' <<<"$vi"; tap_check $? "<f>: la viñeta de la retro dice que nunca se corre el del worktree (never/nunca)" "$f: la viñeta de la retro dice que nunca se corre el del worktree (never/nunca)"
+  grep -Eiq "worktree" <<<"$vi"; tap_check $? "<f>: la viñeta de la retro nombra el worktree" "$f: la viñeta de la retro nombra el worktree"
 done
 for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/SKILL.es.md; do
   [ -e "$RAIZ/$f" ] || continue
-  ! grep -q '^``` ' "$RAIZ/$f"; tap_check $? "<f>: el cierre del bloque de código de la retro está solo en su línea" "$f: el cierre del bloque de código de la retro está solo en su línea"
+  grep -q '^``` ' "$RAIZ/$f"; [ $? -eq 1 ]; tap_check $? "<f>: el cierre del bloque de código de la retro está solo en su línea" "$f: el cierre del bloque de código de la retro está solo en su línea"
   # shellcheck disable=SC2016  # the backticks are part of the regex, not an expansion
-  ! grep -Eq '`retro\.sh` (with no arguments|sin argumentos)' "$RAIZ/$f"; tap_check $? "<f>: no manda a correr retro.sh sin argumentos (sería el del worktree)" "$f: no manda a correr retro.sh sin argumentos (sería el del worktree)"
+  grep -Eq '`retro\.sh` (with no arguments|sin argumentos)' "$RAIZ/$f"; [ $? -eq 1 ]; tap_check $? "<f>: no manda a correr retro.sh sin argumentos (sería el del worktree)" "$f: no manda a correr retro.sh sin argumentos (sería el del worktree)"
   grep -Eq '^retro_dir=.*git -C <worktree> fetch -q origin <base> && ' "$RAIZ/$f"; tap_check $? "<f>: el comando sin orquestador trae origin/<base> antes del archive" "$f: el comando sin orquestador trae origin/<base> antes del archive"
   grep -Eq 'git archive. (command )?fails|el comando .git archive. falla' "$RAIZ/$f"; tap_check $? "<f>: dice qué hacer si el git archive falla" "$f: dice qué hacer si el git archive falla"
   grep -Eq 'left on purpose|queda a propósito' "$RAIZ/$f"; tap_check $? "<f>: dice que el directorio temporal queda a propósito" "$f: dice que el directorio temporal queda a propósito"
