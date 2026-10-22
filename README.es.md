@@ -335,9 +335,22 @@ Inicializa la versión nueva con los datos del proyecto y la compara archivo por
 - Un `docs/agents-map.json` sin sección `red` recibe la entrada `bash` del kit y un aviso que remite a `docs/guides/red-per-runner.md` (ADR-002 D8; `red.sh` rechaza un mapa sin `red`).
 - Lo que el proyecto borró no vuelve.
 
-Un proyecto creado con 0.9 (nombres en español) se migra en la misma corrida a los nombres, claves y labels nuevos, conservando sus cambios; cómo correrlo y revisarlo está en el `CHANGELOG.md` (#116).
+Un proyecto creado con 0.9 (nombres en español) se migra en la misma corrida a los nombres, claves y labels nuevos, conservando sus cambios; sus pasos están en [Desde 0.9](#desde-09) más abajo.
 
 Muestra qué cambió según el changelog y no commitea: revisás el diff y abrís un PR. Un proyecto creado antes de las versiones también se actualiza, pero sin fusionar: lo que modificó queda entero en `.agent-kit/pending/`.
+
+### Desde 0.9
+
+Un proyecto de 0.9 no tiene `update.py`: su script de actualización viejo (su nombre de 0.9 está en la tabla de renombres de `CHANGELOG.md`) no sirve para migrarlo, porque busca el init viejo. Actualizá así:
+
+1. Si el proyecto está en español, agregá `"language": "es"` a `.agent-kit.json` y commitealo **antes** de actualizar. Sin eso, el proyecto se trata como inglés. `update.py` no corre con cambios sin commitear. Si ya lo corriste sin `language`: `git reset --hard && git clean -fd && rm -rf .agent-kit` (sirve aunque ya hayas hecho `git add -A`; `.agent-kit/` está ignorado, así que `git clean` no lo borra), agregalo, commitealo y volvé a correr.
+2. Bajá `update.py` de la versión nueva **fuera del repo** (así no cuenta como cambio) y corrélo desde la raíz del proyecto:
+   ```bash
+   curl -fsSLo /tmp/update.py https://raw.githubusercontent.com/lautioliver/barrilete-kit/<tag>/scripts/update.py && python3 /tmp/update.py
+   ```
+   `<tag>` es la última versión, por ejemplo `v1.0.0`.
+3. Integrá lo que valga la pena de `.agent-kit/pending/` y borrá esa carpeta (`update.py` no corre mientras tenga archivos). Reemplazá la entrada `bash` de la sección `red` de `docs/agents-map.json` por la de tu stack (entradas listas para copiar en `docs/guides/red-per-runner.md`). Después, `git add -A` y `python3 scripts/agents/check-docs.py`.
+4. Después del merge, corré el workflow Labels. La rama vieja de retros (`agentes/retros`) queda como está: no la renombres a mano.
 
 <a name="herramientas"></a>
 
