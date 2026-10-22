@@ -194,6 +194,9 @@ fi
 rm -- scripts/init-template.sh scripts/test-init.sh scripts/test-renames.sh scripts/install.py scripts/test-install.sh  # only make sense with the template
 rm -f scripts/test-update.sh scripts/test-update-prep.sh  # builds template versions: it needs the init
 rm -f scripts/agents/test-i18n.sh  # tests the kit's own docs (it assumes the template content)
+# The corpus of red.sh (842 fixtures) and test-red.sh, which runs it, are the kit regression: a project does not need them (#191).
+rm -rf .claude/skills/implement-issue/corpus
+rm -f .claude/skills/implement-issue/test-red.sh
 # The template version stays in .agent-kit.json; VERSION and CHANGELOG.md belong to the template.
 V=$(cat VERSION 2>/dev/null || true)
 export V
@@ -205,7 +208,7 @@ if [ -z "$CHICO" ] && [ -f docs/agents-map.json ]; then
 import json
 ruta = "docs/agents-map.json"
 mapa = json.load(open(ruta, encoding="utf-8"))
-mapa["verify"] = [v for v in mapa.get("verify", []) if v.get("name") not in ("init", "update", "renames", "i18n", "install")]
+mapa["verify"] = [v for v in mapa.get("verify", []) if v.get("name") not in ("init", "update", "renames", "i18n", "install", "red")]
 # CHANGELOG.md and the kit ADRs are deleted above: their ignore entries would hide the project's own ADR-001.
 mapa["ignore_check"] = [g for g in mapa.get("ignore_check", []) if g not in ("CHANGELOG.md", "CLAUDE.md", "docs/decisions/ADR-001-*")]
 mapa["parity"] = False  # a project has one language: the siblings check is the template's

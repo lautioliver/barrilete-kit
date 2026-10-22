@@ -212,6 +212,39 @@ c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>&1) 
   && grep -q '"mode": "small"' "$D/.agent-kit.json" && ! [ -e "$D/.claude/skills/review-pr" ]
 tap_check $? "[chico] actualiza sin traer lo del modo completo"
 
+# Un proyecto 1.0.0 recibió el corpus de red.sh y test-red.sh (#191): update.py borra lo que no tocó y avisa de lo que sí.
+D="$TMP/de-1-0"
+proyecto "$D" completo
+(
+  cd "$D" || exit 1
+  K=.claude/skills/implement-issue
+  mkdir -p $K/corpus/caso-a $K/corpus/caso-b otro-dir
+  ln -s ../../../../otro-dir $K/corpus/enlace
+  echo "expect=2" >otro-dir/meta
+  echo "expect=0" >$K/corpus/caso-a/meta
+  echo "expect=1" >$K/corpus/caso-b/meta
+  echo "echo test" >$K/test-red.sh
+  python3 - <<'PY'
+import hashlib, json
+j = json.load(open(".agent-kit.json"))
+for r in (".claude/skills/implement-issue/corpus/caso-a/meta", ".claude/skills/implement-issue/corpus/caso-b/meta", ".claude/skills/implement-issue/corpus/enlace/meta", ".claude/skills/implement-issue/test-red.sh"):
+    j["files"][r] = hashlib.sha1(open(r, "rb").read()).hexdigest()
+json.dump(j, open(".agent-kit.json", "w"), ensure_ascii=False, indent=2)
+PY
+  echo "cambio del proyecto" >>$K/corpus/caso-b/meta
+  git add -A
+  git commit -qm "como 1.0.0"
+) >>"$TMP/build.log" 2>&1
+cd "$D" || exit 1
+tap_run s 0 python3 scripts/update.py --template "$P"
+cd "$TMP" || exit 1
+! [ -e "$D/.claude/skills/implement-issue/corpus/caso-a" ] && ! [ -e "$D/.claude/skills/implement-issue/test-red.sh" ]
+tap_check $? "[1.0.0] borra el corpus y test-red.sh que el proyecto no tocó"
+[ -f "$D/.claude/skills/implement-issue/corpus/caso-b/meta" ] && grep -q "caso-b" <<<"$s"
+tap_check $? "[1.0.0] conserva y avisa un archivo del corpus que el proyecto modificó"
+! [ -e "$D/otro-dir/meta" ] && ! grep -q "corpus/enlace/meta" "$D/.agent-kit.json" && ! grep -q "enlace/meta: " <<<"$s"
+tap_check $? "[1.0.0] un archivo que está detrás de una carpeta que es un enlace se borra y se saca del registro, sin error"
+
 # grow.py (chico → completo) también registra la versión de la plantilla que trae.
 D="$TMP/crece"
 proyecto "$D" chico
@@ -417,6 +450,8 @@ c=0; s=$(trap - ERR; cd "$D" && python3 "$NUEVO_UPDATE" --template "$P09" 2>&1) 
 tap_check $? "[0.9] no quedan archivos ni carpetas con el nombre viejo"
 es -f "$D/scripts/update.py" && es -f "$D/scripts/agents/guardrails.py" && es -f "$D/docs/agents-map.json" && es -f "$D/.claude/skills/improve-skills/retro.sh"
 tap_check $? "[0.9] los archivos renombrados están en su ruta nueva"
+! [ -e "$D/.claude/skills/implement-issue/corpus" ] && ! [ -e "$D/.claude/skills/implement-issue/test-red.sh" ]
+tap_check $? "[0.9] la migración no agrega el corpus de red.sh ni test-red.sh (#191)"
 grep -q "^# del proyecto" "$D/scripts/agents/verify.py" && grep -q "^# nuevo en 0.10" "$D/scripts/agents/verify.py"
 tap_check $? "[0.9] un archivo renombrado con cambios del proyecto y de la plantilla se fusiona (no se pierde ninguno)"
 grep -q "Lección del proyecto." "$D/docs/agents/lessons.md"; tap_check $? "[0.9] un archivo renombrado con cambios solo del proyecto los conserva en la ruta nueva"

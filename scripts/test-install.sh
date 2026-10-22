@@ -117,6 +117,7 @@ c=$TAP_RC
 cd "$TMP" || exit 1
 es "$c" -eq 0; tap_check $? "instala en un repo existente" "instala en un repo existente (salida: $(tail -1 <<<"$s"))"
 es "$(git -C "$U" rev-parse HEAD)" = "$HEAD0"; tap_check $? "no commitea"
+! [ -e "$U/.claude/skills/implement-issue/corpus" ] && ! [ -e "$U/.agent-kit/pending/.claude/skills/implement-issue/corpus" ]; tap_check $? "no instala el corpus de red.sh (son fixtures del kit)"
 es "$(cat "$U/README.md")" = "# Mi app" && es "$(cat "$U/LICENSE")" = "MIT mía"
 tap_check $? "README y LICENSE quedan como estaban"
 es "$(cat "$U/AGENTS.md")" = "$(printf '# Reglas de mi app\n\nusar tabs')"; tap_check $? "AGENTS.md del proyecto no se toca"

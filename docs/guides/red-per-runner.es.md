@@ -2,7 +2,7 @@
 
 > Entradas listas para copiar en la sección `red` de `docs/agents-map.json` (ADR-002, D2 y D10). `red.sh` corre cada entrada cuyo `when` coincide con un archivo del commit del rojo y acepta solo un reporte estructurado: JUnit XML o TAP.
 
-Cada entrada tiene `name`, `when` (globs de los archivos de test), `run` (con `{out}`: `red.sh` lo reemplaza por el camino donde hay que escribir el reporte), `format` (`junit` o `tap`) y un `timeout` opcional en segundos. No hay campo `report`. Cambiá los caminos, los globs de test y el timeout por los del proyecto. `check-docs.py` valida la sección. Las entradas son ejemplos: lo que importa son las opciones del reporter del corpus (`.claude/skills/implement-issue/corpus/`), y go y cargo solo se probaron ahí contra la salida documentada de sus herramientas.
+Cada entrada tiene `name`, `when` (globs de los archivos de test), `run` (con `{out}`: `red.sh` lo reemplaza por el camino donde hay que escribir el reporte), `format` (`junit` o `tap`) y un `timeout` opcional en segundos. No hay campo `report`. Cambiá los caminos, los globs de test y el timeout por los del proyecto. `check-docs.py` valida la sección. Las entradas son ejemplos: lo que importa son las opciones del reporter. Se probaron contra el corpus de regresión del repo del kit (`.claude/skills/implement-issue/corpus/` allá; no se instala en los proyectos), y go y cargo solo contra la salida documentada de sus herramientas.
 
 ## bash (TAP)
 
@@ -105,7 +105,7 @@ Instalá `cargo2junit`. `RUSTC_BOOTSTRAP=1` habilita la salida JSON en stable. `
 
 ## cargo (nextest)
 
-Agregá un perfil a `.config/nextest.toml`: `[profile.red.junit]` con `path = "junit.xml"`. nextest escribe el reporte en `target/nextest/red/`, así que `run` lo copia a `{out}` y conserva el código de salida de los tests. El `rm -f` corre primero para que un build fallido no deje un reporte de una corrida anterior para copiar. Esta entrada está sin verificar: el comando, la ruta del perfil y la copia nunca se corrieron acá (el corpus tiene solo un reporte de nextest escrito a mano).
+Agregá un perfil a `.config/nextest.toml`: `[profile.red.junit]` con `path = "junit.xml"`. nextest escribe el reporte en `target/nextest/red/`, así que `run` lo copia a `{out}` y conserva el código de salida de los tests. El `rm -f` corre primero para que un build fallido no deje un reporte de una corrida anterior para copiar. Esta entrada está sin verificar: el comando, la ruta del perfil y la copia nunca se corrieron acá (el corpus del kit tiene solo un reporte de nextest escrito a mano).
 
 ```json
 {
