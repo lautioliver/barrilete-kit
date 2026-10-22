@@ -261,6 +261,14 @@
       "run": "python3 -m unittest scripts/agents/test_guardrails.py"
     },
     {
+      "name": "flow",
+      "when": [
+        "scripts/agents/flow.py",
+        "scripts/agents/test_flow.py"
+      ],
+      "run": "python3 -m unittest scripts/agents/test_flow.py"
+    },
+    {
       "name": "init",
       "when": [
         "?scripts/init-template.sh",

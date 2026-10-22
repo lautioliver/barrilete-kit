@@ -70,13 +70,15 @@ mkdir -p "$P"
     && echo 0.0.5 >VERSION && git add -A && git commit -qm v0.0.5 && git tag v0.0.5 && git checkout -q main
 ) >>"$TMP/build.log" 2>&1
 
-# Proyecto iniciado con v0.1.0: <modo> en <dir>.
+# Proyecto iniciado con v0.1.0: <modo> en <dir>. Lo que va después del idioma pasa al init tal cual.
 proyecto() {
   local dir=$1 modo=$2 ref=${3:-v0.1.0} idioma=${4:-}
+  shift 4 2>/dev/null || shift $#
   mkdir -p "$dir"
   git -C "$P" archive "$ref" | tar -xf - -C "$dir"
   local extra=(); [ "$modo" = chico ] && extra=(--small)
   [ -n "$idioma" ] && extra+=(--lang "$idioma")
+  extra+=("$@")
   prep "$dir" git init -q -b main
   prep "$dir" git add -A
   prep "$dir" git commit -qm plantilla
@@ -180,6 +182,27 @@ c=0; s=$(trap - ERR; cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 
 [ "$c" -eq 0 ] && grep -qx "Hola v0.2" "$D/.claude/skills/debug/lang.md" && ! [ -e "$D/.claude/skills/debug/lang.es.md" ] \
   && grep -q '"language": "es"' "$D/.agent-kit.json"
 tap_check $? "grow.py mantiene el idioma del proyecto (es)"
+
+# --flow-line (#181): update.py y grow.py reproducen la elección, así la status line no se pierde al actualizar.
+# Con grep: una aserción que falla es "not ok", no un crash (tap.sh).
+con_flow_line() {
+  grep -q '"statusLine"' "$1/.claude/settings.json" && grep -q 'scripts/agents/flow.py.*--statusline' "$1/.claude/settings.json" \
+    && grep -q '"flow_line": true' "$1/.agent-kit.json"
+}
+for modo in completo chico; do
+  D="$TMP/flow-$modo"
+  proyecto "$D" "$modo" v0.1.0 "" --flow-line
+  con_flow_line "$D"; tap_check $? "[<modo> --flow-line] el init deja el statusLine y flow_line: true" "[$modo --flow-line] el init deja el statusLine y flow_line: true"
+  c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>&1) || c=$?; tap_status "$c" 0
+  [ "$c" -eq 0 ] && grep -q "Línea nueva de la plantilla v0.2." "$D/.claude/skills/debug/SKILL.md" && con_flow_line "$D" \
+    && ! [ -e "$D/.agent-kit/pending/.claude/settings.json" ]
+  tap_check $? "[<modo> --flow-line] update.py conserva el statusLine y flow_line: true" "[$modo --flow-line] update.py conserva el statusLine y flow_line: true"
+done
+D="$TMP/flow-crece"
+proyecto "$D" chico v0.1.0 "" --flow-line
+c=0; s=$(trap - ERR; cd "$D" && AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py 2>&1) || c=$?; tap_status "$c" 0
+[ "$c" -eq 0 ] && grep -q '"mode": "full"' "$D/.agent-kit.json" && con_flow_line "$D"
+tap_check $? "grow.py conserva el statusLine y flow_line: true"
 
 # Modo chico.
 D="$TMP/chico"

@@ -103,7 +103,7 @@ Or clone the template and run it from the clone, to read it before running it:
 python3 <clone of the template>/scripts/install.py "Project" main
 ```
 
-`main` is the base branch (or `develop`), and `releases` works as in the init. `--draft` prints the plan and writes nothing. `--template <url or path>` and `--version vX.Y.Z` pick where the kit comes from. Anything after `--` goes to `init-template.sh` as is (for example `-- --lang es`).
+`main` is the base branch (or `develop`), and `releases` works as in the init. `--draft` prints the plan and writes nothing. `--template <url or path>` and `--version vX.Y.Z` pick where the kit comes from. Anything after `--` goes to `init-template.sh` as is (for example `-- --lang es`, or `-- --flow-line` for the [flow line](docs/guides/flow-line.md) in Claude Code).
 
 What it touches:
 
@@ -165,6 +165,8 @@ Agents do the work. The two knots on the leash, **approving the plan** and **mer
 **Guardrails.** It doesn't rely only on what `AGENTS.md` asks: a Claude Code hook (`.claude/settings.json` → `scripts/agents/guardrails.py`) stops, before they run, merging and approving PRs, pushing to `main` or `develop`, tags, releases, branch protection changes and `--no-verify`, also inside compound commands. The same script is registered for Codex, Copilot and Cursor (see [Tools](#tools)). If you asked for one of those steps, run it yourself in the chat: `! gh pr merge 12`. Open Claude Code at the repo root: from a subdirectory it doesn't load `.claude/settings.json` and the hook doesn't run. They are guardrails, not a lock: they stop the common mistake, but an agent with your token can get there another way (its own script, another tool). The lock is GitHub: a rule on the base branch that requires an approval. If you work alone, that rule also stops you (GitHub doesn't let you approve your own PR), so it's optional.
 
 During `/implement-issue`, `debug`, `db-migration` and `update-docs` come in as needed. If the PR touches sensitive paths, the review adds `/security-review`.
+
+**Which step am I in?** `scripts/agents/flow.py` says it in one line (`plan ● ─ ▸implement ─ review ─ ● merge   #42 · no PR yet`) in Claude Code's status line, the shell prompt, tmux or an ADE pane, whatever the agent. The init asks whether to turn it on in Claude Code; see the [guide](docs/guides/flow-line.md).
 
 <!-- brand:start -->
 <table align="center">

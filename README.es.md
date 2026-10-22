@@ -105,7 +105,7 @@ O cloná la plantilla y correlo desde el clon, para leerlo antes de correrlo:
 python3 <clon de la plantilla>/scripts/install.py "Proyecto" main --lang es
 ```
 
-`main` es la rama base (o `develop`), y `releases` funciona igual que en el init. `--draft` imprime el plan y no escribe nada. `--template <url o ruta>` y `--version vX.Y.Z` eligen de dónde sale el kit. Lo que va después de `--` se pasa tal cual a `init-template.sh` (por ejemplo `-- --lang es`).
+`main` es la rama base (o `develop`), y `releases` funciona igual que en el init. `--draft` imprime el plan y no escribe nada. `--template <url o ruta>` y `--version vX.Y.Z` eligen de dónde sale el kit. Lo que va después de `--` se pasa tal cual a `init-template.sh` (por ejemplo `-- --lang es`, o `-- --flow-line` para la [línea del flujo](docs/guides/flow-line.md) en Claude Code).
 
 Qué toca:
 
@@ -167,6 +167,8 @@ Los agentes hacen el trabajo. Los dos nudos de la correa, **aprobar el plan** y 
 **Barandas.** No depende solo de lo que pide `AGENTS.md`: un hook de Claude Code (`.claude/settings.json` → `scripts/agents/guardrails.py`) frena antes de correrlos el merge y la aprobación de PRs, el push a `main` o `develop`, los tags, las releases, los cambios a la protección de ramas y `--no-verify`, también dentro de comandos compuestos. El mismo script se registra para Codex, Copilot y Cursor (ver [Herramientas](#herramientas)). Si pediste uno de esos pasos, lo corrés vos en el chat: `! gh pr merge 12`. Abrí Claude Code en la raíz del repo: desde un subdirectorio no carga `.claude/settings.json` y el hook no corre. Son barandas, no una cerradura: frenan el error común, pero un agente con tu token puede llegar por otro camino (un script propio, otra herramienta). La cerradura es GitHub: una regla en la rama base que exija una aprobación. Si trabajás solo, esa regla también te frena a vos (GitHub no deja aprobar un PR propio), así que es opcional.
 
 Durante `/implement-issue` se usan, según haga falta, `debug`, `db-migration` y `update-docs`. Si el PR toca rutas sensibles, la revisión suma `/security-review`.
+
+**¿En qué paso estoy?** `scripts/agents/flow.py` lo dice en una línea (`plan ● ─ ▸implement ─ review ─ ● merge   #42 · no PR yet`) en la status line de Claude Code, el prompt de la shell, tmux o un panel del ADE, sea cual sea el agente. El init pregunta si activarla en Claude Code; ver la [guía](docs/guides/flow-line.md).
 
 <!-- brand:start -->
 <table align="center">

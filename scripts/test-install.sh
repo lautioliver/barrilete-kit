@@ -152,6 +152,7 @@ assert s["hooks"]["PostToolUse"][0]["hooks"][0]["command"] == "echo post"
 assert s["model"] == "sonnet"
 PY
 tap_check $? "settings.json conserva sus hooks y su configuración, y agrega el hook de guardrails una vez"
+! grep -q statusLine "$U/.claude/settings.json"; tap_check $? "sin -- --flow-line no se agrega el statusLine de la línea del flujo"
 
 # Workflows.
 grep -q 'CI propio' "$U/.github/workflows/docs.yml" && grep -q 'Docs' "$U/.github/workflows/barrilete-docs.yml" \
@@ -514,5 +515,33 @@ grep -q "I added" <<<"$s"
 [ $? -eq 1 ]
 tap_check $? "install con un mapa ilegible no dice que agregó red"
 cd "$TMP" || exit 1
+
+# La línea del flujo (#181): con -- --flow-line el kit trae statusLine; entra si el proyecto no tiene uno propio.
+# Va al final: importa el install.py real, y la corrida anidada de test-tap.sh (#139) usa uno falso que corta antes.
+python3 - "$RAIZ/scripts" <<'PY'
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from install import fusionar_settings
+kit = json.dumps({"hooks": {}, "statusLine": {"type": "command", "command": "python3 scripts/agents/flow.py --statusline"}})
+con = json.loads(fusionar_settings('{"hooks": {}, "model": "sonnet"}', kit))
+assert "flow.py" in con["statusLine"]["command"] and con["model"] == "sonnet", con
+propio = '{"hooks": {}, "statusLine": {"type": "command", "command": "mi-linea"}}'
+assert fusionar_settings(propio, kit) is None  # nothing to add: its own status line stays
+PY
+tap_check $? "el instalador agrega el statusLine de --flow-line y no pisa una status line propia"
+
+# Con una status line propia, los hooks --busy de la línea del flujo tampoco entran (no hay nada que mover).
+python3 - "$RAIZ/scripts" <<'PY'
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from install import fusionar_settings
+busy = {"hooks": [{"type": "command", "command": "python3 scripts/agents/flow.py --busy on"}]}
+kit = json.dumps({"hooks": {"UserPromptSubmit": [busy]}, "statusLine": {"type": "command", "command": "python3 scripts/agents/flow.py --statusline"}})
+propio = '{"hooks": {}, "statusLine": {"type": "command", "command": "mi-linea"}}'
+assert fusionar_settings(propio, kit) is None, "its own status line: nothing from the flow line goes in"
+con = json.loads(fusionar_settings('{"hooks": {}}', kit))
+assert con["hooks"]["UserPromptSubmit"] and con["statusLine"], con
+PY
+tap_check $? "el instalador agrega los hooks --busy solo si entra el statusLine de la línea del flujo"
 
 tap_done
