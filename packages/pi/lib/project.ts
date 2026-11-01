@@ -26,7 +26,7 @@ export function projectRoot(cwd: string): string | null {
 }
 
 /** Skills that need a pi piece that does not exist yet: they stay out of discovery and commands. */
-export const UNSUPPORTED_SKILLS = new Set(["orchestrate"]); // needs subagents (phase 2)
+export const UNSUPPORTED_SKILLS = new Set<string>();
 
 /** Directories of the project's skills (.claude/skills/<name>/SKILL.md) that pi can run. */
 export function skillDirs(root: string): string[] {

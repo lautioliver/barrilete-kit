@@ -1,7 +1,8 @@
 // Skills and commands: pi looks for skills in .pi/skills and .agents/skills, not in .claude/skills, where
 // the kit keeps them. This adds the project's skills to discovery (they show up in the system prompt and
 // as /skill:<name>) and registers the kit's human entry points with the same name they have in Claude Code:
-// /plan-feature, /implement-issue <n>, /review-pr <n>, /project-status, /improve-skills, /add-member, /remove-member.
+// /plan-feature, /implement-issue <n>, /review-pr <n>, /orchestrate, /project-status, /improve-skills,
+// /add-member, /remove-member.
 //
 // A command loads the whole SKILL.md into the message, in the same block pi builds for /skill:<name>, so the
 // skill runs whether or not the model would have opened the file on its own.
@@ -15,6 +16,7 @@ export const COMMANDS: Record<string, string> = {
 	"plan-feature": "Turn an idea into an epic with issues and blockers (does not write code)",
 	"implement-issue": "Take an issue to a PR with green CI, TDD (does not merge)",
 	"review-pr": "Review a PR in this session (does not approve or merge)",
+	orchestrate: "Spread up to 3 available issues among subagents, each in its worktree (does not merge)",
 	"project-status": "State of the work and what can be started now",
 	"improve-skills": "Propose skill improvements from the retros, in a PR",
 	"add-member": "Add a member to the team (.github/team.json)",

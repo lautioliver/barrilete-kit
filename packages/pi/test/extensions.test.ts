@@ -88,13 +88,13 @@ describe("guardrails", () => {
 });
 
 describe("skills", () => {
-	test("discovers the project's skills except the unsupported ones", async () => {
+	test("discovers the project's skills, orchestrate included", async () => {
 		const f = fakePi();
 		skills(f.pi);
 		const r = await f.emit("resources_discover", { cwd: KIT, reason: "startup" }, fakeCtx(KIT));
 		const names = r.skillPaths.map((p: string) => p.split("/").pop());
 		assert.ok(names.includes("plan-feature") && names.includes("implement-issue"));
-		assert.ok(!names.includes("orchestrate"));
+		assert.ok(names.includes("orchestrate"));
 		assert.equal(await f.emit("resources_discover", { cwd: OUTSIDE, reason: "startup" }, fakeCtx(OUTSIDE)), undefined);
 	});
 
@@ -102,7 +102,7 @@ describe("skills", () => {
 		const f = fakePi();
 		skills(f.pi);
 		assert.deepEqual(Object.keys(f.commands).sort(), Object.keys(COMMANDS).sort());
-		assert.ok(!("orchestrate" in f.commands));
+		assert.ok("orchestrate" in f.commands);
 	});
 
 	test("a command sends the whole skill plus the arguments, queued if the agent is busy", async () => {
