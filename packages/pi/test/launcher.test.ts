@@ -2,7 +2,7 @@
 // installation and home are never touched. Run: node --test packages/pi/test/*.test.ts
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { after, beforeEach, describe, test } from "node:test";
@@ -65,10 +65,40 @@ describe("launch", () => {
 		assert.equal(barrilete([], { FAKE_PI_EXIT: "3" }).code, 3);
 	});
 
+	// The pi package moved from @mariozechner to @earendil-works (1.x); the old name still counts for whoever has it.
+	for (const scope of ["@earendil-works", "@mariozechner"]) {
+		test(`without pi on the PATH it runs the pi npm installed next to the package (${scope})`, () => {
+			// A copy of the package with a pi in node_modules shaped like the real one: `exports` without
+			// "./package.json", which is how npm i -g barrilete-pi leaves it (peerDependency).
+			const pkg = join(home, "global/barrilete-pi");
+			const pi = join(pkg, `node_modules/${scope}/pi-coding-agent`);
+			mkdirSync(join(pkg, "bin"), { recursive: true });
+			mkdirSync(join(pi, "dist"), { recursive: true });
+			writeFileSync(join(pkg, "bin/barrilete.mjs"), readFileSync(BIN));
+			writeFileSync(join(pkg, "package.json"), readFileSync(join(PKG, "package.json")));
+			writeFileSync(
+				join(pi, "package.json"),
+				JSON.stringify({ name: `${scope}/pi-coding-agent`, type: "module", bin: { pi: "dist/cli.js" }, exports: { ".": "./dist/index.js" } }),
+			);
+			writeFileSync(join(pi, "dist/index.js"), "export {};\n");
+			writeFileSync(
+				join(pi, "dist/cli.js"),
+				`import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(log)}, JSON.stringify({ args: process.argv.slice(2), agentDir: process.env.PI_CODING_AGENT_DIR ?? null }));\n`,
+			);
+			const r = spawnSync(process.execPath, [join(pkg, "bin/barrilete.mjs"), "hola"], {
+				encoding: "utf8",
+				env: { PATH: "/usr/bin:/bin", HOME: home },
+				cwd: home,
+			});
+			assert.equal(r.status, 0, r.stderr);
+			assert.deepEqual(launched().args, ["-e", realpathSync(pkg), "hola"]); // realpath: macOS tmp is under /private
+		});
+	}
+
 	test("without pi it says how to install it", () => {
 		const r = barrilete([], {}, false);
 		assert.equal(r.code, 127);
-		assert.match(r.err, /npm i -g @mariozechner\/pi-coding-agent/);
+		assert.match(r.err, /npm i -g @earendil-works\/pi-coding-agent/);
 	});
 
 	test("hints at import-pi when pi has a login and the own home does not", () => {

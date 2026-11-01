@@ -18,6 +18,8 @@ import { fileURLToPath } from "node:url";
 
 const PACKAGE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const VERSION = JSON.parse(readFileSync(join(PACKAGE_DIR, "package.json"), "utf8")).version;
+const PI_PACKAGES = ["@earendil-works/pi-coding-agent", "@mariozechner/pi-coding-agent"];
+const INSTALL_PI = "npm i -g @earendil-works/pi-coding-agent";
 const MODEL_KEYS = ["defaultProvider", "defaultModel", "defaultThinkingLevel"];
 
 const ownAgentDir = () => join(process.env.BARRILETE_HOME || join(homedir(), ".barrilete"), "agent");
@@ -42,12 +44,18 @@ function findPi() {
 			return { command: join(dir, "pi"), prefix: [] };
 		} catch {}
 	}
-	try {
-		const pkg = createRequire(import.meta.url).resolve("@mariozechner/pi-coding-agent/package.json");
-		const bin = JSON.parse(readFileSync(pkg, "utf8")).bin;
-		const rel = typeof bin === "string" ? bin : bin?.pi;
-		if (rel) return { command: process.execPath, prefix: [join(dirname(pkg), rel)] };
-	} catch {}
+	// Not require.resolve(".../package.json"): pi declares `exports` without it, so Node refuses. The
+	// node_modules folders Node would look in are walked by hand and the file is read from disk.
+	// pi moved from @mariozechner to @earendil-works (1.x): the new name first, the old one for whoever has it.
+	const dirs = createRequire(import.meta.url).resolve.paths(PI_PACKAGES[0]) ?? [];
+	for (const name of PI_PACKAGES) {
+		for (const dir of dirs) {
+			const pkg = join(dir, name, "package.json");
+			const bin = readJson(pkg)?.bin;
+			const rel = typeof bin === "string" ? bin : bin?.pi;
+			if (rel && existsSync(join(dirname(pkg), rel))) return { command: process.execPath, prefix: [join(dirname(pkg), rel)] };
+		}
+	}
 	return null;
 }
 
@@ -82,7 +90,7 @@ function launch(args) {
 	}
 	const pi = findPi();
 	if (!pi) {
-		process.stderr.write("barrilete: pi is not installed. Install it with: npm i -g @mariozechner/pi-coding-agent\n");
+		process.stderr.write(`barrilete: pi is not installed. Install it with: ${INSTALL_PI}\n`);
 		process.exit(127);
 	}
 	const child = spawn(pi.command, [...pi.prefix, "-e", PACKAGE_DIR, ...piArgs], { stdio: "inherit", env });
@@ -141,7 +149,7 @@ function doctor() {
 	const found = findPi();
 	const pi = found ? run(found.command, [...found.prefix, "--version"]) : { status: 1 };
 	const where = found ? (found.prefix.length ? "next to barrilete-pi" : found.command) : "";
-	check("pi", pi.status === 0, pi.status === 0 ? `${(pi.stdout.trim() || pi.stderr.trim())} (${where})` : "not found", "npm i -g @mariozechner/pi-coding-agent");
+	check("pi", pi.status === 0, pi.status === 0 ? `${(pi.stdout.trim() || pi.stderr.trim())} (${where})` : "not found", INSTALL_PI);
 	const py = run("python3", ["--version"]);
 	check("python3", py.status === 0, py.status === 0 ? py.stdout.trim() : "not found", "the guardrails and the flow line need it");
 	const gh = run("gh", ["auth", "status"]);

@@ -4,7 +4,7 @@
 //   tool start/end → PreToolUse / PostToolUse(Failure), and the subagent tool → SubagentStart / SubagentStop per task
 //   agent_end → Stop (StopFailure if the model ended in error)          session_shutdown → SessionEnd
 // A subagent does not report itself: its orchestrator already counts it as a subagent.
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { hookCommand, StatusQueue, stopEvent, subagentCount } from "../lib/status.ts";
 
 export default function (pi: ExtensionAPI) {

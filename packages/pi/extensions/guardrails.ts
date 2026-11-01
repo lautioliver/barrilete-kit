@@ -8,7 +8,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { projectRoot } from "../lib/project.ts";
 
 /** The orchestrator's checkout when this pi is a subagent (BARRILETE_TRUSTED_ROOT), if it is a project. */

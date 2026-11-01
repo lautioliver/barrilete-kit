@@ -3,7 +3,7 @@
 //     plan ● ─ ▸implement ─ review ─ ● merge   #176 · no PR yet
 // It is refreshed when the session starts and when the agent finishes, which is when a branch or a PR changes.
 import { join } from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { projectRoot } from "../lib/project.ts";
 
 const ID = "barrilete-flow";

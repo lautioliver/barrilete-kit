@@ -1,6 +1,6 @@
 {
   "name": "barrilete-pi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Barrilete Kit for pi: the kit's skills, commands, guardrails, subagents and flow line, without Claude Code",
   "keywords": [
     "pi-package",
@@ -33,7 +33,7 @@
     ]
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*"
+    "@earendil-works/pi-coding-agent": "*"
   },
   "scripts": {
     "test": "node --test test/*.test.ts"

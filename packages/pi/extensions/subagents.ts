@@ -1,7 +1,7 @@
 // The `subagent` tool, so /orchestrate can launch the kit's implementer, implementer-light and reviewer
 // (.claude/agents/) in pi, which has no subagents of its own. The logic is in lib/subagents.ts.
 // Not registered inside a subagent: they cannot launch others (docs/agents/subagent-contract.md).
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { projectRoot } from "../lib/project.ts";
 import { execute, ROLES, Slots } from "../lib/subagents.ts";
