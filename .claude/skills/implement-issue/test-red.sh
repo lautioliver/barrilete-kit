@@ -169,6 +169,23 @@ commit_all "$r" only
 run_red "$r"
 test "$code" -eq 2 && grep -q "no parent" "$TMP/out"; tap_check $? "a red commit without parent -> exit 2"
 
+# ---------------------------------------------------------------- the second marker of the runner of #182 (#211)
+# The case whose id starts with "second marker:" proves the nested test reached the step under test: it passes in the red.
+marker_red() { # marker_red <name> <verdict of the second marker: ok|not ok>
+  local r="$TMP/w/$1" t="$TMP/m-$1"
+  new_repo "$r"; install_kit "$r"; mkdir -p "$t" "$r/scripts"
+  printf 'FAIL - runner prints its marker\n' >"$t/output.txt"
+  printf '# file: scripts/new.test.sh\nnot ok 1 - runner prints its marker\n%s 2 - second marker: the nested test reached the step under test\n1..2\n' "$2" >"$t/report.tap"
+  write_map "$r" "[{\"name\": \"sh\", \"when\": [\"**/*.sh\"], \"format\": \"tap\", \"run\": \"bash $TMP/fake-run.sh $t {out} 1 0\"}]"
+  printf 'x\n' >"$r/scripts/old.test.sh"; commit_all "$r" base
+  printf 'x\n' >"$r/scripts/new.test.sh"; commit_all "$r" red
+  run_red "$r"
+}
+marker_red marker-fails "not ok"
+test "$code" -eq 2 && grep -q 'second marker' "$TMP/out"; tap_check $? "211: a red where the case of the second marker is among the failed ones is rejected (exit 2)"
+marker_red marker-passes "ok"
+test "$code" -eq 0; tap_check $? "211: a red where the case of the second marker passes is accepted (exit 0)"
+
 # ---------------------------------------------------------------- several stacks, the choice of stack
 r="$TMP/w/two-stacks"; new_repo "$r"; install_kit "$r"
 mkdir -p "$TMP/py" "$TMP/tp"; cp "$CORPUS/pytest-assert/"{report.xml,output.txt} "$TMP/py/"; cp "$CORPUS/tap-new-script/"{report.tap,output.txt} "$TMP/tp/"

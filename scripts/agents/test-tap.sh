@@ -483,6 +483,10 @@ grep -qF '`prog`' "$TMP/header" && grep -qF 'setup_fn' "$TMP/header"; tap_check 
 grep -qF 'in a red commit (#189) only when' "$TMP/header"; tap_check $? "189: the header of tap.sh says that the runner of #182 is accepted in a red commit"
 grep -qF 'second marker' "$TMP/header"; tap_check $? "189: the header of tap.sh asks for a second marker that proves the nested test reached the step under test"
 grep -qF 'the check of the second marker passes in the red' "$TMP/header"; tap_check $? "189: the header of tap.sh says that the check of the second marker passes in the red"
+grep -qF 'before the step under test is not a failed case' "$TMP/header"; tap_check $? "211: the header of tap.sh says that a nested crash before the step under test is not a failed case"
+grep -qF 'a crash in the step under test is accepted as a failed case' "$TMP/header"; tap_check $? "211: the header of tap.sh says that a crash in the step under test is accepted as a failed case"
+grep -qF 'id starts with `second marker:`' "$TMP/header"; tap_check $? "211: the header of tap.sh names the id prefix of the case of the second marker"
+grep -qF 'the rc-file exists' "$TMP/header"; tap_check $? "211: the header of tap.sh asks a case that checks that the rc-file exists"
 
 # 9. The kit's own tests use the helper (what the issue migrates).
 SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh | sort)
