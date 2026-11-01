@@ -444,6 +444,29 @@ for skill in implement-issue review-pr; do
     if [ "$idioma" = en ]; then v='a backtick or a `$(…)` inside an `sh -c` script'; else v='una comilla invertida o un `$(…)` dentro de un script `sh -c`'; fi
     grep -qF -- "$v" "$f"
     tap_check $? "[<skill>, <idioma>] la guía nombra la comilla invertida dentro de un sh -c como prohibida" "[$skill, $idioma] falta: $v"
+    # El runner de #182 (#189): la guía lo acepta en un rojo solo con el marcador que imprime el código bajo prueba.
+    if [ "$idioma" = en ]; then v='the runner of #182'; m='that only the code under test prints in `$out`'; else v='el runner de #182'; m='que imprime únicamente el código bajo prueba en `$out`'; fi
+    grep -qF -- "$v" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía nombra el runner de #182 como la forma que se acepta en un rojo" "[$skill, $idioma] falta: $v"
+    grep -qF -- "$m" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía acepta el runner de #182 en un rojo solo con el marcador del código bajo prueba" "[$skill, $idioma] falta: $m"
+    # Un segundo marcador prueba que el test anidado llegó al paso bajo prueba: un crash anidado no es un caso fallido (#189).
+    if [ "$idioma" = en ]; then m2='a second marker'; else m2='un segundo marcador'; fi
+    grep -qF -- "$m2" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía pide para el rojo un segundo marcador que pruebe que el test anidado llegó al paso bajo prueba" "[$skill, $idioma] falta: $m2"
+    # La forma del caso para un rojo: el marcador y el estado en dos tap_check, nunca grep && [ ].
+    if [ "$idioma" = en ]; then m3='separate `tap_check`'; else m3='`tap_check` separados'; fi
+    grep -qF -- "$m3" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía nombra la forma del caso para un rojo que separa el marcador y el estado" "[$skill, $idioma] falta: $m3"
+    # La comprobación del segundo marcador pasa en el rojo: si falla, un crash anidado quedaría entre los casos fallidos (#189).
+    if [ "$idioma" = en ]; then m4='the check of the second marker passes in the red'; else m4='la comprobación del segundo marcador pasa en el rojo'; fi
+    grep -qF -- "$m4" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía exige que la comprobación del segundo marcador pase en el rojo" "[$skill, $idioma] falta: $m4"
+    if [ "$skill" = review-pr ]; then
+      if [ "$idioma" = en ]; then m5='the case of the second marker among the failing cases'; else m5='el caso del segundo marcador entre los que fallan'; fi
+      grep -qF -- "$m5" "$f"
+      tap_check $? "[<skill>, <idioma>] review-pr marca como hallazgo el caso del segundo marcador entre los que fallan del rojo" "[$skill, $idioma] falta: $m5"
+    fi
   done
 done
 

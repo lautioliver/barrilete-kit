@@ -480,6 +480,9 @@ done
 if [ -z "$formas" ]; then ok=0; else ok=1; fi; tap_check "$ok" "170: the guides forbid the backtick form and tap_run around a function or sh -c in the red" "missing:${formas:- none}"
 sed -n '1,/^_TAP_BASE=/p' "$ROOT/scripts/agents/tap.sh" >"$TMP/header"
 grep -qF '`prog`' "$TMP/header" && grep -qF 'setup_fn' "$TMP/header"; tap_check $? "170: the header of tap.sh lists the backtick form and tap_run around a function"
+grep -qF 'in a red commit (#189) only when' "$TMP/header"; tap_check $? "189: the header of tap.sh says that the runner of #182 is accepted in a red commit"
+grep -qF 'second marker' "$TMP/header"; tap_check $? "189: the header of tap.sh asks for a second marker that proves the nested test reached the step under test"
+grep -qF 'the check of the second marker passes in the red' "$TMP/header"; tap_check $? "189: the header of tap.sh says that the check of the second marker passes in the red"
 
 # 9. The kit's own tests use the helper (what the issue migrates).
 SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh | sort)
