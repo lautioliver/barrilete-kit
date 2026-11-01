@@ -71,9 +71,11 @@
 #     forks and sees it. A redirection ("$(prog 2>/dev/null)") or a second command forces the fork on 3.2 too.
 #
 # The one accepted way to look at a nested test that ends with a Bail out! (#182): a runner script that ends with 0 and
-# saves the nested status ("bash \"$1\"; echo $? >\"$2\"; exit 0"), run as "tap_run out 0 bash runner.sh nested.sh rc-file". The case then
-# checks a marker that only the code under test prints in "$out" and the saved status. Do not use it to hide the status
-# of a program: tap_run on a single program, expecting 0, is still the rule.
+# saves the nested status ("bash \"$1\"; echo $? >\"$2\"; exit 0"), run as "tap_run out 0 bash runner.sh nested.sh rc-file". It is accepted in
+# the kit's own tests, and in a red commit (#189) only when the case checks, in separate tap_check (never grep && [ ]), a marker that
+# only the code under test prints in "$out" and the saved status, and a second marker, printed by the nested test right before the
+# step under test, that proves it got there (a nested crash is not a failed case): the check of the second marker passes in the red, so it is never a failing case. Do not use it to
+# hide the status of a program: tap_run on a single program, expecting 0, is still the rule.
 #
 # A test runs in the same shell as this file, so it could still read _TAP_PATH or write to fd 8: it is
 # not a sandbox, only a path that the test has no reason to touch.
