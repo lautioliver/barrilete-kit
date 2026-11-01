@@ -8,7 +8,7 @@
 // skill runs whether or not the model would have opened the file on its own.
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { projectRoot, skillDirs, UNSUPPORTED_SKILLS } from "../lib/project.ts";
 
 /** Skills a person invokes by name (the rest the model loads when they apply). */
