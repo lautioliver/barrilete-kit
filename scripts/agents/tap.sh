@@ -72,7 +72,7 @@
 #
 # The one accepted way to look at a nested test that ends with a Bail out! (#182): a runner script that ends with 0 and
 # saves the nested status ("bash \"$1\"; echo $? >\"$2\"; exit 0"), run as "tap_run out 0 bash runner.sh nested.sh rc-file". It is accepted in
-# the kit's own tests and in a red commit (#189), and in a red only when the case checks a marker that only the code under
+# the kit's own tests, and in a red commit (#189) only when the case checks a marker that only the code under
 # test prints in "$out" and the saved status (a runner that dies before the nested test prints no marker). Do not use it to
 # hide the status of a program: tap_run on a single program, expecting 0, is still the rule.
 #
