@@ -6,6 +6,10 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 ## [Sin publicar]
 
+### Agregado
+
+- `packages/pi/`: el paquete `barrilete-pi` para usar el kit desde [pi](https://github.com/badlogic/pi-mono) sin Claude Code. Suma las skills de `.claude/skills/` al descubrimiento de pi, registra `/plan-feature`, `/implement-issue`, `/review-pr`, `/project-status`, `/improve-skills`, `/add-member` y `/remove-member`, pasa cada comando bash del agente por `guardrails.py` y muestra la línea del flujo en el footer. `/orchestrate` y los subagentes quedan para la fase siguiente. Es de la plantilla: el init no lo copia a los proyectos.
+
 ## [1.1.0] - 2026-10-22
 
 Sin rupturas respecto de 1.0.0. Trae la línea del flujo en la terminal (#181): en qué paso está la rama, en la status line de Claude Code, el prompt, tmux o un panel, con el init preguntando si activarla. Los proyectos ya no reciben el corpus de regresión de `red.sh` (#191): `update.py` desde 1.0.0 borra lo que el proyecto no tocó. Los implementadores guardan la retro con el `retro.sh` de la rama base (#132). El README explica cómo actualizar un proyecto 0.9 (#192). Y los tests del kit quedan sin las formas que el rojo prohíbe (#173, #187) y muestran por qué falla una instalación o una preparación (#139, #162); las fallas intermitentes de `test-install.sh` y `test-update.sh` siguen abiertas (#182, #162, #190).

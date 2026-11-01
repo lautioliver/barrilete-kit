@@ -153,6 +153,8 @@ rm -rf profiles
 { grep -lx 'Ámbito: kit' docs/decisions/ADR-*.md 2>/dev/null || true; } | while read -r f; do rm -f -- "$f"; done
 # The brand (Barrilete) and the trial guide belong to the template, not to the new project.
 rm -rf .github/brand
+# The pi package (barrilete-pi) is installed from the template or npm, not copied into every project.
+rm -rf packages
 rm -f docs/try-the-template.md .github/ISSUE_TEMPLATE/5-trial.yml
 for f in README.md README.es.md AGENTS.md docs/github-naming-convention.md .claude/skills/git-workflow/SKILL.md docs/README.md docs/llms.txt docs/guides/flow-line.md docs/guides/flow-line.es.md; do
   [ -f "$f" ] || continue

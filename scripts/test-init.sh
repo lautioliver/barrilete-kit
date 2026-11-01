@@ -36,6 +36,8 @@ for modo in completo chico; do
   (cd "$p" && git add -A && git commit -qm init)
 
   ! [ -e "$p/scripts/test-init.sh" ]; tap_check $? "[<modo>] el init borra este test (no sirve sin init-template.sh)" "[$modo] el init borra este test (no sirve sin init-template.sh)"
+  # El paquete de pi (barrilete-pi) se instala desde la plantilla o npm, no viaja en cada proyecto.
+  ! [ -e "$p/packages" ]; tap_check $? "[<modo>] el init no copia packages/ (el paquete de pi) al proyecto" "[$modo] el init no copia packages/ (el paquete de pi) al proyecto"
   # Sin terminal y sin opción, la línea del flujo no se activa (#181), pero flow.py queda en los dos modos.
   [ -f "$p/scripts/agents/flow.py" ] && ! grep -q statusLine "$p/.claude/settings.json" \
     && python3 -c "import json,sys; sys.exit(json.load(open(sys.argv[1]))['flow_line'] is not False)" "$p/.agent-kit.json"
