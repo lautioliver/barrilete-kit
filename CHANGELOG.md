@@ -8,6 +8,7 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 ### Agregado
 
+- `barrilete-pi`: `/orchestrate` y los subagentes en pi. La herramienta `subagent` lanza `implementer`, `implementer-light` y `reviewer` de `.claude/agents/` como procesos de pi aparte, cada uno en su worktree, con el modelo y las herramientas del rol traducidos (`BARRILETE_MODELS` mapea los alias a otros proveedores). Los hijos cargan solo el paquete, usan las barandas del checkout del orquestador y no pueden lanzar otros subagentes; nunca hay más de 3 implementando a la vez.
 - `packages/pi/`: el paquete `barrilete-pi` para usar el kit desde [pi](https://github.com/badlogic/pi-mono) sin Claude Code. Suma las skills de `.claude/skills/` al descubrimiento de pi, registra `/plan-feature`, `/implement-issue`, `/review-pr`, `/project-status`, `/improve-skills`, `/add-member` y `/remove-member`, pasa cada comando bash del agente por `guardrails.py` y muestra la línea del flujo en el footer. `/orchestrate` y los subagentes quedan para la fase siguiente. Es de la plantilla: el init no lo copia a los proyectos.
 
 ## [1.1.0] - 2026-10-22
