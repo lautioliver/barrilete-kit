@@ -42,12 +42,15 @@ function findPi() {
 			return { command: join(dir, "pi"), prefix: [] };
 		} catch {}
 	}
-	try {
-		const pkg = createRequire(import.meta.url).resolve("@mariozechner/pi-coding-agent/package.json");
-		const bin = JSON.parse(readFileSync(pkg, "utf8")).bin;
+	// Not require.resolve(".../package.json"): pi declares `exports` without it, so Node refuses. The
+	// node_modules folders Node would look in are walked by hand and the file is read from disk.
+	const dirs = createRequire(import.meta.url).resolve.paths("@mariozechner/pi-coding-agent") ?? [];
+	for (const dir of dirs) {
+		const pkg = join(dir, "@mariozechner/pi-coding-agent/package.json");
+		const bin = readJson(pkg)?.bin;
 		const rel = typeof bin === "string" ? bin : bin?.pi;
-		if (rel) return { command: process.execPath, prefix: [join(dirname(pkg), rel)] };
-	} catch {}
+		if (rel && existsSync(join(dirname(pkg), rel))) return { command: process.execPath, prefix: [join(dirname(pkg), rel)] };
+	}
 	return null;
 }
 

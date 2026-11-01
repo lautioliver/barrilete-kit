@@ -2,7 +2,7 @@
 // installation and home are never touched. Run: node --test packages/pi/test/*.test.ts
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { after, beforeEach, describe, test } from "node:test";
@@ -89,7 +89,7 @@ describe("launch", () => {
 			cwd: home,
 		});
 		assert.equal(r.status, 0, r.stderr);
-		assert.deepEqual(launched().args, ["-e", pkg, "hola"]);
+		assert.deepEqual(launched().args, ["-e", realpathSync(pkg), "hola"]); // realpath: macOS tmp is under /private
 	});
 
 	test("without pi it says how to install it", () => {
