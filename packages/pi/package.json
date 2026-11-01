@@ -1,8 +1,12 @@
 {
   "name": "barrilete-pi",
   "version": "0.1.0",
-  "description": "Barrilete Kit for pi: the kit's skills, commands, guardrails and flow line, without Claude Code",
-  "keywords": ["pi-package", "barrilete", "agents"],
+  "description": "Barrilete Kit for pi: the kit's skills, commands, guardrails, subagents and flow line, without Claude Code",
+  "keywords": [
+    "pi-package",
+    "barrilete",
+    "agents"
+  ],
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -10,9 +14,23 @@
     "url": "git+https://github.com/lautioliver/barrilete-kit.git",
     "directory": "packages/pi"
   },
-  "files": ["extensions", "lib", "README.md", "README.es.md"],
+  "bin": {
+    "barrilete": "bin/barrilete.mjs"
+  },
+  "files": [
+    "bin",
+    "extensions",
+    "lib",
+    "README.md",
+    "README.es.md"
+  ],
+  "engines": {
+    "node": ">=20.6.0"
+  },
   "pi": {
-    "extensions": ["./extensions"]
+    "extensions": [
+      "./extensions"
+    ]
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*"
