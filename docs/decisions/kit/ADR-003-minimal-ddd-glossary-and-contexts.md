@@ -16,7 +16,7 @@ Origin: epic lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven D
 
 ## Decision
 
-1. **D1. The kit gets an ADR, in `docs/decisions/kit/`.** This document is `kit/ADR-003`. It is the first issue of epic #214.
+1. **D1. The kit gets an ADR, in `docs/decisions/kit/`.** This document is `kit/ADR-003`. It is the first issue of epic lautioliver/barrilete-kit#214.
 
 2. **D2. Where the glossary and the map live.**
    - **Full profile:** `docs/reference/glossary.md` (it already exists) and docs/reference/contexts.md (new).
@@ -38,20 +38,20 @@ Origin: epic lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven D
 
 7. **D7. An empty glossary (`TODO`).** The rules do not block. The agent proposes terms in its PR. `check-docs.py` only checks that the files exist and are linked, not what they say.
 
-**Migrations.** There is no schema migration. From the kit: `update.py` and `install.py` bring the new files (the full glossary already exists); `grow.py` moves the small files to `docs/reference/`; a map without a `contexts` section is read as empty.
+**Migrations.** There is no schema migration. From the kit: `update.py` and the kit's installer bring the new files (the full glossary already exists); `grow.py` moves the small files to `docs/reference/`; a map without a `contexts` section is read as empty.
 
 ## Rejected alternatives
 
-- **Tactical patterns in the glossary (aggregates, repositories, domain events).** They are an architecture decision for each project, not a minimum that every project needs. They are left out of scope.
+- **Tactical patterns (aggregates, repositories, domain events).** They are an architecture decision for each project, not a minimum that every project needs. They are left out of scope.
 - **Analysing imports, per language, to detect context crossings.** It would need one parser per language. The `depends_on` declaration is explicit and works for any stack (D3, D4).
 - **A `contexts` section in the small map.** It would bring back the full map's complexity into the profile that deliberately has only `red` (ADR-002 D2). The small profile uses the table of docs/contexts.md (D3, D5).
 - **A `required` entry in the small map.** For the same reason as above: the fixed paths of D5 cover it without changing the small map.
 
 ## Consequences
 
-- What is decided here is implemented in the next issues of the epic (A2 to A6). Until they land, this ADR describes pending rules: neither docs/reference/contexts.md nor the `contexts` section of the map exists yet, and the skills do not carry the pointer line to this ADR.
+- What is decided here is implemented in the next issues of the epic (A2 to A6). The files, the `contexts` section of the map and the pointer line in the skills are delivered by those issues.
 - `review-pr` can flag crossings and undefined terms with the severity of D6. The risk is noise, so only the domain names in the changed code and docs are marked, and the terms come as suggestions.
 - Each skill that reads the glossary gets one line that points to this ADR, to keep the skills under their 120-line limit.
-- A project installed with `install.py` that already has its glossary in another path gets a warning from the installer. The installer does not overwrite it.
-- The new sections of `docs/agents-map.json` and the CI tests of the init and the update are sensitive paths: the approval is the one recorded in this ADR, and the change is checked by the tests of `test-init.sh`, `check-docs.py`, `agents_map.py`, `test-update.sh`, `test-install.sh`, the `grow` test and `test-i18n.sh`.
+- A project installed with the kit's installer that already has its glossary in another path gets a warning from the installer. The installer does not overwrite it.
+- The new sections of `docs/agents-map.json` and the CI tests of the init and the update are sensitive paths: each issue that touches them needs a person's approval, as AGENTS.md requires (the `contexts` section of `docs/agents-map.json`, the CI tests), and the change is checked by the tests of `test-init.sh`, `check-docs.py`, `agents_map.py`, `test-update.sh`, `test-install.sh`, the `grow` test and `test-i18n.sh`.
 - Out of scope: filling in the kit's own glossary, and any check that reads the content of the glossary.
