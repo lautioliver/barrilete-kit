@@ -462,6 +462,19 @@ for skill in implement-issue review-pr; do
     if [ "$idioma" = en ]; then m4='the check of the second marker passes in the red'; else m4='la comprobación del segundo marcador pasa en el rojo'; fi
     grep -qF -- "$m4" "$f"
     tap_check $? "[<skill>, <idioma>] la guía exige que la comprobación del segundo marcador pase en el rojo" "[$skill, $idioma] falta: $m4"
+    # Un crash anidado antes del paso bajo prueba no es un caso fallido; uno en el paso se acepta (#211).
+    if [ "$idioma" = en ]; then m6='a nested crash before the step under test is not a failed case'; else m6='un crash anidado antes del paso bajo prueba no es un caso fallido'; fi
+    grep -qF -- "$m6" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía dice que un crash anidado antes del paso bajo prueba no es un caso fallido" "[$skill, $idioma] falta: $m6"
+    if [ "$idioma" = en ]; then m7='a crash in the step under test is accepted as a failed case'; else m7='un crash en el paso bajo prueba se acepta como caso fallido'; fi
+    grep -qF -- "$m7" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía acepta como caso fallido un crash en el paso bajo prueba" "[$skill, $idioma] falta: $m7"
+    # El caso del segundo marcador se reconoce por su id (#211) y otro caso comprueba que existe el rc-file.
+    if [ "$idioma" = en ]; then m8='id starts with `second marker:`'; m9='the `rc-file` exists'; else m8='id empieza con `second marker:`'; m9='el `rc-file` existe'; fi
+    grep -qF -- "$m8" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía dice que el caso del segundo marcador se reconoce por el prefijo second marker: en su id" "[$skill, $idioma] falta: $m8"
+    grep -qF -- "$m9" "$f"
+    tap_check $? "[<skill>, <idioma>] la guía pide un caso que compruebe que existe el rc-file" "[$skill, $idioma] falta: $m9"
     if [ "$skill" = review-pr ]; then
       if [ "$idioma" = en ]; then m5='the case of the second marker among the failing cases'; else m5='el caso del segundo marcador entre los que fallan'; fi
       grep -qF -- "$m5" "$f"

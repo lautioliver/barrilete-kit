@@ -74,7 +74,8 @@
 # saves the nested status ("bash \"$1\"; echo $? >\"$2\"; exit 0"), run as "tap_run out 0 bash runner.sh nested.sh rc-file". It is accepted in
 # the kit's own tests, and in a red commit (#189) only when the case checks, in separate tap_check (never grep && [ ]), a marker that
 # only the code under test prints in "$out" and the saved status, and a second marker, printed by the nested test right before the
-# step under test, that proves it got there (a nested crash is not a failed case): the check of the second marker passes in the red, so it is never a failing case. Do not use it to
+# step under test, that proves it got there (a nested crash before the step under test is not a failed case, and a crash in the step under test is accepted as a failed case): the check of the second marker passes in the red, so it is never a failing case, and red.sh rejects the red when it fails; red.sh recognizes it because its id starts with `second marker:`. Another case checks that
+# the rc-file exists, so that a status file that was not written is not read as a failed assertion. Do not use it to
 # hide the status of a program: tap_run on a single program, expecting 0, is still the rule.
 #
 # A test runs in the same shell as this file, so it could still read _TAP_PATH or write to fd 8: it is

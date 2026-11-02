@@ -2,7 +2,7 @@
 # Tests of the TAP helper (scripts/agents/tap.sh, ADR-002 D6, issue #151): format, plan, Bail out!,
 # the output file out of the test's reach, and that the kit's own tests use it.
 # Usage: bash scripts/agents/test-tap.sh
-# shellcheck disable=SC2016  # the scripts under test are written in single quotes on purpose
+# shellcheck disable=SC2016,SC2319  # the scripts under test are written in single quotes on purpose; "<condition>; tap_check $?" is the pattern of the tests
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-tap-XXXXXX")" && pwd -P)
@@ -483,6 +483,10 @@ grep -qF '`prog`' "$TMP/header" && grep -qF 'setup_fn' "$TMP/header"; tap_check 
 grep -qF 'in a red commit (#189) only when' "$TMP/header"; tap_check $? "189: the header of tap.sh says that the runner of #182 is accepted in a red commit"
 grep -qF 'second marker' "$TMP/header"; tap_check $? "189: the header of tap.sh asks for a second marker that proves the nested test reached the step under test"
 grep -qF 'the check of the second marker passes in the red' "$TMP/header"; tap_check $? "189: the header of tap.sh says that the check of the second marker passes in the red"
+grep -qF 'before the step under test is not a failed case' "$TMP/header"; tap_check $? "211: the header of tap.sh says that a nested crash before the step under test is not a failed case"
+grep -qF 'a crash in the step under test is accepted as a failed case' "$TMP/header"; tap_check $? "211: the header of tap.sh says that a crash in the step under test is accepted as a failed case"
+grep -qF 'id starts with `second marker:`' "$TMP/header"; tap_check $? "211: the header of tap.sh names the id prefix of the case of the second marker"
+grep -qF 'the rc-file exists' "$TMP/header"; tap_check $? "211: the header of tap.sh asks a case that checks that the rc-file exists"
 
 # 9. The kit's own tests use the helper (what the issue migrates).
 SCRIPTS=$(cd "$ROOT" && find scripts .claude -name 'test-*.sh' ! -name test-tap.sh | sort)
@@ -557,10 +561,14 @@ if [ -f "$ROOT/scripts/install.py" ] && [ -f "$ROOT/scripts/test-install.sh" ]; 
     'runpy.run_path(sys.argv[0], run_name="__main__")' >"$FAKE/scripts/install.py"
   printf '#!/usr/bin/env bash\nbash "$1"\necho $? >"$2"\nexit 0\n' >"$TMP/runner.sh"
   out=""
+  rm -f "$TMP/nested-rc"
   tap_run out 0 env STUB_FAIL=--draft bash "$TMP/runner.sh" "$FAKE/scripts/test-install.sh" "$TMP/nested-rc"
+  [ -f "$TMP/nested-rc" ]; tap_check $? "211: the runner of #182 wrote the rc-file (--draft case)"
   grep -q '^Bail out!.*STUB-OUT---draft' <<<"$out" && [ "$(<"$TMP/nested-rc")" = 1 ]
   tap_check $? "182: test-install.sh shows the output of install.py when the --draft case fails" "nested run: $(tail -c 300 <<<"$out")"
+  rm -f "$TMP/nested-rc"
   tap_run out 0 env STUB_FAIL=usuario-grow-ref bash "$TMP/runner.sh" "$FAKE/scripts/test-install.sh" "$TMP/nested-rc"
+  [ -f "$TMP/nested-rc" ]; tap_check $? "211: the runner of #182 wrote the rc-file (preparation install case)"
   grep -q '^Bail out!.*STUB-OUT-usuario-grow-ref' <<<"$out" && [ "$(<"$TMP/nested-rc")" = 1 ]
   tap_check $? "139: test-install.sh shows the output of install.py when a preparation install fails" "nested run: $(tail -c 300 <<<"$out")"
   # A nested run is a whole test-install.sh (minutes), so only the draft case (#182) and the preparation install of the grow.py
