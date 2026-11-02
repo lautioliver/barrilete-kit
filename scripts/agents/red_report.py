@@ -691,7 +691,7 @@ def check_cases(diff, report, fmt):
 
 # --------------------------------------------------------------------------- one stack
 
-SECOND_MARKER = "second marker:"
+SECOND_MARKER = re.compile(r"(?:\d+: )?second marker:")
 
 
 def judge(entry, rc, timed_out, report_error, report, diff):
@@ -729,9 +729,9 @@ def judge(entry, rc, timed_out, report_error, report, diff):
     if msgs:
         return 2, msgs, []
     if fmt == "tap":
-        # The runner of #182 (#211): the case of the second marker (id starting with SECOND_MARKER) proves the
+        # The runner of #182 (#211): the case of the second marker (id starting with SECOND_MARKER, after an optional "<n>: ") proves the
         # nested test reached the step under test, so it passes in the red; if it fails, a crash could hide in it.
-        bad = [c.name for c in report.cases if c.status in ("failure", "skipped") and c.name.startswith(SECOND_MARKER)]
+        bad = [c.name for c in report.cases if c.status in ("failure", "skipped") and SECOND_MARKER.match(c.name)]
         if bad:
             return 2, [f'the case of the second marker failed or was skipped (skip/TODO): "{n}". It has to pass in the red '
                        "(it proves the nested test reached the step under test); a failure there may be a crash, not an assertion"
