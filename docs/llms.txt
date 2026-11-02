@@ -15,6 +15,7 @@ Instructions for models: read this file and AGENTS.md. Aspirational spec = /READ
 - [ADR-001: kit language, labels and names in English (kit ADR)](decisions/ADR-001-language-labels-and-names-in-english.md)
 <!-- template:end -->
 - [ADR-002: structured validation of the red test](decisions/kit/ADR-002-structured-red-validation.md)
+- [ADR-003: minimal DDD, glossary and bounded-context map](decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md)
 - [Map for agents: docs by change, sensitive paths](agents-map.json)
 - [Subagent contract: common rules and output](agents/subagent-contract.md)
 - [Lessons from the agent retros (reviewed in a PR; read before implementing)](agents/lessons.md)
