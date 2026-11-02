@@ -8,8 +8,8 @@ Origin: epic lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven D
 
 ## Context
 
-- The kit has no shared vocabulary for the domain of a project and no map of its bounded contexts. The agents read `docs/reference/domain.md` and `docs/reference/modules.md`, which describe entities and modules, not the limits between them.
-- `docs/reference/glossary.md` already exists in the full profile, as a `TODO` template. `update-docs` adds new terms to it, but no skill that plans, implements or reviews reads it, and no check uses it.
+- The kit has no shared vocabulary for the domain of a project and no map of its bounded contexts. The agents read docs/reference/domain.md and docs/reference/modules.md, which describe entities and modules, not the limits between them.
+- docs/reference/glossary.md already exists in the full profile, as a `TODO` template. `update-docs` adds new terms to it, but no skill that plans, implements or reviews reads it, and no check uses it.
 - `--small` deletes `docs/reference/` as a whole (`profiles/small/DELETE`), so the small profile has no glossary. Its `docs/agents-map.json` has only `red`, and `check-docs.py` treats it apart (`SOLO_RED`) without validating `required`.
 - `implement-issue` already reads "what applies from `docs/reference/`", `plan-feature` names it in general terms, and `review-pr` has no row for language or for context limits. The `--small` profile does not ship `plan-feature` or `review-pr`.
 - Every project created from the kit would get the same rules. Taking them out later is a break for every project that already follows them, so what was decided in the chat has to be written where the agents read it.
@@ -19,7 +19,7 @@ Origin: epic lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven D
 1. **D1. The kit gets an ADR, in `docs/decisions/kit/`.** This document is `kit/ADR-003`. It is the first issue of epic lautioliver/barrilete-kit#214.
 
 2. **D2. Where the glossary and the map live.**
-   - **Full profile:** `docs/reference/glossary.md` (it already exists) and docs/reference/contexts.md (new).
+   - **Full profile:** docs/reference/glossary.md (it already exists) and docs/reference/contexts.md (new).
    - **`--small` profile:** docs/glossary.md and docs/contexts.md, flat, like docs/architecture.md.
    - `grow.py` moves the small files to `docs/reference/`, when a project grows to the full profile.
 
