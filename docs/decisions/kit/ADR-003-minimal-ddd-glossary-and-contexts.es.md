@@ -2,14 +2,14 @@
 
 ## Estado
 
-Aceptado (2026-11-02)
+Propuesto (pendiente de aprobación de @lautioliver)
 
-Origen: épica lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven Design a todos los proyectos") y su primer issue, lautioliver/barrilete-kit#215. Las decisiones 1 a 7 de la épica las aprobó @lautioliver en el chat el 2026-11-02, y se registran abajo tal como se aprobaron, sin cambios. Donde una regla dice "aprobado por @lautioliver en el chat (2026-11-02)", esa es la aprobación.
+Origen: épica lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven Design a todos los proyectos") y su primer issue, lautioliver/barrilete-kit#215. Las decisiones 1 a 7 vienen del cuerpo de la épica y del issue, que las registran como aprobadas en el chat el 2026-11-02. Ese registro no es todavía una aprobación de una persona en un chat o un comentario: este ADR queda Propuesto hasta que @lautioliver las confirme, y entonces pasa a Aceptado con la fecha y la confirmación.
 
 ## Contexto
 
 - El kit no tiene un vocabulario compartido para el dominio de un proyecto ni un mapa de sus contextos acotados. Los agentes leen `docs/reference/domain.md` y `docs/reference/modules.md`, que describen entidades y módulos, no los límites entre ellos.
-- `docs/reference/glossary.md` ya existe en el perfil completo, como plantilla `TODO`. Nadie la lee: ninguna skill ni ningún check la usa.
+- `docs/reference/glossary.md` ya existe en el perfil completo, como plantilla `TODO`. `update-docs` agrega términos nuevos ahí, pero ninguna skill que planifica, implementa o revisa la lee, y ningún check la usa.
 - `--small` borra `docs/reference/` entero (`profiles/small/DELETE`), así que el perfil chico no tiene glosario. Su `docs/agents-map.json` tiene solo `red`, y `check-docs.py` lo trata aparte (`SOLO_RED`) sin validar `required`.
 - `implement-issue` ya lee "lo que aplique de `docs/reference/`", `plan-feature` la nombra en general, y `review-pr` no tiene fila de lenguaje ni de límites de contexto. El perfil `--small` no trae `plan-feature` ni `review-pr`.
 - Todo proyecto creado con el kit recibiría las mismas reglas. Sacarlas después es una ruptura para los proyectos que ya las siguen, así que lo decidido en el chat tiene que quedar escrito donde los agentes lo leen.
@@ -49,6 +49,7 @@ Origen: épica lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven
 
 ## Consecuencias
 
+- Lo decidido aquí se implementa en los issues siguientes de la épica (A2 a A6). Hasta que se implementen, este ADR describe reglas pendientes: ni docs/reference/contexts.md ni la sección `contexts` del mapa existen todavía, y las skills no tienen la línea que remite a este ADR.
 - `review-pr` puede marcar cruces y términos no definidos con la severidad de D6. El riesgo es el ruido: por eso solo se marcan los nombres del dominio en el código y los docs que cambian, y los términos llegan como sugerencias.
 - Cada skill que lee el glosario recibe una línea que remite a este ADR, para que las skills no pasen su límite de 120 líneas.
 - Un proyecto instalado con `install.py` que ya tiene su glosario en otra ruta recibe una advertencia del instalador. El instalador no lo pisa.

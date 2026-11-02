@@ -2,14 +2,14 @@
 
 ## Status
 
-Accepted (2026-11-02)
+Proposed (pending approval by @lautioliver)
 
-Origin: epic lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven Design a todos los proyectos") and its first issue, lautioliver/barrilete-kit#215. Decisions 1 to 7 of the epic were approved by @lautioliver in the chat on 2026-11-02, and they are recorded below as they were approved, with no change. Where a rule says "approved by @lautioliver in the chat (2026-11-02)", that is the approval.
+Origin: epic lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven Design a todos los proyectos") and its first issue, lautioliver/barrilete-kit#215. Decisions 1 to 7 come from the body of the epic and the issue, which record them as approved in the chat on 2026-11-02. That record is not yet a person's approval in a chat or a comment: this ADR stays Proposed until @lautioliver confirms them, and then it becomes Accepted with the date and the confirmation.
 
 ## Context
 
 - The kit has no shared vocabulary for the domain of a project and no map of its bounded contexts. The agents read `docs/reference/domain.md` and `docs/reference/modules.md`, which describe entities and modules, not the limits between them.
-- `docs/reference/glossary.md` already exists in the full profile, as a `TODO` template. Nobody reads it: no skill and no check uses it.
+- `docs/reference/glossary.md` already exists in the full profile, as a `TODO` template. `update-docs` adds new terms to it, but no skill that plans, implements or reviews reads it, and no check uses it.
 - `--small` deletes `docs/reference/` as a whole (`profiles/small/DELETE`), so the small profile has no glossary. Its `docs/agents-map.json` has only `red`, and `check-docs.py` treats it apart (`SOLO_RED`) without validating `required`.
 - `implement-issue` already reads "what applies from `docs/reference/`", `plan-feature` names it in general terms, and `review-pr` has no row for language or for context limits. The `--small` profile does not ship `plan-feature` or `review-pr`.
 - Every project created from the kit would get the same rules. Taking them out later is a break for every project that already follows them, so what was decided in the chat has to be written where the agents read it.
@@ -49,6 +49,7 @@ Origin: epic lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven D
 
 ## Consequences
 
+- What is decided here is implemented in the next issues of the epic (A2 to A6). Until they land, this ADR describes pending rules: neither docs/reference/contexts.md nor the `contexts` section of the map exists yet, and the skills do not carry the pointer line to this ADR.
 - `review-pr` can flag crossings and undefined terms with the severity of D6. The risk is noise, so only the domain names in the changed code and docs are marked, and the terms come as suggestions.
 - Each skill that reads the glossary gets one line that points to this ADR, to keep the skills under their 120-line limit.
 - A project installed with `install.py` that already has its glossary in another path gets a warning from the installer. The installer does not overwrite it.
