@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
+# shellcheck disable=SC2319,SC2030,SC2031  # "<condition>; tap_check $?" is the tests pattern (tap.sh); the vars are set on purpose inside $( )
 # Tests de scripts/agents/git-quiet.sh: los git de una prueba no corren gc ni mantenimiento automático,
 # y el helper suma sus entradas a las que ya traiga GIT_CONFIG_COUNT sin pisarlas (#224).
 # Uso: bash scripts/agents/test-git-quiet.sh
@@ -27,9 +27,10 @@ grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "con entradas previas, los git no co
 grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "con entradas previas, los git no corren mantenimiento automático"
 
 # Con un GIT_CONFIG_COUNT que no es un número: el helper avisa y no lo pisa (git lo reportaría; un 0 mudo lo taparía).
-msg=$(export GIT_CONFIG_COUNT=abc; git_quiet_env 2>&1; true)
+# El helper devuelve 1 a propósito: dentro del subshell se apaga el trap de tap.sh, que lo tomaría por un crash.
+msg=$(export GIT_CONFIG_COUNT=abc; trap - ERR; git_quiet_env 2>&1; true)
 grep -qF "GIT_CONFIG_COUNT" <<<"$msg"; tap_check $? "con un GIT_CONFIG_COUNT no numérico, el helper avisa por qué aborta"
-valor=$(export GIT_CONFIG_COUNT=abc; git_quiet_env 2>/dev/null; echo "$GIT_CONFIG_COUNT")
+valor=$(export GIT_CONFIG_COUNT=abc; trap - ERR; git_quiet_env 2>/dev/null; echo "$GIT_CONFIG_COUNT")
 [ "$valor" = abc ]; tap_check $? "con un GIT_CONFIG_COUNT no numérico, el helper no lo pisa"
 
 tap_done

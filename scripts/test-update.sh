@@ -34,6 +34,9 @@ export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COM
 # shellcheck source=/dev/null
 . "$RAIZ/scripts/agents/git-quiet.sh"
 git_quiet_env
+cfg=$(git config --list 2>/dev/null)
+grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
+grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "los git de la prueba no corren mantenimiento automático"
 
 # La plantilla tal como está en el árbol, en un repo con dos versiones etiquetadas.
 P="$TMP/plantilla"
