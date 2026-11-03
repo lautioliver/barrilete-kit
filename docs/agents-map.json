@@ -249,6 +249,14 @@
       "run": "bash scripts/agents/test-base.sh"
     },
     {
+      "name": "git-quiet",
+      "when": [
+        "scripts/agents/git-quiet.sh",
+        "scripts/agents/test-git-quiet.sh"
+      ],
+      "run": "bash scripts/agents/test-git-quiet.sh"
+    },
+    {
       "name": "guardrails",
       "when": [
         ".claude/settings.json",

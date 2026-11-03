@@ -30,9 +30,10 @@ prep() {
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
-# Ningún git de la prueba corre gc ni mantenimiento en segundo plano: un gc que empaqueta objetos sueltos mientras otro git
-# clona o lee ese repo puede romperlo ("failed to copy file ... No such file or directory"), a veces y solo en el CI.
-export GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=gc.auto GIT_CONFIG_VALUE_0=0 GIT_CONFIG_KEY_1=maintenance.auto GIT_CONFIG_VALUE_1=false
+# Ningún git de la prueba corre gc ni mantenimiento en segundo plano (#186, #224): ver scripts/agents/git-quiet.sh.
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/git-quiet.sh"
+git_quiet_env
 
 # La plantilla tal como está en el árbol, en un repo con dos versiones etiquetadas.
 P="$TMP/plantilla"

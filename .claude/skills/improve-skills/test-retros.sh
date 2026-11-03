@@ -21,7 +21,10 @@ mkdir -p "$TMP/bin"
 printf '#!/bin/sh\nexit 1\n' >"$TMP/bin/gh"; chmod +x "$TMP/bin/gh"
 # Aislado de la config de git de quien corre los tests (rama por defecto, firma, hooks globales…).
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
-# Ningún git de la prueba corre gc ni mantenimiento automático (#224).
+# Ningún git de la prueba corre gc ni mantenimiento automático (#224): ver scripts/agents/git-quiet.sh.
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/git-quiet.sh"
+git_quiet_env
 cfg=$(git config --list 2>/dev/null)
 grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
 grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "los git de la prueba no corren mantenimiento automático"
