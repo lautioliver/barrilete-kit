@@ -272,4 +272,18 @@ tap_run out 0 "$PREPARAR" 62 --worktree
 tap_check $? "token de usuario sin BK_HUMAN: se comporta como siempre"
 grep -qx "Assigned to @yo." <<<"$out"; tap_check $? "token de usuario sin BK_HUMAN: asigna al usuario del token"
 
+# BK_HUMAN normalizado (#231, review de #234): sin @ inicial y en minúsculas, como los logins de GitHub.
+issue 64 "Persona con arroba y mayusculas"
+: >"$GH_LOG"
+export BK_HUMAN=@LautiOliver
+tap_run out 0 "$PREPARAR" 64 --worktree
+tap_check $? "BK_HUMAN con @ y mayúsculas: toma el issue"
+grep -q "^issue edit 64 .*--add-assignee lautioliver\( \|$\)" "$GH_LOG"; tap_check $? "BK_HUMAN con @ y mayúsculas: asigna el login normalizado"
+grep -qx "Assigned to @lautioliver." <<<"$out"; tap_check $? "BK_HUMAN con @ y mayúsculas: dice el login normalizado"
+unset BK_HUMAN
+
+# --help documenta BK_HUMAN.
+tap_run out 0 "$PREPARAR" --help
+grep -q "BK_HUMAN" <<<"$out"; tap_check $? "--help documenta BK_HUMAN"
+
 tap_done
