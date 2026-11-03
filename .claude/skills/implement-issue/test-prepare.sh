@@ -294,4 +294,12 @@ tap_run out 0 "$PREPARAR" 65 --worktree
 tap_check $? "BK_HUMAN con @ y mayúsculas: un issue de esa persona no se ve como de otro"
 unset BK_HUMAN
 
+# BK_HUMAN que no es un login válido: corta con 64 antes de tocar nada.
+issue 66 "Persona invalida"
+export BK_HUMAN=@
+c=0; s=$(trap - ERR; "$PREPARAR" 66 --worktree 2>&1) || c=$?; tap_status "$c" 64
+grep -q "not a valid GitHub login" <<<"$s"; tap_check $? "BK_HUMAN inválido: dice que no es un login"
+! git -C "$TMP/proj" show-ref -q --verify refs/heads/claude/66-persona-invalida; tap_check $? "BK_HUMAN inválido: no crea la rama"
+unset BK_HUMAN
+
 tap_done

@@ -56,17 +56,17 @@ REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 # gives 403 and a bot cannot be assigned), or else the user of the token.
 YO="${BK_HUMAN:-}"
 if [ -z "$YO" ]; then
-  yo_err=$(mktemp)
-  YO=$(gh api user -q .login 2>"$yo_err") || YO=""
+  yo_err=""
+  if ! YO=$(gh api user -q .login 2>&1); then yo_err="$YO"; YO=""; fi
   if [ -z "$YO" ]; then
-    echo "prepare.sh: could not tell who is responsible. gh api user said: $(cat "$yo_err")" >&2
+    echo "prepare.sh: could not tell who is responsible. gh api user said: $yo_err" >&2
     echo "If the token has no user (a GitHub App?), set BK_HUMAN=<login of the person who launched the agent>; otherwise fix the gh error above." >&2
-    rm -f "$yo_err"; exit 64
+    exit 64
   fi
-  rm -f "$yo_err"
 fi
 # GitHub logins are case-insensitive and have no @: normalize so the comparisons and --add-assignee work.
-YO="${YO#@}"; YO=$(printf '%s' "$YO" | tr '[:upper:]' '[:lower:]')
+YO="${YO#@}"; YO=$(printf '%s' "$YO" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+[[ "$YO" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || { echo "prepare.sh: '$YO' is not a valid GitHub login (check BK_HUMAN)." >&2; exit 64; }
 
 issue=$(gh api "repos/$REPO/issues/$N")
 error() { echo "CANNOT TAKE #$N: $*" >&2; exit 1; }
