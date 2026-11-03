@@ -26,7 +26,9 @@ Elegí hasta **3** issues de "Can be started now", en el orden en que aparecen (
 
 Imprime el modelo y el `reason`. Es la regla de ruteo: **Haiku solo si el issue es `type:docs` o `type:task`, sin `business-logic` ni `breaking-change` y sin rutas sensibles nombradas en el texto. Lo demás, Sonnet.** Si en la autorevisión `agents_map.py` marca rutas sensibles, Haiku frena y devuelve `escalate`, y lo relanzás con Sonnet en el mismo worktree. `routing.py` se equivoca a propósito hacia Sonnet: una palabra como "infra" o "middleware" en prosa ya cuenta como ruta sensible. No cambies la regla a ojo: si un caso no encaja, proponé el cambio a `routing.py` en un issue.
 
-Después, por rol (`implementer` o `implementer-light` según el modelo de arriba; `reviewer` más tarde), el modo: `.claude/skills/orchestrate/mode.py <rol>` imprime `main`, `bk` o `sub` (el `.barrilete/roles.yml` del proyecto, y después `bk mode`). **Sin `bk` instalado imprime `sub` para todos los roles y avisa por stderr**: lanzá todo como subagentes, como antes, y decilo en el plan y en el mensaje final.
+Después, por rol (`implementer` o `implementer-light` según el modelo de arriba; `reviewer` más tarde), el modo: `.claude/skills/orchestrate/mode.py <rol> --root <raíz>` imprime `main`, `bk` o `sub` (el `.barrilete/roles.yml` del proyecto, y después `bk mode`). **Sin `bk` instalado imprime `sub` para todos los roles y avisa por stderr**: lanzá todo como subagentes, como antes, y decilo en el plan y en el mensaje final.
+
+`main` no se lanza (sos vos o la sesión de la persona). Si `mode.py` sale con 64 (un error de tipeo en `roles.yml`, `bk` que falla), no adivines un modo: avisale a la persona y esperá.
 
 Mostrale a la persona el **plan**: una tabla (issue, título, rol, modelo, modo, `reason`), y esperá el "sí". Puede sacar issues o cambiar el modelo de uno a Sonnet; a Haiku solo si `routing.py` lo permite.
 
@@ -46,6 +48,8 @@ Lanzá los agentes `sub` en paralelo, en un solo mensaje, con la herramienta Age
 ## 4. Con cada resultado
 
 Cada agente `sub` devuelve el bloque del contrato. Un agente `bk` no te devuelve nada: seguilo con `bk ls` y leé su resultado desde el PR (`gh pr list --head claude/<n>-…`, `gh pr checks`) y desde el bloque del contrato si lo imprime. Leé solo eso: nunca diffs ni retros.
+
+Un implementer-light `bk` que frena por una ruta sensible no devuelve `escalate`: se lo dice a la persona en su ventana; relanzá con `bk run <n> --role implementer` (retoma el mismo worktree). Un agente `bk` cuenta para los 3 hasta que su PR esté abierto o `bk ls` lo muestre terminado.
 
 **Cuando un agente `bk` pregunta** (texto, permiso o cuestionario; `bk ls` lo muestra esperando), mostrá en tu chat la pregunta y sus opciones. La persona contesta con `! bk say <agente> "…"` (o `bk say <agente> <n>` para la opción `n` de un cuestionario). **Vos nunca mandás una aprobación.**
 

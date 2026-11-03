@@ -26,7 +26,9 @@ Pick up to **3** issues from "Can be started now", in the order they appear (pri
 
 It prints the model and the `reason`. It is the routing rule: **Haiku only if the issue is `type:docs` or `type:task`, without `business-logic` or `breaking-change` and without sensitive paths named in the text. Everything else, Sonnet.** If in the self-review `agents_map.py` flags sensitive paths, Haiku stops and returns `escalate`, and you relaunch it with Sonnet in the same worktree. `routing.py` errs on purpose toward Sonnet: a word like "infra" or "middleware" in prose already counts as a sensitive path. Do not change the rule by eye: if a case does not fit, propose the change to `routing.py` in an issue.
 
-Then, per role (`implementer` or `implementer-light` for the model above; `reviewer` later), the mode: `.claude/skills/orchestrate/mode.py <role>` prints `main`, `bk` or `sub` (the project's `.barrilete/roles.yml`, then `bk mode`). **Without `bk` installed it prints `sub` for every role and warns on stderr**: launch everything as subagents, as before, and say it in the plan and in the final message.
+Then, per role (`implementer` or `implementer-light` for the model above; `reviewer` later), the mode: `.claude/skills/orchestrate/mode.py <role> --root <root>` prints `main`, `bk` or `sub` (the project's `.barrilete/roles.yml`, then `bk mode`). **Without `bk` installed it prints `sub` for every role and warns on stderr**: launch everything as subagents, as before, and say it in the plan and in the final message.
+
+`main` is not launched (it is you or the person's own session). If `mode.py` exits 64 (a typo in `roles.yml`, `bk` failing), do not guess a mode: tell the person and wait.
 
 Show the person the **plan**: a table (issue, title, role, model, mode, `reason`), and wait for the "yes". They can drop issues or switch one's model to Sonnet; to Haiku only if `routing.py` allows it.
 
@@ -46,6 +48,8 @@ Launch the `sub` agents in parallel, in a single message, with the Agent tool: `
 ## 4. With each result
 
 Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it with `bk ls` and read its result from the PR (`gh pr list --head claude/<n>-…`, `gh pr checks`) and the contract block if it prints one. Read only that: never diffs or retros.
+
+A `bk` implementer-light that stops for a sensitive path does not return `escalate`: it tells the person in its window; relaunch with `bk run <n> --role implementer` (it resumes the same worktree). A `bk` agent counts toward the 3 until its PR is open or `bk ls` shows it finished.
 
 **When a `bk` agent asks** (text, permission or questionnaire; `bk ls` shows it waiting), show the question and its options in your chat. The person answers with `! bk say <agent> "…"` (or `bk say <agent> <n>` for option `n` of a questionnaire). **You never send an approval yourself.**
 

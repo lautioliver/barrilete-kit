@@ -2,7 +2,7 @@
 """How /orchestrate launches a role: main, bk or sub (kit/ADR-004).
 
 Usage: mode.py <role> [--root DIR]
-Prints the mode (main, bk or sub) on stdout.
+Prints the mode (main, bk or sub) on stdout. Exit 64: bad usage, an unknown mode or `bk mode` failing.
 
 - Without `bk` in the PATH: everything is `sub` (as before bk existed) and stderr says so.
 - With `bk`: the role's line in `<root>/.barrilete/roles.yml` (`<role>: <provider>/<model> [mode]`; no mode
@@ -19,7 +19,7 @@ MODES = ("main", "bk", "sub")
 
 def fail(message):
     print(f"mode.py: {message}", file=sys.stderr)
-    sys.exit(2)
+    sys.exit(64)
 
 
 def project_mode(role, root):
@@ -32,7 +32,9 @@ def project_mode(role, root):
         for line in f:
             m = line_re.match(line.rstrip("\n"))
             if m:
-                return m["mode"] if m["mode"] in MODES else "bk"
+                if m["mode"] and m["mode"] not in MODES:
+                    fail(f"{path}: unknown mode '{m['mode']}' for {role} (use main, bk or sub)")
+                return m["mode"] or "bk"
     return None
 
 
