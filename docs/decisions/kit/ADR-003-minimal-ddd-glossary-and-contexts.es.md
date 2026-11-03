@@ -2,9 +2,9 @@
 
 ## Estado
 
-Propuesto (pendiente de aprobación de @lautioliver)
+Aceptado (2026-11-03). @lautioliver confirmó D1 a D7 en [un comentario de #223](https://github.com/lautioliver/barrilete-kit/pull/223#issuecomment-6595122547).
 
-Origen: épica lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven Design a todos los proyectos") y su primer issue, lautioliver/barrilete-kit#215. Las decisiones 1 a 7 vienen del cuerpo de la épica y del issue, que las registran como aprobadas en el chat el 2026-11-02. Ese registro no es todavía una aprobación de una persona en un chat o un comentario: este ADR queda Propuesto hasta que @lautioliver las confirme, y entonces pasa a Aceptado con la fecha y la confirmación.
+Origen: épica lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven Design a todos los proyectos") y su primer issue, lautioliver/barrilete-kit#215. Las decisiones 1 a 7 vienen del cuerpo de la épica y del issue, que las registran como aprobadas en el chat el 2026-11-02. Ese registro todavía no era la aprobación de una persona; la confirmación de arriba sí lo es.
 
 ## Contexto
 
