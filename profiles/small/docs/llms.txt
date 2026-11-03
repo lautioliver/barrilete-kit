@@ -7,6 +7,8 @@ Instructions for models: read AGENTS.md (conventions and autonomy). What runs to
 ## Documentation
 
 - [Index](README.md)
+- [Glossary: domain words](glossary.md)
+- [Contexts: bounded contexts, their paths and limits](contexts.md)
 - [GitHub convention](github-naming-convention.md)
 - [Decisions (ADRs)](decisions/README.md)
 - [ADR-002: structured validation of the red test](decisions/kit/ADR-002-structured-red-validation.md)

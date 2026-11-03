@@ -42,6 +42,7 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 ### Referencia
 
 - [Glosario](reference/glossary.md) — palabras que no se cambian
+- [Contextos](reference/contexts.md) — contextos delimitados, sus términos propios y cómo se relacionan
 - [Dominio y datos](reference/domain.md) — tablas, IDs, estados
 - [Superficies](reference/surfaces.md) — URLs y quién entra
 - [Módulos](reference/modules.md) — dónde vive cada cosa en el código

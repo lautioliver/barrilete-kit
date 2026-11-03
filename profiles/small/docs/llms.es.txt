@@ -7,6 +7,8 @@ Instrucciones para modelos: leer AGENTS.md (convenciones y autonomía). Qué cor
 ## Documentación
 
 - [Índice](README.md)
+- [Glosario: palabras del dominio](glossary.md)
+- [Contextos: contextos delimitados, sus rutas y límites](contexts.md)
 - [Convención de GitHub](github-naming-convention.md)
 - [Decisiones (ADRs)](decisions/README.md)
 - [ADR-002: validación estructurada del test en rojo](decisions/kit/ADR-002-structured-red-validation.md)

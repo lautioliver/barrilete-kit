@@ -6,9 +6,11 @@ Instructions for models: read this file and AGENTS.md. Aspirational spec = /READ
 
 ## Documentation
 
-<!-- Rule: a document goes into this list only once it has content. If it only says "TODO: fill in", it is not listed: a model that reads it gains nothing and may assume nothing is defined. When you fill it in, add it with its line. -->
+<!-- Rule: a document goes into this list only once it has content. If it only says "TODO: fill in", it is not listed: a model that reads it gains nothing and may assume nothing is defined. When you fill it in, add it with its line. Exception (ADR-003 D7): the glossary and the contexts are listed from the start, even as TODO templates. -->
 
 - [Hub](README.md)
+- [Glossary: domain words](reference/glossary.md)
+- [Contexts: bounded contexts and their limits](reference/contexts.md)
 - [GitHub naming convention](github-naming-convention.md) — labels in ../.github/labels.yml
 - [Decisions (ADRs)](decisions/README.md)
 <!-- template:start -->
