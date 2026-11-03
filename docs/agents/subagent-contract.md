@@ -2,6 +2,15 @@
 
 Common rules of `implementer`, `implementer-light` and `reviewer` (`.claude/agents/`). They are launched by the orchestrator (`/orchestrate`): a main session that distributes the issues and gathers the results. Each subagent reads this file before starting. `AGENTS.md` still applies in full: this completes it, it never loosens it.
 
+## A `bk` agent
+
+When `roles.yml` says `bk` for a role (kit/ADR-004), the orchestrator launches it with `bk run <n> --role <role>` in its own tmux window instead of the Agent tool. What applies to it:
+
+- **Yes:** every rule below except the next one, the output block (the orchestrator reads the result from the PR and its CI, and from the block if the agent returns it), the retro, and never merging or publishing.
+- **No, "you do not talk to the person":** a `bk` agent does ask in its window, at the moment. The person answers from the orchestrator's chat with `! bk say <agent> "…"`. The orchestrator never answers for them.
+- **One worktree:** `bk run` creates it (it runs `prepare.sh`), so the orchestrator does not.
+- The orchestrator follows it with `bk ls` and does not open its diffs or retros.
+
 ## Rules
 
 - **One worktree, yours.** You work only in the worktree you are given (created by `prepare.sh <n> --worktree`; the reviewer creates its own, see `reviewer.md`), with absolute paths or `git -C <path>`: if the current directory is reset between commands, you would end up committing in the main checkout. The scripts that look at the current repo (`agents_map.py`, `verify.py`, `red.sh`, `retro.sh`) are run (the reviewer is the exception: it runs its scripts from the trusted checkout, the orchestrator's one; see its rule below) with `cd <worktree> && …` in the same command, with `BASE=<base branch>` in front if the PRs' base is not `origin`'s default branch (unset, the scripts use that one). Do not touch the orchestrator's checkout or other worktrees (the reviewer is the exception: besides running its scripts there, its only writes are the PR's ref (`refs/review/<pr>-<suffix>`, deleted at the end), its own worktree (created and removed), and its retro through `retro.sh` (on `agents/retros`, without touching the checked-out branch); it changes nothing else there: not the branch, HEAD, files or commits of the orchestrator).

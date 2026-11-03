@@ -1,11 +1,11 @@
 ---
 name: orchestrate
-description: Reparte los issues disponibles entre subagentes que trabajan en paralelo (Haiku o Sonnet implementan según el riesgo, Opus revisa), cada uno en su worktree, y junta todo en un solo mensaje con los PRs, las consultas y lo escalado. No mergea ni publica sin confirmación. Usar con "/orchestrate", "orquestá los issues disponibles", "repartí la cola entre agentes" o similar.
+description: Reparte los issues disponibles entre agentes que trabajan en paralelo (Haiku o Sonnet implementan según el riesgo, Opus revisa), cada uno lanzado como agente `bk` o como subagente según roles.yml, cada uno en su worktree, y junta todo en un solo mensaje con los PRs, las consultas y lo escalado. No mergea ni publica sin confirmación. Usar con "/orchestrate", "orquestá los issues disponibles", "repartí la cola entre agentes" o similar.
 ---
 
 # Orquestar
 
-Sos la sesión principal: repartís, coordinás y le hablás a la persona. Los subagentes (`.claude/agents/`) implementan y revisan siguiendo `docs/agents/subagent-contract.md`; no pueden lanzar otros subagentes ni hablar con la persona, así que todo pasa por vos.
+Sos la sesión principal: repartís, coordinás y le hablás a la persona. Los agentes (`.claude/agents/`) implementan y revisan siguiendo `docs/agents/subagent-contract.md`. Cada rol se lanza en su **modo** (`roles.yml`, kit/ADR-004): `sub` es un subagente (no puede hablar con la persona ni lanzar otros: todo pasa por vos); `bk` es un agente en su propia ventana de tmux (`bk run`) que le pregunta a la persona en el momento.
 
 **Nunca** mergeás, aprobás ni publicás nada en un PR sin un "sí" explícito de la persona. `AGENTS.md` vale entero.
 
@@ -26,7 +26,9 @@ Elegí hasta **3** issues de "Can be started now", en el orden en que aparecen (
 
 Imprime el modelo y el `reason`. Es la regla de ruteo: **Haiku solo si el issue es `type:docs` o `type:task`, sin `business-logic` ni `breaking-change` y sin rutas sensibles nombradas en el texto. Lo demás, Sonnet.** Si en la autorevisión `agents_map.py` marca rutas sensibles, Haiku frena y devuelve `escalate`, y lo relanzás con Sonnet en el mismo worktree. `routing.py` se equivoca a propósito hacia Sonnet: una palabra como "infra" o "middleware" en prosa ya cuenta como ruta sensible. No cambies la regla a ojo: si un caso no encaja, proponé el cambio a `routing.py` en un issue.
 
-Mostrale a la persona una tabla (issue, título, modelo, `reason`) y esperá el "sí". Puede sacar issues o cambiar el modelo de uno a Sonnet; a Haiku solo si `routing.py` lo permite.
+Después, por rol (`implementer` o `implementer-light` según el modelo de arriba; `reviewer` más tarde), el modo: `.claude/skills/orchestrate/mode.py <rol>` imprime `main`, `bk` o `sub` (el `.barrilete/roles.yml` del proyecto, y después `bk mode`). **Sin `bk` instalado imprime `sub` para todos los roles y avisa por stderr**: lanzá todo como subagentes, como antes, y decilo en el plan y en el mensaje final.
+
+Mostrale a la persona el **plan**: una tabla (issue, título, rol, modelo, modo, `reason`), y esperá el "sí". Puede sacar issues o cambiar el modelo de uno a Sonnet; a Haiku solo si `routing.py` lo permite.
 
 ## 3. Lanzar
 
@@ -37,11 +39,15 @@ git -C <raíz> fetch -q origin        # una sola vez, antes de lanzar: fetch en 
 
 `prepare.sh` valida, asigna, crea el worktree en `../<repo>-wt/<n>` e imprime `Worktree: <ruta>`. Si falla para un issue, no lo lances y anotalo para el mensaje final.
 
-Lanzá los subagentes en paralelo, en un solo mensaje, con la herramienta Agent: `subagent_type` `implementer-light` (Haiku) o `implementer` (Sonnet). En pi, con la herramienta `subagent` de `barrilete-pi` (`packages/pi/` de la plantilla): los mismos roles en `agent`, y varios a la vez en `tasks`. Sin `isolation`: el worktree ya existe. En el prompt: número de issue, ruta del worktree, rama base (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` en tu checkout: es la versión que corre, aunque el worktree tenga otra), `skill_sha` (lo mismo con `.claude/skills/implement-issue/SKILL.md`), `retro_sh` (la ruta absoluta de `.claude/skills/improve-skills/retro.sh` en tu checkout, ya mergeado en la rama base: el implementador guarda su retro con ese, nunca con el de su worktree, que es código del PR sin revisar) y que siga su definición, y que **no invoque `/code-review` con la herramienta Skill** (una skill bifurcada mueve tu checkout): hace la pasada de bugs a mano y declara `no code-review: <motivo>`. Al revisor: número de PR, la ruta del checkout del orquestador, `agent_sha` de `reviewer.md` y `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), y la misma prohibición de `/code-review` con la herramienta Skill (declara `no code-review: <motivo>` en `review:`). **Nunca más de 3 implementando a la vez**, contando los relanzados.
+Según el modo del plan. Un agente `bk`: `bk run <n> --role <rol>` (crea el worktree y la ventana solo: no le corras `prepare.sh`), de a uno, y decile a la persona la ventana (`i<n>`). Un revisor `bk`: `bk review <pr>`. Un agente `sub`: el resto de este paso.
+
+Lanzá los agentes `sub` en paralelo, en un solo mensaje, con la herramienta Agent: `subagent_type` `implementer-light` (Haiku) o `implementer` (Sonnet). En pi, con la herramienta `subagent` de `barrilete-pi` (`packages/pi/` de la plantilla): los mismos roles en `agent`, y varios a la vez en `tasks`. Sin `isolation`: el worktree ya existe. En el prompt: número de issue, ruta del worktree, rama base (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` en tu checkout: es la versión que corre, aunque el worktree tenga otra), `skill_sha` (lo mismo con `.claude/skills/implement-issue/SKILL.md`), `retro_sh` (la ruta absoluta de `.claude/skills/improve-skills/retro.sh` en tu checkout, ya mergeado en la rama base: el implementador guarda su retro con ese, nunca con el de su worktree, que es código del PR sin revisar) y que siga su definición, y que **no invoque `/code-review` con la herramienta Skill** (una skill bifurcada mueve tu checkout): hace la pasada de bugs a mano y declara `no code-review: <motivo>`. Al revisor: número de PR, la ruta del checkout del orquestador, `agent_sha` de `reviewer.md` y `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), y la misma prohibición de `/code-review` con la herramienta Skill (declara `no code-review: <motivo>` en `review:`). **Nunca más de 3 implementando a la vez**, contando los dos modos y los relanzados.
 
 ## 4. Con cada resultado
 
-Cada subagente devuelve el bloque del contrato. Leé solo eso: nunca diffs ni retros.
+Cada agente `sub` devuelve el bloque del contrato. Un agente `bk` no te devuelve nada: seguilo con `bk ls` y leé su resultado desde el PR (`gh pr list --head claude/<n>-…`, `gh pr checks`) y desde el bloque del contrato si lo imprime. Leé solo eso: nunca diffs ni retros.
+
+**Cuando un agente `bk` pregunta** (texto, permiso o cuestionario; `bk ls` lo muestra esperando), mostrá en tu chat la pregunta y sus opciones. La persona contesta con `! bk say <agente> "…"` (o `bk say <agente> <n>` para la opción `n` de un cuestionario). **Vos nunca mandás una aprobación.**
 
 | `result` | Qué hacés |
 |---|---|

@@ -2,6 +2,15 @@
 
 Reglas comunes de `implementer`, `implementer-light` y `reviewer` (`.claude/agents/`). Los lanza el orquestador (`/orchestrate`): una sesión principal que reparte los issues y junta los resultados. Cada subagente lee este archivo antes de empezar. `AGENTS.md` sigue valiendo entero: esto lo completa, nunca lo afloja.
 
+## Un agente `bk`
+
+Cuando `roles.yml` dice `bk` para un rol (kit/ADR-004), el orquestador lo lanza con `bk run <n> --role <rol>` en su propia ventana de tmux, en vez de la herramienta Agent. Qué le aplica:
+
+- **Sí:** todas las reglas de abajo salvo la siguiente, el bloque de salida (el orquestador lee el resultado desde el PR y su CI, y desde el bloque si el agente lo devuelve), la retro, y no mergear ni publicar nunca.
+- **No, "no hablás con la persona":** un agente `bk` sí pregunta en su ventana, en el momento. La persona contesta desde el chat del orquestador con `! bk say <agente> "…"`. El orquestador nunca contesta por ella.
+- **Un worktree:** lo crea `bk run` (corre `prepare.sh`), no el orquestador.
+- El orquestador lo sigue con `bk ls` y no abre sus diffs ni sus retros.
+
 ## Reglas
 
 - **Un worktree, el tuyo.** Trabajás solo en el worktree que te pasan (lo creó `prepare.sh <n> --worktree`; el revisor crea el suyo, ver `reviewer.md`), con rutas absolutas o `git -C <ruta>`: si el directorio actual se reinicia entre comandos, terminarías commiteando en el checkout principal. Los scripts que miran el repo actual (`agents_map.py`, `verify.py`, `red.sh`, `retro.sh`) se corren (el revisor es la excepción: corre sus scripts desde el checkout de confianza, el del orquestador; ver su regla más abajo) con `cd <worktree> && …` en el mismo comando, con `BASE=<rama base>` adelante si la base de los PRs no es la rama por defecto de `origin` (sin configurar, los scripts usan esa). No toques el checkout del orquestador ni otros worktrees (el revisor es la excepción: además de correr sus scripts ahí, sus únicas escrituras son la ref del PR (`refs/revision/<pr>-<sufijo>`, que borra al final), su propio worktree (lo crea y lo quita) y su retro con `retro.sh` (en `agents/retros`, sin tocar la rama que está en el checkout); no cambia nada más ahí: ni la rama, el HEAD, los archivos ni los commits del orquestador).

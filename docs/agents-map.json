@@ -196,7 +196,7 @@
         ".github/workflows/labels.yml",
         "?profiles/small/DELETE"
       ],
-      "run": "bash .claude/skills/orchestrate/test-orchestrate.sh"
+      "run": "bash .claude/skills/orchestrate/test-orchestrate.sh && bash .claude/skills/orchestrate/test-mode.sh"
     },
     {
       "name": "labels-check",
@@ -228,6 +228,7 @@
         ".claude/skills/improve-skills/retro-template.md",
         "scripts/agents/test-agents.sh",
         ".claude/skills/orchestrate/test-orchestrate.sh",
+        ".claude/skills/orchestrate/test-mode.sh",
         ".claude/skills/improve-skills/test-retros.sh"
       ],
       "run": "bash scripts/agents/test-i18n.sh"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tests de mode.py: de dónde lee /orchestrate el modo de cada rol (kit/ADR-004, #236).
 # Uso: bash .claude/skills/orchestrate/test-mode.sh
+# shellcheck disable=SC2016,SC2154  # el printf del bk falso lleva $1 literal; `out` lo asigna tap_run
 set -uo pipefail
 AQUI=$(cd "$(dirname "$0")" && pwd)
 RAIZ=$(cd "$AQUI/../../.." && pwd)

@@ -1,11 +1,11 @@
 ---
 name: orchestrate
-description: Distributes the available issues among subagents working in parallel (Haiku or Sonnet implement depending on risk, Opus reviews), each in its own worktree, and gathers everything in a single message with the PRs, the questions and what was escalated. It does not merge or publish without confirmation. Use with "/orchestrate", "orchestrate the available issues", "spread the queue among agents" or similar.
+description: Distributes the available issues among agents working in parallel (Haiku or Sonnet implement depending on risk, Opus reviews), each launched as a `bk` agent or a subagent according to roles.yml, each in its own worktree, and gathers everything in a single message with the PRs, the questions and what was escalated. It does not merge or publish without confirmation. Use with "/orchestrate", "orchestrate the available issues", "spread the queue among agents" or similar.
 ---
 
 # Orchestrate
 
-You are the main session: you distribute, coordinate and talk to the person. The subagents (`.claude/agents/`) implement and review following `docs/agents/subagent-contract.md`; they cannot launch other subagents or talk to the person, so everything goes through you.
+You are the main session: you distribute, coordinate and talk to the person. The agents (`.claude/agents/`) implement and review following `docs/agents/subagent-contract.md`. Each role is launched in its **mode** (`roles.yml`, kit/ADR-004): `sub` is a subagent (it cannot talk to the person or launch others: everything goes through you); `bk` is an agent in its own tmux window (`bk run`) that asks the person at the moment.
 
 **Never** merge, approve or publish anything on a PR without an explicit "yes" from the person. `AGENTS.md` applies in full.
 
@@ -26,7 +26,9 @@ Pick up to **3** issues from "Can be started now", in the order they appear (pri
 
 It prints the model and the `reason`. It is the routing rule: **Haiku only if the issue is `type:docs` or `type:task`, without `business-logic` or `breaking-change` and without sensitive paths named in the text. Everything else, Sonnet.** If in the self-review `agents_map.py` flags sensitive paths, Haiku stops and returns `escalate`, and you relaunch it with Sonnet in the same worktree. `routing.py` errs on purpose toward Sonnet: a word like "infra" or "middleware" in prose already counts as a sensitive path. Do not change the rule by eye: if a case does not fit, propose the change to `routing.py` in an issue.
 
-Show the person a table (issue, title, model, `reason`) and wait for the "yes". They can drop issues or switch one's model to Sonnet; to Haiku only if `routing.py` allows it.
+Then, per role (`implementer` or `implementer-light` for the model above; `reviewer` later), the mode: `.claude/skills/orchestrate/mode.py <role>` prints `main`, `bk` or `sub` (the project's `.barrilete/roles.yml`, then `bk mode`). **Without `bk` installed it prints `sub` for every role and warns on stderr**: launch everything as subagents, as before, and say it in the plan and in the final message.
+
+Show the person the **plan**: a table (issue, title, role, model, mode, `reason`), and wait for the "yes". They can drop issues or switch one's model to Sonnet; to Haiku only if `routing.py` allows it.
 
 ## 3. Launch
 
@@ -37,11 +39,15 @@ git -C <root> fetch -q origin        # only once, before launching: parallel fet
 
 `prepare.sh` validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. If it fails for an issue, do not launch it and note it for the final message.
 
-Launch the subagents in parallel, in a single message, with the Agent tool: `subagent_type` `implementer-light` (Haiku) or `implementer` (Sonnet). In pi, with the `subagent` tool of `barrilete-pi` (`packages/pi/` of the template): the same roles in `agent`, and several at once in `tasks`. Without `isolation`: the worktree already exists. In the prompt: issue number, worktree path, base branch (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` in your checkout: it is the version that runs, even if the worktree has another), `skill_sha` (the same with `.claude/skills/implement-issue/SKILL.md`), `retro_sh` (the absolute path of `.claude/skills/improve-skills/retro.sh` in your checkout, already merged on the base branch: the implementer saves its retro with it, never with its worktree's, which is the PR's unreviewed code) and that it follows its definition, and that it must **not invoke `/code-review` through the Skill tool** (a forked skill moves your checkout): it does the bug pass by hand and declares `no code-review: <reason>`. To the reviewer: PR number, the orchestrator's checkout path, `agent_sha` of `reviewer.md` and `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), and the same ban on `/code-review` through the Skill tool (it declares `no code-review: <reason>` in `review:`). **Never more than 3 implementing at once**, counting the relaunched ones.
+Per the plan's mode. A `bk` agent: `bk run <n> --role <role>` (it creates the worktree and the window itself: do not run `prepare.sh` for it), one at a time, and tell the person the window (`i<n>`). A `bk` reviewer: `bk review <pr>`. A `sub` agent: the rest of this step.
+
+Launch the `sub` agents in parallel, in a single message, with the Agent tool: `subagent_type` `implementer-light` (Haiku) or `implementer` (Sonnet). In pi, with the `subagent` tool of `barrilete-pi` (`packages/pi/` of the template): the same roles in `agent`, and several at once in `tasks`. Without `isolation`: the worktree already exists. In the prompt: issue number, worktree path, base branch (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` in your checkout: it is the version that runs, even if the worktree has another), `skill_sha` (the same with `.claude/skills/implement-issue/SKILL.md`), `retro_sh` (the absolute path of `.claude/skills/improve-skills/retro.sh` in your checkout, already merged on the base branch: the implementer saves its retro with it, never with its worktree's, which is the PR's unreviewed code) and that it follows its definition, and that it must **not invoke `/code-review` through the Skill tool** (a forked skill moves your checkout): it does the bug pass by hand and declares `no code-review: <reason>`. To the reviewer: PR number, the orchestrator's checkout path, `agent_sha` of `reviewer.md` and `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), and the same ban on `/code-review` through the Skill tool (it declares `no code-review: <reason>` in `review:`). **Never more than 3 implementing at once**, counting both modes and the relaunched ones.
 
 ## 4. With each result
 
-Each subagent returns the contract block. Read only that: never diffs or retros.
+Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it with `bk ls` and read its result from the PR (`gh pr list --head claude/<n>-…`, `gh pr checks`) and the contract block if it prints one. Read only that: never diffs or retros.
+
+**When a `bk` agent asks** (text, permission or questionnaire; `bk ls` shows it waiting), show the question and its options in your chat. The person answers with `! bk say <agent> "…"` (or `bk say <agent> <n>` for option `n` of a questionnaire). **You never send an approval yourself.**
 
 | `result` | What you do |
 |---|---|
