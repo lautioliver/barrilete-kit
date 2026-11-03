@@ -15,7 +15,8 @@ tap_at_exit "rm -rf \"\$TMP\""
 mkdir -p "$TMP/bin" "$TMP/nobin" "$TMP/proj/.barrilete" "$TMP/vacio"
 printf '#!/bin/sh\n[ "$1" = mode ] && [ "$2" = implementer-light ] && echo sub && exit 0\n[ "$1" = mode ] && echo bk && exit 0\nexit 1\n' >"$TMP/bin/bk"
 chmod +x "$TMP/bin/bk"
-ln -s "$(command -v python3)" "$TMP/nobin/python3"
+printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -v python3)" >"$TMP/nobin/python3"
+chmod +x "$TMP/nobin/python3"
 PATH_ORIG=$PATH
 export PATH="$TMP/bin:$PATH_ORIG"
 M="$AQUI/mode.py"
@@ -69,7 +70,11 @@ printf 'implementer-light: claude/haiku sub\nimplementerx: nada\n' >"$TMP/norol/
 tap_run out 0 python3 "$M" implementer --root "$TMP/norol"
 [ "$out" = bk ]; tap_check $? "mode: otro rol con prefijo parecido no cuenta como la línea del rol"
 
-# 7. bk que falla o que contesta algo fuera de main/bk/sub: exit 64.
+# 7. --root que no existe: exit 64, sin traceback.
+tap_run out 64 python3 "$M" implementer --root "$TMP/no-existe"
+[ "$TAP_RC" = 64 ] && ! grep -q "Traceback" <<<"$out"; tap_check $? "mode: un --root que no existe falla (exit 64) sin traceback"
+
+# 8. bk que falla o que contesta algo fuera de main/bk/sub: exit 64.
 mkdir -p "$TMP/badbin"
 printf '#!/bin/sh\nexit 3\n' >"$TMP/badbin/bk"
 printf '#!/bin/sh\necho subagent\n' >"$TMP/badbin/bk-raro"

@@ -2,7 +2,7 @@
 """How /orchestrate launches a role: main, bk or sub (kit/ADR-004).
 
 Usage: mode.py <role> [--root DIR]
-Prints the mode (main, bk or sub) on stdout. Exit 64: bad usage, an unknown mode or `bk mode` failing.
+Prints the mode (main, bk or sub) on stdout. Exit 64: bad usage, a missing --root, a role line that does not parse, an unknown mode or `bk mode` failing.
 
 - Without `bk` in the PATH: everything is `sub` (as before bk existed) and stderr says so.
 - With `bk`: the role's line in `<root>/.barrilete/roles.yml` (`<role>: <provider>/<model> [mode]`; no mode
@@ -28,13 +28,20 @@ def project_mode(role, root):
     if not os.path.isfile(path):
         return None
     line_re = re.compile(rf"^\s*{re.escape(role)}:\s*(?P<spec>[^#\s]+)(?:\s+(?P<mode>[^#\s]+))?\s*(?:#.*)?$")
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            m = line_re.match(line.rstrip("\n"))
-            if m:
-                if m["mode"] and m["mode"] not in MODES:
-                    fail(f"{path}: unknown mode '{m['mode']}' for {role} (use main, bk or sub)")
-                return m["mode"] or "bk"
+    key_re = re.compile(rf"^\s*{re.escape(role)}:")
+    try:
+        with open(path, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except (OSError, UnicodeDecodeError) as e:
+        fail(f"cannot read {path}: {e}")
+    for line in lines:
+        m = line_re.match(line)
+        if m:
+            if m["mode"] and m["mode"] not in MODES:
+                fail(f"{path}: unknown mode '{m['mode']}' for {role} (use main, bk or sub)")
+            return m["mode"] or "bk"
+        if key_re.match(line):
+            fail(f"{path}: the line of {role} is not `{role}: <provider>/<model> [mode]`: {line.strip()!r}")
     return None
 
 
@@ -50,13 +57,18 @@ def main():
     if len(args) != 1 or args[0].startswith("-"):
         fail("usage: mode.py <role> [--root DIR]")
     role = args[0]
+    if not os.path.isdir(root):
+        fail(f"--root {root} is not a directory")
     if shutil.which("bk") is None:
         print("sub")
         print("mode.py: bk is not installed: every role runs as a subagent (sub)", file=sys.stderr)
         return
     mode = project_mode(role, root)
     if mode is None:
-        r = subprocess.run(["bk", "mode", role], capture_output=True, text=True, cwd=root)
+        try:
+            r = subprocess.run(["bk", "mode", role], capture_output=True, text=True, cwd=root, timeout=30)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            fail(f"`bk mode {role}` could not run: {e}")
         mode = r.stdout.strip()
         if r.returncode != 0 or mode not in MODES:
             fail(f"`bk mode {role}` did not answer main, bk or sub ({r.stderr.strip() or mode or 'no output'})")
