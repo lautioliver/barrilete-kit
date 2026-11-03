@@ -160,6 +160,7 @@
     {
       "name": "prepare",
       "when": [
+        "scripts/agents/git-quiet.sh",
         ".claude/skills/implement-issue/prepare.sh",
         ".claude/skills/implement-issue/test-prepare.sh"
       ],
@@ -189,6 +190,7 @@
     {
       "name": "orchestrate",
       "when": [
+        "scripts/agents/git-quiet.sh",
         ".claude/skills/orchestrate/**",
         ".claude/agents/reviewer.md",
         ".claude/skills/implement-issue/SKILL.md",
@@ -209,6 +211,7 @@
     {
       "name": "retros",
       "when": [
+        "scripts/agents/git-quiet.sh",
         ".claude/skills/improve-skills/**"
       ],
       "run": "bash .claude/skills/improve-skills/test-retros.sh"
@@ -279,6 +282,7 @@
     {
       "name": "init",
       "when": [
+        "scripts/agents/git-quiet.sh",
         "?scripts/init-template.sh",
         "?scripts/test-init.sh"
       ],
@@ -287,6 +291,7 @@
     {
       "name": "update",
       "when": [
+        "scripts/agents/git-quiet.sh",
         "?scripts/update.py",
         "?scripts/test-update.sh",
         "?scripts/init-template.sh"
@@ -305,6 +310,7 @@
     {
       "name": "install",
       "when": [
+        "scripts/agents/git-quiet.sh",
         "?scripts/install.py",
         "?scripts/test-install.sh",
         "?scripts/update.py",
