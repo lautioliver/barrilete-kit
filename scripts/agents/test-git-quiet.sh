@@ -14,7 +14,7 @@ tap_begin "$0"
 es() { test "$@"; }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
-# Sin entradas previas: el helper deja gc.auto y maintenance.auto en 0 para los git que lance.
+# Sin entradas previas: el helper deja gc.auto en 0 y maintenance.auto en false para los git que lance.
 cfg=$(unset GIT_CONFIG_COUNT; git_quiet_env; git config --list 2>/dev/null)
 grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "sin entradas previas, los git no corren gc automático"
 grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "sin entradas previas, los git no corren mantenimiento automático"
@@ -25,5 +25,11 @@ grep -qxF user.name=orquestador <<<"$cfg"; tap_check $? "las entradas de GIT_CON
 grep -qxF core.autocrlf=false <<<"$cfg"; tap_check $? "la segunda entrada de GIT_CONFIG_COUNT que ya trae el entorno se conserva"
 grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "con entradas previas, los git no corren gc automático"
 grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "con entradas previas, los git no corren mantenimiento automático"
+
+# Con un GIT_CONFIG_COUNT que no es un número: el helper avisa y no lo pisa (git lo reportaría; un 0 mudo lo taparía).
+msg=$(export GIT_CONFIG_COUNT=abc; git_quiet_env 2>&1; true)
+grep -qF "GIT_CONFIG_COUNT" <<<"$msg"; tap_check $? "con un GIT_CONFIG_COUNT no numérico, el helper avisa por qué aborta"
+valor=$(export GIT_CONFIG_COUNT=abc; git_quiet_env 2>/dev/null; echo "$GIT_CONFIG_COUNT")
+[ "$valor" = abc ]; tap_check $? "con un GIT_CONFIG_COUNT no numérico, el helper no lo pisa"
 
 tap_done
