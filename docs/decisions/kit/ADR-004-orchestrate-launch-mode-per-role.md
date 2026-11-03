@@ -30,7 +30,7 @@ Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken b
    - if the project's file does not have the role (or does not exist), `bk mode <role>`, which reads its own `roles.yml`;
    - **without `bk` installed**, every role is `sub`, as before, and the orchestrator says so in the plan and in the final message.
 
-3. **D3. How the orchestrator follows a `bk` agent.** State with `bk ls`; the result from the PR (`gh pr list --head`, its CI) and the output block of `docs/agents/subagent-contract.md`. It does **not** open the agent's diffs or retros, as with a subagent.
+3. **D3. How the orchestrator follows a `bk` agent.** State with `bk ls`; the result from the PR (`gh pr list --head`, its CI) and the output block of docs/agents/subagent-contract.md. It does **not** open the agent's diffs or retros, as with a subagent.
 
 4. **D4. The person answers everything from the orchestrator's chat.** When a `bk` agent asks (text, permission or questionnaire), the orchestrator shows the question and its options in its own chat, and the person answers with `! bk say <agent> "…"` (or `bk say <agent> <n>` to pick option `n` of a questionnaire). The orchestrator **never** sends an approval on its own: the answer comes from the person.
 
@@ -46,6 +46,6 @@ Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken b
 ## Consequences
 
 - `/orchestrate` (en and es) gets a plan step that shows, per issue, role, model and mode before launching, and launches each with its mode (`bk run <n> --role <role>` or the Agent tool). `bk run` creates the worktree itself, so `prepare.sh --worktree` is only for `sub`.
-- `docs/agents/subagent-contract.md` says which part of the contract applies to a `bk` agent: the output block and the retro yes; "you do not talk to the person" no, a `bk` agent does ask in its window.
+- docs/agents/subagent-contract.md says which part of the contract applies to a `bk` agent: the output block and the retro yes; "you do not talk to the person" no, a `bk` agent does ask in its window.
 - `mode.py` copies the format of `roles.yml` that `bk mode` reads; if that format changes in `bk`, `mode.py` and its test (`test-mode.sh`) change with it.
 - Out of scope: `bk` itself, the contents of `roles.yml`, and routing (`routing.py` still picks Haiku or Sonnet for an implementer; the mode is what `roles.yml` says for the role it picked).

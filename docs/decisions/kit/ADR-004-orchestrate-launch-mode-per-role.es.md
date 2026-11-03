@@ -30,7 +30,7 @@ Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomad
    - si el archivo del proyecto no tiene el rol (o no existe), `bk mode <rol>`, que lee su propio `roles.yml`;
    - **sin `bk` instalado**, todos los roles son `sub`, como antes, y el orquestador lo avisa en el plan y en el mensaje final.
 
-3. **D3. Cómo sigue el orquestador a un agente `bk`.** El estado con `bk ls`; el resultado desde el PR (`gh pr list --head`, su CI) y el bloque de salida de `docs/agents/subagent-contract.md`. **No** abre sus diffs ni sus retros, igual que con un subagente.
+3. **D3. Cómo sigue el orquestador a un agente `bk`.** El estado con `bk ls`; el resultado desde el PR (`gh pr list --head`, su CI) y el bloque de salida de docs/agents/subagent-contract.md. **No** abre sus diffs ni sus retros, igual que con un subagente.
 
 4. **D4. La persona contesta todo desde el chat del orquestador.** Cuando un agente `bk` pregunta (texto, permiso o cuestionario), el orquestador muestra en su chat la pregunta y sus opciones, y la persona responde con `! bk say <agente> "…"` (o `bk say <agente> <n>` para elegir la opción `n` de un cuestionario). El orquestador **nunca** manda una aprobación por su cuenta: la respuesta sale de la persona.
 
@@ -46,6 +46,6 @@ Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomad
 ## Consecuencias
 
 - `/orchestrate` (en y es) suma un paso de plan que muestra, por issue, rol, modelo y modo antes de lanzar, y lanza cada uno con su modo (`bk run <n> --role <rol>` o la herramienta Agent). `bk run` crea el worktree solo, así que `prepare.sh --worktree` es solo para `sub`.
-- `docs/agents/subagent-contract.md` aclara qué parte del contrato aplica a un agente `bk`: el bloque de salida y la retro sí; "no hablás con la persona" no, un agente `bk` pregunta en su ventana.
+- docs/agents/subagent-contract.md aclara qué parte del contrato aplica a un agente `bk`: el bloque de salida y la retro sí; "no hablás con la persona" no, un agente `bk` pregunta en su ventana.
 - `mode.py` copia el formato de `roles.yml` que lee `bk mode`; si ese formato cambia en `bk`, cambian `mode.py` y su test (`test-mode.sh`).
 - Fuera de alcance: `bk` en sí, el contenido de `roles.yml` y el ruteo (`routing.py` sigue eligiendo Haiku o Sonnet para un implementador; el modo es lo que `roles.yml` diga del rol elegido).
