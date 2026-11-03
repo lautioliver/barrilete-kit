@@ -51,4 +51,10 @@ export PATH="$PATH_ORIG"
 grep -qx "sub" <<<"$out"; tap_check $? "mode: sin bk instalado, todo es sub"
 grep -q "bk is not installed" <<<"$out"; tap_check $? "mode: sin bk instalado, avisa en stderr"
 
+# 5. Un modo mal escrito no es "sin modo": falla en vez de lanzar una ventana bk sin que nadie lo note.
+printf 'reviewer: claude/opus subagent\n' >"$TMP/proj/.barrilete/roles-typo.yml"
+mkdir -p "$TMP/typo/.barrilete"; cp "$TMP/proj/.barrilete/roles-typo.yml" "$TMP/typo/.barrilete/roles.yml"
+tap_run out 64 python3 "$M" reviewer --root "$TMP/typo"
+[ "$TAP_RC" = 64 ] && grep -q "subagent" <<<"$out"; tap_check $? "mode: un modo desconocido falla (exit 64) y lo nombra"
+
 tap_done
