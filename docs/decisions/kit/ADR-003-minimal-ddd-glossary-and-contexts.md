@@ -32,7 +32,7 @@ Origin: epic lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven D
 5. **D5. How `check-docs.py` validates in `--small`.** In the `SOLO_RED` case it requires the two files by a fixed path. No `required` entry is added to the small map.
 
 6. **D6. Severity in `review-pr`.**
-   - A context crossing without an ADR is **to be fixed**.
+   - A context crossing without an ADR is **to fix**.
    - A domain term that is not in the glossary is a **suggestion**: add it to the glossary or use the existing term.
    - "Blocking" is reserved for business rules.
 
@@ -53,5 +53,5 @@ Origin: epic lautioliver/barrilete-kit#214 ("Traer lo mínimo de Domain-Driven D
 - `review-pr` can flag crossings and undefined terms with the severity of D6. The risk is noise, so only the domain names in the changed code and docs are marked, and the terms come as suggestions.
 - Each skill that reads the glossary gets one line that points to this ADR, to keep the skills under their 120-line limit.
 - A project installed with the kit's installer that already has its glossary in another path gets a warning from the installer. The installer does not overwrite it.
-- The new sections of `docs/agents-map.json` and the CI tests of the init and the update are sensitive paths: each issue that touches them needs a person's approval, as AGENTS.md requires (the `contexts` section of `docs/agents-map.json`, the CI tests), and the change is checked by the tests of `test-init.sh`, `check-docs.py`, `agents_map.py`, `test-update.sh`, `test-install.sh`, the `grow` test and `test-i18n.sh`.
+- The new sections of `docs/agents-map.json` and the CI tests of the init and the update are sensitive paths: each issue that touches them (the `contexts` section of `docs/agents-map.json`, the CI tests) needs a person's approval, as AGENTS.md requires, and the change is checked by the tests of `test-init.sh`, `check-docs.py`, `agents_map.py`, `test-update.sh`, `test-install.sh`, the `grow` test and `test-i18n.sh`.
 - Out of scope: filling in the kit's own glossary, and any check that reads the content of the glossary.
