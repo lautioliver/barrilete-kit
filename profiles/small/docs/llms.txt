@@ -10,4 +10,5 @@ Instructions for models: read AGENTS.md (conventions and autonomy). What runs to
 - [GitHub convention](github-naming-convention.md)
 - [Decisions (ADRs)](decisions/README.md)
 - [ADR-002: structured validation of the red test](decisions/kit/ADR-002-structured-red-validation.md)
+- [ADR-003: minimal DDD, glossary and bounded-context map](decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md)
 - [AGENTS.md](../AGENTS.md)
