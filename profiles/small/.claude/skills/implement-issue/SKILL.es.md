@@ -60,4 +60,4 @@ Cuerpo con `.github/pull_request_template.md`: en "Cómo probarlo", el bloque ro
 
 Link al PR, qué cambió en dos líneas y qué decisiones tiene que mirar quien revise. Y frená.
 
-Si no podés terminar: comentá en el issue qué hiciste y qué falta, pusheá la rama si sirve y desasignate (`gh issue edit <n> --remove-assignee @me`).
+Si no podés terminar: comentá en el issue qué hiciste y qué falta, pusheá la rama si sirve y desasignate (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`).

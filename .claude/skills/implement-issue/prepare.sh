@@ -24,6 +24,11 @@ changed; if there is more than one, it fails and lists them) and prints the issu
                 you would commit in the main checkout.
               - If the branch is already in another worktree, it fails without assigning.
               - With the PR merged, delete it with: git worktree remove <path>
+
+Environment:
+  BK_HUMAN   Login of the person responsible (a leading @ and the case are ignored). It wins
+             over the token's user. Required when the agent runs with a GitHub App token
+             (gh api user gives 403): without it, the script stops with exit 64.
 AYUDA
   exit 0
 fi
@@ -51,9 +56,17 @@ REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 # gives 403 and a bot cannot be assigned), or else the user of the token.
 YO="${BK_HUMAN:-}"
 if [ -z "$YO" ]; then
-  YO=$(gh api user -q .login 2>/dev/null) || YO=""
-  [ -n "$YO" ] || { echo "prepare.sh: could not tell who is responsible. The token has no user (a GitHub App?): set BK_HUMAN=<login of the person who launched the agent>." >&2; exit 64; }
+  yo_err=$(mktemp)
+  YO=$(gh api user -q .login 2>"$yo_err") || YO=""
+  if [ -z "$YO" ]; then
+    echo "prepare.sh: could not tell who is responsible. gh api user said: $(cat "$yo_err")" >&2
+    echo "If the token has no user (a GitHub App?), set BK_HUMAN=<login of the person who launched the agent>; otherwise fix the gh error above." >&2
+    rm -f "$yo_err"; exit 64
+  fi
+  rm -f "$yo_err"
 fi
+# GitHub logins are case-insensitive and have no @: normalize so the comparisons and --add-assignee work.
+YO="${YO#@}"; YO=$(printf '%s' "$YO" | tr '[:upper:]' '[:lower:]')
 
 issue=$(gh api "repos/$REPO/issues/$N")
 error() { echo "CANNOT TAKE #$N: $*" >&2; exit 1; }
@@ -71,7 +84,7 @@ if deps=$(gh api "repos/$REPO/issues/$N/dependencies/blocked_by" 2>/dev/null); t
   bloq=$(jq -r '[.[] | select(.state == "open") | "#\(.number) \(.title)"] | join("; ")' <<<"$deps")
 fi
 [ -n "$bloq" ] && error "it is blocked by: $bloq"
-otros=$(jq -r --arg yo "$YO" '[.assignees[].login | select(. != $yo)] | join(", ")' <<<"$issue")
+otros=$(jq -r --arg yo "$YO" '[.assignees[].login | select(ascii_downcase != $yo)] | join(", ")' <<<"$issue")
 # Assigned = responsible (create-issue assigns it according to .github/team.json): it belongs to that person.
 [ -n "$otros" ] && error "it belongs to $otros (responsible). Ask them for it or reassign it: gh issue edit $N --remove-assignee <login> --add-assignee $YO"
 

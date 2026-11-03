@@ -264,7 +264,7 @@ tap_check $? "un issue asignado a BK_HUMAN no se ve como de otro"
 unset BK_HUMAN
 c=0; s=$(trap - ERR; "$PREPARAR" 62 --worktree 2>&1) || c=$?; tap_status "$c" 64
 grep -q "BK_HUMAN" <<<"$s"; tap_check $? "token de App sin BK_HUMAN: el mensaje nombra la variable que falta"
-! grep -q "403\|Resource not accessible" <<<"$s"; tap_check $? "token de App sin BK_HUMAN: no muestra el 403 crudo"
+grep -q "Resource not accessible" <<<"$s"; tap_check $? "token de App sin BK_HUMAN: muestra el error de gh junto al mensaje"
 ! grep -q "^issue edit 62" "$GH_LOG"; tap_check $? "token de App sin BK_HUMAN: no asigna"
 ! git -C "$TMP/proj" show-ref -q --verify refs/heads/claude/62-app-sin-persona; tap_check $? "token de App sin BK_HUMAN: no crea la rama"
 unset GH_APP
@@ -285,5 +285,13 @@ unset BK_HUMAN
 # --help documenta BK_HUMAN.
 tap_run out 0 "$PREPARAR" --help
 grep -q "BK_HUMAN" <<<"$out"; tap_check $? "--help documenta BK_HUMAN"
+
+# Un issue asignado a lautioliver lo toma BK_HUMAN=@LautiOliver (no se ve como de otro).
+issue 65 "Ya es de la persona con arroba"
+printf '{"state":"open","title":"Ya es de la persona con arroba","labels":[],"assignees":[{"login":"lautioliver"}],"html_url":"u","body":"b"}\n' >"$TMP/issues/65.json"
+export BK_HUMAN=@LautiOliver
+tap_run out 0 "$PREPARAR" 65 --worktree
+tap_check $? "BK_HUMAN con @ y mayúsculas: un issue de esa persona no se ve como de otro"
+unset BK_HUMAN
 
 tap_done
