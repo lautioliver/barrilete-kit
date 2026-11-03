@@ -4,7 +4,7 @@
 
 Accepted (2026-11-03). @lautioliver confirmed D1 to D5 as written in [a comment on #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161).
 
-Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken by the person in the chat on 2026-11-03. That record sits in the issue body, which an agent may have written, so it was not a person's approval yet (AGENTS.md, "Must ask first"); the confirmation above is. D1 to D5 are unchanged since it.
+Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken by the person in the chat on 2026-11-03. That record sits in the issue body, which an agent may have written, so it was not a person's approval yet (AGENTS.md, "Must ask first"); the confirmation above is. D1 to D5 are unchanged since it, except the wording of D3 (no output block for a `bk` agent), which the person corrected in the chat on 2026-11-03.
 
 ## Context
 
@@ -30,7 +30,7 @@ Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken b
    - if the project's file does not have the role (or does not exist), `bk mode <role>`, which reads its own `roles.yml`;
    - **without `bk` installed**, every role is `sub`, as before, and the orchestrator says so in the plan and in the final message.
 
-3. **D3. How the orchestrator follows a `bk` agent.** State with `bk ls`; the result from the PR (`gh pr list --head`, its CI) and the output block of docs/agents/subagent-contract.md. It does **not** open the agent's diffs or retros, as with a subagent.
+3. **D3. How the orchestrator follows a `bk` agent.** State with `bk ls`; the result from the PR (`gh pr list --head`, its CI), without the output block of docs/agents/subagent-contract.md (a `bk` agent does not return it). It does **not** open the agent's diffs or retros, as with a subagent.
 
 4. **D4. The person answers everything from the orchestrator's chat.** When a `bk` agent asks (text, permission or questionnaire), the orchestrator shows the question and its options in its own chat, and the person answers with `! bk say <agent> "…"` (or `bk say <agent> <n>` to pick option `n` of a questionnaire). The orchestrator **never** sends an approval on its own: the answer comes from the person.
 

@@ -4,7 +4,7 @@
 
 Aceptado (2026-11-03). @lautioliver confirmó D1 a D5 tal como están en [un comentario de #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161).
 
-Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no era la aprobación de una persona (la sección de autonomía de AGENTS.md); la confirmación de arriba sí lo es. D1 a D5 no cambiaron desde entonces.
+Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no era la aprobación de una persona (la sección de autonomía de AGENTS.md); la confirmación de arriba sí lo es. D1 a D5 no cambiaron desde entonces, salvo la redacción de D3 (sin bloque de salida para un agente `bk`), que la persona corrigió en el chat el 2026-11-03.
 
 ## Contexto
 
@@ -30,7 +30,7 @@ Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomad
    - si el archivo del proyecto no tiene el rol (o no existe), `bk mode <rol>`, que lee su propio `roles.yml`;
    - **sin `bk` instalado**, todos los roles son `sub`, como antes, y el orquestador lo avisa en el plan y en el mensaje final.
 
-3. **D3. Cómo sigue el orquestador a un agente `bk`.** El estado con `bk ls`; el resultado desde el PR (`gh pr list --head`, su CI) y el bloque de salida de docs/agents/subagent-contract.md. **No** abre sus diffs ni sus retros, igual que con un subagente.
+3. **D3. Cómo sigue el orquestador a un agente `bk`.** El estado con `bk ls`; el resultado desde el PR (`gh pr list --head`, su CI), sin el bloque de salida de docs/agents/subagent-contract.md (un agente `bk` no lo devuelve). **No** abre sus diffs ni sus retros, igual que con un subagente.
 
 4. **D4. La persona contesta todo desde el chat del orquestador.** Cuando un agente `bk` pregunta (texto, permiso o cuestionario), el orquestador muestra en su chat la pregunta y sus opciones, y la persona responde con `! bk say <agente> "…"` (o `bk say <agente> <n>` para elegir la opción `n` de un cuestionario). El orquestador **nunca** manda una aprobación por su cuenta: la respuesta sale de la persona.
 
