@@ -57,4 +57,27 @@ mkdir -p "$TMP/typo/.barrilete"; cp "$TMP/proj/.barrilete/roles-typo.yml" "$TMP/
 tap_run out 64 python3 "$M" reviewer --root "$TMP/typo"
 [ "$TAP_RC" = 64 ] && grep -q "subagent" <<<"$out"; tap_check $? "mode: un modo desconocido falla (exit 64) y lo nombra"
 
+# 6. Una línea del rol que no se entiende no es "el rol no está": falla (exit 64) en vez de caer en silencio a `bk mode`.
+mkdir -p "$TMP/extra/.barrilete" "$TMP/vaciorol/.barrilete" "$TMP/norol/.barrilete"
+printf 'implementer: claude/sonnet sub extra\n' >"$TMP/extra/.barrilete/roles.yml"
+tap_run out 64 python3 "$M" implementer --root "$TMP/extra"
+[ "$TAP_RC" = 64 ] && grep -q "implementer" <<<"$out"; tap_check $? "mode: una línea del rol con una palabra de más falla (exit 64) y nombra el rol"
+printf 'implementer:\n' >"$TMP/vaciorol/.barrilete/roles.yml"
+tap_run out 64 python3 "$M" implementer --root "$TMP/vaciorol"
+[ "$TAP_RC" = 64 ] && grep -q "implementer" <<<"$out"; tap_check $? "mode: una línea del rol vacía falla (exit 64) y nombra el rol"
+printf 'implementer-light: claude/haiku sub\nimplementerx: nada\n' >"$TMP/norol/.barrilete/roles.yml"
+tap_run out 0 python3 "$M" implementer --root "$TMP/norol"
+[ "$out" = bk ]; tap_check $? "mode: otro rol con prefijo parecido no cuenta como la línea del rol"
+
+# 7. bk que falla o que contesta algo fuera de main/bk/sub: exit 64.
+mkdir -p "$TMP/badbin"
+printf '#!/bin/sh\nexit 3\n' >"$TMP/badbin/bk"
+printf '#!/bin/sh\necho subagent\n' >"$TMP/badbin/bk-raro"
+chmod +x "$TMP/badbin/bk" "$TMP/badbin/bk-raro"
+PATH="$TMP/badbin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$TMP/vacio"
+[ "$TAP_RC" = 64 ]; tap_check $? "mode: bk mode que falla da exit 64"
+mkdir -p "$TMP/rarobin"; cp "$TMP/badbin/bk-raro" "$TMP/rarobin/bk"
+PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$TMP/vacio"
+[ "$TAP_RC" = 64 ]; tap_check $? "mode: bk mode que contesta algo fuera de main, bk o sub da exit 64"
+
 tap_done
