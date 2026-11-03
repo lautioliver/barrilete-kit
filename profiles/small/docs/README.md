@@ -3,6 +3,8 @@
 | For | Read |
 |---|---|
 | Understanding what runs today | [architecture.md](architecture.md) |
+| Using the project's words | [glossary.md](glossary.md) |
+| Knowing the contexts and their limits | [contexts.md](contexts.md) |
 | Knowing why something is the way it is | [decisions/](decisions/README.md) |
 | Branches, commits, PRs and labels | [github-naming-convention.md](github-naming-convention.md) |
 | Rules for agents | [`AGENTS.md`](../AGENTS.md) and [`llms.txt`](llms.txt) |

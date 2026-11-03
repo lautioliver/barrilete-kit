@@ -42,6 +42,7 @@ Rule: if a product document and the code do not match, [architecture.md](develop
 ### Reference
 
 - [Glossary](reference/glossary.md) — words that do not change
+- [Contexts](reference/contexts.md) — bounded contexts, their own terms and how they relate
 - [Domain and data](reference/domain.md) — tables, IDs, states
 - [Surfaces](reference/surfaces.md) — URLs and who gets in
 - [Modules](reference/modules.md) — where each thing lives in the code

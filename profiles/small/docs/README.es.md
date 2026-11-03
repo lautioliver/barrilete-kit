@@ -3,6 +3,8 @@
 | Para | Leé |
 |---|---|
 | Entender qué corre hoy | [architecture.md](architecture.md) |
+| Usar las palabras del proyecto | [glossary.md](glossary.md) |
+| Conocer los contextos y sus límites | [contexts.md](contexts.md) |
 | Saber por qué algo es como es | [decisions/](decisions/README.md) |
 | Ramas, commits, PRs y labels | [github-naming-convention.md](github-naming-convention.md) |
 | Reglas para agentes | [`AGENTS.md`](../AGENTS.md) y [`llms.txt`](llms.txt) |
