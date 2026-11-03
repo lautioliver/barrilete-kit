@@ -20,7 +20,7 @@ cat >"$TMP/bin/gh" <<'SH'
 echo "$*" >>"$GH_LOG"
 case "$*" in
   "repo view"*) echo o/r ;;
-  "api user"*) echo yo ;;
+  "api user"*) if [ -n "${GH_APP:-}" ]; then echo "gh: Resource not accessible by integration (HTTP 403)" >&2; exit 1; fi; echo yo ;;
   api\ repos/o/r/issues/*/dependencies/*) echo '[]' ;;
   api\ repos/o/r/issues/*/parent*) exit 1 ;;
   api\ repos/o/r/issues/*/comments*) ;;
@@ -238,5 +238,15 @@ c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" --help 2>&1) || c=$?; tap_sta
 tap_check $c "--help termina bien"
 grep -q "git worktree remove" <<<"$s" && grep -q "fails without assigning" <<<"$s" && grep -q "git -C" <<<"$s"; tap_check $? "--help explica cómo trabajar en el worktree"
 ! [ -s "$GH_LOG" ]; tap_check $? "--help no llama a gh"
+
+# BK_HUMAN (#231): quien lanzó al agente es la persona responsable, aunque el token sea de otra identidad.
+issue 60 "Con persona responsable"
+cd "$TMP/proj" || exit 2
+export BK_HUMAN=lautioliver
+tap_run out 0 "$PREPARAR" 60 --worktree
+tap_check $? "BK_HUMAN: toma el issue con la persona definida"
+grep -q "^issue edit 60 .*--add-assignee lautioliver\( \|$\)" "$GH_LOG"; tap_check $? "BK_HUMAN: asigna el issue a esa persona y no a @me"
+grep -qx "Assigned to @lautioliver." <<<"$out"; tap_check $? "BK_HUMAN: dice a quién asignó"
+unset BK_HUMAN
 
 tap_done
