@@ -100,4 +100,4 @@ Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le q
 
 ## Si hay que soltar el issue
 
-Si no podés terminar (bloqueo nuevo, decisión pendiente, alcance mucho mayor del que dice el issue): comentá en el issue qué hiciste y qué falta, pusheá la rama si tiene algo útil y desasignate (`gh issue edit <n> --remove-assignee @me`). Así `available.sh` lo vuelve a mostrar.
+Si no podés terminar (bloqueo nuevo, decisión pendiente, alcance mucho mayor del que dice el issue): comentá en el issue qué hiciste y qué falta, pusheá la rama si tiene algo útil y desasignate (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`). Así `available.sh` lo vuelve a mostrar.

@@ -8,7 +8,8 @@
 # Usage: available.sh [owner/repo]   (default: the repo of the current directory)
 set -euo pipefail
 REPO="${1:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
-YO=$(gh api user -q .login 2>/dev/null || true)
+# BK_HUMAN: the person responsible when the agent runs as a GitHub App (gh api user fails there).
+YO="${BK_HUMAN:-$(gh api user -q .login 2>/dev/null || true)}"
 
 issues=$(gh api --paginate "repos/$REPO/issues?state=open&per_page=100" \
   | jq -s '[.[][] | select(.pull_request | not)]')

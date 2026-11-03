@@ -47,7 +47,13 @@ if [[ "$BASE" == "<"*">" ]]; then
   BASE="$defecto"
 fi
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-YO=$(gh api user -q .login)
+# The responsible person: BK_HUMAN (an agent that runs as a GitHub App has no "authenticated user": gh api user
+# gives 403 and a bot cannot be assigned), or else the user of the token.
+YO="${BK_HUMAN:-}"
+if [ -z "$YO" ]; then
+  YO=$(gh api user -q .login 2>/dev/null) || YO=""
+  [ -n "$YO" ] || { echo "prepare.sh: could not tell who is responsible. The token has no user (a GitHub App?): set BK_HUMAN=<login of the person who launched the agent>." >&2; exit 64; }
+fi
 
 issue=$(gh api "repos/$REPO/issues/$N")
 error() { echo "CANNOT TAKE #$N: $*" >&2; exit 1; }
@@ -67,7 +73,7 @@ fi
 [ -n "$bloq" ] && error "it is blocked by: $bloq"
 otros=$(jq -r --arg yo "$YO" '[.assignees[].login | select(. != $yo)] | join(", ")' <<<"$issue")
 # Assigned = responsible (create-issue assigns it according to .github/team.json): it belongs to that person.
-[ -n "$otros" ] && error "it belongs to $otros (responsible). Ask them for it or reassign it: gh issue edit $N --remove-assignee <login> --add-assignee @me"
+[ -n "$otros" ] && error "it belongs to $otros (responsible). Ask them for it or reassign it: gh issue edit $N --remove-assignee <login> --add-assignee $YO"
 
 titulo=$(jq -r .title <<<"$issue")
 # Branch: claude/<n>-<description>, lowercase, no accents, only [a-z0-9-], ≤ 50 characters.
@@ -167,7 +173,7 @@ if [ -z "$WORKTREE" ]; then
   else
     git switch -q -c "$RAMA" "origin/$BASE"; echo "New branch: $RAMA (from origin/$BASE)"
   fi
-  gh issue edit "$N" -R "$REPO" --add-assignee @me >/dev/null
+  gh issue edit "$N" -R "$REPO" --add-assignee "$YO" >/dev/null
   echo "Assigned to @$YO."
   exit 0
 fi
@@ -192,6 +198,6 @@ else
   mkdir -p "$(dirname "$WT")"; git worktree add -q --no-track -b "$RAMA" "$WT" "origin/$BASE"
   echo "New branch: $RAMA (from origin/$BASE)"
 fi
-gh issue edit "$N" -R "$REPO" --add-assignee @me >/dev/null
+gh issue edit "$N" -R "$REPO" --add-assignee "$YO" >/dev/null
 echo "Worktree: $WT"
 echo "Assigned to @$YO."

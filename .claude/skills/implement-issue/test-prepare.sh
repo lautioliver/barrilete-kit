@@ -32,6 +32,8 @@ esac
 SH
 chmod +x "$TMP/bin/gh"
 # Aislado de la config de git de quien corre los tests (firma de commits, hooks globales…).
+unset BK_HUMAN GH_APP   # que el entorno de quien corre los tests no cambie el resultado
+out=""   # lo reasigna tap_run
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export PATH="$TMP/bin:$PATH" BASE=main GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 issue() { # issue <n> <título>
@@ -43,7 +45,7 @@ git init -q --bare -b main "$TMP/remoto.git"
 git clone -q "$TMP/remoto.git" "$TMP/proj" 2>/dev/null
 (cd "$TMP/proj" && git switch -q -c main && echo base >README.md && git add README.md && git commit -qm base && git push -q origin main 2>/dev/null)
 WT="$TMP/proj-wt"
-asignado() { grep -q "^issue edit $1 .*--add-assignee @me" "$GH_LOG"; }
+asignado() { grep -q "^issue edit $1 .*--add-assignee yo\( \|$\)" "$GH_LOG"; }
 worktrees() { git -C "$TMP/proj" worktree list | wc -l | tr -d ' '; }
 
 # 1. Issue nuevo: crea el worktree y la rama, y lo asigna. El checkout principal sucio no lo frena.
@@ -248,5 +250,26 @@ tap_check $? "BK_HUMAN: toma el issue con la persona definida"
 grep -q "^issue edit 60 .*--add-assignee lautioliver\( \|$\)" "$GH_LOG"; tap_check $? "BK_HUMAN: asigna el issue a esa persona y no a @me"
 grep -qx "Assigned to @lautioliver." <<<"$out"; tap_check $? "BK_HUMAN: dice a quién asignó"
 unset BK_HUMAN
+
+
+# Token de GitHub App (gh api user da 403), con y sin BK_HUMAN.
+issue 61 "App con persona"; issue 62 "App sin persona"; issue 63 "Ya es de la persona"
+printf '{"state":"open","title":"Ya es de la persona","labels":[],"assignees":[{"login":"lautioliver"}],"html_url":"u","body":"b"}\n' >"$TMP/issues/63.json"
+export GH_APP=1 BK_HUMAN=lautioliver
+tap_run out 0 "$PREPARAR" 61 --worktree
+tap_check $? "token de App con BK_HUMAN: toma el issue"
+grep -q "^issue edit 61 .*--add-assignee lautioliver\( \|$\)" "$GH_LOG"; tap_check $? "token de App con BK_HUMAN: asigna a la persona"
+tap_run out 0 "$PREPARAR" 63 --worktree
+tap_check $? "un issue asignado a BK_HUMAN no se ve como de otro"
+unset BK_HUMAN
+c=0; s=$(trap - ERR; "$PREPARAR" 62 --worktree 2>&1) || c=$?; tap_status "$c" 64
+grep -q "BK_HUMAN" <<<"$s"; tap_check $? "token de App sin BK_HUMAN: el mensaje nombra la variable que falta"
+! grep -q "403\|Resource not accessible" <<<"$s"; tap_check $? "token de App sin BK_HUMAN: no muestra el 403 crudo"
+! grep -q "^issue edit 62" "$GH_LOG"; tap_check $? "token de App sin BK_HUMAN: no asigna"
+! git -C "$TMP/proj" show-ref -q --verify refs/heads/claude/62-app-sin-persona; tap_check $? "token de App sin BK_HUMAN: no crea la rama"
+unset GH_APP
+tap_run out 0 "$PREPARAR" 62 --worktree
+tap_check $? "token de usuario sin BK_HUMAN: se comporta como siempre"
+grep -qx "Assigned to @yo." <<<"$out"; tap_check $? "token de usuario sin BK_HUMAN: asigna al usuario del token"
 
 tap_done

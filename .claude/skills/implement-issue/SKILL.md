@@ -100,4 +100,4 @@ Be concrete and honest: a retro that says "all good" when there were deviations 
 
 ## If you have to drop the issue
 
-If you cannot finish (new blocker, pending decision, scope much larger than the issue says): comment on the issue what you did and what is missing, push the branch if it has something useful and unassign yourself (`gh issue edit <n> --remove-assignee @me`). That way `available.sh` shows it again.
+If you cannot finish (new blocker, pending decision, scope much larger than the issue says): comment on the issue what you did and what is missing, push the branch if it has something useful and unassign yourself (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`). That way `available.sh` shows it again.
