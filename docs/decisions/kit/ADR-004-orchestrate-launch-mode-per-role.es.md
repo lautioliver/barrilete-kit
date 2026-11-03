@@ -4,7 +4,7 @@
 
 Propuesto. Falta que una persona confirme D1 a D5 en un comentario del PR o del issue (#236).
 
-Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no es la aprobación de una persona (AGENTS.md, "Must ask first"). Con esa confirmación, este ADR pasa a `Aceptado (AAAA-MM-DD)`.
+Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no es la aprobación de una persona (la sección de autonomía de AGENTS.md). Con esa confirmación, este ADR pasa a `Aceptado (AAAA-MM-DD)`.
 
 ## Contexto
 
