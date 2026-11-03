@@ -41,7 +41,7 @@ git -C <root> fetch -q origin        # only once, before launching: parallel fet
 
 `prepare.sh` validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. If it fails for an issue, do not launch it and note it for the final message.
 
-Per the plan's mode. A `bk` agent: `bk run <n> --role <role>` (it creates the worktree and the window itself: do not run `prepare.sh` for it), one at a time, and tell the person the window (`i<n>`). A `bk` reviewer: `bk review <pr>`. A `sub` agent: the rest of this step.
+Per the plan's mode. A `bk` agent: `bk run <n> --role <role>` (it creates the worktree and the window itself: do not run `prepare.sh` for it), one at a time, and tell the person the window (`i<n>`). A `bk` reviewer: `bk review <pr>`. A `bk` agent is a normal standalone session: it gets none of `BASE`, `agent_sha`, `skill_sha` or `retro_sh` (it takes the base from the default branch and its `retro.sh` from `origin/<base>`), and a `bk` reviewer has no trusted checkout of yours. So **launch an issue as `bk` only if its PR base is the repo's default branch**; if not, launch it as `sub` and say so in the plan. A `main` implementer or a `bk run`/`bk review` that fails is not launched: note it for the final message. A `sub` agent: the rest of this step.
 
 Launch the `sub` agents in parallel, in a single message, with the Agent tool: `subagent_type` `implementer-light` (Haiku) or `implementer` (Sonnet). In pi, with the `subagent` tool of `barrilete-pi` (`packages/pi/` of the template): the same roles in `agent`, and several at once in `tasks`. Without `isolation`: the worktree already exists. In the prompt: issue number, worktree path, base branch (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` in your checkout: it is the version that runs, even if the worktree has another), `skill_sha` (the same with `.claude/skills/implement-issue/SKILL.md`), `retro_sh` (the absolute path of `.claude/skills/improve-skills/retro.sh` in your checkout, already merged on the base branch: the implementer saves its retro with it, never with its worktree's, which is the PR's unreviewed code) and that it follows its definition, and that it must **not invoke `/code-review` through the Skill tool** (a forked skill moves your checkout): it does the bug pass by hand and declares `no code-review: <reason>`. To the reviewer: PR number, the orchestrator's checkout path, `agent_sha` of `reviewer.md` and `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), and the same ban on `/code-review` through the Skill tool (it declares `no code-review: <reason>` in `review:`). **Never more than 3 implementing at once**, counting both modes and the relaunched ones.
 
@@ -49,14 +49,14 @@ Launch the `sub` agents in parallel, in a single message, with the Agent tool: `
 
 Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it with `bk ls` and read its result from the PR (`gh pr list --head claude/<n>-…`, `gh pr checks`) and the contract block if it prints one. Read only that: never diffs or retros.
 
-A `bk` implementer-light that stops for a sensitive path does not return `escalate`: it tells the person in its window; relaunch with `bk run <n> --role implementer` (it resumes the same worktree). A `bk` agent counts toward the 3 until its PR is open or `bk ls` shows it finished.
+A `bk` implementer-light that stops for a sensitive path does not return `escalate`: it tells the person in its window; relaunch it in the mode `mode.py` gives for `implementer` (below). A `bk` agent counts toward the 3 until its PR is open or `bk ls` shows it finished.
 
 **When a `bk` agent asks** (text, permission or questionnaire; `bk ls` shows it waiting), show the question and its options in your chat. The person answers with `! bk say <agent> "…"` (or `bk say <agent> <n>` for option `n` of a questionnaire). **You never send an approval yourself.**
 
 | `result` | What you do |
 |---|---|
 | `pr` (implementer) | Launch a `reviewer` with what step 3 says (PR, orchestrator's checkout, `agent_sha`, `skill_sha`). **Only one review per PR at a time.** |
-| `escalate` | Relaunch `implementer` (Sonnet) in the **same worktree**, with the `reason`. It counts toward the maximum of 3. |
+| `escalate` | Relaunch `implementer` (Sonnet), with the `reason`, **in the mode `mode.py` gives for `implementer`**: `sub` → Agent in the **same worktree**; `bk` → `bk run <n> --role implementer`, which runs `prepare.sh` again and resumes the issue's branch (it is already assigned to the same person). If `bk run` fails because the branch is still in the worktree of the first launch, do not force it: note it for the final message and tell the person. It counts toward the maximum of 3. |
 | `question` / `dropped` | Note it for the final message. It is already commented on the issue. An issue that asks to touch CI, infra or anything else under "ask first" ends in `question` even if the request is in the issue: do not relaunch it saying it is approved unless the person told you so. The same goes for a relaunch: if Sonnet, relaunched after an `escalate`, returns `question` (for example, the issue touches CI and that requires asking for any model), there is no other relaunch. |
 | `pr` (reviewer) | Note it with its `review:` for the final message. |
 | `blockers` (reviewer) | You decide, with the criteria below. |
@@ -79,7 +79,7 @@ Only one, when they have all finished:
 - **Pending questions**: all together, with their issue, to answer in one go.
 - **Escalated and relaunched**: which issue, from which model to which and why.
 - **Decisions on blockers**: what you chose and why.
-- **Not launched**: those `prepare.sh` rejected.
+- **Not launched**: those `prepare.sh` rejected, an `implementer` whose mode is `main` (nobody is working on it) and a `bk run` or `bk review` that failed.
 
 Offer to publish the reviews (`gh pr review <pr> --comment --body-file <file>`), all or some. Publish only what the person confirms. They do the merge.
 

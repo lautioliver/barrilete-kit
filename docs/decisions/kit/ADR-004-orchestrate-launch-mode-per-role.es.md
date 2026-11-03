@@ -2,9 +2,9 @@
 
 ## Estado
 
-Propuesto. Falta que una persona confirme D1 a D5 en un comentario del PR o del issue (#236).
+Aceptado (2026-11-03). @lautioliver confirmó D1 a D5 tal como están en [un comentario de #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161).
 
-Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no es la aprobación de una persona (la sección de autonomía de AGENTS.md). Con esa confirmación, este ADR pasa a `Aceptado (AAAA-MM-DD)`.
+Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no era la aprobación de una persona (la sección de autonomía de AGENTS.md); la confirmación de arriba sí lo es. D1 a D5 no cambiaron desde entonces.
 
 ## Contexto
 
@@ -41,11 +41,11 @@ Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomad
 - **Todos los roles como subagentes (hoy).** Barato, pero las dudas llegan al final y se pierden si la sesión se corta.
 - **Todos los roles como agentes `bk`.** El revisor y el implementador liviano solo devuelven un resultado: una ventana cada uno no aporta y le cuesta atención a la persona.
 - **El orquestador contesta las preguntas de los agentes `bk`.** Que un agente apruebe a otro no es la aprobación de una persona (AGENTS.md).
-- **Leer solo `bk mode`.** Sin `bk` no habría nada que leer; D2 necesita que existan el archivo del proyecto y el fallback `sub` sin él.
+- **Leer solo `bk mode`.** `bk mode` ya mira el `.barrilete/roles.yml` del proyecto antes que el suyo, así que leerlo alcanzaría. Lo que suma `mode.py` es una lectura estricta (una línea del rol que no se entiende o un modo desconocido sale con 64 en vez de caer en silencio) y el fallback `sub` cuando `bk` no está instalado, que `bk mode` no puede dar.
 
 ## Consecuencias
 
 - `/orchestrate` (en y es) suma un paso de plan que muestra, por issue, rol, modelo y modo antes de lanzar, y lanza cada uno con su modo (`bk run <n> --role <rol>` o la herramienta Agent). `bk run` crea el worktree solo, así que `prepare.sh --worktree` es solo para `sub`.
-- docs/agents/subagent-contract.md aclara qué parte del contrato aplica a un agente `bk`: el bloque de salida y la retro sí; "no hablás con la persona" no, un agente `bk` pregunta en su ventana.
-- `mode.py` copia el formato de `roles.yml` que lee `bk mode`; si ese formato cambia en `bk`, cambian `mode.py` y su test (`test-mode.sh`).
+- docs/agents/subagent-contract.md aclara que el contrato no le aplica a un agente `bk`: `bk run` arranca una sesión común de `/implement-issue`, que tiene sus propias reglas (retro, no mergear) y le pregunta a la persona en su ventana.
+- `mode.py` copia el formato de `roles.yml` que lee `bk mode`, así que el archivo del proyecto se lee dos veces (`mode.py` y, si el rol no está, `bk mode`). `/orchestrate` solo le pregunta a `mode.py`, así que cuando el archivo del proyecto tiene el rol decide `mode.py`; si los dos parsers difirieran, gana `mode.py`. Si ese formato cambia en `bk`, cambian `mode.py` y su test (`test-mode.sh`).
 - Fuera de alcance: `bk` en sí, el contenido de `roles.yml` y el ruteo (`routing.py` sigue eligiendo Haiku o Sonnet para un implementador; el modo es lo que `roles.yml` diga del rol elegido).
