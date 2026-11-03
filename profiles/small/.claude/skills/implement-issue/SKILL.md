@@ -60,4 +60,4 @@ Body with `.github/pull_request_template.md`: in "How to test it", the red block
 
 Link to the PR, what changed in two lines and what decisions whoever reviews has to look at. And stop.
 
-If you cannot finish: comment on the issue what you did and what is missing, push the branch if it helps and unassign yourself (`gh issue edit <n> --remove-assignee @me`).
+If you cannot finish: comment on the issue what you did and what is missing, push the branch if it helps and unassign yourself (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`).

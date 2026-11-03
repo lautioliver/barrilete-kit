@@ -53,7 +53,7 @@ It is not for:
    - Links to files with a repo-relative path and, if useful, the line.
    - If it comes from an audit or ADR, the link to the document and the ID of the finding or rule.
    - Never secrets, tokens or real personal data.
-   - At the end: `_Opened from the chat with Claude Code at the request of @<user>._` (`gh api user -q .login`).
+   - At the end: `_Opened from the chat with Claude Code at the request of @<user>._` (`$BK_HUMAN`, or `gh api user -q .login` if it is not set: a GitHub App has no user).
 
 7. **Show the draft and wait for confirmation.** Opening an issue publishes content in the repo. Show the title, labels, **assignee**, body and **blockers** (`#B blocked by #A`) of each issue and ask for an explicit "yes". With several issues, show them all together and confirm the batch once.
 

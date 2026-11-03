@@ -53,7 +53,7 @@ No es para:
    - Links a archivos con ruta relativa del repo y, si sirve, línea.
    - Si sale de una auditoría o ADR, el link al documento y el ID del hallazgo o regla.
    - Nunca secretos, tokens ni datos personales reales.
-   - Al final: `_Abierto desde el chat con Claude Code a pedido de @<usuario>._` (`gh api user -q .login`).
+   - Al final: `_Abierto desde el chat con Claude Code a pedido de @<usuario>._` (`$BK_HUMAN`, o `gh api user -q .login` si no está: una GitHub App no tiene usuario).
 
 7. **Mostrar el borrador y esperar confirmación.** Abrir un issue publica contenido en el repo. Mostrá título, labels, **responsable**, cuerpo y **bloqueos** (`#B bloqueado por #A`) de cada issue y pedí un "sí" explícito. Con varios issues, mostralos todos juntos y confirmá una vez la tanda.
 
