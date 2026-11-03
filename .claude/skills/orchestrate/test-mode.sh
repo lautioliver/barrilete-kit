@@ -47,7 +47,7 @@ tap_run out 0 python3 "$M" implementer --root "$TMP/vacio"
 # 4. Sin bk instalado: todo es sub, y lo avisa.
 export PATH="$TMP/nobin"
 tap_run out 0 python3 "$M" implementer --root "$TMP/proj"
-export PATH="$PATH_ORIG"
+export PATH="$TMP/bin:$PATH_ORIG"
 grep -qx "sub" <<<"$out"; tap_check $? "mode: sin bk instalado, todo es sub"
 grep -q "bk is not installed" <<<"$out"; tap_check $? "mode: sin bk instalado, avisa en stderr"
 
