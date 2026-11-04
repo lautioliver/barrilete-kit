@@ -176,7 +176,7 @@ const run = async body => {
   await new AsyncFunction('github', 'context', 'core', script)(github, context, core);
   return out.failed;
 };
-const T ='Closes #1\n<details><summary>Red before implementing</summary>\n\n';
+const T = 'Closes #1\n<details><summary>Red before implementing</summary>\n\n';
 const G = (n = 'bash', f = 'tap', c = '- scripts/a/test-x.sh::some-id') => `stack: ${n}\nformat: ${f}\nfailing cases:\n${c}\n\n`;
 const R = 'red commit: 0123abc4\n\n';
 const E = '</details>\n';
@@ -205,6 +205,7 @@ const cases = {
   // The red commit has to be a commit of this PR (issue #243): a block copied from another PR has a well-formed sha of its own.
   'red-commit-not-in-pr-fails': [T + 'red commit: deadbeef1\n\n' + G() + E, /red commit deadbeef1 is not a commit of this PR/],
   'red-commit-short-in-pr-passes': [T + 'red commit: 0123abc\n\n' + G() + E, null],
+  'red-commit-not-hex-in-extra-details-fails': [T + R + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: deadbeef1 (copied from another PR)\n\n' + G('pytest', 'junit') + E, /hexadecimal/],
   'red-commit-of-another-details-not-in-pr-fails': [T + R + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: cafe1234\n\n' + G('pytest', 'junit') + E, /red commit cafe1234 is not a commit of this PR/],
 };
 const N = 10000;
@@ -259,6 +260,7 @@ lc_case malformed-block-with-no-tests-fails; tap_check $? "structured-malformed-
 lc_case prose-no-tests-with-malformed-block-fails; tap_check $? "structured-prose-no-tests-plus-malformed-block-fails"
 lc_case red-commit-not-in-pr-fails; tap_check $? "red-commit-not-in-pr-fails"
 lc_case red-commit-short-in-pr-passes; tap_check $? "red-commit-short-sha-in-pr-passes"
+lc_case red-commit-not-hex-in-extra-details-fails; tap_check $? "red-commit-not-hex-in-extra-details-fails"
 lc_case red-commit-of-another-details-not-in-pr-fails; tap_check $? "red-commit-in-extra-details-not-in-pr-fails"
 lc_perf spaces; tap_check $? "structured-block-performance-spaces"
 lc_perf colons; tap_check $? "structured-block-performance-colons"
