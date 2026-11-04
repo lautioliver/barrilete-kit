@@ -21,7 +21,7 @@ TODO: language, framework, database.
 TODO: the rules an agent would break if it did not read them (error format, where the logic goes, how dates or money are handled…).
 
 **Always** (a rule of the kit, it stays when the TODO above is filled in):
-- Domain terms: use the words of `docs/glossary.md` in code, issues and PRs. A dependency between contexts that is not in the table of `docs/contexts.md` needs an ADR; while that table is empty there is nothing to check. While the glossary is still `TODO`, propose the terms in the PR that introduces them instead of blocking (`docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`, in the kit).
+- Domain terms: use the words of `docs/glossary.md` in code, issues and PRs. A dependency between contexts that is not in the table of `docs/contexts.md` needs an ADR; while that table is still `TODO` there is nothing to check. While the glossary is still `TODO`, propose the terms in the PR that introduces them instead of blocking (`docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`).
 
 ## Agent autonomy
 
