@@ -179,7 +179,8 @@ def main():
         globs = [g for g in c["paths"] if isinstance(g, str)]
         tocados = [a for a in cambiados if coincide(a, globs)]
         if tocados:
-            contextos[c["name"]] = tocados
+            # two entries with the same name (check-docs.py rejects it) add their files up instead of overwriting each other
+            contextos.setdefault(c["name"], []).extend(a for a in tocados if a not in contextos.get(c["name"], []))
 
     sin_par = pares_sin_actualizar(cambiados)
     if "--json" in args:

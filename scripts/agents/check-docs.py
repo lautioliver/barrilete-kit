@@ -482,21 +482,42 @@ if MAPA and "contexts" in MAPA:
 
 # The glossary and the map of contexts (ADR-003 D2 and D5): the files exist at a fixed path and each one is linked from its index.
 # --small (the map has only `red`) uses docs/glossary.md and docs/contexts.md; the full profile uses docs/reference/. Their content
-# is not checked (D7): only that they exist and are linked.
-if MAPA:
-    perfil_glosario = "small" if SOLO_RED else "full"
-    indices = ["docs/README.md"] + (["docs/llms.txt"] if perfil_glosario == "full" else [])
+# is not checked (D7): only that they exist and are linked. Not checked in a repo where install.py put the kit (INSTALADO), like the
+# other index checks above: there docs/README.md is the project's and the kit's goes to .agent-kit/pending/ (ADR-003, Consequences).
+
+
+def destinos_de(texto):
+    """The link destinations of a Markdown text, read like the broken-link check does: no ``` blocks, no `inline code`."""
+    destinos = []
+    for linea in sin_codigo(texto).splitlines():
+        for destino in LINK.findall(re.sub(r"`[^`]*`", "", linea)):
+            destinos.append(destino.strip("<>"))  # [x](<a.md>) is a link to a.md
+    return destinos
+
+
+def enlaza(indice, ruta):
+    """True if the index links ruta (any spelling: ./a.md, <a.md>, a.md#section)."""
+    with open(indice, encoding="utf-8") as fh:
+        destinos = destinos_de(fh.read())
+    objetivo = os.path.normpath(ruta)
+    for d in destinos:
+        if re.match(r"^[a-z]+:", d) or d.startswith("#"):
+            continue
+        local = d.split("#")[0]
+        if local and os.path.normpath(os.path.join(os.path.dirname(indice), local)) == objetivo:
+            return True
+    return False
+
+
+if MAPA and not INSTALADO:
+    indices = ["docs/README.md"] + ([] if SOLO_RED else ["docs/llms.txt"])
     for ruta in (["docs/glossary.md", "docs/contexts.md"] if SOLO_RED else ["docs/reference/glossary.md", "docs/reference/contexts.md"]):
         if not os.path.exists(ruta):
             errores.append(f"{ruta} is missing: the glossary and the map of contexts are required (ADR-003 D2, D5)")
             continue
         for indice in indices:
-            if os.path.exists(indice):
-                enlace = "](" + os.path.relpath(ruta, os.path.dirname(indice))
-                with open(indice, encoding="utf-8") as fh:
-                    contenido = fh.read()
-                if enlace + ")" not in contenido and enlace + "#" not in contenido:
-                    errores.append(f"{indice}: does not link {ruta} (ADR-003 D2, D5): add the link to the index")
+            if os.path.exists(indice) and not enlaza(indice, ruta):
+                errores.append(f"{indice}: does not link {ruta} (ADR-003 D2, D5): add the link to the index")
 
 if MAPA:
     mapa = MAPA
