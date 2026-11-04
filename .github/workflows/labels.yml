@@ -242,7 +242,7 @@ jobs:
                   else noHex = true;
                 }
                 // A red summary without its <details> opens one too (the main block is read the same way in leerBloqueRojo).
-                prof = Math.max(0, prof + (veces(t, '<details') || (TITULO_ROJO.test(t) ? 1 : 0)) - veces(t, '</details>'));
+                prof = Math.max(0, prof + (veces(t, '<details') || (prof === 0 && TITULO_ROJO.test(t) ? 1 : 0)) - veces(t, '</details>'));
               }
               if (noHex) errors.push('"red commit:" needs a hexadecimal sha (7 to 64 characters) on every line that has it, the main block and the extra <details> too.');
               if (shas.length) {
