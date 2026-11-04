@@ -47,7 +47,7 @@ Lanzá los agentes `sub` en paralelo, en un solo mensaje, con la herramienta Age
 
 ## 4. Con cada resultado
 
-Cada agente `sub` devuelve el bloque del contrato. Un agente `bk` no te devuelve nada: seguilo con `bk ls` y leé su resultado desde el PR: la rama la creó el agente, así que sacá su nombre exacto con `git -C <worktree> branch --show-current` (o buscá el PR con `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName`: `--head` toma el nombre exacto, no un prefijo) y después `gh pr checks` (sin bloque del contrato). Cuando `bk ls` muestre terminado a un agente `bk`: con un PR abierto, tratalo como `pr` (implementador) (lanzá al `reviewer`); sin PR, buscá en el issue su pregunta y anotalo como `question`; si tampoco hay pregunta (un cuelgue, una ventana cerrada), anotalo como `dropped`. Leé solo eso: nunca diffs ni retros.
+Cada agente `sub` devuelve el bloque del contrato. Un agente `bk` no te devuelve nada: seguilo con `bk ls` y leé su resultado desde el PR: la rama la creó el agente, así que buscá el PR con `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName`: `--head` toma el nombre exacto, no un prefijo) y después `gh pr checks` (sin bloque del contrato). Cuando `bk ls` muestre terminado a un agente `bk`: con un PR abierto, tratalo como `pr` (implementador) (lanzá al `reviewer`); sin PR, buscá en el issue su pregunta y anotalo como `question`; si tampoco hay pregunta (un cuelgue, una ventana cerrada), anotalo como `dropped`. Leé solo eso: nunca diffs ni retros.
 
 Un agente `bk` cuenta para los 3 hasta que `bk ls` lo muestre terminado (no solo hasta que su PR esté abierto: sigue con el CI, la retro y las preguntas).
 

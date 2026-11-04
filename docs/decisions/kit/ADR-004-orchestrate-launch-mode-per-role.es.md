@@ -4,7 +4,7 @@
 
 Aceptado (2026-11-03). @lautioliver confirmó D1 a D5 tal como están en [un comentario de #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161), y en [un segundo comentario](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6618761555) confirmó D3 con la redacción actual y tres decisiones más (límite de `reviewer` e `implementer-light`, rama base, `main` sin `bk`; ver Consecuencias).
 
-Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no era la aprobación de una persona (la sección de autonomía de AGENTS.md); la confirmación de arriba sí lo es. D4 y D5 no cambiaron desde la primera confirmación. Después, D3 se reescribió (sin bloque de salida para un agente `bk`), y D1 y D2 tuvieron el límite (a) (`reviewer` e `implementer-light` siempre `sub`) y la excepción (c) de `main` (sin `bk`); el segundo comentario confirma los tres.
+Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no era la aprobación de una persona (la sección de autonomía de AGENTS.md); la confirmación de arriba sí lo es. D4 y D5 no cambiaron desde la primera confirmación. Después, D3 se reescribió (sin bloque de salida para un agente `bk`), y D1 y D2 tuvieron el límite (a) (`reviewer` e `implementer-light` siempre `sub`) y la excepción (c) de `main` (sin `bk`); el segundo comentario confirma los tres. En [un comentario posterior](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6622091388) la persona confirmó reescribir D3 para alinearlo al paso 4 del skill (#246): el PR se busca con `gh pr list --search 'head:claude/<n>-'`, porque `--head` solo acepta el nombre exacto.
 
 ## Contexto
 
@@ -30,7 +30,7 @@ Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomad
    - si el archivo del proyecto no tiene el rol (o no existe), `bk mode <rol>`, que lee su propio `roles.yml`;
    - **sin `bk` instalado**, todos los roles son `sub`, como antes, salvo un `main` escrito en el `roles.yml` del proyecto (lo hace una persona), y el orquestador lo avisa en el plan y en el mensaje final.
 
-3. **D3. Cómo sigue el orquestador a un agente `bk`.** El estado con `bk ls`; el resultado desde el PR (`gh pr list --head`, su CI), sin el bloque de salida de docs/agents/subagent-contract.md (un agente `bk` no lo devuelve). **No** abre sus diffs ni sus retros, igual que con un subagente.
+3. **D3. Cómo sigue el orquestador a un agente `bk`.** El estado con `bk ls`; el resultado desde el PR (`gh pr list --search 'head:claude/<n>-'`, su CI; `--head` solo acepta el nombre exacto), sin el bloque de salida de docs/agents/subagent-contract.md (un agente `bk` no lo devuelve). **No** abre sus diffs ni sus retros, igual que con un subagente.
 
 4. **D4. La persona contesta todo desde el chat del orquestador.** Cuando un agente `bk` pregunta (texto, permiso o cuestionario), el orquestador muestra en su chat la pregunta y sus opciones, y la persona responde con `! bk say <agente> "…"` (o `bk say <agente> <n>` para elegir la opción `n` de un cuestionario). El orquestador **nunca** manda una aprobación por su cuenta: la respuesta sale de la persona.
 

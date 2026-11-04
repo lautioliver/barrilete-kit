@@ -9,7 +9,7 @@ Prints the mode (main, bk or sub) on stdout. Exit 64: bad usage, a missing --roo
 - Without `bk` in the PATH: an explicit `main` of the project's file is respected; everything else is `sub`
   (as before bk existed) and stderr says so.
 - `reviewer` and `implementer-light` are never `bk` (`bk run` starts a plain /implement-issue session, not their
-  agent definition, kit/ADR-004): a `bk` answer becomes `sub`. `main` and `sub` are kept.
+  agent definition, kit/ADR-004): a `bk` answer becomes `sub` and stderr says so. `main` and `sub` are kept.
 """
 import os
 import re
@@ -83,6 +83,7 @@ def main():
             fail(f"`bk mode {role}` did not answer main, bk or sub ({r.stderr.strip() or mode or 'no output'})")
     if mode == "bk" and role in SUB_ONLY:
         mode = "sub"
+        print(f"mode.py: {role} is never bk (kit/ADR-004): it runs as a subagent (sub)", file=sys.stderr)
     print(mode)
 
 

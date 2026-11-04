@@ -221,7 +221,7 @@ In `.claude/agents/`, each role with its model:
 | 🪶 | `implementer-light` | Haiku | Small issues without sensitive paths or business logic. If it runs into any of that, it stops and escalates. |
 | 👀 | `reviewer` | Opus | `review-pr` from another context, in its own worktree. It does not publish: it returns the findings. |
 
-`/orchestrate` launches them from the main session. They share the rules and the output format of `docs/agents/subagent-contract.md`, and each one works in its own worktree (`prepare.sh <n> --worktree`). With `bk`, `roles.yml` can launch a role as a `bk` agent instead (`bk run`): a normal `/implement-issue` session that asks the person at the moment, outside that contract. `check-docs.py` checks that each one has a model, tools and the contract.
+`/orchestrate` launches them from the main session. They share the rules and the output format of `docs/agents/subagent-contract.md`, and each one works in its own worktree (`prepare.sh <n> --worktree`). With `bk`, `roles.yml` can launch only an `implementer` as a `bk` agent instead (`bk run`; `reviewer` and `implementer-light` always run as subagents). Only an `implementer` can be `bk`, and it is a normal `/implement-issue` session that asks the person at the moment, outside that contract. `check-docs.py` checks that each one has a model, tools and the contract.
 
 ### 🌱 How they learn
 

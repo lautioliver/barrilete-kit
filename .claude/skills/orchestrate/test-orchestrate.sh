@@ -322,7 +322,7 @@ cada() {  # cada <regex> <archivo.md>: imprime ok si el .md (tiene que existir) 
   [ -f "$1" ] || { echo "no existe ${1#"$RAIZ"/}"; return 0; }
   for f in "$1" "${1%.md}.es.md"; do
     [ -f "$f" ] || continue
-    [ "$(grep -Ec -- "$re" "$f")" != 0 ] || falta="$falta ${f#"$RAIZ"/}"
+    [ "$(grep -Ec -- "$re" <"$f")" != 0 ] || falta="$falta ${f#"$RAIZ"/}"
   done
   echo "${falta:-ok}"
 }
@@ -331,7 +331,7 @@ ninguna() {  # ninguna <regex> <archivo.md>: imprime ok si ni el .md (tiene que 
   [ -f "$1" ] || { echo "no existe ${1#"$RAIZ"/}"; return 0; }
   for f in "$1" "${1%.md}.es.md"; do
     [ -f "$f" ] || continue
-    [ "$(grep -Ec -- "$re" "$f")" = 0 ] || hay="$hay ${f#"$RAIZ"/}"
+    [ "$(grep -Ec -- "$re" <"$f")" = 0 ] || hay="$hay ${f#"$RAIZ"/}"
   done
   echo "${hay:-ok}"
 }
@@ -355,7 +355,7 @@ AG="$RAIZ/AGENTS.md"
 
 # 10. Seguimiento del #237 (#246).
 ADR4D3=$(grep -h 'D3\.' "$ADR4" "${ADR4%.md}.es.md" 2>/dev/null)
-grep -qv -- '--head' <<<"$ADR4D3" && ! grep -q 'gh pr list --head' <<<"$ADR4D3"; tap_check $? "ADR-004 (D3): ya no busca el PR con gh pr list --head"
+! grep -q 'gh pr list --head' <<<"$ADR4D3"; tap_check $? "ADR-004 (D3): ya no busca el PR con gh pr list --head"
 [ "$(cada 'D3.*(--search|head:claude)' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): busca el PR con --search head:claude/<n>-"
 [ "$(cada 'gh pr list --search' "$ADR4")" = ok ]; tap_check $? "ADR-004: cita gh pr list --search"
 [ "$(cada '#246' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): cita el cambio de redacción de D3 (#246)"

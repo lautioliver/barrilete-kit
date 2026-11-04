@@ -47,7 +47,7 @@ Launch the `sub` agents in parallel, in a single message, with the Agent tool: `
 
 ## 4. With each result
 
-Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it with `bk ls` and read its result from the PR: its branch is the one the agent created, so take its exact name with `git -C <worktree> branch --show-current` (or find the PR with `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName`: `--head` takes the exact name, not a prefix) and then `gh pr checks` (no contract block). When `bk ls` shows a `bk` agent finished: with an open PR, treat it as `pr` (implementer) (launch the `reviewer`); without one, look at the issue for its question and note it as `question`; if there is no question either (a crash, a closed window), note it as `dropped`. Read only that: never diffs or retros.
+Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it with `bk ls` and read its result from the PR: its branch is the one the agent created, so find the PR with `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName`: `--head` takes the exact name, not a prefix) and then `gh pr checks` (no contract block). When `bk ls` shows a `bk` agent finished: with an open PR, treat it as `pr` (implementer) (launch the `reviewer`); without one, look at the issue for its question and note it as `question`; if there is no question either (a crash, a closed window), note it as `dropped`. Read only that: never diffs or retros.
 
 A `bk` agent counts toward the 3 until `bk ls` shows it finished (not only until its PR is open: it keeps working on CI, the retro and questions).
 
