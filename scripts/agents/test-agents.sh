@@ -429,6 +429,15 @@ print(" ".join(sorted(json.load(sys.stdin)["contexts"]["ventas"])))
 ')
 [ "$archivos" = "src/pagos/y.ts src/ventas/x.ts" ]; tap_check $? "agents_map: dos contextos con el mismo nombre juntan sus archivos" "agents_map: archivos de ventas repetido: $archivos"
 
+# Un contexto con name vacío (check-docs.py lo rechaza): agents_map.py no lo cuenta como un contexto tocado.
+printf '%s\n' '{"docs": [], "sensitive": [], "contexts": [{"name": "", "paths": ["src/ventas/**"], "depends_on": []}, {"name": "pagos", "paths": ["src/pagos/**"], "depends_on": []}]}' >"$m/docs/agents-map.json"
+out=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>/dev/null)
+nombres=$(printf '%s' "$out" | python3 -c '
+import json, sys
+print(" ".join(sorted(json.load(sys.stdin)["contexts"])))
+')
+[ "$nombres" = "pagos" ]; tap_check $? "agents_map: un contexto con name vacío no cuenta como tocado" "agents_map: contextos con un name vacío en el mapa: $nombres"
+
 # 11. Los enlaces del glosario y del mapa de contextos se leen con el parser de links de check-docs: ./x.md y <x.md> cuentan,
 # y un texto dentro de un bloque de código o de `código` no es un enlace.
 con_indice() {
