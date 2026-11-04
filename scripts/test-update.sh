@@ -663,6 +663,25 @@ tap_run s 0 python3 scripts/agents/check-docs.py
 tap_check $? "el proyecto 0.9 actualizado pasa check-docs.py con la sección red"
 cd "$TMP" || exit 1
 
+# El glosario y el mapa de contextos (ADR-003 D2, D5, #217): en el repo del kit es un error que falten o no estén enlazados; en un
+# proyecto es un aviso, como el índice de ADRs: después de un update el README del kit puede quedar en pending/ y el CI de docs del
+# proyecto no tiene que ponerse rojo por eso.
+D="$TMP/glosario-aviso"
+proyecto "$D" completo
+cd "$D" || exit 1
+cp "$RAIZ/scripts/agents/check-docs.py" "$RAIZ/scripts/agents/agents_map.py" scripts/agents/
+python3 "$TMP/mapa-red.py"
+for f in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do
+  [ -f "$f" ] && perl -ni -e 'print unless /reference\/(glossary|contexts)\.md/' "$f"
+done
+git add -A
+git commit -qm "proyecto con los índices sin el glosario"
+tap_run s 0 python3 scripts/agents/check-docs.py
+tap_check $? "en un proyecto, el glosario sin enlace desde el índice no hace fallar check-docs.py"
+[[ "$s" == *"Warning: docs/README.md: does not link docs/reference/glossary.md"* ]]
+tap_check $? "en un proyecto, el glosario sin enlace desde el índice se avisa y se nombra"
+cd "$TMP" || exit 1
+
 D="$TMP/con-red-propia"
 proyecto "$D" completo
 cd "$D" || exit 1
