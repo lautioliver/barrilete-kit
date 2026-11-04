@@ -4,9 +4,12 @@
 Usage: mode.py <role> [--root DIR]
 Prints the mode (main, bk or sub) on stdout. Exit 64: bad usage, a missing --root, a role line that does not parse, an unknown mode or `bk mode` failing.
 
-- Without `bk` in the PATH: everything is `sub` (as before bk existed) and stderr says so.
-- With `bk`: the role's line in `<root>/.barrilete/roles.yml` (`<role>: <provider>/<model> [mode]`; no mode
-  means bk). If the project's file does not have the role, `bk mode <role>` answers (its own roles.yml).
+- The role's line in `<root>/.barrilete/roles.yml` (`<role>: <provider>/<model> [mode]`; no mode means bk).
+  If the project's file does not have the role, `bk mode <role>` answers (its own roles.yml).
+- Without `bk` in the PATH: an explicit `main` of the project's file is respected; everything else is `sub`
+  (as before bk existed) and stderr says so.
+- `reviewer` and `implementer-light` are never `bk` (`bk run` starts a plain /implement-issue session, not their
+  agent definition, kit/ADR-004): a `bk` answer becomes `sub`. `main` and `sub` are kept.
 """
 import os
 import re
@@ -15,6 +18,7 @@ import subprocess
 import sys
 
 MODES = ("main", "bk", "sub")
+SUB_ONLY = ("reviewer", "implementer-light")
 
 
 def fail(message):
@@ -37,6 +41,8 @@ def project_mode(role, root):
     for line in lines:
         m = line_re.match(line)
         if m:
+            if "/" not in m["spec"].strip("/"):
+                fail(f"{path}: the line of {role} has `{m['spec']}` where `<provider>/<model>` goes")
             if m["mode"] and m["mode"] not in MODES:
                 fail(f"{path}: unknown mode '{m['mode']}' for {role} (use main, bk or sub)")
             return m["mode"] or "bk"
@@ -59,11 +65,14 @@ def main():
     role = args[0]
     if not os.path.isdir(root):
         fail(f"--root {root} is not a directory")
+    mode = project_mode(role, root)
     if shutil.which("bk") is None:
+        if mode == "main":
+            print("main")
+            return
         print("sub")
         print("mode.py: bk is not installed: every role runs as a subagent (sub)", file=sys.stderr)
         return
-    mode = project_mode(role, root)
     if mode is None:
         try:
             r = subprocess.run(["bk", "mode", role], capture_output=True, text=True, cwd=root, timeout=30)
@@ -72,6 +81,8 @@ def main():
         mode = r.stdout.strip()
         if r.returncode != 0 or mode not in MODES:
             fail(f"`bk mode {role}` did not answer main, bk or sub ({r.stderr.strip() or mode or 'no output'})")
+    if mode == "bk" and role in SUB_ONLY:
+        mode = "sub"
     print(mode)
 
 
