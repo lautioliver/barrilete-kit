@@ -4,7 +4,7 @@
 
 Accepted (2026-11-03). @lautioliver confirmed D1 to D5 as written in [a comment on #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161), and in [a second comment](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6618761555) confirmed D3 as it reads now, plus three more decisions (limit of `reviewer` and `implementer-light`, base branch, `main` without `bk`; see Consequences).
 
-Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken by the person in the chat on 2026-11-03. That record sits in the issue body, which an agent may have written, so it was not a person's approval yet (AGENTS.md, "Must ask first"); the confirmation above is. D1, D2, D4 and D5 are unchanged since the first confirmation. The wording of D3 (no output block for a `bk` agent) changed after it and is the one the second comment confirms.
+Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken by the person in the chat on 2026-11-03. That record sits in the issue body, which an agent may have written, so it was not a person's approval yet (AGENTS.md, "Must ask first"); the confirmation above is. D4 and D5 are unchanged since the first confirmation. After it, D3 was reworded (no output block for a `bk` agent), and D1 and D2 got the limit (a) (`reviewer` and `implementer-light` always `sub`) and the `main` exception (c) (without `bk`); the second comment confirms all three.
 
 ## Context
 

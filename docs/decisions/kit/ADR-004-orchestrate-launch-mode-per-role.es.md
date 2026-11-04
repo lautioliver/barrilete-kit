@@ -4,7 +4,7 @@
 
 Aceptado (2026-11-03). @lautioliver confirmó D1 a D5 tal como están en [un comentario de #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161), y en [un segundo comentario](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6618761555) confirmó D3 con la redacción actual y tres decisiones más (límite de `reviewer` e `implementer-light`, rama base, `main` sin `bk`; ver Consecuencias).
 
-Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no era la aprobación de una persona (la sección de autonomía de AGENTS.md); la confirmación de arriba sí lo es. D1, D2, D4 y D5 no cambiaron desde la primera confirmación. La redacción de D3 (sin bloque de salida para un agente `bk`) cambió después y es la que confirma el segundo comentario.
+Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no era la aprobación de una persona (la sección de autonomía de AGENTS.md); la confirmación de arriba sí lo es. D4 y D5 no cambiaron desde la primera confirmación. Después, D3 se reescribió (sin bloque de salida para un agente `bk`), y D1 y D2 tuvieron el límite (a) (`reviewer` e `implementer-light` siempre `sub`) y la excepción (c) de `main` (sin `bk`); el segundo comentario confirma los tres.
 
 ## Contexto
 

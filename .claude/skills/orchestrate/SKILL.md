@@ -36,10 +36,10 @@ Show the person the **plan**: a table (issue, title, role, model, mode, `reason`
 
 ```bash
 git -C <root> fetch -q origin        # only once, before launching: parallel fetches clash on .git/*.lock
-.claude/skills/implement-issue/prepare.sh <n> --worktree   # one per issue, one at a time
+.claude/skills/implement-issue/prepare.sh <n> --worktree   # one per issue whose mode is `sub`, one at a time
 ```
 
-`prepare.sh` validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. If it fails for an issue, do not launch it and note it for the final message.
+`prepare.sh` is only for the issues whose mode is `sub` (a `bk` agent does it itself and a `main` issue is not launched: it would stay assigned with nobody on it). It validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. If it fails for an issue, do not launch it and note it for the final message.
 
 Per the plan's mode. A `bk` agent: `bk run <n> --role <role>` (it creates the worktree and the window itself: do not run `prepare.sh` for it), one at a time, and tell the person the window (`i<n>`). A `bk` agent is a normal standalone session: it gets none of `BASE`, `agent_sha`, `skill_sha` or `retro_sh` (it takes the base from the default branch and its `retro.sh` from `origin/<base>`). So **launch an issue as `bk` only if its PR base is the repo's default branch**; if not, launch it as `sub` and say so in the plan. A `main` implementer or a `bk run` that fails is not launched: note it for the final message. A `sub` agent: the rest of this step.
 
@@ -47,7 +47,7 @@ Launch the `sub` agents in parallel, in a single message, with the Agent tool: `
 
 ## 4. With each result
 
-Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it with `bk ls` and read its result from the PR (`gh pr list --head claude/<n>-…`, `gh pr checks`) (no contract block). Read only that: never diffs or retros.
+Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it with `bk ls` and read its result from the PR (`gh pr list --head claude/<n>-…`, `gh pr checks`) (no contract block). When `bk ls` shows a `bk` agent finished: with an open PR, treat it as `pr` (implementer) (launch the `reviewer`); without one, look at the issue for its question and note it as `question`. Read only that: never diffs or retros.
 
 A `bk` agent counts toward the 3 until `bk ls` shows it finished (not only until its PR is open: it keeps working on CI, the retro and questions).
 
@@ -56,7 +56,7 @@ A `bk` agent counts toward the 3 until `bk ls` shows it finished (not only until
 | `result` | What you do |
 |---|---|
 | `pr` (implementer) | Launch a `reviewer` with what step 3 says (PR, orchestrator's checkout, `agent_sha`, `skill_sha`). **Only one review per PR at a time.** |
-| `escalate` | Relaunch `implementer` (Sonnet), with the `reason`, **in the mode `mode.py` gives for `implementer`**: `sub` → Agent in the **same worktree**; `main` → not relaunched: note it under "Not launched"; `bk` → `bk run <n> --role implementer`, which runs `prepare.sh` again and resumes the issue's branch (it is already assigned to the same person). If `bk run` fails because the branch is still in the worktree of the first launch, do not force it: note it for the final message and tell the person. It counts toward the maximum of 3. |
+| `escalate` | Relaunch `implementer` (Sonnet), with the `reason`, **in the mode `mode.py` gives for `implementer`**: `sub` → Agent in the **same worktree**; `main` → not relaunched: note it under "Not launched"; `bk` → `bk run <n> --role implementer`, only if the PR's base is the repo's default branch (otherwise relaunch as `sub` in the same worktree, as in step 3), which runs `prepare.sh` again and resumes the issue's branch (it is already assigned to the same person). If `bk run` fails because the branch is still in the worktree of the first launch, do not force it: note it for the final message and tell the person. It counts toward the maximum of 3. |
 | `question` / `dropped` | Note it for the final message. It is already commented on the issue. An issue that asks to touch CI, infra or anything else under "ask first" ends in `question` even if the request is in the issue: do not relaunch it saying it is approved unless the person told you so. The same goes for a relaunch: if Sonnet, relaunched after an `escalate`, returns `question` (for example, the issue touches CI and that requires asking for any model), there is no other relaunch. |
 | `pr` (reviewer) | Note it with its `review:` for the final message. |
 | `blockers` (reviewer) | You decide, with the criteria below. |

@@ -36,10 +36,10 @@ Mostrale a la persona el **plan**: una tabla (issue, título, rol, modelo, modo,
 
 ```bash
 git -C <raíz> fetch -q origin        # una sola vez, antes de lanzar: fetch en paralelo choca en .git/*.lock
-.claude/skills/implement-issue/prepare.sh <n> --worktree   # uno por issue, de a uno
+.claude/skills/implement-issue/prepare.sh <n> --worktree   # uno por issue cuyo modo es `sub`, de a uno
 ```
 
-`prepare.sh` valida, asigna, crea el worktree en `../<repo>-wt/<n>` e imprime `Worktree: <ruta>`. Si falla para un issue, no lo lances y anotalo para el mensaje final.
+`prepare.sh` es solo para los issues cuyo modo es `sub` (un agente `bk` lo hace solo y un issue `main` no se lanza: quedaría asignado sin nadie). Valida, asigna, crea el worktree en `../<repo>-wt/<n>` e imprime `Worktree: <ruta>`. Si falla para un issue, no lo lances y anotalo para el mensaje final.
 
 Según el modo del plan. Un agente `bk`: `bk run <n> --role <rol>` (crea el worktree y la ventana solo: no le corras `prepare.sh`), de a uno, y decile a la persona la ventana (`i<n>`). Un agente `bk` es una sesión común e independiente: no recibe `BASE`, `agent_sha`, `skill_sha` ni `retro_sh` (toma la base de la rama por defecto y su `retro.sh` de `origin/<base>`). Por eso **lanzá un issue como `bk` solo si la base de su PR es la rama por defecto del repo**; si no, lanzalo como `sub` y decilo en el plan. Un implementador `main`, o un `bk run` que falla, no se lanza: anotalo para el mensaje final. Un agente `sub`: el resto de este paso.
 
@@ -47,7 +47,7 @@ Lanzá los agentes `sub` en paralelo, en un solo mensaje, con la herramienta Age
 
 ## 4. Con cada resultado
 
-Cada agente `sub` devuelve el bloque del contrato. Un agente `bk` no te devuelve nada: seguilo con `bk ls` y leé su resultado desde el PR (`gh pr list --head claude/<n>-…`, `gh pr checks`) (sin bloque del contrato). Leé solo eso: nunca diffs ni retros.
+Cada agente `sub` devuelve el bloque del contrato. Un agente `bk` no te devuelve nada: seguilo con `bk ls` y leé su resultado desde el PR (`gh pr list --head claude/<n>-…`, `gh pr checks`) (sin bloque del contrato). Cuando `bk ls` muestre terminado a un agente `bk`: con un PR abierto, tratalo como `pr` (implementador) (lanzá al `reviewer`); sin PR, buscá en el issue su pregunta y anotalo como `question`. Leé solo eso: nunca diffs ni retros.
 
 Un agente `bk` cuenta para los 3 hasta que `bk ls` lo muestre terminado (no solo hasta que su PR esté abierto: sigue con el CI, la retro y las preguntas).
 
@@ -56,7 +56,7 @@ Un agente `bk` cuenta para los 3 hasta que `bk ls` lo muestre terminado (no solo
 | `result` | Qué hacés |
 |---|---|
 | `pr` (implementador) | Lanzás un `reviewer` con lo que dice el paso 3 (PR, checkout del orquestador, `agent_sha`, `skill_sha`). **Una sola revisión por PR a la vez.** |
-| `escalate` | Relanzás `implementer` (Sonnet), con el `reason`, **en el modo que `mode.py` da para `implementer`**: `sub` → Agent en el **mismo worktree**; `main` → no se relanza: anotalo en "No lanzados"; `bk` → `bk run <n> --role implementer`, que corre `prepare.sh` de nuevo y retoma la rama del issue (ya está asignado a la misma persona). Si `bk run` falla porque la rama sigue en el worktree del primer lanzamiento, no fuerces: anotalo para el mensaje final y avisale a la persona. Cuenta para el máximo de 3. |
+| `escalate` | Relanzás `implementer` (Sonnet), con el `reason`, **en el modo que `mode.py` da para `implementer`**: `sub` → Agent en el **mismo worktree**; `main` → no se relanza: anotalo en "No lanzados"; `bk` → `bk run <n> --role implementer`, solo si la base del PR es la rama por defecto del repo (si no, relanzá como `sub` en el mismo worktree, como en el paso 3), que corre `prepare.sh` de nuevo y retoma la rama del issue (ya está asignado a la misma persona). Si `bk run` falla porque la rama sigue en el worktree del primer lanzamiento, no fuerces: anotalo para el mensaje final y avisale a la persona. Cuenta para el máximo de 3. |
 | `question` / `dropped` | Lo anotás para el mensaje final. Ya está comentado en el issue. Un issue que pide tocar CI, infra u otra cosa de "consultar" termina en `question` aunque el pedido esté en el issue: no lo relances diciendo que está aprobado salvo que la persona te lo haya dicho. Vale igual para un relanzado: si Sonnet, relanzado tras un `escalate`, devuelve `question` (por ejemplo, el issue toca CI y eso pide consulta a cualquier modelo), no hay otro relanzado. |
 | `pr` (revisor) | Lo anotás con su `review:` para el mensaje final. |
 | `blockers` (revisor) | Decidís vos, con el criterio de abajo. |

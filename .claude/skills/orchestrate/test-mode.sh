@@ -53,8 +53,8 @@ grep -qx "sub" <<<"$out"; tap_check $? "mode: sin bk instalado, todo es sub"
 grep -q "bk is not installed" <<<"$out"; tap_check $? "mode: sin bk instalado, avisa en stderr"
 
 # 5. Un modo mal escrito no es "sin modo": falla en vez de lanzar una ventana bk sin que nadie lo note.
-printf 'reviewer: claude/opus subagent\n' >"$TMP/proj/.barrilete/roles-typo.yml"
-mkdir -p "$TMP/typo/.barrilete"; cp "$TMP/proj/.barrilete/roles-typo.yml" "$TMP/typo/.barrilete/roles.yml"
+mkdir -p "$TMP/typo/.barrilete"
+printf 'reviewer: claude/opus subagent\n' >"$TMP/typo/.barrilete/roles.yml"
 tap_run out 64 python3 "$M" reviewer --root "$TMP/typo"
 [ "$TAP_RC" = 64 ] && grep -q "subagent" <<<"$out"; tap_check $? "mode: un modo desconocido falla (exit 64) y lo nombra"
 
@@ -75,13 +75,12 @@ tap_run out 64 python3 "$M" implementer --root "$TMP/no-existe"
 [ "$TAP_RC" = 64 ] && ! grep -q "Traceback" <<<"$out"; tap_check $? "mode: un --root que no existe falla (exit 64) sin traceback"
 
 # 8. bk que falla o que contesta algo fuera de main/bk/sub: exit 64.
-mkdir -p "$TMP/badbin"
+mkdir -p "$TMP/badbin" "$TMP/rarobin"
 printf '#!/bin/sh\nexit 3\n' >"$TMP/badbin/bk"
-printf '#!/bin/sh\necho subagent\n' >"$TMP/badbin/bk-raro"
-chmod +x "$TMP/badbin/bk" "$TMP/badbin/bk-raro"
+printf '#!/bin/sh\necho subagent\n' >"$TMP/rarobin/bk"
+chmod +x "$TMP/badbin/bk" "$TMP/rarobin/bk"
 PATH="$TMP/badbin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$TMP/vacio"
 [ "$TAP_RC" = 64 ]; tap_check $? "mode: bk mode que falla da exit 64"
-mkdir -p "$TMP/rarobin"; cp "$TMP/badbin/bk-raro" "$TMP/rarobin/bk"
 PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$TMP/vacio"
 [ "$TAP_RC" = 64 ]; tap_check $? "mode: bk mode que contesta algo fuera de main, bk o sub da exit 64"
 
