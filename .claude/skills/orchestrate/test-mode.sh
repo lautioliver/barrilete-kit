@@ -13,7 +13,7 @@ tap_at_exit "rm -rf \"\$TMP\""
 
 # bk falso: "bk mode <rol>" contesta lo que dice el archivo global del test (siempre bk, para distinguirlo del proyecto).
 mkdir -p "$TMP/bin" "$TMP/nobin" "$TMP/proj/.barrilete" "$TMP/vacio"
-printf '#!/bin/sh\n[ "$1" = mode ] && [ "$2" = implementer-light ] && echo sub && exit 0\n[ "$1" = mode ] && echo bk && exit 0\nexit 1\n' >"$TMP/bin/bk"
+printf '#!/bin/sh\n[ "$1" = mode ] && [ "$2" = implementer-light ] && echo sub && exit 0\n[ "$1" = mode ] && [ "$2" = tester ] && echo main && exit 0\n[ "$1" = mode ] && echo bk && exit 0\nexit 1\n' >"$TMP/bin/bk"
 chmod +x "$TMP/bin/bk"
 printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -v python3)" >"$TMP/nobin/python3"
 chmod +x "$TMP/nobin/python3"
@@ -40,8 +40,8 @@ tap_run out 0 python3 "$M" orchestrator --root "$TMP/proj"
 [ "$out" = bk ]; tap_check $? "mode: un rol sin modo es bk"
 
 # 3. Un rol que no está en el archivo del proyecto: lo resuelve bk (su archivo global).
-tap_run out 0 python3 "$M" implementer-light --root "$TMP/proj"
-[ "$out" = sub ]; tap_check $? "mode: un rol que no está en el proyecto lo resuelve bk mode"
+tap_run out 0 python3 "$M" tester --root "$TMP/proj"
+[ "$out" = main ]; tap_check $? "mode: un rol que no está en el proyecto lo resuelve bk mode"
 tap_run out 0 python3 "$M" implementer --root "$TMP/vacio"
 [ "$out" = bk ]; tap_check $? "mode: sin .barrilete/roles.yml en el proyecto, lo resuelve bk mode"
 

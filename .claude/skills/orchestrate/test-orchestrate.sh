@@ -310,15 +310,31 @@ tap_check $? "create-issue paso 6: los títulos del cuerpo salen de la plantilla
 
 # 8. /orchestrate y ADR-004 (tercera review de #237). Con --lang es el init deja el español como X.md y sin hermano: cada archivo que existe cumple el regex de su idioma.
 ADR4="$RAIZ/docs/decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md"; OS="$AQUI/SKILL.md"
-cada() {  # cada <regex> <archivo.md>: imprime ok si el .md y su .es.md (los que existen) lo cumplen; si no, qué archivo falla
+cada() {  # cada <regex> <archivo.md>: imprime ok si el .md (tiene que existir) y su .es.md (si existe) lo cumplen; si no, qué archivo falla
   local re="$1" f falta=""; shift
-  for f in "$1" "${1%.md}.es.md"; do [ -f "$f" ] || continue; grep -Eq -- "$re" "$f" || falta="$falta ${f#"$RAIZ"/}"; done
+  [ -f "$1" ] || { echo "no existe ${1#"$RAIZ"/}"; return 0; }
+  for f in "$1" "${1%.md}.es.md"; do
+    [ -f "$f" ] || continue
+    [ "$(grep -Ec -- "$re" "$f")" != 0 ] || falta="$falta ${f#"$RAIZ"/}"
+  done
   echo "${falta:-ok}"
 }
 [ "$(cada 'D1 and D2 got|D1 y D2 tuvieron' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): cuenta que D1 y D2 cambiaron con (a) y (c)"
-! grep -Eq 'D1, D2, D4 and D5 are unchanged|D1, D2, D4 y D5 no cambiaron' "$ADR4" "${ADR4%.md}.es.md" 2>/dev/null; tap_check $? "ADR-004 (Estado): no dice que D1 y D2 no cambiaron"
+[ -f "$ADR4" ]; tap_check $? "ADR-004 (Estado): el archivo existe (sin él, el caso de abajo no prueba nada)"
+[ "$(cat "$ADR4" "${ADR4%.md}.es.md" 2>/dev/null | grep -Ec 'D1, D2, D4 and D5 are unchanged|D1, D2, D4 y D5 no cambiaron')" = 0 ]; tap_check $? "ADR-004 (Estado): no dice que D1 y D2 no cambiaron"
 [ "$(cada '^\| `escalate` \|.*(default branch|rama por defecto)' "$OS")" = ok ]; tap_check $? "orquestar (escalate): relanzar con bk run solo si la base es la rama por defecto"
 [ "$(cada '--worktree +# .*(mode is `sub`|modo es `sub`)' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): prepare.sh es solo para los issues de modo sub"
 [ "$(cada 'treat it as `pr` \(implementer\)|tratalo como `pr` \(implementador\)' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): un agente bk con PR abierto se trata como pr (implementer) y lanza al reviewer"
+
+# 9. Cuarta review de #237.
+AG="$RAIZ/AGENTS.md"
+[ "$(cada 'gh pr list --search .head:claude/<n>-' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): el PR de un agente bk se busca con --search head:claude/<n>-, no con --head de un prefijo"
+[ "$(cat "$OS" "${OS%.md}.es.md" 2>/dev/null | grep -Ec -- '--head claude/<n>-')" = 0 ]; tap_check $? "orquestar (paso 4): ya no usa gh pr list --head con un prefijo"
+[ "$(cada 'branch --show-current' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): la rama exacta del agente bk sale de git branch --show-current"
+[ "$(cada '(An|Un) `implementer` that|`implementer` que `roles.yml`' "$AG")" = ok ]; tap_check $? "AGENTS.md (subagentes): solo un implementer puede ser bk"
+[ "$(cada '`reviewer`.*`implementer-light`.*(always|siempre)' "$AG")" = ok ]; tap_check $? "AGENTS.md (subagentes): reviewer e implementer-light corren siempre como sub"
+[ "$(cada 'Only if the PR.s base is the default branch|Solo si la base del PR es la rama por defecto' "$OS")" = ok ]; tap_check $? "orquestar (escalate): la condición de la base va al final de la fila"
+[ "$(cada '`dropped`.*(no PR|sin PR)|(no PR|sin PR).*`dropped`' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): un agente bk terminado sin PR ni comentario es dropped"
+[ "$(cada '(comment|comentario) .*before `bk run`|antes de `bk run`' "$OS")" = ok ]; tap_check $? "orquestar (escalate): dice dónde va el reason en modo bk"
 
 tap_done
