@@ -99,6 +99,16 @@ The temporary directory is left on purpose (the retry that `retro.sh` prints if 
 
 Be concrete and honest: a retro that says "all good" when there were deviations takes away the only signal `/improve-skills` has.
 
+## Close the task (`bk` agents)
+
+If `BK_TASK_DIR` exists (`bk` launched you, ADR-005), the last thing, after the retro, is to close your task with `bk done`:
+
+- PR open and CI green: `bk done pr <n>`.
+- It cannot be finished (see "If you have to drop the issue"): `bk done dropped "<reason in one line>"`.
+- You are `implementer-light` and the issue is not for the light model: `bk done escalate "<reason>"`.
+
+A question closes nothing: ask in your window and wait for the answer. Without `BK_TASK_DIR`, do not run `bk done`. If `bk done` fails (there is no task, or it was already closed), say so in your reply and do not close it any other way.
+
 ## If you have to drop the issue
 
 If you cannot finish (new blocker, pending decision, scope much larger than the issue says): comment on the issue what you did and what is missing, push the branch if it has something useful and unassign yourself (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`). That way `available.sh` shows it again.

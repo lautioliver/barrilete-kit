@@ -71,3 +71,7 @@ Nunca `--approve`: aprobar es decisión de una persona. Si sos la sesión que im
 ## Retro
 
 Al terminar, guardá una retro corta: formato en `.claude/skills/improve-skills/retro-template.md` (o `retro.sh` sin argumentos), con el frontmatter completo, y después, desde el checkout de confianza, `cd <root> && <root>/.claude/skills/improve-skills/retro.sh <archivo.md>` (`retro.sh` trabaja sobre el repo del directorio actual, así que el `cd` va primero; `<archivo.md>` tiene que ser una ruta absoluta, porque el `cd` cambia el directorio desde el que se resolvería una relativa) (la guarda en la rama `agents/retros`; no toca tu rama). Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.
+
+## Cerrar la tarea (agentes `bk`)
+
+Si existe `BK_TASK_DIR` (te lanzó `bk`, ADR-005), lo último, después de la retro, es cerrar tu tarea: `bk done blockers` si la revisión encontró bloqueantes, o `bk done pr <n>` (el PR revisado) si no. Cerrar la tarea no publica nada: publicar sigue siendo decisión de la persona (paso 5). Sin `BK_TASK_DIR`, no corras `bk done`. Si falla (no hay tarea, o ya estaba cerrada), decilo y no la cierres de otra forma.

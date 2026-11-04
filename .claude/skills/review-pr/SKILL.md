@@ -71,3 +71,7 @@ Never `--approve`: approving is a person's decision. If you are the session that
 ## Retro
 
 When done, save a short retro: format in `.claude/skills/improve-skills/retro-template.md` (or `retro.sh` with no arguments), with the full frontmatter, and then, from the trusted checkout, `cd <root> && <root>/.claude/skills/improve-skills/retro.sh <file.md>` (`retro.sh` works on the repo of the current directory, so the `cd` comes first; `<file.md>` must be an absolute path, because the `cd` changes the directory a relative one would resolve from) (it saves it on the `agents/retros` branch; it does not touch your branch). Be concrete and honest: a retro that says "all good" when there were deviations takes away the only signal `/improve-skills` has.
+
+## Close the task (`bk` agents)
+
+If `BK_TASK_DIR` exists (`bk` launched you, ADR-005), the last thing, after the retro, is to close your task: `bk done blockers` if the review found blockers, or `bk done pr <n>` (the reviewed PR) if not. Closing the task publishes nothing: publishing is still the person's decision (step 5). Without `BK_TASK_DIR`, do not run `bk done`. If it fails (there is no task, or it was already closed), say so and do not close it any other way.
