@@ -11,6 +11,7 @@ git_quiet_env() {
     echo "git_quiet_env: GIT_CONFIG_COUNT='$n' no es un número" >&2
     return 1 ;;
   esac
+  n=$((10#$n)) # con ceros adelante ("010") bash lo tomaría por octal
   export "GIT_CONFIG_KEY_$n=gc.auto" "GIT_CONFIG_VALUE_$n=0"
   n=$((n + 1))
   export "GIT_CONFIG_KEY_$n=maintenance.auto" "GIT_CONFIG_VALUE_$n=false"

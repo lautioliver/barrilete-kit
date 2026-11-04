@@ -33,6 +33,9 @@ export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COM
 # Ningún git de la prueba corre gc ni mantenimiento en segundo plano (#186, #224): ver scripts/agents/git-quiet.sh.
 # shellcheck source=/dev/null
 . "$RAIZ/scripts/agents/git-quiet.sh"
+# Lo que GIT_CONFIG_* traiga el entorno de quien corre el test no entra a sus repos (decisión de la persona en #238: https://github.com/lautioliver/barrilete-kit/pull/238#issuecomment-6618762051); el helper no pisa, así que se limpia acá.
+# shellcheck disable=SC2046
+unset GIT_CONFIG_COUNT $(compgen -v | grep -E '^GIT_CONFIG_(KEY|VALUE)_' || :)
 git_quiet_env
 cfg=$(git config --list 2>/dev/null)
 grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
