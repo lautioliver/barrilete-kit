@@ -468,6 +468,9 @@ def validar_contextos(contextos):
             errs.append(f"{pre} 'depends_on' must be a list of context names")
             continue
         for d in deps:
+            if not isinstance(d, str):
+                errs.append(f"{pre} depends_on must list context names (text), not {d!r}")
+                continue
             if d == nombre:
                 errs.append(f"{pre} depends on itself (depends_on lists its own name)")
             elif d not in nombres:

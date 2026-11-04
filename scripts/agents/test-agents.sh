@@ -384,6 +384,12 @@ salida=$(check); grep -q "src/fantasma" <<<"$salida"; tap_check $? "contextos: u
 minimo
 con_contextos '[{"name": "ctx-opcional", "paths": ["?src/opcional/**"], "depends_on": []}]'
 salida=$(check); [[ "$salida" != *ctx-opcional* && "$salida" != *src/opcional* ]]; tap_check $? "contextos: un glob opcional (?) que no matchea no es error"
+minimo
+con_contextos '[{"name": "ctx-lista", "paths": ["src/ventas/**"], "depends_on": [["ventas"]]}]'
+salida=$(check); [[ "$salida" == *"ctx-lista"*"depends_on must list context names"* ]]; tap_check $? "contextos: un depends_on con una lista adentro es un error claro que nombra el contexto, sin traceback" "contextos: un depends_on con una lista adentro es un error claro (salida: $salida)"
+minimo
+con_contextos '[{"paths": ["src/ventas/**"], "depends_on": [null]}]'
+salida=$(check); [[ "$salida" == *"depends_on must list context names"* && "$salida" != *"depends on itself"* ]]; tap_check $? "contextos: un depends_on con null en un contexto sin name es un error claro y no una autodependencia" "contextos: un depends_on con null en un contexto sin name es un error claro (salida: $salida)"
 
 # 10. agents_map.py dice qué contextos toca el diff (ADR-003 D3): el JSON trae los contextos que tocó el cambio, con su nombre
 # (como clave de "contexts" o como elemento de la lista).
