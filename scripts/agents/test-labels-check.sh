@@ -231,6 +231,8 @@ const cases = {
   // Los dos errores de sha no hexadecimal (bloque principal y extra) salen juntos, en un solo mensaje, y el de "no es de este PR" también.
   'red-commit-not-hex-main-and-extra-give-one-error': [T + 'red commit: <sha>\n\n' + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: <otro>\n\n' + G('pytest', 'junit') + E, /^PR out of convention:\n- [^\n]*hexadecimal[^\n]*$/],
   'red-commit-not-hex-main-and-extra-not-in-pr-show-both': [T + 'red commit: <sha>\n\n' + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: deadbeef1\n\n' + G('pytest', 'junit') + E, /hexadecimal[^]*red commit deadbeef1 is not a commit of this PR/],
+  // Un <summary> rojo suelto dentro de un <details> ya abierto no suma otro nivel: lo que viene después del cierre es prosa.
+  'red-summary-inside-open-details-does-not-add-depth': [T + R + G() + E + '<details><summary>x</summary>\n<summary>Red before implementing</summary>\n</details>\nred commit: ninguno\n', null],
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
 };
@@ -304,6 +306,7 @@ lc_case nested-details-in-main-block-passes; tap_check $? "nested-details-in-mai
 lc_case red-commit-not-hex-main-and-extra-give-one-error; tap_check $? "red-commit-not-hex-main-and-extra-give-one-error"
 lc_case red-commit-not-hex-main-and-extra-not-in-pr-show-both; tap_check $? "red-commit-not-hex-main-and-extra-not-in-pr-show-both"
 lc_case list-commits-api-error-is-reported; tap_check $? "list-commits-api-error-is-reported"
+lc_case red-summary-inside-open-details-does-not-add-depth; tap_check $? "red-summary-inside-open-details-does-not-add-depth"
 lc_perf spaces; tap_check $? "structured-block-performance-spaces"
 lc_perf colons; tap_check $? "structured-block-performance-colons"
 lc_perf lines; tap_check $? "structured-block-performance-many-lines"
