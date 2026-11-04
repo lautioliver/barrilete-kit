@@ -359,7 +359,16 @@ AG="$RAIZ/AGENTS.md"
 [ "$(cada 'gh pr list --search' "$ADR4")" = ok ]; tap_check $? "ADR-004: cita gh pr list --search"
 [ "$(cada '#246' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): cita el cambio de redacción de D3 (#246)"
 RD="$RAIZ/README.md"
-[ "$(cada '(Only an `implementer`|Solo un `implementer`)' "$RD")" = ok ]; tap_check $? "README: solo un implementer puede ser bk"
+[ "$(cada 'only the `implementer` as a `bk` agent|solo al `implementer`' "$RD")" = ok ]; tap_check $? "README: solo el implementer puede ser bk, dicho una vez"
+[ "$(ninguna '(Only an `implementer`|Solo un `implementer`)' "$RD")" = ok ]; tap_check $? "README: no repite la restricción en una segunda frase"
 [ "$(ninguna 'lanzar un rol como agente `bk`|launch a role as a `bk` agent' "$RD")" = ok ]; tap_check $? "README: ya no dice que cualquier rol puede ser bk"
+
+# 11. Review del #251.
+[ "$(ninguna '2>/dev/null|read stdout alone|leé solo stdout' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): no manda descartar stderr"
+[ "$(cada '(stdout and stderr apart|stdout y stderr separados) \((no|sin) `2>&1`\)' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): stdout es el modo, stderr va al plan (en y es igual)"
+[ "$(cada 'roles.yml` or from `bk mode`|roles.yml` o de `bk mode`' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): el aviso vale también cuando el bk viene de bk mode"
+[ "$(ninguna 'confirmed D3 as it reads now|confirmó D3 con la redacción actual' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): no atribuye la redacción actual de D3 al segundo comentario"
+[ "$(cada 'the D3 of that time|la redacción de D3 de entonces' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): el segundo comentario confirmó la redacción de D3 de entonces"
+[ "$(cada 'approved rewriting D3|aprobó reescribir D3' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): el comentario del #237 aprobó reescribir D3"
 
 tap_done

@@ -87,10 +87,8 @@ PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$
 # 9. reviewer e implementer-light son siempre sub aunque el archivo diga bk (kit/ADR-004: límite de bk run); main y sub se respetan.
 mkdir -p "$TMP/limite/.barrilete"
 printf 'reviewer: claude/opus bk\nimplementer-light: claude/haiku\nimplementer: claude/sonnet bk\n' >"$TMP/limite/.barrilete/roles.yml"
-tap_run out 0 python3 "$M" reviewer --root "$TMP/limite"
-grep -qx sub <<<"$out"; tap_check $? "mode: un reviewer con bk en roles.yml se lanza como sub"
-tap_run out 0 python3 "$M" implementer-light --root "$TMP/limite"
-grep -qx sub <<<"$out"; tap_check $? "mode: un implementer-light sin modo (bk) en roles.yml se lanza como sub"
+out=$(python3 "$M" reviewer --root "$TMP/limite" 2>/dev/null); [ "$out" = sub ]; tap_check $? "mode: un reviewer con bk en roles.yml se lanza como sub (stdout es solo el modo)"
+out=$(python3 "$M" implementer-light --root "$TMP/limite" 2>/dev/null); [ "$out" = sub ]; tap_check $? "mode: un implementer-light sin modo (bk) en roles.yml se lanza como sub (stdout es solo el modo)"
 tap_run out 0 python3 "$M" implementer --root "$TMP/limite"
 [ "$out" = bk ]; tap_check $? "mode: un implementer con bk en roles.yml sigue siendo bk"
 PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 0 python3 "$M" reviewer --root "$TMP/proj"
@@ -108,14 +106,18 @@ printf 'implementer: sub\n' >"$TMP/columna/.barrilete/roles.yml"
 tap_run out 64 python3 "$M" implementer --root "$TMP/columna"
 [ "$TAP_RC" = 64 ] && grep -q "provider" <<<"$out"; tap_check $? "mode: un modo en la columna provider/model falla (exit 64)"
 
-# 12. Cuando convierte bk en sub (reviewer, implementer-light) avisa por stderr, para que el orquestador lo diga en el plan (#246).
-tap_run out 0 python3 "$M" reviewer --root "$TMP/limite"
-grep -q "reviewer" <<<"$out" && grep -q "sub" <<<"$out" && grep -qi "bk" <<<"$out" && [ "$(grep -c 'mode.py:' <<<"$out")" -ge 1 ]; tap_check $? "mode: reviewer bk -> sub avisa por stderr"
-tap_run out 0 python3 "$M" implementer-light --root "$TMP/limite"
-grep -q "mode.py: implementer-light" <<<"$out"; tap_check $? "mode: implementer-light bk -> sub avisa por stderr y nombra el rol"
-tap_run out 0 python3 "$M" implementer --root "$TMP/limite"
-! grep -q "mode.py:" <<<"$out"; tap_check $? "mode: un implementer bk no avisa nada"
-tap_run out 0 python3 "$M" reviewer --root "$TMP/proj"
-! grep -q "mode.py:" <<<"$out"; tap_check $? "mode: un reviewer main explícito no avisa nada"
+# 12. Cuando convierte bk en sub (reviewer, implementer-light) avisa por stderr, para que el orquestador lo diga en el plan (#246). Stdout y stderr se capturan por separado.
+err=$(python3 "$M" reviewer --root "$TMP/limite" 2>&1 >/dev/null)
+[ "$(grep -c 'mode.py: reviewer is never bk' <<<"$err")" = 1 ]; tap_check $? "mode: reviewer bk -> sub avisa por stderr"
+err=$(python3 "$M" implementer-light --root "$TMP/limite" 2>&1 >/dev/null)
+[ "$(grep -c 'mode.py: implementer-light is never bk' <<<"$err")" = 1 ]; tap_check $? "mode: implementer-light bk -> sub avisa por stderr y nombra el rol"
+err=$(python3 "$M" implementer --root "$TMP/limite" 2>&1 >/dev/null)
+[ "$(grep -c 'mode.py:' <<<"$err")" = 0 ]; tap_check $? "mode: un implementer bk no avisa nada"
+err=$(python3 "$M" reviewer --root "$TMP/proj" 2>&1 >/dev/null)
+[ "$(grep -c 'mode.py:' <<<"$err")" = 0 ]; tap_check $? "mode: un reviewer main explícito no avisa nada"
+# El mismo camino cuando el bk viene de `bk mode` (el rol no está en el roles.yml del proyecto).
+out=$(python3 "$M" reviewer --root "$TMP/vacio" 2>/dev/null); [ "$out" = sub ]; tap_check $? "mode: un reviewer que bk mode contesta bk sale como sub (stdout es solo el modo)"
+err=$(python3 "$M" reviewer --root "$TMP/vacio" 2>&1 >/dev/null)
+[ "$(grep -c 'mode.py: reviewer is never bk' <<<"$err")" = 1 ]; tap_check $? "mode: reviewer bk de bk mode -> sub avisa por stderr"
 
 tap_done
