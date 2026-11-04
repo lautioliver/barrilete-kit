@@ -233,6 +233,13 @@ const cases = {
   'red-commit-not-hex-main-and-extra-not-in-pr-show-both': [T + 'red commit: <sha>\n\n' + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: deadbeef1\n\n' + G('pytest', 'junit') + E, /hexadecimal[^]*red commit deadbeef1 is not a commit of this PR/],
   // Un <summary> rojo suelto dentro de un <details> ya abierto no suma otro nivel: lo que viene después del cierre es prosa.
   'red-summary-inside-open-details-does-not-add-depth': [T + R + G() + E + '<details><summary>x</summary>\n<summary>Red before implementing</summary>\n</details>\nred commit: ninguno\n', null],
+  // 3.ª review de #247. Un <details> cuenta solo si la línea (sin espacios) empieza con <details: una mención en prosa no abre nivel.
+  'details-mentioned-in-prose-does-not-open-depth': ['Put the extra reds in a `<details>` block.\n' + T + R + G() + E + 'red commit: see above\n', null],
+  'details-mentioned-in-no-tests-line-does-not-open-depth': ['Closes #1\nno tests: only docs, no `<details>` needed\nred commit: ninguno\n', null],
+  // <DETAILS> en mayúsculas es un details igual (el HTML no distingue).
+  'uppercase-details-is-checked': [T + R + G() + E + '<DETAILS><SUMMARY>Red for the pytest stack</SUMMARY>\n\nred commit: cafe1234\n\n' + G('pytest', 'junit') + '</DETAILS>\n', /red commit cafe1234 is not a commit of this PR/],
+  // Un fence de 4 backticks no lo cierra una línea de 3: lo que sigue sigue citado.
+  'four-backtick-fence-is-not-closed-by-three': [T + R + G() + E + '````\n```\n<details><summary>Red for the pytest stack</summary>\nred commit: cafe1234\n</details>\n````\n', null],
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
 };
@@ -307,6 +314,10 @@ lc_case red-commit-not-hex-main-and-extra-give-one-error; tap_check $? "red-comm
 lc_case red-commit-not-hex-main-and-extra-not-in-pr-show-both; tap_check $? "red-commit-not-hex-main-and-extra-not-in-pr-show-both"
 lc_case list-commits-api-error-is-reported; tap_check $? "list-commits-api-error-is-reported"
 lc_case red-summary-inside-open-details-does-not-add-depth; tap_check $? "red-summary-inside-open-details-does-not-add-depth"
+lc_case details-mentioned-in-prose-does-not-open-depth; tap_check $? "details-mentioned-in-prose-does-not-open-depth"
+lc_case details-mentioned-in-no-tests-line-does-not-open-depth; tap_check $? "details-mentioned-in-no-tests-line-does-not-open-depth"
+lc_case uppercase-details-is-checked; tap_check $? "uppercase-details-is-checked"
+lc_case four-backtick-fence-is-not-closed-by-three; tap_check $? "four-backtick-fence-is-not-closed-by-three"
 lc_perf spaces; tap_check $? "structured-block-performance-spaces"
 lc_perf colons; tap_check $? "structured-block-performance-colons"
 lc_perf lines; tap_check $? "structured-block-performance-many-lines"
