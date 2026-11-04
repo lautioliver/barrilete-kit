@@ -308,4 +308,17 @@ else  # proyecto instalado: un solo idioma, sin mezclar
 fi
 tap_check $? "create-issue paso 6: los títulos del cuerpo salen de la plantilla en el idioma de la instalación"
 
+# 8. /orchestrate y ADR-004 (tercera review de #237). Con --lang es el init deja el español como X.md y sin hermano: cada archivo que existe cumple el regex de su idioma.
+ADR4="$RAIZ/docs/decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md"; OS="$AQUI/SKILL.md"
+cada() {  # cada <regex> <archivo.md>: imprime ok si el .md y su .es.md (los que existen) lo cumplen; si no, qué archivo falla
+  local re="$1" f falta=""; shift
+  for f in "$1" "${1%.md}.es.md"; do [ -f "$f" ] || continue; grep -Eq -- "$re" "$f" || falta="$falta ${f#"$RAIZ"/}"; done
+  echo "${falta:-ok}"
+}
+[ "$(cada 'D1 and D2 got|D1 y D2 tuvieron' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): cuenta que D1 y D2 cambiaron con (a) y (c)"
+! grep -Eq 'D1, D2, D4 and D5 are unchanged|D1, D2, D4 y D5 no cambiaron' "$ADR4" "${ADR4%.md}.es.md" 2>/dev/null; tap_check $? "ADR-004 (Estado): no dice que D1 y D2 no cambiaron"
+[ "$(cada '^\| `escalate` \|.*(default branch|rama por defecto)' "$OS")" = ok ]; tap_check $? "orquestar (escalate): relanzar con bk run solo si la base es la rama por defecto"
+[ "$(cada '--worktree +# .*(mode is `sub`|modo es `sub`)' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): prepare.sh es solo para los issues de modo sub"
+[ "$(cada 'treat it as `pr` \(implementer\)|tratalo como `pr` \(implementador\)' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): un agente bk con PR abierto se trata como pr (implementer) y lanza al reviewer"
+
 tap_done
