@@ -322,7 +322,7 @@ cada() {  # cada <regex> <archivo.md>: imprime ok si el .md (tiene que existir) 
   [ -f "$1" ] || { echo "no existe ${1#"$RAIZ"/}"; return 0; }
   for f in "$1" "${1%.md}.es.md"; do
     [ -f "$f" ] || continue
-    [ "$(grep -Ec -- "$re" "$f")" != 0 ] || falta="$falta ${f#"$RAIZ"/}"
+    [ "$(grep -Ec -- "$re" <"$f")" != 0 ] || falta="$falta ${f#"$RAIZ"/}"
   done
   echo "${falta:-ok}"
 }
@@ -331,7 +331,7 @@ ninguna() {  # ninguna <regex> <archivo.md>: imprime ok si ni el .md (tiene que 
   [ -f "$1" ] || { echo "no existe ${1#"$RAIZ"/}"; return 0; }
   for f in "$1" "${1%.md}.es.md"; do
     [ -f "$f" ] || continue
-    [ "$(grep -Ec -- "$re" "$f")" = 0 ] || hay="$hay ${f#"$RAIZ"/}"
+    [ "$(grep -Ec -- "$re" <"$f")" = 0 ] || hay="$hay ${f#"$RAIZ"/}"
   done
   echo "${hay:-ok}"
 }
@@ -346,11 +346,31 @@ ninguna() {  # ninguna <regex> <archivo.md>: imprime ok si ni el .md (tiene que 
 AG="$RAIZ/AGENTS.md"
 [ "$(cada 'gh pr list --search .head:claude/<n>-' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): el PR de un agente bk se busca con --search head:claude/<n>-, no con --head de un prefijo"
 [ "$(ninguna '--head claude/<n>-' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): ya no usa gh pr list --head con un prefijo"
-[ "$(cada 'branch --show-current' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): la rama exacta del agente bk sale de git branch --show-current"
+[ "$(ninguna 'branch --show-current' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): el orquestador no conoce el worktree del agente bk: busca el PR solo con --search"
 [ "$(cada '(An|Un) `implementer` that|`implementer` que `roles.yml`' "$AG")" = ok ]; tap_check $? "AGENTS.md (subagentes): solo un implementer puede ser bk"
 [ "$(cada '`reviewer`.*`implementer-light`.*(always|siempre)' "$AG")" = ok ]; tap_check $? "AGENTS.md (subagentes): reviewer e implementer-light corren siempre como sub"
 [ "$(cada 'Only if the PR.s base is the repo.s default branch|Solo si la base del PR es la rama por defecto del repo' "$OS")" = ok ]; tap_check $? "orquestar (escalate): la condición de la base va al final de la fila"
 [ "$(cada '(no question either|tampoco hay pregunta).*`dropped`' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): un agente bk terminado sin PR ni comentario es dropped"
 [ "$(cada '(comment|comentario) .*before `bk run`|antes de `bk run`' "$OS")" = ok ]; tap_check $? "orquestar (escalate): dice dónde va el reason en modo bk"
+
+# 10. Seguimiento del #237 (#246).
+[ "$(ninguna 'gh pr list --head' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): ya no busca el PR con gh pr list --head"
+[ "$(cada 'D3\. (How|Cómo).*(--search|head:claude)' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): busca el PR con --search head:claude/<n>-"
+[ "$(cada 'D3\. (How|Cómo).*gh pr list --search' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): cita gh pr list --search"
+[ "$(cada '#246' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): cita el cambio de redacción de D3 (#246)"
+RD="$RAIZ/README.md"
+[ "$(cada 'only the `implementer` as a `bk` agent|solo al `implementer`' "$RD")" = ok ]; tap_check $? "README: solo el implementer puede ser bk, dicho una vez"
+[ "$(ninguna '(Only an `implementer`|Solo un `implementer`)' "$RD")" = ok ]; tap_check $? "README: no repite la restricción en una segunda frase"
+[ "$(ninguna 'lanzar un rol como agente `bk`|launch a role as a `bk` agent' "$RD")" = ok ]; tap_check $? "README: ya no dice que cualquier rol puede ser bk"
+
+# 11. Review del #251.
+mkdir -p "$TMP/paso3"; for f in SKILL SKILL.es; do [ -f "$AQUI/$f.md" ] && grep -E 'mode\.py <(role|rol)>' <"$AQUI/$f.md" >"$TMP/paso3/$f.md"; done
+[ "$(grep -c . <"$TMP/paso3/SKILL.md")" = 1 ]; tap_check $? "orquestar (paso 3): el párrafo de mode.py se encontró (una línea)"
+[ "$(ninguna '2>/dev/null|read stdout alone|leé solo stdout' "$TMP/paso3/SKILL.md")" = ok ]; tap_check $? "orquestar (paso 3): no manda descartar stderr"
+[ "$(cada '(stdout and stderr apart|stdout y stderr separados) \((no|sin) `2>&1`\)' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): stdout es el modo, stderr va al plan (en y es igual)"
+[ "$(cada 'roles.yml` or from `bk mode`|roles.yml` o de `bk mode`' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): el aviso vale también cuando el bk viene de bk mode"
+[ "$(ninguna 'confirmed D3 as it reads now|confirmó D3 con la redacción actual' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): no atribuye la redacción actual de D3 al segundo comentario"
+[ "$(cada 'the D3 of that time|la redacción de D3 de entonces' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): el segundo comentario confirmó la redacción de D3 de entonces"
+[ "$(cada 'approved rewriting D3|aprobó reescribir D3' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): el comentario del #237 aprobó reescribir D3"
 
 tap_done

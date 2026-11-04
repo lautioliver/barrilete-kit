@@ -84,13 +84,18 @@ PATH="$TMP/badbin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$T
 PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$TMP/vacio"
 [ "$TAP_RC" = 64 ]; tap_check $? "mode: bk mode que contesta algo fuera de main, bk o sub da exit 64"
 
+# stdout y stderr por separado: tap_run los junta (2>&1) y no distingue uno de otro. Deja el modo en $out y el aviso en $err.
+split_run() { out=$(python3 "$M" "$@" 2>"$TMP/stderr"); err=$(<"$TMP/stderr"); }
+# Cuántas líneas de stderr (en $err) traen el patrón, en $n.
+cuenta_err() { n=$(awk -v p="$1" 'index($0, p) { c++ } END { print c + 0 }' <<<"$err"); }
+
 # 9. reviewer e implementer-light son siempre sub aunque el archivo diga bk (kit/ADR-004: límite de bk run); main y sub se respetan.
 mkdir -p "$TMP/limite/.barrilete"
 printf 'reviewer: claude/opus bk\nimplementer-light: claude/haiku\nimplementer: claude/sonnet bk\n' >"$TMP/limite/.barrilete/roles.yml"
-tap_run out 0 python3 "$M" reviewer --root "$TMP/limite"
-[ "$out" = sub ]; tap_check $? "mode: un reviewer con bk en roles.yml se lanza como sub"
-tap_run out 0 python3 "$M" implementer-light --root "$TMP/limite"
-[ "$out" = sub ]; tap_check $? "mode: un implementer-light sin modo (bk) en roles.yml se lanza como sub"
+split_run reviewer --root "$TMP/limite"
+[ "$out" = sub ]; tap_check $? "mode: un reviewer con bk en roles.yml se lanza como sub (stdout es solo el modo)"
+split_run implementer-light --root "$TMP/limite"
+[ "$out" = sub ]; tap_check $? "mode: un implementer-light sin modo (bk) en roles.yml se lanza como sub (stdout es solo el modo)"
 tap_run out 0 python3 "$M" implementer --root "$TMP/limite"
 [ "$out" = bk ]; tap_check $? "mode: un implementer con bk en roles.yml sigue siendo bk"
 PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 0 python3 "$M" reviewer --root "$TMP/proj"
@@ -107,5 +112,25 @@ mkdir -p "$TMP/columna/.barrilete"
 printf 'implementer: sub\n' >"$TMP/columna/.barrilete/roles.yml"
 tap_run out 64 python3 "$M" implementer --root "$TMP/columna"
 [ "$TAP_RC" = 64 ] && grep -q "provider" <<<"$out"; tap_check $? "mode: un modo en la columna provider/model falla (exit 64)"
+
+# 12. Cuando convierte bk en sub (reviewer, implementer-light) avisa por stderr, para que el orquestador lo diga en el plan (#246). Stdout y stderr se capturan por separado.
+split_run reviewer --root "$TMP/limite"
+cuenta_err 'mode.py: reviewer is never bk'
+[ "$n" = 1 ]; tap_check $? "mode: reviewer bk -> sub avisa por stderr"
+split_run implementer-light --root "$TMP/limite"
+cuenta_err 'mode.py: implementer-light is never bk'
+[ "$n" = 1 ]; tap_check $? "mode: implementer-light bk -> sub avisa por stderr y nombra el rol"
+split_run implementer --root "$TMP/limite"
+cuenta_err 'mode.py:'
+[ "$n" = 0 ]; tap_check $? "mode: un implementer bk no avisa nada"
+split_run reviewer --root "$TMP/proj"
+cuenta_err 'mode.py:'
+[ "$n" = 0 ]; tap_check $? "mode: un reviewer main explícito no avisa nada"
+# El mismo camino cuando el bk viene de `bk mode` (el rol no está en el roles.yml del proyecto).
+split_run reviewer --root "$TMP/vacio"
+[ "$out" = sub ]; tap_check $? "mode: un reviewer que bk mode contesta bk sale como sub (stdout es solo el modo)"
+split_run reviewer --root "$TMP/vacio"
+cuenta_err 'mode.py: reviewer is never bk'
+[ "$n" = 1 ]; tap_check $? "mode: reviewer bk de bk mode -> sub avisa por stderr"
 
 tap_done
