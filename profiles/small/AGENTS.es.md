@@ -20,7 +20,8 @@ TODO: lenguaje, framework, base de datos.
 
 TODO: las reglas que un agente rompería si no las lee (formato de errores, dónde va la lógica, cómo se manejan fechas o dinero…).
 
-- Términos del dominio: usá las palabras de `docs/glossary.md` en código, issues y PRs. Una dependencia entre contextos que no está en la tabla de `docs/contexts.md` necesita un ADR. Mientras el glosario siga en `TODO`, proponé los términos en el PR que los introduce en vez de bloquear (ADR-003).
+**Siempre** (regla del kit, se queda cuando se completa el TODO de arriba):
+- Términos del dominio: usá las palabras de `docs/glossary.md` en código, issues y PRs. Una dependencia entre contextos que no está en la tabla de `docs/contexts.md` necesita un ADR; mientras esa tabla esté vacía no hay nada que chequear. Mientras el glosario siga en `TODO`, proponé los términos en el PR que los introduce en vez de bloquear (`docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`, en el kit).
 
 ## Autonomía del agente
 

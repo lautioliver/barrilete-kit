@@ -11,7 +11,7 @@ It avoids starting to code too early. First you understand what is there, then y
 
 Before proposing anything, read:
 - `docs/development/architecture.md`, `docs/reference/` (domain, modules, surfaces) and the related ADRs.
-- The glossary (`docs/reference/glossary.md`) and the contexts map (`docs/reference/contexts.md`): the plan uses their terms and names the contexts it touches. The rules are in ADR-003.
+- The glossary (`docs/reference/glossary.md`) and the contexts map (`docs/reference/contexts.md`): the plan uses their terms and names the contexts it touches. The rules are in `docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`.
 - The code of the modules that will be touched: how it is built today, not how it should be.
 - `docs/development/roadmap.md` and `horizon.md`: was it already planned? Does it clash with anything?
 - Related open issues (`gh issue list --search …`) and `.claude/skills/project-status/available.sh`.

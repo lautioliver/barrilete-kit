@@ -28,9 +28,9 @@ TODO: the code rules an agent would break if it did not read them. Examples:
 - Money in integers (cents).
 - Business logic in services, thin routes.
 - Concurrent operations atomic in the database, never read-modify-write.
-- Domain terms: use the words of `docs/reference/glossary.md` in code, issues and PRs. A dependency between contexts that is not in `depends_on` of `docs/agents-map.json` (`contexts`; see `docs/reference/contexts.md`) needs an ADR. While the glossary is still `TODO`, propose the terms in the PR that introduces them instead of blocking (ADR-003).
 
 Always:
+- Domain terms: use the words of `docs/reference/glossary.md` in code, issues and PRs. A dependency between contexts that is not in `depends_on` of `docs/agents-map.json` (`contexts`; see `docs/reference/contexts.md`) needs an ADR; with no contexts declared (`contexts` empty) there is nothing to check. While the glossary is still `TODO`, propose the terms in the PR that introduces them instead of blocking (`docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`).
 - Never secrets in logs, code or repo. `.env*` are ignored.
 - If a document and the code do not match, the code wins and the document is updated.
 

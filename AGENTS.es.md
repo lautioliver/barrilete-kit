@@ -28,9 +28,9 @@ TODO: las reglas de código que un agente rompería si no las lee. Ejemplos:
 - Dinero en enteros (centavos).
 - Lógica de negocio en servicios, rutas finas.
 - Operaciones concurrentes atómicas en la base, nunca read-modify-write.
-- Términos del dominio: usá las palabras de `docs/reference/glossary.md` en código, issues y PRs. Una dependencia entre contextos que no está en `depends_on` de `docs/agents-map.json` (`contexts`; ver `docs/reference/contexts.md`) necesita un ADR. Mientras el glosario siga en `TODO`, proponé los términos en el PR que los introduce en vez de bloquear (ADR-003).
 
 Siempre:
+- Términos del dominio: usá las palabras de `docs/reference/glossary.md` en código, issues y PRs. Una dependencia entre contextos que no está en `depends_on` de `docs/agents-map.json` (`contexts`; ver `docs/reference/contexts.md`) necesita un ADR; sin contextos declarados (`contexts` vacío) no hay nada que chequear. Mientras el glosario siga en `TODO`, proponé los términos en el PR que los introduce en vez de bloquear (`docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`).
 - Nunca secretos en logs, código o repo. `.env*` están ignorados.
 - Si un documento y el código no coinciden, gana el código y se actualiza el documento.
 

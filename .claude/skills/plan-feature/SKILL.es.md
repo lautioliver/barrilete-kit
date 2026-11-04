@@ -11,7 +11,7 @@ Evita empezar a programar demasiado pronto. Primero se entiende qué hay, despu�
 
 Antes de proponer nada, leé:
 - `docs/development/architecture.md`, `docs/reference/` (dominio, módulos, superficies) y los ADRs relacionados.
-- El glosario (`docs/reference/glossary.md`) y el mapa de contextos (`docs/reference/contexts.md`): el plan usa sus términos y nombra los contextos que toca. Las reglas están en el ADR-003.
+- El glosario (`docs/reference/glossary.md`) y el mapa de contextos (`docs/reference/contexts.md`): el plan usa sus términos y nombra los contextos que toca. Las reglas están en el `docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`.
 - El código de los módulos que se van a tocar: cómo está hecho hoy, no cómo debería estar.
 - `docs/development/roadmap.md` y `horizon.md`: ¿ya estaba pensado? ¿choca con algo?
 - Issues abiertos relacionados (`gh issue list --search …`) y `.claude/skills/project-status/available.sh`.
