@@ -108,16 +108,33 @@ jobs:
             };
             const lineas = t => t.split('\n').map(l => l.replace(/\r$/, ''));
             // Which lines are inside a ``` or ~~~ fenced code block (the fence lines too): what is quoted there is not a red block.
+            // As in CommonMark: a fence closes with the same character, at least as long as the opening one and nothing else on its line,
+            // and a backtick fence cannot have a backtick in its info string (so ```npm test``` is not a fence at all).
             const enFence = ls => {
-              let dentro = false;
+              let abierto = null;   // { c, n } while inside
               return ls.map(l => {
-                const f = l.trimStart().startsWith('```') || l.trimStart().startsWith('~~~');
-                if (f) { dentro = !dentro; return true; }
-                return dentro;
+                const t = l.trim(), c = t[0];
+                if (c !== '`' && c !== '~') return abierto !== null;
+                let n = 0;
+                while (t[n] === c) n++;
+                const resto = t.slice(n);
+                if (abierto) {
+                  if (c === abierto.c && n >= abierto.n && resto.trim() === '') abierto = null;
+                  return true;
+                }
+                if (n < 3 || (c === '`' && resto.includes('`'))) return false;
+                abierto = { c, n };
+                return true;
               });
             };
             // How many times `s` appears in `l` (split, not a regex: linear).
             const veces = (l, s) => l.split(s).length - 1;
+            // The <details> tags of a line: [opens, closes], counted only when the trimmed line starts with a tag (a mention in prose,
+            // like `<details>` in backticks, is not one) and without telling upper from lower case.
+            const etiquetas = l => {
+              const t = l.trim().toLowerCase();
+              return t.startsWith('<details') || t.startsWith('</details') ? [veces(t, '<details'), veces(t, '</details>')] : [0, 0];
+            };
             // A reason is real if a letter or a digit is left once the wrappers (quotes, backticks, * and _) and the <placeholders> are gone.
             const motivoReal = t => /[\p{L}\p{N}]/u.test(t.replace(/[`"'*_]/g, '').replace(/<[^<>]*>/g, ''));
             // Looks for `marcador` line by line. ok: some line has a real reason (on its line or, if `enSiguiente` says so, on the next one).
@@ -152,11 +169,11 @@ jobs:
                 else if (grupo.casos === 0) errs.add(`group ${n}: "failing cases:" needs at least one line "- <file>::<name>".`);
               };
               // Nested <details> inside the block do not close it: the block ends when the depth gets back to 0.
-              let prof = (veces(ls[i], '<details') || 1) - veces(ls[i], '</details>');
+              let prof = (etiquetas(ls[i])[0] || 1) - etiquetas(ls[i])[1];
               for (let j = prof > 0 ? i + 1 : ls.length; j < ls.length; j++) {
                 if (fence[j]) continue;
                 const l = ls[j].trim(), low = l.toLowerCase();
-                prof += veces(l, '<details') - veces(l, '</details>');
+                prof += etiquetas(l)[0] - etiquetas(l)[1];
                 if (prof <= 0) break;
                 if (low.startsWith('red commit:')) {
                   commits++;   // that the sha is hexadecimal is checked, for every block at once, with the other "red commit:" lines
@@ -242,7 +259,8 @@ jobs:
                   else noHex = true;
                 }
                 // A red summary without its <details> opens one too (the main block is read the same way in leerBloqueRojo).
-                prof = Math.max(0, prof + (veces(t, '<details') || (prof === 0 && TITULO_ROJO.test(t) ? 1 : 0)) - veces(t, '</details>'));
+                const [abre, cierra] = etiquetas(t);
+                prof = Math.max(0, prof + (abre || (prof === 0 && TITULO_ROJO.test(t) ? 1 : 0)) - cierra);
               }
               if (noHex) errors.push('"red commit:" needs a hexadecimal sha (7 to 64 characters) on every line that has it, the main block and the extra <details> too.');
               if (shas.length) {
