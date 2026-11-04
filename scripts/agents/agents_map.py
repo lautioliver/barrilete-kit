@@ -173,14 +173,16 @@ def main():
     # The contexts (ADR-003 D3) the change touches: name → the changed files that match its paths. A malformed entry is
     # check-docs.py's error, not a crash here.
     contextos = {}
-    for c in mapa.get("contexts", []):
-        if not isinstance(c, dict) or not isinstance(c.get("name"), str) or not isinstance(c.get("paths"), list):
+    lista_contextos = mapa.get("contexts")
+    for c in lista_contextos if isinstance(lista_contextos, list) else []:
+        if not isinstance(c, dict) or not isinstance(c.get("name"), str) or not c["name"].strip() or not isinstance(c.get("paths"), list):
             continue
         globs = [g for g in c["paths"] if isinstance(g, str)]
         tocados = [a for a in cambiados if coincide(a, globs)]
         if tocados:
             # two entries with the same name (check-docs.py rejects it) add their files up instead of overwriting each other
-            contextos.setdefault(c["name"], []).extend(a for a in tocados if a not in contextos.get(c["name"], []))
+            lista = contextos.setdefault(c["name"], [])
+            lista += [a for a in tocados if a not in lista]
 
     sin_par = pares_sin_actualizar(cambiados)
     if "--json" in args:

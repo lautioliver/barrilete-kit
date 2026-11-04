@@ -306,6 +306,7 @@ minimo() {
   printf '# Docs\n\nIndex.\n' >"$TMP/r/docs/README.md"
   printf 'x\n' >"$TMP/r/src/ventas/x.ts"
   printf 'y\n' >"$TMP/r/src/pagos/y.ts"
+  printf '#!/bin/sh\n' >"$TMP/r/scripts/init-template.sh"  # el repo del kit: ahí el glosario es un error; en un proyecto, un aviso
   git -C "$TMP/r" init -q
   git -C "$TMP/r" add -A
   git -C "$TMP/r" commit -qm base
@@ -438,6 +439,15 @@ print(" ".join(sorted(json.load(sys.stdin)["contexts"])))
 ')
 [ "$nombres" = "pagos" ]; tap_check $? "agents_map: un contexto con name vacío no cuenta como tocado" "agents_map: contextos con un name vacío en el mapa: $nombres"
 
+# "contexts": null (o un número) no es un crash: es el error de check-docs.py, y acá no hay contextos tocados.
+printf '%s\n' '{"docs": [], "sensitive": [], "contexts": null}' >"$m/docs/agents-map.json"
+out=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>&1)
+nombres=$(printf '%s' "$out" | python3 -c '
+import json, sys
+print(len(json.load(sys.stdin)["contexts"]))
+')
+[ "$nombres" = "0" ]; tap_check $? "agents_map: contexts null no es un crash y no trae contextos" "agents_map: con contexts null, salida: $out"
+
 # 11. Los enlaces del glosario y del mapa de contextos se leen con el parser de links de check-docs: ./x.md y <x.md> cuentan,
 # y un texto dentro de un bloque de código o de `código` no es un enlace.
 con_indice() {
@@ -482,5 +492,15 @@ printf '\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.m
 printf '# Index\n\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >"$TMP/r/docs/llms.txt"
 printf '# Indice\n\nSin enlaces.\n' >"$TMP/r/docs/llms.es.txt"
 salida=$(check); [[ "$salida" == *"docs/llms.es.txt: does not link docs/reference/glossary.md"* ]]; tap_check $? "perfil completo: docs/llms.es.txt sin el enlace al glosario falla y lo nombra" "perfil completo: docs/llms.es.txt sin el enlace al glosario falla y lo nombra (salida: $salida)"
+
+# El glosario que falta en el perfil completo (docs/reference/) es un error que lo nombra, igual que en --small.
+minimo
+modo_small
+mkdir -p "$TMP/r/docs/reference"
+printf '# Contexts\n' >"$TMP/r/docs/reference/contexts.md"
+printf '{"contexts": []}\n' >"$TMP/r/docs/agents-map.json"
+printf '\n- [Contexts](reference/contexts.md)\n' >>"$TMP/r/docs/README.md"
+printf '# Index\n\n- [Contexts](reference/contexts.md)\n' >"$TMP/r/docs/llms.txt"
+salida=$(check); [[ "$salida" == *"docs/reference/glossary.md is missing"* ]]; tap_check $? "perfil completo: sin docs/reference/glossary.md check-docs falla y lo nombra" "perfil completo: sin docs/reference/glossary.md check-docs falla y lo nombra (salida: $salida)"
 
 tap_done

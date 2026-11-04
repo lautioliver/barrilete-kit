@@ -15,7 +15,7 @@ Checks:
   depends_on with names of the section and no self-dependency.
 - The glossary and the map of contexts (ADR-003 D2, D5): docs/glossary.md and docs/contexts.md in --small, and
   docs/reference/glossary.md and docs/reference/contexts.md in the full profile, present and linked from their index. Their
-  content is not checked.
+  content is not checked. An error in the kit itself, a warning in a project (no scripts/init-template.sh).
 - Example paths (TODO/...) and checks without a command left in docs/agents-map.json
   after the init.
 - Map paths (docs, sensitive, verify) that match no file (except the ones marked as optional
@@ -514,13 +514,16 @@ def enlaza(indice, ruta):
 
 if MAPA and not INSTALADO:
     indices = ["docs/README.md", "docs/README.es.md"] + ([] if SOLO_RED else ["docs/llms.txt", "docs/llms.es.txt"])
+    # Only the kit itself (where the init is still there) requires it as an error. In a project it is a warning, like the ADR index
+    # above: after update.py the kit's README may be left in .agent-kit/pending/ and that must not turn its docs CI red.
+    problemas = errores if os.path.exists("scripts/init-template.sh") else avisos
     for ruta in (["docs/glossary.md", "docs/contexts.md"] if SOLO_RED else ["docs/reference/glossary.md", "docs/reference/contexts.md"]):
         if not os.path.exists(ruta):
-            errores.append(f"{ruta} is missing: the glossary and the map of contexts are required (ADR-003 D2, D5)")
+            problemas.append(f"{ruta} is missing: the glossary and the map of contexts are required (ADR-003 D2, D5)")
             continue
         for indice in indices:
             if os.path.exists(indice) and not enlaza(indice, ruta):
-                errores.append(f"{indice}: does not link {ruta} (ADR-003 D2, D5): add the link to the index")
+                problemas.append(f"{indice}: does not link {ruta} (ADR-003 D2, D5): add the link to the index")
 
 if MAPA:
     mapa = MAPA
