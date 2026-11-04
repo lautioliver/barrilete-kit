@@ -447,4 +447,25 @@ modo_small
 con_indice "$(printf '# Docs\n\nEscribí `[Glossary](glossary.md)` y `[Contexts](contexts.md)` para enlazar.')"
 salida=$(check); [[ "$salida" == *"does not link docs/glossary.md"* ]]; tap_check $? "--small: un enlace dentro de código en línea no cuenta" "--small: un enlace dentro de código en línea no cuenta (salida: $salida)"
 
+# 12. Los índices en español (docs/README.es.md, docs/llms.es.txt) también tienen que enlazar el glosario y el mapa de contextos
+# (en el kit enlazan al archivo en inglés, igual que el resto de sus enlaces).
+minimo
+modo_small
+printf '# Docs\n\n- [Glosario](glossary.md)\n- [Contextos](contexts.md)\n' >"$TMP/r/docs/README.es.md"
+salida=$(check); [ "$salida" = "Docs OK." ]; tap_check $? "--small: docs/README.es.md que enlaza el glosario y los contextos pasa" "--small: docs/README.es.md que enlaza el glosario y los contextos pasa (salida: $salida)"
+minimo
+modo_small
+printf '# Docs\n\nSin enlaces.\n' >"$TMP/r/docs/README.es.md"
+salida=$(check); [[ "$salida" == *"docs/README.es.md: does not link docs/glossary.md"* ]]; tap_check $? "--small: docs/README.es.md sin el enlace al glosario falla y lo nombra" "--small: docs/README.es.md sin el enlace al glosario falla y lo nombra (salida: $salida)"
+minimo
+modo_small
+mkdir -p "$TMP/r/docs/reference"
+printf '# Glossary\n' >"$TMP/r/docs/reference/glossary.md"
+printf '# Contexts\n' >"$TMP/r/docs/reference/contexts.md"
+printf '{"contexts": []}\n' >"$TMP/r/docs/agents-map.json"
+printf '\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >>"$TMP/r/docs/README.md"
+printf '# Index\n\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >"$TMP/r/docs/llms.txt"
+printf '# Indice\n\nSin enlaces.\n' >"$TMP/r/docs/llms.es.txt"
+salida=$(check); [[ "$salida" == *"docs/llms.es.txt: does not link docs/reference/glossary.md"* ]]; tap_check $? "perfil completo: docs/llms.es.txt sin el enlace al glosario falla y lo nombra" "perfil completo: docs/llms.es.txt sin el enlace al glosario falla y lo nombra (salida: $salida)"
+
 tap_done
