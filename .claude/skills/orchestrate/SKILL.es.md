@@ -1,11 +1,11 @@
 ---
 name: orchestrate
-description: Reparte los issues disponibles entre subagentes que trabajan en paralelo (Haiku o Sonnet implementan según el riesgo, Opus revisa), cada uno en su worktree, y junta todo en un solo mensaje con los PRs, las consultas y lo escalado. No mergea ni publica sin confirmación. Usar con "/orchestrate", "orquestá los issues disponibles", "repartí la cola entre agentes" o similar.
+description: Reparte los issues disponibles entre agentes que trabajan en paralelo (Haiku o Sonnet implementan según el riesgo, Opus revisa), cada uno lanzado como agente `bk` o como subagente según roles.yml, cada uno en su worktree, y junta todo en un solo mensaje con los PRs, las consultas y lo escalado. No mergea ni publica sin confirmación. Usar con "/orchestrate", "orquestá los issues disponibles", "repartí la cola entre agentes" o similar.
 ---
 
 # Orquestar
 
-Sos la sesión principal: repartís, coordinás y le hablás a la persona. Los subagentes (`.claude/agents/`) implementan y revisan siguiendo `docs/agents/subagent-contract.md`; no pueden lanzar otros subagentes ni hablar con la persona, así que todo pasa por vos.
+Sos la sesión principal: repartís, coordinás y le hablás a la persona. Los agentes (`.claude/agents/`) implementan y revisan siguiendo `docs/agents/subagent-contract.md`. Cada rol se lanza en su **modo** (`roles.yml`, kit/ADR-004): `sub` es un subagente (no puede hablar con la persona ni lanzar otros: todo pasa por vos); `bk` es un agente en su propia ventana de tmux (`bk run`) que le pregunta a la persona en el momento.
 
 **Nunca** mergeás, aprobás ni publicás nada en un PR sin un "sí" explícito de la persona. `AGENTS.md` vale entero.
 
@@ -26,27 +26,37 @@ Elegí hasta **3** issues de "Can be started now", en el orden en que aparecen (
 
 Imprime el modelo y el `reason`. Es la regla de ruteo: **Haiku solo si el issue es `type:docs` o `type:task`, sin `business-logic` ni `breaking-change` y sin rutas sensibles nombradas en el texto. Lo demás, Sonnet.** Si en la autorevisión `agents_map.py` marca rutas sensibles, Haiku frena y devuelve `escalate`, y lo relanzás con Sonnet en el mismo worktree. `routing.py` se equivoca a propósito hacia Sonnet: una palabra como "infra" o "middleware" en prosa ya cuenta como ruta sensible. No cambies la regla a ojo: si un caso no encaja, proponé el cambio a `routing.py` en un issue.
 
-Mostrale a la persona una tabla (issue, título, modelo, `reason`) y esperá el "sí". Puede sacar issues o cambiar el modelo de uno a Sonnet; a Haiku solo si `routing.py` lo permite.
+Después, por rol (`implementer` o `implementer-light` según el modelo de arriba; `reviewer` más tarde), el modo: `.claude/skills/orchestrate/mode.py <rol> --root <raíz>` imprime `main`, `bk` o `sub` (el `.barrilete/roles.yml` del proyecto, y después `bk mode`). `reviewer` e `implementer-light` nunca salen como `bk` (`bk run` arranca una sesión común de `/implement-issue`, no su definición de agente): un `bk` en `roles.yml` imprime `sub`; decilo en el plan. **Sin `bk` instalado imprime `sub` para todos los roles, salvo un `main` escrito en el `roles.yml` del proyecto, y avisa por stderr**: lanzá todo como subagentes, como antes, y decilo en el plan y en el mensaje final.
+
+`main` no se lanza (sos vos o la sesión de la persona). Si `mode.py` sale con 64 (un error de tipeo en `roles.yml`, `bk` que falla), no adivines un modo: avisale a la persona y esperá.
+
+Mostrale a la persona el **plan**: una tabla (issue, título, rol, modelo, modo, `reason`), y esperá el "sí". Puede sacar issues o cambiar el modelo de uno a Sonnet; a Haiku solo si `routing.py` lo permite.
 
 ## 3. Lanzar
 
 ```bash
 git -C <raíz> fetch -q origin        # una sola vez, antes de lanzar: fetch en paralelo choca en .git/*.lock
-.claude/skills/implement-issue/prepare.sh <n> --worktree   # uno por issue, de a uno
+.claude/skills/implement-issue/prepare.sh <n> --worktree   # uno por issue cuyo modo es `sub`, de a uno
 ```
 
-`prepare.sh` valida, asigna, crea el worktree en `../<repo>-wt/<n>` e imprime `Worktree: <ruta>`. Si falla para un issue, no lo lances y anotalo para el mensaje final.
+`prepare.sh` es solo para los issues cuyo modo es `sub` (un agente `bk` lo hace solo y un issue `main` no se lanza: quedaría asignado sin nadie). Valida, asigna, crea el worktree en `../<repo>-wt/<n>` e imprime `Worktree: <ruta>`. Si falla para un issue, no lo lances y anotalo para el mensaje final.
 
-Lanzá los subagentes en paralelo, en un solo mensaje, con la herramienta Agent: `subagent_type` `implementer-light` (Haiku) o `implementer` (Sonnet). En pi, con la herramienta `subagent` de `barrilete-pi` (`packages/pi/` de la plantilla): los mismos roles en `agent`, y varios a la vez en `tasks`. Sin `isolation`: el worktree ya existe. En el prompt: número de issue, ruta del worktree, rama base (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` en tu checkout: es la versión que corre, aunque el worktree tenga otra), `skill_sha` (lo mismo con `.claude/skills/implement-issue/SKILL.md`), `retro_sh` (la ruta absoluta de `.claude/skills/improve-skills/retro.sh` en tu checkout, ya mergeado en la rama base: el implementador guarda su retro con ese, nunca con el de su worktree, que es código del PR sin revisar) y que siga su definición, y que **no invoque `/code-review` con la herramienta Skill** (una skill bifurcada mueve tu checkout): hace la pasada de bugs a mano y declara `no code-review: <motivo>`. Al revisor: número de PR, la ruta del checkout del orquestador, `agent_sha` de `reviewer.md` y `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), y la misma prohibición de `/code-review` con la herramienta Skill (declara `no code-review: <motivo>` en `review:`). **Nunca más de 3 implementando a la vez**, contando los relanzados.
+Según el modo del plan. Un agente `bk`: `bk run <n> --role <rol>` (crea el worktree y la ventana solo: no le corras `prepare.sh`), de a uno, y decile a la persona la ventana (`i<n>`). Un agente `bk` es una sesión común e independiente: no recibe `BASE`, `agent_sha`, `skill_sha` ni `retro_sh` (toma la base de la rama por defecto y su `retro.sh` de `origin/<base>`). Por eso **lanzá un issue como `bk` solo si la base de su PR es la rama por defecto del repo**; si no, lanzalo como `sub` y decilo en el plan. Un implementador `main`, o un `bk run` que falla, no se lanza: anotalo para el mensaje final. Un agente `sub`: el resto de este paso.
+
+Lanzá los agentes `sub` en paralelo, en un solo mensaje, con la herramienta Agent: `subagent_type` `implementer-light` (Haiku) o `implementer` (Sonnet). En pi, con la herramienta `subagent` de `barrilete-pi` (`packages/pi/` de la plantilla): los mismos roles en `agent`, y varios a la vez en `tasks`. Sin `isolation`: el worktree ya existe. En el prompt: número de issue, ruta del worktree, rama base (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` en tu checkout: es la versión que corre, aunque el worktree tenga otra), `skill_sha` (lo mismo con `.claude/skills/implement-issue/SKILL.md`), `retro_sh` (la ruta absoluta de `.claude/skills/improve-skills/retro.sh` en tu checkout, ya mergeado en la rama base: el implementador guarda su retro con ese, nunca con el de su worktree, que es código del PR sin revisar) y que siga su definición, y que **no invoque `/code-review` con la herramienta Skill** (una skill bifurcada mueve tu checkout): hace la pasada de bugs a mano y declara `no code-review: <motivo>`. Al revisor: número de PR, la ruta del checkout del orquestador, `agent_sha` de `reviewer.md` y `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), y la misma prohibición de `/code-review` con la herramienta Skill (declara `no code-review: <motivo>` en `review:`). **Nunca más de 3 implementando a la vez**, contando los dos modos y los relanzados.
 
 ## 4. Con cada resultado
 
-Cada subagente devuelve el bloque del contrato. Leé solo eso: nunca diffs ni retros.
+Cada agente `sub` devuelve el bloque del contrato. Un agente `bk` no te devuelve nada: seguilo con `bk ls` y leé su resultado desde el PR: la rama la creó el agente, así que sacá su nombre exacto con `git -C <worktree> branch --show-current` (o buscá el PR con `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName`: `--head` toma el nombre exacto, no un prefijo) y después `gh pr checks` (sin bloque del contrato). Cuando `bk ls` muestre terminado a un agente `bk`: con un PR abierto, tratalo como `pr` (implementador) (lanzá al `reviewer`); sin PR, buscá en el issue su pregunta y anotalo como `question`; si tampoco hay pregunta (un cuelgue, una ventana cerrada), anotalo como `dropped`. Leé solo eso: nunca diffs ni retros.
+
+Un agente `bk` cuenta para los 3 hasta que `bk ls` lo muestre terminado (no solo hasta que su PR esté abierto: sigue con el CI, la retro y las preguntas).
+
+**Cuando un agente `bk` pregunta** (texto, permiso o cuestionario; `bk ls` lo muestra esperando), mostrá en tu chat la pregunta y sus opciones. La persona contesta con `! bk say <agente> "…"` (o `bk say <agente> <n>` para la opción `n` de un cuestionario). **Vos nunca mandás una aprobación.**
 
 | `result` | Qué hacés |
 |---|---|
-| `pr` (implementador) | Lanzás un `reviewer` con lo que dice el paso 3 (PR, checkout del orquestador, `agent_sha`, `skill_sha`). **Una sola revisión por PR a la vez.** |
-| `escalate` | Relanzás `implementer` (Sonnet) en el **mismo worktree**, con el `reason`. Cuenta para el máximo de 3. |
+| `pr` (implementador) | Lanzás un `reviewer` (si su modo es `sub`; `main` → "No lanzados") con lo que dice el paso 3 (PR, checkout del orquestador, `agent_sha`, `skill_sha`). **Una sola revisión por PR a la vez.** |
+| `escalate` | Relanzás `implementer` (Sonnet), con el `reason` (en `sub`, en el prompt), **en el modo que `mode.py` da para `implementer`**: `sub` → Agent en el **mismo worktree**; `main` → no se relanza: anotalo en "No lanzados"; `bk` → `bk run <n> --role implementer`, que corre `prepare.sh` de nuevo y retoma la rama del issue (ya está asignado a la misma persona). `bk run` no puede llevar el `reason`: comentalo en el issue antes de `bk run` (`implement-issue` lee los comentarios). Solo si la base del PR es la rama por defecto del repo; si no, relanzá como `sub` en el mismo worktree, como en el paso 3. Si `bk run` falla porque la rama sigue en el worktree del primer lanzamiento, no fuerces: anotalo para el mensaje final y avisale a la persona. Cuenta para el máximo de 3. |
 | `question` / `dropped` | Lo anotás para el mensaje final. Ya está comentado en el issue. Un issue que pide tocar CI, infra u otra cosa de "consultar" termina en `question` aunque el pedido esté en el issue: no lo relances diciendo que está aprobado salvo que la persona te lo haya dicho. Vale igual para un relanzado: si Sonnet, relanzado tras un `escalate`, devuelve `question` (por ejemplo, el issue toca CI y eso pide consulta a cualquier modelo), no hay otro relanzado. |
 | `pr` (revisor) | Lo anotás con su `review:` para el mensaje final. |
 | `blockers` (revisor) | Decidís vos, con el criterio de abajo. |
@@ -69,7 +79,7 @@ Uno solo, cuando terminaron todos:
 - **Consultas pendientes**: todas juntas, con su issue, para responder de una vez.
 - **Escalados y relanzados**: qué issue, de qué modelo a cuál y por qué.
 - **Decisiones en bloqueantes**: qué elegiste y por qué.
-- **No lanzados**: los que `prepare.sh` rechazó.
+- **No lanzados**: los que `prepare.sh` rechazó, un `implementer` con modo `main` (nadie lo está trabajando) y un `bk run` que falló y un `reviewer` con modo `main` (el PR no tiene review: decilo).
 
 Ofrecé publicar las revisiones (`gh pr review <pr> --comment --body-file <archivo>`), todas o algunas. Publicá solo lo que la persona confirme. El merge lo hace ella.
 

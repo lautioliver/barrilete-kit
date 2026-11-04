@@ -208,7 +208,7 @@
         ".github/workflows/labels.yml",
         "?profiles/small/DELETE"
       ],
-      "run": "bash .claude/skills/orchestrate/test-orchestrate.sh"
+      "run": "bash .claude/skills/orchestrate/test-orchestrate.sh && bash .claude/skills/orchestrate/test-mode.sh"
     },
     {
       "name": "labels-check",

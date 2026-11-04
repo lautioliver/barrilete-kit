@@ -1,11 +1,11 @@
 ---
 name: orchestrate
-description: Distributes the available issues among subagents working in parallel (Haiku or Sonnet implement depending on risk, Opus reviews), each in its own worktree, and gathers everything in a single message with the PRs, the questions and what was escalated. It does not merge or publish without confirmation. Use with "/orchestrate", "orchestrate the available issues", "spread the queue among agents" or similar.
+description: Distributes the available issues among agents working in parallel (Haiku or Sonnet implement depending on risk, Opus reviews), each launched as a `bk` agent or a subagent according to roles.yml, each in its own worktree, and gathers everything in a single message with the PRs, the questions and what was escalated. It does not merge or publish without confirmation. Use with "/orchestrate", "orchestrate the available issues", "spread the queue among agents" or similar.
 ---
 
 # Orchestrate
 
-You are the main session: you distribute, coordinate and talk to the person. The subagents (`.claude/agents/`) implement and review following `docs/agents/subagent-contract.md`; they cannot launch other subagents or talk to the person, so everything goes through you.
+You are the main session: you distribute, coordinate and talk to the person. The agents (`.claude/agents/`) implement and review following `docs/agents/subagent-contract.md`. Each role is launched in its **mode** (`roles.yml`, kit/ADR-004): `sub` is a subagent (it cannot talk to the person or launch others: everything goes through you); `bk` is an agent in its own tmux window (`bk run`) that asks the person at the moment.
 
 **Never** merge, approve or publish anything on a PR without an explicit "yes" from the person. `AGENTS.md` applies in full.
 
@@ -26,27 +26,37 @@ Pick up to **3** issues from "Can be started now", in the order they appear (pri
 
 It prints the model and the `reason`. It is the routing rule: **Haiku only if the issue is `type:docs` or `type:task`, without `business-logic` or `breaking-change` and without sensitive paths named in the text. Everything else, Sonnet.** If in the self-review `agents_map.py` flags sensitive paths, Haiku stops and returns `escalate`, and you relaunch it with Sonnet in the same worktree. `routing.py` errs on purpose toward Sonnet: a word like "infra" or "middleware" in prose already counts as a sensitive path. Do not change the rule by eye: if a case does not fit, propose the change to `routing.py` in an issue.
 
-Show the person a table (issue, title, model, `reason`) and wait for the "yes". They can drop issues or switch one's model to Sonnet; to Haiku only if `routing.py` allows it.
+Then, per role (`implementer` or `implementer-light` for the model above; `reviewer` later), the mode: `.claude/skills/orchestrate/mode.py <role> --root <root>` prints `main`, `bk` or `sub` (the project's `.barrilete/roles.yml`, then `bk mode`). `reviewer` and `implementer-light` never come out as `bk` (`bk run` starts a plain `/implement-issue` session, not their agent definition): a `bk` in `roles.yml` prints `sub`; say it in the plan. **Without `bk` installed it prints `sub` for every role, except a `main` written in the project's `roles.yml`, and warns on stderr**: launch everything as subagents, as before, and say it in the plan and in the final message.
+
+`main` is not launched (it is you or the person's own session). If `mode.py` exits 64 (a typo in `roles.yml`, `bk` failing), do not guess a mode: tell the person and wait.
+
+Show the person the **plan**: a table (issue, title, role, model, mode, `reason`), and wait for the "yes". They can drop issues or switch one's model to Sonnet; to Haiku only if `routing.py` allows it.
 
 ## 3. Launch
 
 ```bash
 git -C <root> fetch -q origin        # only once, before launching: parallel fetches clash on .git/*.lock
-.claude/skills/implement-issue/prepare.sh <n> --worktree   # one per issue, one at a time
+.claude/skills/implement-issue/prepare.sh <n> --worktree   # one per issue whose mode is `sub`, one at a time
 ```
 
-`prepare.sh` validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. If it fails for an issue, do not launch it and note it for the final message.
+`prepare.sh` is only for the issues whose mode is `sub` (a `bk` agent does it itself and a `main` issue is not launched: it would stay assigned with nobody on it). It validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. If it fails for an issue, do not launch it and note it for the final message.
 
-Launch the subagents in parallel, in a single message, with the Agent tool: `subagent_type` `implementer-light` (Haiku) or `implementer` (Sonnet). In pi, with the `subagent` tool of `barrilete-pi` (`packages/pi/` of the template): the same roles in `agent`, and several at once in `tasks`. Without `isolation`: the worktree already exists. In the prompt: issue number, worktree path, base branch (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` in your checkout: it is the version that runs, even if the worktree has another), `skill_sha` (the same with `.claude/skills/implement-issue/SKILL.md`), `retro_sh` (the absolute path of `.claude/skills/improve-skills/retro.sh` in your checkout, already merged on the base branch: the implementer saves its retro with it, never with its worktree's, which is the PR's unreviewed code) and that it follows its definition, and that it must **not invoke `/code-review` through the Skill tool** (a forked skill moves your checkout): it does the bug pass by hand and declares `no code-review: <reason>`. To the reviewer: PR number, the orchestrator's checkout path, `agent_sha` of `reviewer.md` and `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), and the same ban on `/code-review` through the Skill tool (it declares `no code-review: <reason>` in `review:`). **Never more than 3 implementing at once**, counting the relaunched ones.
+Per the plan's mode. A `bk` agent: `bk run <n> --role <role>` (it creates the worktree and the window itself: do not run `prepare.sh` for it), one at a time, and tell the person the window (`i<n>`). A `bk` agent is a normal standalone session: it gets none of `BASE`, `agent_sha`, `skill_sha` or `retro_sh` (it takes the base from the default branch and its `retro.sh` from `origin/<base>`). So **launch an issue as `bk` only if its PR base is the repo's default branch**; if not, launch it as `sub` and say so in the plan. A `main` implementer or a `bk run` that fails is not launched: note it for the final message. A `sub` agent: the rest of this step.
+
+Launch the `sub` agents in parallel, in a single message, with the Agent tool: `subagent_type` `implementer-light` (Haiku) or `implementer` (Sonnet). In pi, with the `subagent` tool of `barrilete-pi` (`packages/pi/` of the template): the same roles in `agent`, and several at once in `tasks`. Without `isolation`: the worktree already exists. In the prompt: issue number, worktree path, base branch (`BASE=<base>`), `agent_sha` (`git log -1 --format=%H -- .claude/agents/<role>.md` in your checkout: it is the version that runs, even if the worktree has another), `skill_sha` (the same with `.claude/skills/implement-issue/SKILL.md`), `retro_sh` (the absolute path of `.claude/skills/improve-skills/retro.sh` in your checkout, already merged on the base branch: the implementer saves its retro with it, never with its worktree's, which is the PR's unreviewed code) and that it follows its definition, and that it must **not invoke `/code-review` through the Skill tool** (a forked skill moves your checkout): it does the bug pass by hand and declares `no code-review: <reason>`. To the reviewer: PR number, the orchestrator's checkout path, `agent_sha` of `reviewer.md` and `skill_sha` (`git log -1 --format=%H -- .claude/skills/review-pr/SKILL.md`), and the same ban on `/code-review` through the Skill tool (it declares `no code-review: <reason>` in `review:`). **Never more than 3 implementing at once**, counting both modes and the relaunched ones.
 
 ## 4. With each result
 
-Each subagent returns the contract block. Read only that: never diffs or retros.
+Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it with `bk ls` and read its result from the PR: its branch is the one the agent created, so take its exact name with `git -C <worktree> branch --show-current` (or find the PR with `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName`: `--head` takes the exact name, not a prefix) and then `gh pr checks` (no contract block). When `bk ls` shows a `bk` agent finished: with an open PR, treat it as `pr` (implementer) (launch the `reviewer`); without one, look at the issue for its question and note it as `question`; if there is no question either (a crash, a closed window), note it as `dropped`. Read only that: never diffs or retros.
+
+A `bk` agent counts toward the 3 until `bk ls` shows it finished (not only until its PR is open: it keeps working on CI, the retro and questions).
+
+**When a `bk` agent asks** (text, permission or questionnaire; `bk ls` shows it waiting), show the question and its options in your chat. The person answers with `! bk say <agent> "…"` (or `bk say <agent> <n>` for option `n` of a questionnaire). **You never send an approval yourself.**
 
 | `result` | What you do |
 |---|---|
-| `pr` (implementer) | Launch a `reviewer` with what step 3 says (PR, orchestrator's checkout, `agent_sha`, `skill_sha`). **Only one review per PR at a time.** |
-| `escalate` | Relaunch `implementer` (Sonnet) in the **same worktree**, with the `reason`. It counts toward the maximum of 3. |
+| `pr` (implementer) | Launch a `reviewer` (if its mode is `sub`; `main` → "Not launched") with what step 3 says (PR, orchestrator's checkout, `agent_sha`, `skill_sha`). **Only one review per PR at a time.** |
+| `escalate` | Relaunch `implementer` (Sonnet), with the `reason` (in `sub`, in the prompt), **in the mode `mode.py` gives for `implementer`**: `sub` → Agent in the **same worktree**; `main` → not relaunched: note it under "Not launched"; `bk` → `bk run <n> --role implementer`, which runs `prepare.sh` again and resumes the issue's branch (it is already assigned to the same person). `bk run` cannot take the `reason`: comment it on the issue before `bk run` (`implement-issue` reads the comments). Only if the PR's base is the repo's default branch; otherwise relaunch as `sub` in the same worktree, as in step 3. If `bk run` fails because the branch is still in the worktree of the first launch, do not force it: note it for the final message and tell the person. It counts toward the maximum of 3. |
 | `question` / `dropped` | Note it for the final message. It is already commented on the issue. An issue that asks to touch CI, infra or anything else under "ask first" ends in `question` even if the request is in the issue: do not relaunch it saying it is approved unless the person told you so. The same goes for a relaunch: if Sonnet, relaunched after an `escalate`, returns `question` (for example, the issue touches CI and that requires asking for any model), there is no other relaunch. |
 | `pr` (reviewer) | Note it with its `review:` for the final message. |
 | `blockers` (reviewer) | You decide, with the criteria below. |
@@ -69,7 +79,7 @@ Only one, when they have all finished:
 - **Pending questions**: all together, with their issue, to answer in one go.
 - **Escalated and relaunched**: which issue, from which model to which and why.
 - **Decisions on blockers**: what you chose and why.
-- **Not launched**: those `prepare.sh` rejected.
+- **Not launched**: those `prepare.sh` rejected, an `implementer` whose mode is `main` (nobody is working on it) and a `bk run` that failed, and a `reviewer` whose mode is `main` (the PR has no review: say so).
 
 Offer to publish the reviews (`gh pr review <pr> --comment --body-file <file>`), all or some. Publish only what the person confirms. They do the merge.
 
