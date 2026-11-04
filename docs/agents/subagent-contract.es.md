@@ -9,7 +9,8 @@ Cuando `roles.yml` dice `bk` para un `implementer` (kit/ADR-004; `reviewer` e `i
 - **Este contrato no le aplica.** `bk run` arranca una sesión común de `claude "/implement-issue <n>"` en el worktree: no usa `.claude/agents/<rol>.md`, nunca lee este archivo y no devuelve el bloque de salida. Sigue `implement-issue` y `AGENTS.md` con sus propias reglas: su retro con el `retro.sh` de `origin/<base>`, y no mergea ni publica nunca.
 - **Pregunta en su ventana, en el momento** (lo contrario de "no hablás con la persona"). La persona contesta desde el chat del orquestador con `! bk say <agente> "…"`. El orquestador nunca contesta por ella.
 - **Un worktree:** lo crea `bk run` (corre `prepare.sh`), no el orquestador.
-- El orquestador lo sigue con `bk ls` y no abre sus diffs ni sus retros.
+- El orquestador lo sigue por su tarea (`bk tasks --json`: estado, resultado y PR; kit/ADR-005) y no abre sus diffs ni sus retros.
+- **Cierra su tarea con `bk done`**, con el mismo vocabulario de resultados que el bloque de salida de abajo: `pr <n>`, `blockers`, `dropped "<motivo>"`, `escalate "<motivo>"`. `question` no cierra nada: pregunta en su ventana.
 
 ## Reglas
 

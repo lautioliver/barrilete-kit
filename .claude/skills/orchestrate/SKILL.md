@@ -47,11 +47,13 @@ Launch the `sub` agents in parallel, in a single message, with the Agent tool: `
 
 ## 4. With each result
 
-Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it with `bk ls` and read its result from the PR: its branch is the one the agent created, so find the PR with `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName` (`--head` takes the exact name, not a prefix) and then `gh pr checks` (no contract block). When `bk ls` shows a `bk` agent finished: with an open PR, treat it as `pr` (implementer) (launch the `reviewer`); without one, look at the issue for its question and note it as `question`; if there is no question either (a crash, a closed window), note it as `dropped`. Read only that: never diffs or retros.
+Each `sub` agent returns the contract block. A `bk` agent does not return anything to you: follow it through its task (kit/ADR-005), the entry of `bk tasks --json` whose `id` is `<n>-<role>`. `status` says whether it is working (`in_progress`), waiting for you (`waiting`) or finished, and `result` how it closed: `pr` with its number (treat it as the implementer's `pr`: look at `gh pr checks <pr>` and launch the `reviewer`), `dropped` or `escalate` with its reason (as those results). If it ended `incomplete` (without `bk done`) or `cancelled`, look at the issue for its question and note it as `question`, or as `dropped` if there is none. `bk` also leaves a `pr<n>-reviewer` task proposed: do not approve it yourself (it is the person's, ADR-005 D6). Read only that: never diffs or retros.
 
-A `bk` agent counts toward the 3 until `bk ls` shows it finished (not only until its PR is open: it keeps working on CI, the retro and questions).
+With a `bk` without tasks (it has no `bk tasks`), follow it with `bk ls` and read its result from the PR: its branch is the one the agent created, so find the PR with `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName` (`--head` takes the exact name, not a prefix) and then `gh pr checks` (no contract block). When `bk ls` shows a `bk` agent finished: with an open PR, treat it as `pr` (implementer) (launch the `reviewer`); without one, look at the issue for its question and note it as `question`; if there is no question either (a crash, a closed window), note it as `dropped`. Read only that: never diffs or retros.
 
-**When a `bk` agent asks** (text, permission or questionnaire; `bk ls` shows it waiting), show the question and its options in your chat. The person answers with `! bk say <agent> "…"` (or `bk say <agent> <n>` for option `n` of a questionnaire). **You never send an approval yourself.**
+A `bk` agent counts toward the 3 until its task is in a terminal state, or, without tasks, until `bk ls` shows it finished (not only until its PR is open: it keeps working on CI, the retro and questions).
+
+**When a `bk` agent asks** (text, permission or questionnaire; its task is `waiting`, or `bk ls` shows it waiting), show the question and its options in your chat. The person answers with `! bk say <agent> "…"` (or `bk say <agent> <n>` for option `n` of a questionnaire). **You never send an approval yourself.**
 
 | `result` | What you do |
 |---|---|

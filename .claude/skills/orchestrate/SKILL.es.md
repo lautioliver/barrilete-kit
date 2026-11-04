@@ -47,11 +47,13 @@ Lanzá los agentes `sub` en paralelo, en un solo mensaje, con la herramienta Age
 
 ## 4. Con cada resultado
 
-Cada agente `sub` devuelve el bloque del contrato. Un agente `bk` no te devuelve nada: seguilo con `bk ls` y leé su resultado desde el PR: la rama la creó el agente, así que buscá el PR con `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName` (`--head` toma el nombre exacto, no un prefijo) y después `gh pr checks` (sin bloque del contrato). Cuando `bk ls` muestre terminado a un agente `bk`: con un PR abierto, tratalo como `pr` (implementador) (lanzá al `reviewer`); sin PR, buscá en el issue su pregunta y anotalo como `question`; si tampoco hay pregunta (un cuelgue, una ventana cerrada), anotalo como `dropped`. Leé solo eso: nunca diffs ni retros.
+Cada agente `sub` devuelve el bloque del contrato. Un agente `bk` no te devuelve nada: seguilo por su tarea (kit/ADR-005), la entrada de `bk tasks --json` cuyo `id` es `<n>-<rol>`. `status` dice si trabaja (`in_progress`), te espera (`waiting`) o terminó, y `result` cómo cerró: `pr` con su número (tratalo como `pr` del implementador: mirá `gh pr checks <pr>` y lanzá al `reviewer`), `dropped` o `escalate` con su motivo (como esos resultados). Si terminó `incomplete` (sin `bk done`) o `cancelled`, buscá en el issue su pregunta y anotalo como `question`, o como `dropped` si no hay. `bk` deja además propuesta una tarea `pr<n>-reviewer`: no la apruebes vos (es de la persona, ADR-005 D6). Leé solo eso: nunca diffs ni retros.
 
-Un agente `bk` cuenta para los 3 hasta que `bk ls` lo muestre terminado (no solo hasta que su PR esté abierto: sigue con el CI, la retro y las preguntas).
+Con un `bk` sin tareas (no tiene `bk tasks`), seguilo con `bk ls` y leé su resultado desde el PR: la rama la creó el agente, así que buscá el PR con `gh pr list --search 'head:claude/<n>-' --state open --json number,headRefName` (`--head` toma el nombre exacto, no un prefijo) y después `gh pr checks` (sin bloque del contrato). Cuando `bk ls` muestre terminado a un agente `bk`: con un PR abierto, tratalo como `pr` (implementador) (lanzá al `reviewer`); sin PR, buscá en el issue su pregunta y anotalo como `question`; si tampoco hay pregunta (un cuelgue, una ventana cerrada), anotalo como `dropped`. Leé solo eso: nunca diffs ni retros.
 
-**Cuando un agente `bk` pregunta** (texto, permiso o cuestionario; `bk ls` lo muestra esperando), mostrá en tu chat la pregunta y sus opciones. La persona contesta con `! bk say <agente> "…"` (o `bk say <agente> <n>` para la opción `n` de un cuestionario). **Vos nunca mandás una aprobación.**
+Un agente `bk` cuenta para los 3 hasta que su tarea esté en un estado terminal, o, sin tareas, hasta que `bk ls` lo muestre terminado (no solo hasta que su PR esté abierto: sigue con el CI, la retro y las preguntas).
+
+**Cuando un agente `bk` pregunta** (texto, permiso o cuestionario; su tarea está en `waiting`, o `bk ls` lo muestra esperando), mostrá en tu chat la pregunta y sus opciones. La persona contesta con `! bk say <agente> "…"` (o `bk say <agente> <n>` para la opción `n` de un cuestionario). **Vos nunca mandás una aprobación.**
 
 | `result` | Qué hacés |
 |---|---|
