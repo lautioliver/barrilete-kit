@@ -11,6 +11,7 @@ It avoids starting to code too early. First you understand what is there, then y
 
 Before proposing anything, read:
 - `docs/development/architecture.md`, `docs/reference/` (domain, modules, surfaces) and the related ADRs.
+- The glossary (`docs/reference/glossary.md`) and the contexts map (`docs/reference/contexts.md`): the plan uses their terms and names the contexts it touches. The rules are in ADR-003.
 - The code of the modules that will be touched: how it is built today, not how it should be.
 - `docs/development/roadmap.md` and `horizon.md`: was it already planned? Does it clash with anything?
 - Related open issues (`gh issue list --search …`) and `.claude/skills/project-status/available.sh`.
@@ -29,11 +30,11 @@ What is achieved and for whom. What is explicitly left out.
 How what will be touched works today (with paths).
 
 ## Affected components
-Modules, tables, endpoints, screens. Mark the sensitive ones (docs/agents-map.json).
+Modules, tables, endpoints, screens. Mark the sensitive ones (docs/agents-map.json). Name the bounded contexts they touch (docs/reference/contexts.md).
 
 ## Decisions needed
 What has to be decided before building, with options and a recommendation.
-The hard-to-revert ones → propose an ADR.
+The hard-to-revert ones → propose an ADR. A new dependency between contexts (not in `depends_on`) is one of them.
 
 ## Risks
 What can go wrong (data, money, security, performance, active users) and how it is mitigated.

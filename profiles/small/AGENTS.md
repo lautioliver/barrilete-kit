@@ -20,6 +20,8 @@ TODO: language, framework, database.
 
 TODO: the rules an agent would break if it did not read them (error format, where the logic goes, how dates or money are handled…).
 
+- Domain terms: use the words of `docs/glossary.md` in code, issues and PRs. A dependency between contexts that is not in the table of `docs/contexts.md` needs an ADR. While the glossary is still `TODO`, propose the terms in the PR that introduces them instead of blocking (ADR-003).
+
 ## Agent autonomy
 
 **Can do on its own:** change code and tests within what the issue asks, internal refactors, update docs, open PRs (never merge them).
@@ -50,5 +52,7 @@ Details in `docs/github-naming-convention.md`.
 
 - `docs/README.md` — index
 - `docs/architecture.md` — what runs today (if it does not match the code, the code wins and this gets fixed)
+- `docs/glossary.md` — the domain terms, in the words the code uses (ADR-003)
+- `docs/contexts.md` — the bounded contexts and what each one depends on (ADR-003)
 - `docs/decisions/` — ADRs
 - `docs/github-naming-convention.md` — branches, commits, PRs, labels

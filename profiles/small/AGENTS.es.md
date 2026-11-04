@@ -20,6 +20,8 @@ TODO: lenguaje, framework, base de datos.
 
 TODO: las reglas que un agente rompería si no las lee (formato de errores, dónde va la lógica, cómo se manejan fechas o dinero…).
 
+- Términos del dominio: usá las palabras de `docs/glossary.md` en código, issues y PRs. Una dependencia entre contextos que no está en la tabla de `docs/contexts.md` necesita un ADR. Mientras el glosario siga en `TODO`, proponé los términos en el PR que los introduce en vez de bloquear (ADR-003).
+
 ## Autonomía del agente
 
 **Puede solo:** cambiar código y tests dentro de lo que pide el issue, refactors internos, actualizar docs, abrir PRs (nunca mergearlos).
@@ -50,5 +52,7 @@ Detalle en `docs/github-naming-convention.md`.
 
 - `docs/README.md` — índice
 - `docs/architecture.md` — qué corre hoy (si no coincide con el código, gana el código y se corrige)
+- `docs/glossary.md` — los términos del dominio, con las palabras que usa el código (ADR-003)
+- `docs/contexts.md` — los contextos acotados y de qué depende cada uno (ADR-003)
 - `docs/decisions/` — ADRs
 - `docs/github-naming-convention.md` — ramas, commits, PRs, labels

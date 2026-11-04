@@ -28,6 +28,7 @@ TODO: the code rules an agent would break if it did not read them. Examples:
 - Money in integers (cents).
 - Business logic in services, thin routes.
 - Concurrent operations atomic in the database, never read-modify-write.
+- Domain terms: use the words of `docs/reference/glossary.md` in code, issues and PRs. A dependency between contexts that is not in `depends_on` of `docs/agents-map.json` (`contexts`; see `docs/reference/contexts.md`) needs an ADR. While the glossary is still `TODO`, propose the terms in the PR that introduces them instead of blocking (ADR-003).
 
 Always:
 - Never secrets in logs, code or repo. `.env*` are ignored.
@@ -96,6 +97,8 @@ Nothing goes into the trunk branches without a PR. The only branch written witho
 - `docs/github-naming-convention.md` — branches, commits, PRs, issues, labels
 - `docs/agents-map.json` — which docs to review depending on what changes, sensitive paths, required docs
 - `docs/reference/` — glossary, domain, surfaces, modules, journeys
+- `docs/reference/glossary.md` — the domain terms, in the words the code uses (ADR-003)
+- `docs/reference/contexts.md` — the bounded contexts and what each one depends on (ADR-003)
 - `docs/development/` — setup, architecture, vision, roadmap, horizon, deploy, audits
 - `docs/guides/` — integrations and usage guides
 - `docs/decisions/` — ADRs

@@ -11,6 +11,7 @@ Evita empezar a programar demasiado pronto. Primero se entiende qué hay, despu�
 
 Antes de proponer nada, leé:
 - `docs/development/architecture.md`, `docs/reference/` (dominio, módulos, superficies) y los ADRs relacionados.
+- El glosario (`docs/reference/glossary.md`) y el mapa de contextos (`docs/reference/contexts.md`): el plan usa sus términos y nombra los contextos que toca. Las reglas están en el ADR-003.
 - El código de los módulos que se van a tocar: cómo está hecho hoy, no cómo debería estar.
 - `docs/development/roadmap.md` y `horizon.md`: ¿ya estaba pensado? ¿choca con algo?
 - Issues abiertos relacionados (`gh issue list --search …`) y `.claude/skills/project-status/available.sh`.
@@ -29,11 +30,11 @@ Qué se logra y para quién. Qué queda explícitamente afuera.
 Cómo funciona hoy lo que se va a tocar (con rutas).
 
 ## Componentes afectados
-Módulos, tablas, endpoints, pantallas. Marcar los sensibles (docs/agents-map.json).
+Módulos, tablas, endpoints, pantallas. Marcar los sensibles (docs/agents-map.json). Nombrar los contextos acotados que toca (docs/reference/contexts.md).
 
 ## Decisiones necesarias
 Lo que hay que decidir antes de construir, con opciones y recomendación.
-Las difíciles de revertir → proponer ADR.
+Las difíciles de revertir → proponer ADR. Una dependencia nueva entre contextos (que no está en `depends_on`) es una de ellas.
 
 ## Riesgos
 Qué puede salir mal (datos, dinero, seguridad, rendimiento, usuarios activos) y cómo se mitiga.

@@ -28,6 +28,7 @@ TODO: las reglas de código que un agente rompería si no las lee. Ejemplos:
 - Dinero en enteros (centavos).
 - Lógica de negocio en servicios, rutas finas.
 - Operaciones concurrentes atómicas en la base, nunca read-modify-write.
+- Términos del dominio: usá las palabras de `docs/reference/glossary.md` en código, issues y PRs. Una dependencia entre contextos que no está en `depends_on` de `docs/agents-map.json` (`contexts`; ver `docs/reference/contexts.md`) necesita un ADR. Mientras el glosario siga en `TODO`, proponé los términos en el PR que los introduce en vez de bloquear (ADR-003).
 
 Siempre:
 - Nunca secretos en logs, código o repo. `.env*` están ignorados.
@@ -96,6 +97,8 @@ Nada entra a las ramas troncales sin PR. La única rama que se escribe sin PR es
 - `docs/github-naming-convention.md` — ramas, commits, PRs, issues, labels
 - `docs/agents-map.json` — qué docs revisar según lo que cambia, rutas sensibles, docs obligatorios
 - `docs/reference/` — glosario, dominio, superficies, módulos, recorridos
+- `docs/reference/glossary.md` — los términos del dominio, con las palabras que usa el código (ADR-003)
+- `docs/reference/contexts.md` — los contextos acotados y de qué depende cada uno (ADR-003)
 - `docs/development/` — setup, arquitectura, visión, roadmap, horizonte, deploy, auditorías
 - `docs/guides/` — integraciones y guías de uso
 - `docs/decisions/` — ADRs
