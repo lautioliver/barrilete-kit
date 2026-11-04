@@ -355,8 +355,8 @@ AG="$RAIZ/AGENTS.md"
 
 # 10. Seguimiento del #237 (#246).
 [ "$(ninguna 'gh pr list --head' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): ya no busca el PR con gh pr list --head"
-[ "$(cada 'D3.*(--search|head:claude)' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): busca el PR con --search head:claude/<n>-"
-[ "$(cada 'gh pr list --search' "$ADR4")" = ok ]; tap_check $? "ADR-004: cita gh pr list --search"
+[ "$(cada 'D3\. (How|Cómo).*(--search|head:claude)' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): busca el PR con --search head:claude/<n>-"
+[ "$(cada 'D3\. (How|Cómo).*gh pr list --search' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): cita gh pr list --search"
 [ "$(cada '#246' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): cita el cambio de redacción de D3 (#246)"
 RD="$RAIZ/README.md"
 [ "$(cada 'only the `implementer` as a `bk` agent|solo al `implementer`' "$RD")" = ok ]; tap_check $? "README: solo el implementer puede ser bk, dicho una vez"
@@ -364,7 +364,9 @@ RD="$RAIZ/README.md"
 [ "$(ninguna 'lanzar un rol como agente `bk`|launch a role as a `bk` agent' "$RD")" = ok ]; tap_check $? "README: ya no dice que cualquier rol puede ser bk"
 
 # 11. Review del #251.
-[ "$(ninguna '2>/dev/null|read stdout alone|leé solo stdout' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): no manda descartar stderr"
+mkdir -p "$TMP/paso3"; for f in SKILL SKILL.es; do [ -f "$AQUI/$f.md" ] && grep -E 'mode\.py <(role|rol)>' <"$AQUI/$f.md" >"$TMP/paso3/$f.md"; done
+[ "$(grep -c . <"$TMP/paso3/SKILL.md")" = 1 ]; tap_check $? "orquestar (paso 3): el párrafo de mode.py se encontró (una línea)"
+[ "$(ninguna '2>/dev/null|read stdout alone|leé solo stdout' "$TMP/paso3/SKILL.md")" = ok ]; tap_check $? "orquestar (paso 3): no manda descartar stderr"
 [ "$(cada '(stdout and stderr apart|stdout y stderr separados) \((no|sin) `2>&1`\)' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): stdout es el modo, stderr va al plan (en y es igual)"
 [ "$(cada 'roles.yml` or from `bk mode`|roles.yml` o de `bk mode`' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): el aviso vale también cuando el bk viene de bk mode"
 [ "$(ninguna 'confirmed D3 as it reads now|confirmó D3 con la redacción actual' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): no atribuye la redacción actual de D3 al segundo comentario"
