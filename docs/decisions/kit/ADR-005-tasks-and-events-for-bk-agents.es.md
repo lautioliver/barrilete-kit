@@ -70,3 +70,7 @@ Esta pregunta no está decidida y queda para el issue de implementación:
   - **kit**: un hook nuevo en `scripts/agents/` que emite los eventos, registrado en `.claude/settings.json` y `.codex/hooks.json`. Tocar ese registro es tocar CI e infraestructura, y este ADR es la aprobación.
   - **kit**: `/implement-issue` y `/review-pr` (en y es) terminan con `bk done` cuando existe `BK_TASK_DIR`.
   - **kit**: la enmienda de ADR-004 (D7) y una nota en docs/agents/subagent-contract.md.
+
+## Enmienda 2026-11-04
+
+Decidido por @lautioliver en el chat, 2026-11-04 (opción c, en la revisión de lautioliver/barrilete-kit#253). **D6 cambia para un agente que lanzó un orquestador:** `/orchestrate` lanza con `bk run <n> --role <rol> --orchestrated`, la tarea guarda `orchestrated: true` y, cuando cierra con `pr <n>`, `bk` no crea `pr<n>-reviewer`: al reviewer lo lanza el orquestador (como subagente, ADR-004). Sin `--orchestrated` (la persona lanzó al agente), D6 sigue igual. Así no quedan dos caminos para la misma revisión. El texto aceptado de arriba no se reescribe.

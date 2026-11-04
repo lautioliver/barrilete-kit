@@ -70,3 +70,7 @@ This question is not decided and is left for the implementation issue:
   - **kit**: a new hook in `scripts/agents/` that emits the events, registered in `.claude/settings.json` and `.codex/hooks.json`. Touching that registration is touching CI and infrastructure, and this ADR is the approval.
   - **kit**: `/implement-issue` and `/review-pr` (en and es) end with `bk done` when `BK_TASK_DIR` exists.
   - **kit**: the ADR-004 amendment (D7) and a note in docs/agents/subagent-contract.md.
+
+## Amendment 2026-11-04
+
+Decided by @lautioliver in the chat, 2026-11-04 (option c, in the review of lautioliver/barrilete-kit#253). **D6 changes for an agent launched by an orchestrator:** `/orchestrate` launches with `bk run <n> --role <role> --orchestrated`, the task stores `orchestrated: true` and, when it closes with `pr <n>`, `bk` does not create `pr<n>-reviewer`: the orchestrator launches the reviewer (as a subagent, ADR-004). Without `--orchestrated` (the person launched the agent), D6 stays the same. So there are not two paths for the same review. The accepted text above is not rewritten.
