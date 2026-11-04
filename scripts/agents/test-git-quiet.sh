@@ -13,6 +13,10 @@ tap_begin "$0"
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# Un repo vacío desde donde leer la config: git config --list sin -C también lee el .git/config del cwd (un gc.auto=0 de ahí taparía al helper).
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-git-quiet-XXXXXX")
+tap_at_exit 'rm -rf "$TMP"'
+git init -q "$TMP"
 
 # Sin entradas previas: el helper deja gc.auto en 0 y maintenance.auto en false para los git que lance.
 cfg=$(unset GIT_CONFIG_COUNT; git_quiet_env; git config --list 2>/dev/null)
@@ -32,5 +36,11 @@ msg=$(export GIT_CONFIG_COUNT=abc; trap - ERR; git_quiet_env 2>&1; true)
 grep -qF "GIT_CONFIG_COUNT" <<<"$msg"; tap_check $? "con un GIT_CONFIG_COUNT no numérico, el helper avisa por qué aborta"
 valor=$(export GIT_CONFIG_COUNT=abc; trap - ERR; git_quiet_env 2>/dev/null; echo "$GIT_CONFIG_COUNT")
 [ "$valor" = abc ]; tap_check $? "con un GIT_CONFIG_COUNT no numérico, el helper no lo pisa"
+
+# Con un GIT_CONFIG_COUNT con ceros adelante (010 son diez entradas, no ocho): el helper lo lee en base 10, suma las suyas detrás y conserva las diez.
+cfg=$(export GIT_CONFIG_COUNT=010; for i in 0 1 2 3 4 5 6 7 8 9; do export "GIT_CONFIG_KEY_$i=x.k$i" "GIT_CONFIG_VALUE_$i=v$i"; done; git_quiet_env; git -C "$TMP" config --list 2>/dev/null)
+grep -qxF x.k9=v9 <<<"$cfg"; tap_check $? "con un GIT_CONFIG_COUNT con ceros adelante, se conserva la última entrada previa"
+grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "con un GIT_CONFIG_COUNT con ceros adelante, los git no corren gc automático"
+grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "con un GIT_CONFIG_COUNT con ceros adelante, los git no corren mantenimiento automático"
 
 tap_done
