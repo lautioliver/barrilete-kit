@@ -214,8 +214,17 @@ jobs:
               // Every "red commit:" line (the block's and the extra <details>) has to be a commit of this PR (issue #243): a block copied
               // from another PR is well formed and only the commits of the PR show that its sha is not one of them. Linear: one pass over
               // the lines, the sha is compared as a prefix of the commits' full shas.
-              const shas = lineas(body).map(l => l.trim()).filter(l => /^red commit:/i.test(l)).map(l => l.slice(11).trim())
-                .filter(s => /^[0-9a-f]{7,64}$/i.test(s)).map(s => s.toLowerCase());
+              // A line that is not a sha is an error too (it is not dropped): the same rule as the block's, in every block.
+              const shas = [];
+              let noHex = false;
+              for (const l of lineas(body)) {
+                const t = l.trim();
+                if (!/^red commit:/i.test(t)) continue;
+                const s = t.slice(11).trim();
+                if (/^[0-9a-f]{7,64}$/i.test(s)) shas.push(s.toLowerCase());
+                else noHex = true;
+              }
+              if (noHex) errors.push('"red commit:" needs a hexadecimal sha (7 to 64 characters) on every line that has it, the extra <details> too.');
               if (shas.length) {
                 const commits = await github.paginate(github.rest.pulls.listCommits, {
                   ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100,
