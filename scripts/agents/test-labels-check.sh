@@ -23,12 +23,13 @@ const job = next < 0 ? src.slice(from) : src.slice(from, from + 1 + next);
 const start = job.indexOf('script: |\n') + 'script: |\n'.length;
 const script = job.slice(start).split('\n').map(l => l.replace(/^ {12}/, '')).join('\n');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-const run = async (body, { labels = ['type:task'], ref = 'claude/1-x', files = [] } = {}) => {
+// The commits of the PR (pulls.listCommits): the red commit of the body has to be one of them (issue #243).
+const run = async (body, { labels = ['type:task'], ref = 'claude/1-x', files = [], commits = [{ sha: '0123abc4' + 'f'.repeat(32) }] } = {}) => {
   const out = { failed: null };
   const pr = { labels: labels.map(name => ({ name })), body, head: { ref } };
   const github = {
-    rest: { pulls: { get: async () => ({ data: pr }), listFiles: 'listFiles' } },
-    paginate: async () => files.map(filename => ({ filename })),
+    rest: { pulls: { get: async () => ({ data: pr }), listFiles: 'listFiles', listCommits: 'listCommits' } },
+    paginate: async fn => (fn === 'listCommits' ? commits : files.map(filename => ({ filename }))),
   };
   const context = { repo: { owner: 'o', repo: 'r' }, payload: { pull_request: { number: 1 } } };
   const core = { setFailed: m => { out.failed = m; }, info() {}, notice() {}, warning() {} };
@@ -165,13 +166,17 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const run = async body => {
   const out = { failed: null };
   const pr = { labels: [{ name: 'type:task' }], body, head: { ref: 'claude/1-x' } };
-  const github = { rest: { pulls: { get: async () => ({ data: pr }), listFiles: 'listFiles' } }, paginate: async () => [] };
+  const commits = [{ sha: '0123abc4' + 'f'.repeat(32) }];
+  const github = {
+    rest: { pulls: { get: async () => ({ data: pr }), listFiles: 'listFiles', listCommits: 'listCommits' } },
+    paginate: async fn => (fn === 'listCommits' ? commits : []),
+  };
   const context = { repo: { owner: 'o', repo: 'r' }, payload: { pull_request: { number: 1 } } };
   const core = { setFailed: m => { out.failed = m; }, info() {}, notice() {}, warning() {} };
   await new AsyncFunction('github', 'context', 'core', script)(github, context, core);
   return out.failed;
 };
-const T = 'Closes #1\n<details><summary>Red before implementing</summary>\n\n';
+const T ='Closes #1\n<details><summary>Red before implementing</summary>\n\n';
 const G = (n = 'bash', f = 'tap', c = '- scripts/a/test-x.sh::some-id') => `stack: ${n}\nformat: ${f}\nfailing cases:\n${c}\n\n`;
 const R = 'red commit: 0123abc4\n\n';
 const E = '</details>\n';
@@ -197,6 +202,10 @@ const cases = {
   'valid-block-with-no-tests-passes': [T + R + G() + E + 'no tests: the concurrency part cannot be tested here', null],
   'malformed-block-with-no-tests-fails': [T + R + 'stack: bash\nfailing cases:\n- a::b\n\n' + E + 'no tests: the concurrency part cannot be tested here', /format:/],
   'prose-no-tests-with-malformed-block-fails': [T + G() + E + 'there are no tests: the old module had none', /red commit:/],
+  // The red commit has to be a commit of this PR (issue #243): a block copied from another PR has a well-formed sha of its own.
+  'red-commit-not-in-pr-fails': [T + 'red commit: deadbeef1\n\n' + G() + E, /red commit deadbeef1 is not a commit of this PR/],
+  'red-commit-short-in-pr-passes': [T + 'red commit: 0123abc\n\n' + G() + E, null],
+  'red-commit-of-another-details-not-in-pr-fails': [T + R + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: cafe1234\n\n' + G('pytest', 'junit') + E, /red commit cafe1234 is not a commit of this PR/],
 };
 const N = 10000;
 const perf = {
@@ -248,6 +257,9 @@ lc_case title-with-no-tests-reason-fails; tap_check $? "structured-title-plus-no
 lc_case valid-block-with-no-tests-passes; tap_check $? "structured-valid-block-plus-no-tests-passes"
 lc_case malformed-block-with-no-tests-fails; tap_check $? "structured-malformed-block-plus-no-tests-fails"
 lc_case prose-no-tests-with-malformed-block-fails; tap_check $? "structured-prose-no-tests-plus-malformed-block-fails"
+lc_case red-commit-not-in-pr-fails; tap_check $? "red-commit-not-in-pr-fails"
+lc_case red-commit-short-in-pr-passes; tap_check $? "red-commit-short-sha-in-pr-passes"
+lc_case red-commit-of-another-details-not-in-pr-fails; tap_check $? "red-commit-in-extra-details-not-in-pr-fails"
 lc_perf spaces; tap_check $? "structured-block-performance-spaces"
 lc_perf colons; tap_check $? "structured-block-performance-colons"
 lc_perf lines; tap_check $? "structured-block-performance-many-lines"
