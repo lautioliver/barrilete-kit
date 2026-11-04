@@ -510,7 +510,7 @@ def enlaza(indice, ruta):
 
 
 if MAPA and not INSTALADO:
-    indices = ["docs/README.md"] + ([] if SOLO_RED else ["docs/llms.txt"])
+    indices = ["docs/README.md", "docs/README.es.md"] + ([] if SOLO_RED else ["docs/llms.txt", "docs/llms.es.txt"])
     for ruta in (["docs/glossary.md", "docs/contexts.md"] if SOLO_RED else ["docs/reference/glossary.md", "docs/reference/contexts.md"]):
         if not os.path.exists(ruta):
             errores.append(f"{ruta} is missing: the glossary and the map of contexts are required (ADR-003 D2, D5)")
