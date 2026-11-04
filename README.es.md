@@ -223,7 +223,7 @@ En `.claude/agents/`, cada rol con su modelo:
 | 🪶 | `implementer-light` | Haiku | Issues chicos sin rutas sensibles ni lógica de negocio. Si se encuentra con algo de eso, frena y escala. |
 | 👀 | `reviewer` | Opus | `review-pr` desde otro contexto, en un worktree propio. No publica: devuelve los hallazgos. |
 
-Los lanza `/orchestrate` desde la sesión principal. Comparten las reglas y el formato de salida de `docs/agents/subagent-contract.md`, y cada uno trabaja en su propio worktree (`prepare.sh <n> --worktree`). Con `bk`, `roles.yml` puede lanzar un `implementer` como agente `bk` (`bk run`). Solo un `implementer` puede ser `bk` (`reviewer` e `implementer-light` corren siempre como subagentes), y es una sesión común de `/implement-issue` que le pregunta a la persona en el momento, fuera de ese contrato. `check-docs.py` valida que cada uno tenga modelo, herramientas y el contrato.
+Los lanza `/orchestrate` desde la sesión principal. Comparten las reglas y el formato de salida de `docs/agents/subagent-contract.md`, y cada uno trabaja en su propio worktree (`prepare.sh <n> --worktree`). Con `bk`, `roles.yml` puede lanzar como agente `bk` solo al `implementer` (`bk run`); `reviewer` e `implementer-light` corren siempre como subagentes. Un agente `bk` es una sesión común de `/implement-issue` que le pregunta a la persona en el momento, fuera de ese contrato. `check-docs.py` valida que cada uno tenga modelo, herramientas y el contrato.
 
 ### 🌱 Cómo aprenden
 
