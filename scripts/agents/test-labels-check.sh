@@ -163,17 +163,21 @@ const job = next < 0 ? src.slice(from) : src.slice(from, from + 1 + next);
 const start = job.indexOf('script: |\n') + 'script: |\n'.length;
 const script = job.slice(start).split('\n').map(l => l.replace(/^ {12}/, '')).join('\n');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-const run = async body => {
+const run = async (body, { apiError = false } = {}) => {
   const out = { failed: null };
   const pr = { labels: [{ name: 'type:task' }], body, head: { ref: 'claude/1-x' } };
   const commits = [{ sha: '0123abc4' + 'f'.repeat(32) }];
   const github = {
     rest: { pulls: { get: async () => ({ data: pr }), listFiles: 'listFiles', listCommits: 'listCommits' } },
-    paginate: async fn => (fn === 'listCommits' ? commits : []),
+    paginate: async fn => {
+      if (fn === 'listCommits' && apiError) throw new Error('boom 502');
+      return fn === 'listCommits' ? commits : [];
+    },
   };
   const context = { repo: { owner: 'o', repo: 'r' }, payload: { pull_request: { number: 1 } } };
   const core = { setFailed: m => { out.failed = m; }, info() {}, notice() {}, warning() {} };
-  await new AsyncFunction('github', 'context', 'core', script)(github, context, core);
+  // A script that throws is a failed case (it reaches the assertion), not a crash of this harness.
+  try { await new AsyncFunction('github', 'context', 'core', script)(github, context, core); } catch (e) { return 'the script threw: ' + e.message; }
   return out.failed;
 };
 const T = 'Closes #1\n<details><summary>Red before implementing</summary>\n\n';
@@ -212,6 +216,23 @@ const cases = {
   'red-commit-ninguno-with-no-tests-passes': ['Closes #1\nno tests: only docs\nred commit: ninguno, no hay tests\n', null],
   'red-commit-in-code-block-passes': [T + R + G() + E + '```\nred commit: deadbeef1\n```\n', null],
   'red-commit-not-hex-gives-one-error': [T + 'red commit: <sha>\n\n' + G() + E, /^PR out of convention:\n- [^\n]*hexadecimal[^\n]*$/],
+  // 2.ª review de #247. Un bloque del rojo citado dentro de un bloque de código no se chequea (ni se toma por el principal).
+  'red-block-quoted-in-fence-after-passes': [T + R + G() + E + '```\n<details><summary>Red before implementing</summary>\nred commit: deadbeef1\n</details>\n```\n', null],
+  'red-block-quoted-in-fence-before-passes': ['Closes #1\n```\n<details><summary>Red before implementing</summary>\nred commit: <sha>\n</details>\n```\n' + T.split('\n').slice(1).join('\n') + R + G() + E, null],
+  'red-commit-after-fence-closes-is-checked': [T + R + G() + E + '```\nx\n```\n<details><summary>Red for the pytest stack</summary>\n\nred commit: cafe1234\n\n' + G('pytest', 'junit') + E, /red commit cafe1234 is not a commit of this PR/],
+  // Un <details> extra cuyo <summary> no empieza con Red/Rojo, pero trae "red commit:", se chequea igual.
+  'red-commit-in-details-with-other-summary-not-in-pr-fails': [T + R + G() + E + '<details><summary>pytest stack: red</summary>\n\nred commit: deadbeef9\n\n' + G('pytest', 'junit') + E, /red commit deadbeef9 is not a commit of this PR/],
+  'red-commit-in-details-with-other-summary-not-hex-fails': [T + R + G() + E + '<details><summary>pytest stack: red</summary>\n\nred commit: <sha>\n\n' + G('pytest', 'junit') + E, /hexadecimal/],
+  'red-flags-details-without-red-commit-passes': [T + R + G() + E + '<details><summary>Red flags</summary>\n\nnothing to see\n\n</details>\n', null],
+  // Un <details> anidado no cierra antes de tiempo (ni en el bloque principal ni en los extra).
+  'nested-details-in-extra-block-keeps-checking': [T + R + G() + E + '<details><summary>Red for the pytest stack</summary>\n<details><summary>logs</summary>x</details>\nred commit: cafe1234\n\n' + G('pytest', 'junit') + E, /red commit cafe1234 is not a commit of this PR/],
+  'nested-details-closing-on-its-own-line-keeps-checking': [T + R + G() + E + '<details><summary>Red for the pytest stack</summary>\n<details><summary>logs</summary>\nx\n</details>\nred commit: cafe1234\n\n' + G('pytest', 'junit') + E, /red commit cafe1234 is not a commit of this PR/],
+  'nested-details-in-main-block-passes': [T + '<details><summary>logs</summary>x</details>\n' + R + '<details><summary>more</summary>\ny\n</details>\n' + G() + E, null],
+  // Los dos errores de sha no hexadecimal (bloque principal y extra) salen juntos, en un solo mensaje, y el de "no es de este PR" también.
+  'red-commit-not-hex-main-and-extra-give-one-error': [T + 'red commit: <sha>\n\n' + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: <otro>\n\n' + G('pytest', 'junit') + E, /^PR out of convention:\n- [^\n]*hexadecimal[^\n]*$/],
+  'red-commit-not-hex-main-and-extra-not-in-pr-show-both': [T + 'red commit: <sha>\n\n' + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: deadbeef1\n\n' + G('pytest', 'junit') + E, /hexadecimal[^]*red commit deadbeef1 is not a commit of this PR/],
+  // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
+  'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
 };
 const N = 10000;
 const perf = {
@@ -225,8 +246,8 @@ const perf = {
 (async () => {
   const [mode, name] = [process.argv[3], process.argv[4]];
   if (mode === 'case') {
-    const [body, re] = cases[name];
-    const failed = await run(body);
+    const [body, re, opts] = cases[name];
+    const failed = await run(body, opts);
     const good = re === null ? failed === null : failed !== null && re.test(failed);
     if (!good) console.log('got: ' + JSON.stringify(failed));
     process.exit(good ? 0 : 3);
@@ -271,6 +292,18 @@ lc_case red-commit-in-prose-outside-block-passes; tap_check $? "red-commit-in-pr
 lc_case red-commit-ninguno-with-no-tests-passes; tap_check $? "red-commit-ninguno-with-no-tests-passes"
 lc_case red-commit-in-code-block-passes; tap_check $? "red-commit-in-code-block-passes"
 lc_case red-commit-not-hex-gives-one-error; tap_check $? "red-commit-not-hex-gives-one-error"
+lc_case red-block-quoted-in-fence-after-passes; tap_check $? "red-block-quoted-in-fence-after-passes"
+lc_case red-block-quoted-in-fence-before-passes; tap_check $? "red-block-quoted-in-fence-before-passes"
+lc_case red-commit-after-fence-closes-is-checked; tap_check $? "red-commit-after-fence-closes-is-checked"
+lc_case red-commit-in-details-with-other-summary-not-in-pr-fails; tap_check $? "red-commit-in-details-with-other-summary-not-in-pr-fails"
+lc_case red-commit-in-details-with-other-summary-not-hex-fails; tap_check $? "red-commit-in-details-with-other-summary-not-hex-fails"
+lc_case red-flags-details-without-red-commit-passes; tap_check $? "red-flags-details-without-red-commit-passes"
+lc_case nested-details-in-extra-block-keeps-checking; tap_check $? "nested-details-in-extra-block-keeps-checking"
+lc_case nested-details-closing-on-its-own-line-keeps-checking; tap_check $? "nested-details-closing-on-its-own-line-keeps-checking"
+lc_case nested-details-in-main-block-passes; tap_check $? "nested-details-in-main-block-passes"
+lc_case red-commit-not-hex-main-and-extra-give-one-error; tap_check $? "red-commit-not-hex-main-and-extra-give-one-error"
+lc_case red-commit-not-hex-main-and-extra-not-in-pr-show-both; tap_check $? "red-commit-not-hex-main-and-extra-not-in-pr-show-both"
+lc_case list-commits-api-error-is-reported; tap_check $? "list-commits-api-error-is-reported"
 lc_perf spaces; tap_check $? "structured-block-performance-spaces"
 lc_perf colons; tap_check $? "structured-block-performance-colons"
 lc_perf lines; tap_check $? "structured-block-performance-many-lines"
