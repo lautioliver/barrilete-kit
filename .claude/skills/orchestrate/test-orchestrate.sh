@@ -333,8 +333,8 @@ AG="$RAIZ/AGENTS.md"
 [ "$(cada 'branch --show-current' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): la rama exacta del agente bk sale de git branch --show-current"
 [ "$(cada '(An|Un) `implementer` that|`implementer` que `roles.yml`' "$AG")" = ok ]; tap_check $? "AGENTS.md (subagentes): solo un implementer puede ser bk"
 [ "$(cada '`reviewer`.*`implementer-light`.*(always|siempre)' "$AG")" = ok ]; tap_check $? "AGENTS.md (subagentes): reviewer e implementer-light corren siempre como sub"
-[ "$(cada 'Only if the PR.s base is the default branch|Solo si la base del PR es la rama por defecto' "$OS")" = ok ]; tap_check $? "orquestar (escalate): la condición de la base va al final de la fila"
-[ "$(cada '`dropped`.*(no PR|sin PR)|(no PR|sin PR).*`dropped`' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): un agente bk terminado sin PR ni comentario es dropped"
+[ "$(cada 'Only if the PR.s base is the repo.s default branch|Solo si la base del PR es la rama por defecto del repo' "$OS")" = ok ]; tap_check $? "orquestar (escalate): la condición de la base va al final de la fila"
+[ "$(cada '(no question either|tampoco hay pregunta).*`dropped`' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): un agente bk terminado sin PR ni comentario es dropped"
 [ "$(cada '(comment|comentario) .*before `bk run`|antes de `bk run`' "$OS")" = ok ]; tap_check $? "orquestar (escalate): dice dónde va el reason en modo bk"
 
 tap_done
