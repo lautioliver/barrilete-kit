@@ -4,7 +4,7 @@
 
 Propuesto
 
-Origen: lautioliver/barrilete-kit#244. Decidido por @lautioliver en el chat (2026-11-04): el contrato vive en el kit y la implementación en `bk` (D1), el agente declara el cierre con `bk done` (D4), el traspaso a review se propone y no arranca solo (D6), y el plugin de barandas queda fuera (ver Alternativas). El resto (ids, campos, estados intermedios, tipos de evento, la relación con ADR-004) son refinamientos que escribió un agente y la persona no decidió por separado: se aprueban al aceptar este ADR o se cambian en la revisión de su PR.
+Origen: lautioliver/barrilete-kit#244. Decidido por @lautioliver en el chat (2026-11-04): el contrato vive en el kit y la implementación en `bk` (D1), el agente declara el cierre con `bk done` (D4), el traspaso a review se propone y no arranca solo (D6), y el plugin de barandas queda fuera (ver Alternativas). Decidido por @lautioliver en el chat, en la misma fecha, sobre las preguntas abiertas del borrador: `bk say` a una tarea ocupada se encola (D8), PostToolUse registra solo git y gh (D5), las tareas no se borran solas y su ubicación es conocida (D9), y Codex queda como pregunta abierta. El resto (ids, campos, estados intermedios, tipos de evento, la relación con ADR-004) son refinamientos que escribió un agente y la persona no decidió por separado: se aprueban al aceptar este ADR o se cambian en la revisión de su PR.
 
 ## Contexto
 
@@ -36,20 +36,21 @@ Origen: lautioliver/barrilete-kit#244. Decidido por @lautioliver en el chat (202
 
 4. **D4. El agente declara el cierre con `bk done`, con el vocabulario del contrato de subagentes.** `bk done pr <n>` y `bk done blockers` cierran en `completed`. `bk done dropped "<motivo>"` y `bk done escalate "<motivo>"` cierran en `failed`. `question` no cierra nada: un agente `bk` pregunta en su ventana, y eso es `waiting`. **El hook Stop no cierra la tarea**: en una sesión interactiva se dispara al final de cada turno, así que solo pasa la tarea a `waiting`. Si el proceso del agente termina sin `bk done`, el orquestador cierra la tarea en `incomplete`.
 
-5. **D5. Eventos: un hecho por línea.** `events.jsonl` tiene una línea JSON por evento: `{"seq": n, "ts": "<ISO 8601>", "type": "<tipo>", …}`. `seq` empieza en 1 y crece sin huecos. El primer evento es `task.created`, y el último es el único evento terminal, que copia el `task.json` final. Tipos iniciales: `task.created`, `task.started`, `turn.waiting`, `tool.done` (`tool`, `ok`), `commit` (`sha`), `pr.opened` (`pr`) y `task.completed`, `task.failed`, `task.incomplete`, `task.cancelled`. **Un evento registra solo metadatos, nunca contenido**: ni argumentos, ni salida de herramientas, ni texto del modelo. `task.json` es la fuente de verdad, y `events.jsonl` sirve para seguir la tarea en vivo y entender después qué pasó.
+5. **D5. Eventos: un hecho por línea.** `events.jsonl` tiene una línea JSON por evento: `{"seq": n, "ts": "<ISO 8601>", "type": "<tipo>", …}`. `seq` empieza en 1 y crece sin huecos. El primer evento es `task.created`, y el último es el único evento terminal, que copia el `task.json` final. Tipos iniciales: `task.created`, `task.started`, `turn.waiting`, `commit` (`sha`), `pr.opened` (`pr`) y `task.completed`, `task.failed`, `task.incomplete`, `task.cancelled`. **El hook PostToolUse registra solo comandos `git` y `gh`**: los demás no generan eventos. El registro filtra en `sh` antes de arrancar Python, así que el resto de las llamadas a Bash no cargan su costo. **Un evento registra solo metadatos, nunca contenido**: ni argumentos, ni salida de herramientas, ni texto del modelo. `task.json` es la fuente de verdad, y `events.jsonl` sirve para seguir la tarea en vivo y entender después qué pasó.
 
 6. **D6. El traspaso se propone y la persona lo aprueba.** Cuando una tarea cierra con `pr <n>`, el orquestador crea `pr<n>-reviewer` en `pending` y avisa. La tarea arranca recién cuando la persona la aprueba. El orquestador nunca aprueba por su cuenta, igual que en ADR-004 D4.
 
 7. **D7. Cambia ADR-004 D3, no D4.** El orquestador sigue a un agente `bk` leyendo su `task.json`: estado, resultado y número de PR. Ya no usa `bk ls` ni busca el PR por rama. Sigue sin abrir sus diffs ni sus retros. D4 no cambia: la persona contesta con `bk say`, y `waiting` es lo que le dice al orquestador que hay una pregunta para mostrar. Cuando este ADR se acepte, ADR-004 suma una sección `## Enmienda` que remite a este D7.
 
+8. **D8. `bk say` a una tarea ocupada se encola.** Si la tarea está en `in_progress`, el orquestador guarda el mensaje y lo escribe en la ventana cuando la tarea pasa a `waiting`. `bk say --now` lo escribe en el momento, por ejemplo para frenar al agente. En `waiting` el mensaje se escribe enseguida, como hoy.
+
+9. **D9. Las tareas no se borran solas, y su ubicación es conocida.** Las tareas terminadas y sus eventos quedan hasta que la persona las borra (`bk tasks prune`). Para que siempre se sepa dónde están, la carpeta por defecto es `${XDG_STATE_HOME:-~/.local/state}/bk/tasks/<proyecto>/<id>/`, `task.json` guarda su propia ruta en `dir`, y `bk tasks` lista las tareas con su estado y su carpeta.
+
 ## Preguntas abiertas
 
-Estas preguntas no están decididas. Las decide la persona en la revisión del PR o quedan para el issue de implementación:
+Esta pregunta no está decidida y queda para el issue de implementación:
 
-- **`bk say` a una tarea en `in_progress`**: ¿se encola hasta el próximo `waiting` o se rechaza? Hoy escribe encima.
-- **Codex**: su `hooks.json` acepta `PostToolUse` y `Stop` (los usa la config de Orca de la persona), pero no está probado que se disparen igual que en Claude Code.
-- **Retención**: cuándo se borran las tareas terminadas y sus eventos.
-- **Costo por herramienta**: un hook PostToolUse en cada llamada suma el arranque de Python, unos 30 ms. Se puede limitar a los eventos que importan (git, gh).
+- **Codex**: su `hooks.json` acepta `PostToolUse` y `Stop` (los usa la config de Orca de la persona), pero no está probado que se disparen igual que en Claude Code. Se prueba cuando la persona instale `codex`; hasta entonces, el contrato aplica a Claude Code y Codex lo cumple solo si la prueba pasa.
 
 ## Alternativas descartadas
 
@@ -63,9 +64,9 @@ Estas preguntas no están decididas. Las decide la persona en la revisión del P
 ## Consecuencias
 
 - Se gana: un estado confiable, sin lanzar dos agentes sobre el mismo issue, cierres con un motivo legible por máquina, traspasos explícitos y un contrato que sobrevive a un cambio de orquestador (herdr, UHP).
-- Cuesta: un hook más por herramienta (ver Preguntas abiertas) y un paso más al final de `/implement-issue`.
+- Cuesta: un filtro en `sh` en cada llamada a Bash (D5), un paso más al final de `/implement-issue`, y una carpeta de tareas que crece hasta que la persona la limpia (D9).
 - Issues que se abren al aceptarlo:
-  - **bk-shell**: tareas en `bk run`, `bk review` y `bk fix` (D2, la idempotencia), `bk done` (D4), `incomplete` cuando el proceso termina, `pending` con aprobación (D6), y que `bk ls`, el rail y la barra lean `task.json`.
+  - **bk-shell**: tareas en `bk run`, `bk review` y `bk fix` (D2, la idempotencia), `bk done` (D4), `incomplete` cuando el proceso termina, `pending` con aprobación (D6), la cola de `bk say` y `--now` (D8), `bk tasks` y `bk tasks prune` (D9), y que `bk ls`, el rail y la barra lean `task.json`.
   - **kit**: un hook nuevo en `scripts/agents/` que emite los eventos, registrado en `.claude/settings.json` y `.codex/hooks.json`. Tocar ese registro es tocar CI e infraestructura, y este ADR es la aprobación.
   - **kit**: `/implement-issue` y `/review-pr` (en y es) terminan con `bk done` cuando existe `BK_TASK_DIR`.
   - **kit**: la enmienda de ADR-004 (D7) y una nota en docs/agents/subagent-contract.md.
