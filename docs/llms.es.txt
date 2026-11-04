@@ -19,6 +19,7 @@ Instrucciones para modelos: leer este archivo y AGENTS.md. Spec aspiracional = /
 - [ADR-002: validación estructurada del test en rojo](decisions/kit/ADR-002-structured-red-validation.md)
 - [ADR-003: DDD mínimo, glosario y mapa de contextos](decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md)
 - [ADR-004: modo de lanzamiento de `/orchestrate` por rol (bk o subagente)](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md)
+- [ADR-005: tareas y eventos para los agentes bk](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md)
 - [Mapa para agentes: docs según cambios, rutas sensibles](agents-map.json)
 - [Contrato de los subagentes: reglas y salida común](agents/subagent-contract.md)
 - [Lecciones de las retros de agentes (revisadas en PR; leer antes de implementar)](agents/lessons.md)
