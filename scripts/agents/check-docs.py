@@ -11,6 +11,11 @@ Checks:
 - Required documents and paths of docs/agents-map.json that do not exist.
 - The `red` section of the map (ADR-002 D2): an array of stacks with name (unique), when (non-empty list of globs), run
   (with {out}), format (junit or tap) and an optional timeout (positive integer); there is no `report` field.
+- The `contexts` section of the map (ADR-003 D3): name unique, paths that match tracked files (unless optional, with ?), and
+  depends_on with names of the section and no self-dependency.
+- The glossary and the map of contexts (ADR-003 D2, D5): docs/glossary.md and docs/contexts.md in --small, and
+  docs/reference/glossary.md and docs/reference/contexts.md in the full profile, present and linked from their index. Their
+  content is not checked.
 - Example paths (TODO/...) and checks without a command left in docs/agents-map.json
   after the init.
 - Map paths (docs, sensitive, verify) that match no file (except the ones marked as optional
@@ -425,8 +430,73 @@ def validar_red(red):
     return errs
 
 
+def validar_contextos(contextos):
+    """Errors of the `contexts` section of the map (ADR-003 D3): an array of {name, paths, depends_on}; name unique; paths a
+    non-empty list whose globs match a tracked file (unless they start with ?); depends_on only names of the section, and no
+    context that depends on itself."""
+    if not isinstance(contextos, list):
+        return ["docs/agents-map.json: contexts must be an array of {name, paths, depends_on} (ADR-003 D3)"]
+    r = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
+    archivos = [l for l in r.stdout.splitlines() if l] if r.returncode == 0 else None  # None: no git, the paths are not checked
+    nombres = {c.get("name") for c in contextos if isinstance(c, dict) and isinstance(c.get("name"), str) and c.get("name").strip()}
+    errs, vistos = [], set()
+    for i, c in enumerate(contextos):
+        if not isinstance(c, dict):
+            errs.append(f"docs/agents-map.json: contexts[{i}] must be an object (name, paths, depends_on)")
+            continue
+        nombre = c.get("name")
+        if not isinstance(nombre, str) or not nombre.strip():
+            errs.append(f"docs/agents-map.json: contexts[{i}] needs a 'name' (a non-empty text)")
+            ref = f"contexts[{i}]"
+        else:
+            ref = f"context '{nombre}'"
+            if nombre in vistos:
+                errs.append(f"docs/agents-map.json: {ref} appears more than once: the names of the contexts must be unique")
+            vistos.add(nombre)
+        pre = f"docs/agents-map.json: {ref}:"
+        paths = c.get("paths")
+        if not isinstance(paths, list) or not paths:
+            errs.append(f"{pre} 'paths' must be a non-empty list of globs")
+        else:
+            for g in paths:
+                if not isinstance(g, str) or not g:
+                    errs.append(f"{pre} every path must be a non-empty glob, not {g!r}")
+                elif archivos is not None and not g.startswith("?") and not any(glob_a_regex(g).match(a) for a in archivos):
+                    errs.append(f"{pre} the path {g} matches no file. If it moved, update it; if it is optional, start it with ?")
+        deps = c.get("depends_on", [])
+        if not isinstance(deps, list):
+            errs.append(f"{pre} 'depends_on' must be a list of context names")
+            continue
+        for d in deps:
+            if d == nombre:
+                errs.append(f"{pre} depends on itself (depends_on lists its own name)")
+            elif d not in nombres:
+                errs.append(f"{pre} depends_on {d!r} is not the name of a context in this section")
+    return errs
+
+
 if MAPA and "red" in MAPA:
     errores.extend(validar_red(MAPA["red"]))
+if MAPA and "contexts" in MAPA:
+    errores.extend(validar_contextos(MAPA["contexts"]))
+
+# The glossary and the map of contexts (ADR-003 D2 and D5): the files exist at a fixed path and each one is linked from its index.
+# --small (the map has only `red`) uses docs/glossary.md and docs/contexts.md; the full profile uses docs/reference/. Their content
+# is not checked (D7): only that they exist and are linked.
+if MAPA:
+    perfil_glosario = "small" if SOLO_RED else "full"
+    indices = ["docs/README.md"] + (["docs/llms.txt"] if perfil_glosario == "full" else [])
+    for ruta in (["docs/glossary.md", "docs/contexts.md"] if SOLO_RED else ["docs/reference/glossary.md", "docs/reference/contexts.md"]):
+        if not os.path.exists(ruta):
+            errores.append(f"{ruta} is missing: the glossary and the map of contexts are required (ADR-003 D2, D5)")
+            continue
+        for indice in indices:
+            if os.path.exists(indice):
+                enlace = "](" + os.path.relpath(ruta, os.path.dirname(indice))
+                with open(indice, encoding="utf-8") as fh:
+                    contenido = fh.read()
+                if enlace + ")" not in contenido and enlace + "#" not in contenido:
+                    errores.append(f"{indice}: does not link {ruta} (ADR-003 D2, D5): add the link to the index")
 
 if MAPA:
     mapa = MAPA
