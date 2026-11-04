@@ -67,7 +67,7 @@ Las skills mejoran con el uso: `implement-issue` y `review-pr` terminan con una 
 
 **Subagentes** (`.claude/agents/`, los lanza `/orchestrate`, en pi con la herramienta `subagent` de `barrilete-pi`: `implementer` en Sonnet, `implementer-light` en Haiku, `reviewer` en Opus): las mismas reglas, más `docs/agents/subagent-contract.md`. Trabajan solo en su worktree, no pueden consultar a la persona (comentan en el issue y devuelven `question`), nunca publican reviews ni comentarios en PRs, y el liviano frena y devuelve `escalate` si el issue toca rutas sensibles o lógica de negocio (el orquestador lo relanza con Sonnet).
 
-Las rutas de cada categoría están en `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` dice si un cambio las toca, y `scripts/agents/verify.py` corre, antes del PR, las verificaciones que corresponden a lo que cambió (sección `verify` del mapa).
+Las rutas de cada categoría están en `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` dice si un cambio las toca y qué contextos acotados (sección `contexts` del mapa) cruza, y `scripts/agents/verify.py` corre, antes del PR, las verificaciones que corresponden a lo que cambió (sección `verify` del mapa).
 
 ## Convenciones de GitHub (obligatorio)
 

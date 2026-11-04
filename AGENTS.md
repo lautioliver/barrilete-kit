@@ -67,7 +67,7 @@ The skills improve with use: `implement-issue` and `review-pr` end with a retro 
 
 **Subagents** (`.claude/agents/`, launched by `/orchestrate`, in pi through the `subagent` tool of `barrilete-pi`: `implementer` on Sonnet, `implementer-light` on Haiku, `reviewer` on Opus): the same rules, plus `docs/agents/subagent-contract.md`. They work only in their worktree, cannot ask the person (they comment on the issue and return `question`), never publish reviews or comments on PRs, and the light one stops and returns `escalate` if the issue touches sensitive paths or business logic (the orchestrator relaunches it with Sonnet).
 
-The paths of each category are in `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` says whether a change touches them, and `scripts/agents/verify.py` runs, before the PR, the verifications that apply to what changed (`verify` section of the map).
+The paths of each category are in `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` says whether a change touches them and which bounded contexts (`contexts` section of the map) it crosses, and `scripts/agents/verify.py` runs, before the PR, the verifications that apply to what changed (`verify` section of the map).
 
 ## GitHub conventions (mandatory)
 
