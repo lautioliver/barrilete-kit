@@ -11,6 +11,47 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${BK_TASK_DIR:-}\" ] || exit 0; f=\"${CLAUDE_PROJECT_DIR:-.}/scripts/agents/task_events.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/task_events.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${BK_TASK_DIR:-}\" ] || exit 0; f=\"${CLAUDE_PROJECT_DIR:-.}/scripts/agents/task_events.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/task_events.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${BK_TASK_DIR:-}\" ] || exit 0; f=\"${CLAUDE_PROJECT_DIR:-.}/scripts/agents/task_events.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/task_events.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${BK_TASK_DIR:-}\" ] || exit 0; in=$(cat); case \"$in\" in *git*commit*|*gh*pr*create*) ;; *) exit 0 ;; esac; f=\"${CLAUDE_PROJECT_DIR:-.}/scripts/agents/task_events.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/task_events.py\"; [ -f \"$f\" ] || exit 0; printf '%s' \"$in\" | python3 \"$f\""
+          }
+        ]
+      }
     ]
   }
 }
