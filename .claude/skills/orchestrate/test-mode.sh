@@ -85,4 +85,28 @@ mkdir -p "$TMP/rarobin"; cp "$TMP/badbin/bk-raro" "$TMP/rarobin/bk"
 PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$TMP/vacio"
 [ "$TAP_RC" = 64 ]; tap_check $? "mode: bk mode que contesta algo fuera de main, bk o sub da exit 64"
 
+# 9. reviewer e implementer-light son siempre sub aunque el archivo diga bk (kit/ADR-004: límite de bk run); main y sub se respetan.
+mkdir -p "$TMP/limite/.barrilete"
+printf 'reviewer: claude/opus bk\nimplementer-light: claude/haiku\nimplementer: claude/sonnet bk\n' >"$TMP/limite/.barrilete/roles.yml"
+tap_run out 0 python3 "$M" reviewer --root "$TMP/limite"
+[ "$out" = sub ]; tap_check $? "mode: un reviewer con bk en roles.yml se lanza como sub"
+tap_run out 0 python3 "$M" implementer-light --root "$TMP/limite"
+[ "$out" = sub ]; tap_check $? "mode: un implementer-light sin modo (bk) en roles.yml se lanza como sub"
+tap_run out 0 python3 "$M" implementer --root "$TMP/limite"
+[ "$out" = bk ]; tap_check $? "mode: un implementer con bk en roles.yml sigue siendo bk"
+PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 0 python3 "$M" reviewer --root "$TMP/proj"
+[ "$out" = main ]; tap_check $? "mode: un reviewer main explícito en roles.yml se respeta"
+
+# 10. Sin bk instalado, un main explícito del proyecto se respeta; lo demás es sub.
+export PATH="$TMP/nobin"
+tap_run out 0 python3 "$M" planner --root "$TMP/proj"
+export PATH="$TMP/bin:$PATH_ORIG"
+grep -qx "main" <<<"$out"; tap_check $? "mode: sin bk instalado, un main explícito del proyecto se respeta"
+
+# 11. La columna provider/model se valida: un modo en su lugar falla (exit 64) en vez de salir como bk.
+mkdir -p "$TMP/columna/.barrilete"
+printf 'implementer: sub\n' >"$TMP/columna/.barrilete/roles.yml"
+tap_run out 64 python3 "$M" implementer --root "$TMP/columna"
+[ "$TAP_RC" = 64 ] && grep -q "provider" <<<"$out"; tap_check $? "mode: un modo en la columna provider/model falla (exit 64)"
+
 tap_done
