@@ -35,6 +35,13 @@ chmod +x "$TMP/bin/gh"
 unset BK_HUMAN GH_APP   # que el entorno de quien corre los tests no cambie el resultado
 out=""   # lo reasigna tap_run
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# Ningún git de la prueba corre gc ni mantenimiento automático (#224): ver scripts/agents/git-quiet.sh.
+# shellcheck source=/dev/null
+. "$AQUI/../../../scripts/agents/git-quiet.sh"
+git_quiet_env
+cfg=$(git -C "$TMP" config --list 2>/dev/null)
+grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
+grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "los git de la prueba no corren mantenimiento automático"
 export PATH="$TMP/bin:$PATH" BASE=main GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 issue() { # issue <n> <título>
   printf '{"state":"open","title":"%s","labels":[],"assignees":[],"html_url":"u","body":"cuerpo"}\n' "$2" >"$TMP/issues/$1.json"
