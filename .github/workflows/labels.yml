@@ -211,6 +211,19 @@ jobs:
               else if (!sinTests.ok) errors.push(sinTests.placeholder
                 ? 'the reason of "no tests:" is still the <reason> placeholder (or "<motivo>"): write why there are no tests.'
                 : 'the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
+              // Every "red commit:" line (the block's and the extra <details>) has to be a commit of this PR (issue #243): a block copied
+              // from another PR is well formed and only the commits of the PR show that its sha is not one of them. Linear: one pass over
+              // the lines, the sha is compared as a prefix of the commits' full shas.
+              const shas = lineas(body).map(l => l.trim()).filter(l => /^red commit:/i.test(l)).map(l => l.slice(11).trim())
+                .filter(s => /^[0-9a-f]{7,64}$/i.test(s)).map(s => s.toLowerCase());
+              if (shas.length) {
+                const commits = await github.paginate(github.rest.pulls.listCommits, {
+                  ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100,
+                });
+                for (const s of new Set(shas))
+                  if (!commits.some(c => c.sha.startsWith(s)))
+                    errors.push(`the red commit ${s} is not a commit of this PR (el red commit ${s} no es de este PR).`);
+              }
             }
             if (errors.length) core.setFailed('PR out of convention:\n- ' + errors.join('\n- '));
             else core.info('PR OK. Labels: ' + names.join(', '));
