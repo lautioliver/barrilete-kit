@@ -208,6 +208,8 @@ c=0; s2=$(trap - ERR; cd "$U" && python3 scripts/agents/check-docs.py 2>&1) || c
 # puede fallar son los .md del usuario, ni las rutas del kit que acaba de instalar.
 ! grep -q 'roto.md\|NOTAS.md\|guia.md\|ADR-001-mio' <<<"$s2" && ! grep -q 'Traceback\|matches no file\|broken link\|missing path' <<<"$s2"
 tap_check $? "en un repo instalado check-docs.py no revisa los .md del usuario (NOTAS.md, docs/guia.md) y no marca rutas ni links rotos del kit"
+[[ "$s2" != *glossary* && "$s2" != *contexts.md* ]]
+tap_check $? "en un repo instalado check-docs.py no exige el glosario ni el mapa de contextos ni sus enlaces (los índices son del proyecto)" "en un repo instalado check-docs.py no exige el glosario ni el mapa de contextos ni sus enlaces (salida: $s2)"
 lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh')
 ! grep -q '^src/' <<<"$lista" && grep -q 'scripts/agents/test-base.sh' <<<"$lista"
 tap_check $? "la lista de scripts del CI no incluye los .sh del usuario"

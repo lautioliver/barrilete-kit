@@ -356,7 +356,16 @@ PY
 }
 minimo
 con_contextos '[{"name": "ventas", "paths": ["src/ventas/**"], "depends_on": []}, {"name": "pagos", "paths": ["src/pagos/**"], "depends_on": ["ventas"]}]'
-salida=$(check); ! grep -q "ventas\|pagos" <<<"$salida"; tap_check $? "contextos: un mapa válido no da errores de contextos"
+# Con el glosario y el mapa de contextos de docs/reference/ enlazados, un mapa válido da exactamente "Docs OK.": cualquier error
+# (de contextos o de otra cosa) rompe el caso. Que la validación corre lo prueban los casos de abajo, cada uno con su error.
+mkdir -p "$TMP/r/docs/reference"
+printf '# Glossary\n' >"$TMP/r/docs/reference/glossary.md"
+printf '# Contexts\n' >"$TMP/r/docs/reference/contexts.md"
+printf '\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >>"$TMP/r/docs/README.md"
+printf '# Index\n\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >"$TMP/r/docs/llms.txt"
+git -C "$TMP/r" add -A
+git -C "$TMP/r" commit -qm "docs de referencia"
+salida=$(check); [ "$salida" = "Docs OK." ]; tap_check $? "contextos: un mapa válido con sus docs de referencia da Docs OK" "contextos: un mapa válido con sus docs de referencia da Docs OK (salida: $salida)"
 minimo
 con_contextos '[{"name": "dup-ventas", "paths": ["src/ventas/**"], "depends_on": []}, {"name": "dup-ventas", "paths": ["src/pagos/**"], "depends_on": []}]'
 salida=$(check); grep -q "dup-ventas" <<<"$salida"; tap_check $? "contextos: un name repetido es un error que lo nombra"
@@ -374,7 +383,7 @@ con_contextos '[{"name": "ctx-fantasma", "paths": ["src/fantasma/**"], "depends_
 salida=$(check); grep -q "src/fantasma" <<<"$salida"; tap_check $? "contextos: un glob de paths que no matchea ningún archivo es un error que lo nombra"
 minimo
 con_contextos '[{"name": "ctx-opcional", "paths": ["?src/opcional/**"], "depends_on": []}]'
-salida=$(check); ! grep -q "ctx-opcional\|src/opcional" <<<"$salida"; tap_check $? "contextos: un glob opcional (?) que no matchea no es error"
+salida=$(check); [[ "$salida" != *ctx-opcional* && "$salida" != *src/opcional* ]]; tap_check $? "contextos: un glob opcional (?) que no matchea no es error"
 
 # 10. agents_map.py dice qué contextos toca el diff (ADR-003 D3): el JSON trae los contextos que tocó el cambio, con su nombre
 # (como clave de "contexts" o como elemento de la lista).
@@ -393,15 +402,49 @@ printf 'y\n' >"$m/src/pagos/y.ts"
 git -C "$m" add -A
 git -C "$m" commit -qm "feat: dos contextos"
 out=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>/dev/null)
+# La forma de "contexts" en --json es un mapa nombre → archivos tocados (ADR-003 D3): sin excepciones tragadas, un JSON mal
+# formado o sin "contexts" es un crash, no "ningún contexto".
 nombres=$(printf '%s' "$out" | python3 -c '
 import json, sys
-try:
-    c = json.load(sys.stdin).get("contexts") or {}
-    for n in (c.keys() if isinstance(c, dict) else c):
-        print(n)
-except Exception:
-    pass
+print(" ".join(sorted(json.load(sys.stdin)["contexts"])))
 ')
-grep -qx ventas <<<"$nombres" && grep -qx pagos <<<"$nombres"; tap_check $? "agents_map: el JSON trae los dos contextos que tocó el diff" "agents_map: el JSON trae los contextos tocados (\"contexts\")"
+[ "$nombres" = "pagos ventas" ]; tap_check $? "agents_map: el JSON trae los dos contextos que tocó el diff" "agents_map: el JSON trae los contextos tocados (\"contexts\"): $nombres"
+archivos=$(printf '%s' "$out" | python3 -c '
+import json, sys
+print(" ".join(json.load(sys.stdin)["contexts"]["ventas"]))
+')
+[ "$archivos" = "src/ventas/x.ts" ]; tap_check $? "agents_map: contexts es un mapa de nombre a los archivos tocados" "agents_map: archivos de ventas: $archivos"
+# Dos contextos con el mismo nombre (check-docs.py lo rechaza, pero agents_map.py lo lee igual): se juntan los archivos, no se pisan.
+printf '%s\n' '{"docs": [], "sensitive": [], "contexts": [{"name": "ventas", "paths": ["src/ventas/**"], "depends_on": []}, {"name": "ventas", "paths": ["src/pagos/**"], "depends_on": []}]}' >"$m/docs/agents-map.json"
+out=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>/dev/null)
+archivos=$(printf '%s' "$out" | python3 -c '
+import json, sys
+print(" ".join(sorted(json.load(sys.stdin)["contexts"]["ventas"])))
+')
+[ "$archivos" = "src/pagos/y.ts src/ventas/x.ts" ]; tap_check $? "agents_map: dos contextos con el mismo nombre juntan sus archivos" "agents_map: archivos de ventas repetido: $archivos"
+
+# 11. Los enlaces del glosario y del mapa de contextos se leen con el parser de links de check-docs: ./x.md y <x.md> cuentan,
+# y un texto dentro de un bloque de código o de `código` no es un enlace.
+con_indice() {
+  printf '%s\n' "$1" >"$TMP/r/docs/README.md"
+}
+minimo
+modo_small
+con_indice "$(printf '# Docs\n\n- [Glossary](./glossary.md)\n- [Contexts](./contexts.md)')"
+salida=$(check); [ "$salida" = "Docs OK." ]; tap_check $? "--small: un enlace ./glossary.md cuenta como enlace" "--small: un enlace ./glossary.md cuenta como enlace (salida: $salida)"
+minimo
+modo_small
+con_indice "$(printf '# Docs\n\n- [Glossary](<glossary.md>)\n- [Contexts](<contexts.md>)')"
+salida=$(check); [ "$salida" = "Docs OK." ]; tap_check $? "--small: un enlace <glossary.md> cuenta como enlace" "--small: un enlace <glossary.md> cuenta como enlace (salida: $salida)"
+minimo
+modo_small
+# shellcheck disable=SC2016  # los backticks son parte del texto de prueba
+con_indice "$(printf '# Docs\n\n```\n- [Glossary](glossary.md)\n- [Contexts](contexts.md)\n```')"
+salida=$(check); [[ "$salida" == *"does not link docs/glossary.md"* ]]; tap_check $? "--small: un enlace dentro de un bloque de código no cuenta" "--small: un enlace dentro de un bloque de código no cuenta (salida: $salida)"
+minimo
+modo_small
+# shellcheck disable=SC2016  # los backticks son parte del texto de prueba
+con_indice "$(printf '# Docs\n\nEscribí `[Glossary](glossary.md)` y `[Contexts](contexts.md)` para enlazar.')"
+salida=$(check); [[ "$salida" == *"does not link docs/glossary.md"* ]]; tap_check $? "--small: un enlace dentro de código en línea no cuenta" "--small: un enlace dentro de código en línea no cuenta (salida: $salida)"
 
 tap_done
