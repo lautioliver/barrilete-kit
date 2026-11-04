@@ -240,6 +240,9 @@ const cases = {
   'uppercase-details-is-checked': [T + R + G() + E + '<DETAILS><SUMMARY>Red for the pytest stack</SUMMARY>\n\nred commit: cafe1234\n\n' + G('pytest', 'junit') + '</DETAILS>\n', /red commit cafe1234 is not a commit of this PR/],
   // Un fence de 4 backticks no lo cierra una línea de 3: lo que sigue sigue citado.
   'four-backtick-fence-is-not-closed-by-three': [T + R + G() + E + '````\n```\n<details><summary>Red for the pytest stack</summary>\nred commit: cafe1234\n</details>\n````\n', null],
+  // Regresiones de la 3.ª review (punto 3): pasaban en main y fallaban con el parser por substrings.
+  'details-in-a-case-name-does-not-break-the-block': [T + R + G('bash', 'tap', '- ui.sh::renders <details> toggle') + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: 0123abc4\n\n' + G('pytest', 'junit') + E, null],
+  'fence-opened-and-closed-on-one-line-is-not-a-fence': ['Closes #1\n```npm test``` first\n' + T.split('\n').slice(1).join('\n') + R + G() + E, null],
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
 };
@@ -318,6 +321,8 @@ lc_case details-mentioned-in-prose-does-not-open-depth; tap_check $? "details-me
 lc_case details-mentioned-in-no-tests-line-does-not-open-depth; tap_check $? "details-mentioned-in-no-tests-line-does-not-open-depth"
 lc_case uppercase-details-is-checked; tap_check $? "uppercase-details-is-checked"
 lc_case four-backtick-fence-is-not-closed-by-three; tap_check $? "four-backtick-fence-is-not-closed-by-three"
+lc_case details-in-a-case-name-does-not-break-the-block; tap_check $? "details-in-a-case-name-does-not-break-the-block"
+lc_case fence-opened-and-closed-on-one-line-is-not-a-fence; tap_check $? "fence-opened-and-closed-on-one-line-is-not-a-fence"
 lc_perf spaces; tap_check $? "structured-block-performance-spaces"
 lc_perf colons; tap_check $? "structured-block-performance-colons"
 lc_perf lines; tap_check $? "structured-block-performance-many-lines"
