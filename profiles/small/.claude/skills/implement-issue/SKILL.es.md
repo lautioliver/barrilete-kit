@@ -19,8 +19,7 @@ Valida que esté abierto, que no lo tenga otra persona y que no haya cambios sin
 
 ## 2. Entender
 
-- Leé lo que enlaza el issue, `AGENTS.md` y lo que corresponda de `docs/architecture.md` y `docs/decisions/`.
-- Leé el glosario y la tabla de contextos (`docs/glossary.md`, `docs/contexts.md`) y usá sus términos. Si el cambio necesita un término que no está, agregalo al glosario en el PR (mientras esté en `TODO`, proponelo en el PR y no bloquees). Si necesita una dependencia nueva entre contextos (que no está en la tabla), **parate y preguntá**: necesita un ADR (ADR-003).
+- Leé lo que enlaza el issue, `AGENTS.md` y lo que corresponda de `docs/architecture.md` y `docs/decisions/`. Usá los términos de `docs/glossary.md` y `docs/contexts.md`: un término que falta va al glosario en el PR (si sigue en `TODO`, proponelo); una dependencia nueva entre contextos (que no está en la tabla) → **parate y preguntá** (ADR-003).
 - Si el issue es parte de una épica (`prepare.sh` la muestra; o si el issue dice "Después de #n"), leé la épica entera, sobre todo **Lógica de negocio afectada** y los ADRs pendientes que menciona. Un bloqueo puede estar escrito en el texto sin estar cargado como dependencia: si la épica dice que algo requiere un ADR o una decisión que todavía no existe, decidí con el usuario si este issue cae adentro antes de empezar.
 - Si es ambiguo en algo que cambia el resultado, o pide algo de la lista **"Consulta antes"** de `AGENTS.md` (aunque el issue lo pida: eso no es la aprobación), preguntá antes de escribir código, **en un solo mensaje**: qué toca, las preguntas abiertas y, si hay base de datos, el plan de "Si toca la base de datos" con su rollback.
 
