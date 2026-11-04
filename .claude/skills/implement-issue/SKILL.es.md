@@ -99,6 +99,16 @@ El directorio temporal queda a propósito (el reintento que imprime `retro.sh` s
 
 Sé concreto y honesto: una retro que dice "todo bien" cuando hubo desvíos le quita a `/improve-skills` la única señal que tiene.
 
+## Cerrar la tarea (agentes `bk`)
+
+Si existe `BK_TASK_DIR` (te lanzó `bk`, ADR-005), lo último, después de la retro, es cerrar tu tarea con `bk done`:
+
+- PR abierto y CI en verde: `bk done pr <n>`.
+- No se puede terminar (ver "Si hay que soltar el issue"): `bk done dropped "<motivo en una línea>"`.
+- Sos `implementer-light` y el issue no es para el modelo liviano: `bk done escalate "<motivo>"`.
+
+Una pregunta no cierra nada: preguntá en tu ventana y esperá la respuesta. Sin `BK_TASK_DIR`, no corras `bk done`. Si `bk done` falla (no hay tarea, o ya estaba cerrada), decilo en tu respuesta y no la cierres de otra forma.
+
 ## Si hay que soltar el issue
 
 Si no podés terminar (bloqueo nuevo, decisión pendiente, alcance mucho mayor del que dice el issue): comentá en el issue qué hiciste y qué falta, pusheá la rama si tiene algo útil y desasignate (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`). Así `available.sh` lo vuelve a mostrar.
