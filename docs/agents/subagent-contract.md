@@ -4,7 +4,7 @@ Common rules of `implementer`, `implementer-light` and `reviewer` (`.claude/agen
 
 ## A `bk` agent
 
-When `roles.yml` says `bk` for a role (kit/ADR-004), the orchestrator launches it with `bk run <n> --role <role>` in its own tmux window instead of the Agent tool. What applies to it:
+When `roles.yml` says `bk` for an `implementer` (kit/ADR-004; `reviewer` and `implementer-light` are always subagents), the orchestrator launches it with `bk run <n> --role <role>` in its own tmux window instead of the Agent tool. What applies to it:
 
 - **This contract does not apply to it.** `bk run` starts a normal `claude "/implement-issue <n>"` session in the worktree: it does not use `.claude/agents/<role>.md`, never reads this file and does not return the output block. It follows `implement-issue` and `AGENTS.md` with their own rules: its retro with the `retro.sh` of `origin/<base>`, and it never merges or publishes.
 - **It asks in its window, at the moment** (the opposite of "you do not talk to the person"). The person answers from the orchestrator's chat with `! bk say <agent> "…"`. The orchestrator never answers for them.

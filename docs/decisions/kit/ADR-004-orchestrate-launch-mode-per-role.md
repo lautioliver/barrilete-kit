@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted (2026-11-03). @lautioliver confirmed D1 to D5 as written in [a comment on #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161).
+Accepted (2026-11-03). @lautioliver confirmed D1 to D5 as written in [a comment on #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161), and in [a second comment](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6618761555) confirmed D3 as it reads now, plus three more decisions (limit of `reviewer` and `implementer-light`, base branch, `main` without `bk`; see Consequences).
 
-Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken by the person in the chat on 2026-11-03. That record sits in the issue body, which an agent may have written, so it was not a person's approval yet (AGENTS.md, "Must ask first"); the confirmation above is. D1 to D5 are unchanged since it, except the wording of D3 (no output block for a `bk` agent), which the person corrected in the chat on 2026-11-03.
+Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken by the person in the chat on 2026-11-03. That record sits in the issue body, which an agent may have written, so it was not a person's approval yet (AGENTS.md, "Must ask first"); the confirmation above is. D1, D2, D4 and D5 are unchanged since the first confirmation. The wording of D3 (no output block for a `bk` agent) changed after it and is the one the second comment confirms.
 
 ## Context
 
@@ -22,13 +22,13 @@ Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken b
    | planner | opus | main (the main session) |
    | orchestrator | opus | main: plans and launches |
    | implementer | sonnet | **bk**: business-logic, ADR, CI; asks the person at the moment |
-   | implementer-light | haiku | **sub**: docs and small tasks |
-   | reviewer | opus | **sub**: returns the draft; the orchestrator asks the person whether to publish it |
+   | implementer-light | haiku | **sub**: docs and small tasks (always `sub`, see Consequences) |
+   | reviewer | opus | **sub**: returns the draft; the orchestrator asks the person whether to publish it (always `sub`, see Consequences) |
 
 2. **D2. Where the mode comes from.** `/orchestrate` runs `.claude/skills/orchestrate/mode.py <role>`:
    - the role's line in the project's `.barrilete/roles.yml` (`<role>: <provider>/<model> [mode]`; a line without mode is `bk`);
    - if the project's file does not have the role (or does not exist), `bk mode <role>`, which reads its own `roles.yml`;
-   - **without `bk` installed**, every role is `sub`, as before, and the orchestrator says so in the plan and in the final message.
+   - **without `bk` installed**, every role is `sub`, as before, except a `main` written in the project's `roles.yml` (a person does that role), and the orchestrator says so in the plan and in the final message.
 
 3. **D3. How the orchestrator follows a `bk` agent.** State with `bk ls`; the result from the PR (`gh pr list --head`, its CI), without the output block of docs/agents/subagent-contract.md (a `bk` agent does not return it). It does **not** open the agent's diffs or retros, as with a subagent.
 
@@ -48,4 +48,6 @@ Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken b
 - `/orchestrate` (en and es) gets a plan step that shows, per issue, role, model and mode before launching, and launches each with its mode (`bk run <n> --role <role>` or the Agent tool). `bk run` creates the worktree itself, so `prepare.sh --worktree` is only for `sub`.
 - docs/agents/subagent-contract.md says that the contract does not apply to a `bk` agent: `bk run` starts a normal `/implement-issue` session, which has its own rules (retro, no merge) and asks the person in its window.
 - `mode.py` copies the format of `roles.yml` that `bk mode` reads, so the project's file is parsed twice (by `mode.py` and, if the role is missing from it, by `bk mode`). `/orchestrate` only asks `mode.py`, so when the project's file has the role, `mode.py` decides; if the two parsers ever disagree, `mode.py` wins. If that format changes in `bk`, `mode.py` and its test (`test-mode.sh`) change with it.
+- **Limit: `reviewer` and `implementer-light` are always `sub`, even if `roles.yml` says `bk`** (`mode.py` prints `sub`). `bk run` starts a plain `/implement-issue` session and `bk review` runs `/review-pr` in the orchestrator's own checkout, with `/code-review` mandatory and no result block back; neither loads `.claude/agents/<role>.md`, so nothing would enforce the stop on sensitive paths of the light implementer or return the reviewer's draft. `main` and `sub` are kept for them. Lifting the limit needs a change in `bk`.
+- **A role is launched as `bk` only if the PR's base is the repo's default branch.** A `bk` agent gets no `BASE`, `agent_sha`, `skill_sha` or `retro_sh`, so with another base the orchestrator launches that issue as `sub` and says so in the plan. This refines D1 for those issues; the person accepted it in the second comment.
 - Out of scope: `bk` itself, the contents of `roles.yml`, and routing (`routing.py` still picks Haiku or Sonnet for an implementer; the mode is what `roles.yml` says for the role it picked).

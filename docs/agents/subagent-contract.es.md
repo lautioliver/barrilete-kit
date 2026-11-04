@@ -4,7 +4,7 @@ Reglas comunes de `implementer`, `implementer-light` y `reviewer` (`.claude/agen
 
 ## Un agente `bk`
 
-Cuando `roles.yml` dice `bk` para un rol (kit/ADR-004), el orquestador lo lanza con `bk run <n> --role <rol>` en su propia ventana de tmux, en vez de la herramienta Agent. Qué le aplica:
+Cuando `roles.yml` dice `bk` para un `implementer` (kit/ADR-004; `reviewer` e `implementer-light` son siempre subagentes), el orquestador lo lanza con `bk run <n> --role <rol>` en su propia ventana de tmux, en vez de la herramienta Agent. Qué le aplica:
 
 - **Este contrato no le aplica.** `bk run` arranca una sesión común de `claude "/implement-issue <n>"` en el worktree: no usa `.claude/agents/<rol>.md`, nunca lee este archivo y no devuelve el bloque de salida. Sigue `implement-issue` y `AGENTS.md` con sus propias reglas: su retro con el `retro.sh` de `origin/<base>`, y no mergea ni publica nunca.
 - **Pregunta en su ventana, en el momento** (lo contrario de "no hablás con la persona"). La persona contesta desde el chat del orquestador con `! bk say <agente> "…"`. El orquestador nunca contesta por ella.

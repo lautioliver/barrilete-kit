@@ -2,9 +2,9 @@
 
 ## Estado
 
-Aceptado (2026-11-03). @lautioliver confirmó D1 a D5 tal como están en [un comentario de #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161).
+Aceptado (2026-11-03). @lautioliver confirmó D1 a D5 tal como están en [un comentario de #237](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6617865161), y en [un segundo comentario](https://github.com/lautioliver/barrilete-kit/pull/237#issuecomment-6618761555) confirmó D3 con la redacción actual y tres decisiones más (límite de `reviewer` e `implementer-light`, rama base, `main` sin `bk`; ver Consecuencias).
 
-Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no era la aprobación de una persona (la sección de autonomía de AGENTS.md); la confirmación de arriba sí lo es. D1 a D5 no cambiaron desde entonces, salvo la redacción de D3 (sin bloque de salida para un agente `bk`), que la persona corrigió en el chat el 2026-11-03.
+Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomada por la persona en el chat el 2026-11-03. Ese registro está en el cuerpo del issue, que puede haber escrito un agente, así que todavía no era la aprobación de una persona (la sección de autonomía de AGENTS.md); la confirmación de arriba sí lo es. D1, D2, D4 y D5 no cambiaron desde la primera confirmación. La redacción de D3 (sin bloque de salida para un agente `bk`) cambió después y es la que confirma el segundo comentario.
 
 ## Contexto
 
@@ -22,13 +22,13 @@ Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomad
    | planner | opus | main (la sesión principal) |
    | orchestrator | opus | main: planea y lanza |
    | implementer | sonnet | **bk**: business-logic, ADR, CI; le pregunta a la persona en el momento |
-   | implementer-light | haiku | **sub**: docs y tareas chicas |
-   | reviewer | opus | **sub**: devuelve el borrador; el orquestador le pregunta a la persona si lo publica |
+   | implementer-light | haiku | **sub**: docs y tareas chicas (siempre `sub`, ver Consecuencias) |
+   | reviewer | opus | **sub**: devuelve el borrador; el orquestador le pregunta a la persona si lo publica (siempre `sub`, ver Consecuencias) |
 
 2. **D2. De dónde sale el modo.** `/orchestrate` corre `.claude/skills/orchestrate/mode.py <rol>`:
    - la línea del rol en el `.barrilete/roles.yml` del proyecto (`<rol>: <provider>/<modelo> [modo]`; una línea sin modo es `bk`);
    - si el archivo del proyecto no tiene el rol (o no existe), `bk mode <rol>`, que lee su propio `roles.yml`;
-   - **sin `bk` instalado**, todos los roles son `sub`, como antes, y el orquestador lo avisa en el plan y en el mensaje final.
+   - **sin `bk` instalado**, todos los roles son `sub`, como antes, salvo un `main` escrito en el `roles.yml` del proyecto (lo hace una persona), y el orquestador lo avisa en el plan y en el mensaje final.
 
 3. **D3. Cómo sigue el orquestador a un agente `bk`.** El estado con `bk ls`; el resultado desde el PR (`gh pr list --head`, su CI), sin el bloque de salida de docs/agents/subagent-contract.md (un agente `bk` no lo devuelve). **No** abre sus diffs ni sus retros, igual que con un subagente.
 
@@ -48,4 +48,6 @@ Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomad
 - `/orchestrate` (en y es) suma un paso de plan que muestra, por issue, rol, modelo y modo antes de lanzar, y lanza cada uno con su modo (`bk run <n> --role <rol>` o la herramienta Agent). `bk run` crea el worktree solo, así que `prepare.sh --worktree` es solo para `sub`.
 - docs/agents/subagent-contract.md aclara que el contrato no le aplica a un agente `bk`: `bk run` arranca una sesión común de `/implement-issue`, que tiene sus propias reglas (retro, no mergear) y le pregunta a la persona en su ventana.
 - `mode.py` copia el formato de `roles.yml` que lee `bk mode`, así que el archivo del proyecto se lee dos veces (`mode.py` y, si el rol no está, `bk mode`). `/orchestrate` solo le pregunta a `mode.py`, así que cuando el archivo del proyecto tiene el rol decide `mode.py`; si los dos parsers difirieran, gana `mode.py`. Si ese formato cambia en `bk`, cambian `mode.py` y su test (`test-mode.sh`).
+- **Límite: `reviewer` e `implementer-light` son siempre `sub`, aunque `roles.yml` diga `bk`** (`mode.py` imprime `sub`). `bk run` arranca una sesión común de `/implement-issue` y `bk review` corre `/review-pr` en el checkout del propio orquestador, con `/code-review` obligatorio y sin bloque de resultado de vuelta; ninguno carga `.claude/agents/<rol>.md`, así que nada haría cumplir el frenar ante rutas sensibles del implementador liviano ni devolvería el borrador del revisor. `main` y `sub` se respetan para ellos. Levantar el límite requiere un cambio en `bk`.
+- **Un rol se lanza como `bk` solo si la base del PR es la rama por defecto del repo.** Un agente `bk` no recibe `BASE`, `agent_sha`, `skill_sha` ni `retro_sh`, así que con otra base el orquestador lanza ese issue como `sub` y lo dice en el plan. Esto afina D1 para esos issues; la persona lo aceptó en el segundo comentario.
 - Fuera de alcance: `bk` en sí, el contenido de `roles.yml` y el ruteo (`routing.py` sigue eligiendo Haiku o Sonnet para un implementador; el modo es lo que `roles.yml` diga del rol elegido).
