@@ -108,4 +108,14 @@ printf 'implementer: sub\n' >"$TMP/columna/.barrilete/roles.yml"
 tap_run out 64 python3 "$M" implementer --root "$TMP/columna"
 [ "$TAP_RC" = 64 ] && grep -q "provider" <<<"$out"; tap_check $? "mode: un modo en la columna provider/model falla (exit 64)"
 
+# 12. Cuando convierte bk en sub (reviewer, implementer-light) avisa por stderr, para que el orquestador lo diga en el plan (#246).
+tap_run out 0 python3 "$M" reviewer --root "$TMP/limite"
+grep -q "reviewer" <<<"$out" && grep -q "sub" <<<"$out" && grep -qi "bk" <<<"$out" && [ "$(grep -c 'mode.py:' <<<"$out")" -ge 1 ]; tap_check $? "mode: reviewer bk -> sub avisa por stderr"
+tap_run out 0 python3 "$M" implementer-light --root "$TMP/limite"
+grep -q "mode.py: implementer-light" <<<"$out"; tap_check $? "mode: implementer-light bk -> sub avisa por stderr y nombra el rol"
+tap_run out 0 python3 "$M" implementer --root "$TMP/limite"
+! grep -q "mode.py:" <<<"$out"; tap_check $? "mode: un implementer bk no avisa nada"
+tap_run out 0 python3 "$M" reviewer --root "$TMP/proj"
+! grep -q "mode.py:" <<<"$out"; tap_check $? "mode: un reviewer main explícito no avisa nada"
+
 tap_done
