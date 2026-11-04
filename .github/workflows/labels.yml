@@ -107,6 +107,17 @@ jobs:
               }
             };
             const lineas = t => t.split('\n').map(l => l.replace(/\r$/, ''));
+            // Which lines are inside a ``` or ~~~ fenced code block (the fence lines too): what is quoted there is not a red block.
+            const enFence = ls => {
+              let dentro = false;
+              return ls.map(l => {
+                const f = l.trimStart().startsWith('```') || l.trimStart().startsWith('~~~');
+                if (f) { dentro = !dentro; return true; }
+                return dentro;
+              });
+            };
+            // How many times `s` appears in `l` (split, not a regex: linear).
+            const veces = (l, s) => l.split(s).length - 1;
             // A reason is real if a letter or a digit is left once the wrappers (quotes, backticks, * and _) and the <placeholders> are gone.
             const motivoReal = t => /[\p{L}\p{N}]/u.test(t.replace(/[`"'*_]/g, '').replace(/<[^<>]*>/g, ''));
             // Looks for `marcador` line by line. ok: some line has a real reason (on its line or, if `enSiguiente` says so, on the next one).
@@ -128,8 +139,8 @@ jobs:
             // with string methods (no regex over the body), and the only regexes run on one trimmed line with a single quantifier.
             const TITULO_ROJO = /<summary>(?:Red before implementing|Rojo antes de implementar)<\/summary>/i;
             const leerBloqueRojo = t => {
-              const ls = lineas(t);
-              const i = ls.findIndex(l => TITULO_ROJO.test(l));
+              const ls = lineas(t), fence = enFence(ls);
+              const i = ls.findIndex((l, k) => !fence[k] && TITULO_ROJO.test(l));
               if (i < 0) return { found: false, errors: [] };
               const errs = new Set();
               let commits = 0, grupo = null, n = 0;
@@ -140,12 +151,15 @@ jobs:
                 if (!grupo.cabecera) errs.add(`group ${n}: the "failing cases:" line is missing.`);
                 else if (grupo.casos === 0) errs.add(`group ${n}: "failing cases:" needs at least one line "- <file>::<name>".`);
               };
-              for (let j = ls[i].includes('</details>') ? ls.length : i + 1; j < ls.length; j++) {
+              // Nested <details> inside the block do not close it: the block ends when the depth gets back to 0.
+              let prof = (veces(ls[i], '<details') || 1) - veces(ls[i], '</details>');
+              for (let j = prof > 0 ? i + 1 : ls.length; j < ls.length; j++) {
+                if (fence[j]) continue;
                 const l = ls[j].trim(), low = l.toLowerCase();
-                if (l.includes('</details>')) break;
+                prof += veces(l, '<details') - veces(l, '</details>');
+                if (prof <= 0) break;
                 if (low.startsWith('red commit:')) {
-                  commits++;
-                  if (!/^[0-9a-f]{7,64}$/i.test(l.slice(11).trim())) errs.add('"red commit:" needs a hexadecimal sha (7 to 64 characters).');
+                  commits++;   // that the sha is hexadecimal is checked, for every block at once, with the other "red commit:" lines
                 } else if (low.startsWith('stack:')) {
                   cerrar(); n++;
                   grupo = { nombre: l.slice(6).trim(), formato: null, cabecera: false, casos: 0 };
@@ -211,33 +225,39 @@ jobs:
               else if (!sinTests.ok) errors.push(sinTests.placeholder
                 ? 'the reason of "no tests:" is still the <reason> placeholder (or "<motivo>"): write why there are no tests.'
                 : 'the "Red before implementing" block from red.sh is missing in "How to test it" (or "no tests: <reason>").');
-              // Every "red commit:" line of the red block (the main one and the extra <details> of the other stacks, whose summary starts
-              // with "Red"/"Rojo") has to be a commit of this PR (issue #243): a block copied from another PR is well formed and only the
-              // commits of the PR show that its sha is not one of them. Only inside those blocks: prose, "red commit: none" next to
-              // "no tests:" and quotes in code blocks are not red commits. Linear: one pass over the lines, the sha is compared as a
-              // prefix of the commits' full shas. A line that is not a sha is an error too (it is not dropped), unless the main block
-              // already said so.
-              const shas = [];
-              let noHex = false, dentro = false;
-              for (const l of lineas(body)) {
-                const t = l.trim();
-                if (/<summary>\s*(?:Red|Rojo)\b/i.test(t)) dentro = true;
-                else if (dentro && /^red commit:/i.test(t)) {
+              // Every "red commit:" line inside a <details> (the main red block and the extra ones of the other stacks, whatever their
+              // summary says) has to be a commit of this PR (issue #243): a block copied from another PR is well formed and only the
+              // commits of the PR show that its sha is not one of them. Only inside a <details>: prose and "red commit: none" next to
+              // "no tests:" are not red commits, and neither is what is quoted in a ``` or ~~~ code block. Linear: one pass over the lines,
+              // the sha is compared as a prefix of the commits' full shas. A line that is not a sha is an error too (it is not dropped),
+              // and a single one for all the blocks.
+              const shas = [], ls = lineas(body), fence = enFence(ls);
+              let noHex = false, prof = 0;
+              for (let k = 0; k < ls.length; k++) {
+                if (fence[k]) continue;
+                const t = ls[k].trim();
+                if (prof > 0 && /^red commit:/i.test(t)) {
                   const s = t.slice(11).trim();
                   if (/^[0-9a-f]{7,64}$/i.test(s)) shas.push(s.toLowerCase());
                   else noHex = true;
                 }
-                if (t.includes('</details>')) dentro = false;
+                // A red summary without its <details> opens one too (the main block is read the same way in leerBloqueRojo).
+                prof = Math.max(0, prof + (veces(t, '<details') || (TITULO_ROJO.test(t) ? 1 : 0)) - veces(t, '</details>'));
               }
-              if (noHex && !rojo.errors.some(e => e.includes('hexadecimal')))
-                errors.push('"red commit:" needs a hexadecimal sha (7 to 64 characters) on every line that has it, the extra <details> too.');
+              if (noHex) errors.push('"red commit:" needs a hexadecimal sha (7 to 64 characters) on every line that has it, the main block and the extra <details> too.');
               if (shas.length) {
-                const commits = await github.paginate(github.rest.pulls.listCommits, {
-                  ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100,
-                });
-                for (const s of new Set(shas))
-                  if (!commits.some(c => c.sha.startsWith(s)))
-                    errors.push(`the red commit ${s} is not a commit of this PR (el red commit ${s} no es de este PR).`);
+                let commits = null;
+                try {
+                  commits = await github.paginate(github.rest.pulls.listCommits, {
+                    ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100,
+                  });
+                } catch (e) {
+                  errors.push(`could not read the commits of this PR (${e.message}), so the red commit was not checked against them: re-run the job.`);
+                }
+                if (commits)
+                  for (const s of new Set(shas))
+                    if (!commits.some(c => c.sha.startsWith(s)))
+                      errors.push(`the red commit ${s} is not a commit of this PR (el red commit ${s} no es de este PR).`);
               }
             }
             if (errors.length) core.setFailed('PR out of convention:\n- ' + errors.join('\n- '));
