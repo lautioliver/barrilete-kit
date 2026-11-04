@@ -25,7 +25,7 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 # shellcheck source=/dev/null
 . "$RAIZ/scripts/agents/git-quiet.sh"
 git_quiet_env
-cfg=$(git config --list 2>/dev/null)
+cfg=$(git -C "$TMP" config --list 2>/dev/null)
 grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
 grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "los git de la prueba no corren mantenimiento automático"
 export PATH="$TMP/bin:$PATH" GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t

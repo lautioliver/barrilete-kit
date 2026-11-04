@@ -37,7 +37,7 @@ grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "con entradas previas, 
 c=0; msg=$(export GIT_CONFIG_COUNT=abc; trap - ERR; git_quiet_env 2>&1 >/dev/null) || c=$?; tap_status "$c" 1
 [ "$c" = 1 ]; tap_check $? "con un GIT_CONFIG_COUNT no numérico, el helper termina con 1"
 [ "$msg" = "git_quiet_env: GIT_CONFIG_COUNT='abc' no es un número" ]; tap_check $? "con un GIT_CONFIG_COUNT no numérico, el helper avisa por qué aborta"
-c=0; valor=$(export GIT_CONFIG_COUNT=abc; trap - ERR; git_quiet_env 2>/dev/null; echo "$GIT_CONFIG_COUNT")
+valor=$(export GIT_CONFIG_COUNT=abc; trap - ERR; git_quiet_env 2>/dev/null; echo "$GIT_CONFIG_COUNT")
 [ "$valor" = abc ]; tap_check $? "con un GIT_CONFIG_COUNT no numérico, el helper no lo pisa"
 
 # Con un GIT_CONFIG_COUNT con ceros adelante (010 son diez entradas, no ocho): el helper lo lee en base 10, suma las suyas detrás y conserva las diez.
