@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted (2026-11-04). @lautioliver approved it in the chat on 2026-11-04, D1 to D9 as they are in 0e1a7ca, with no changes.
 
 Origin: lautioliver/barrilete-kit#244. Decided by @lautioliver in the chat (2026-11-04): the contract lives in the kit and the implementation in `bk` (D1), the agent declares the close with `bk done` (D4), the handoff to review is proposed and does not start on its own (D6), and the guardrails plugin is left out (see Alternatives). Decided by @lautioliver in the chat, on the same date, on the draft's open questions: `bk say` to a busy task is queued (D8), PostToolUse records only git and gh (D5), tasks are not deleted on their own and their location is known (D9), and Codex stays an open question. The rest (ids, fields, intermediate states, event types, the relationship with ADR-004) are refinements an agent wrote and the person did not decide separately: they are approved when this ADR is accepted, or changed in the review of its PR.
 

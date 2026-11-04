@@ -2,7 +2,7 @@
 
 ## Estado
 
-Propuesto
+Aceptado (2026-11-04). @lautioliver lo aprobó en el chat el 2026-11-04, D1 a D9 tal como están en 0e1a7ca, sin cambios.
 
 Origen: lautioliver/barrilete-kit#244. Decidido por @lautioliver en el chat (2026-11-04): el contrato vive en el kit y la implementación en `bk` (D1), el agente declara el cierre con `bk done` (D4), el traspaso a review se propone y no arranca solo (D6), y el plugin de barandas queda fuera (ver Alternativas). Decidido por @lautioliver en el chat, en la misma fecha, sobre las preguntas abiertas del borrador: `bk say` a una tarea ocupada se encola (D8), PostToolUse registra solo git y gh (D5), las tareas no se borran solas y su ubicación es conocida (D9), y Codex queda como pregunta abierta. El resto (ids, campos, estados intermedios, tipos de evento, la relación con ADR-004) son refinamientos que escribió un agente y la persona no decidió por separado: se aprueban al aceptar este ADR o se cambian en la revisión de su PR.
 
