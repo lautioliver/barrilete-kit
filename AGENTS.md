@@ -30,6 +30,7 @@ TODO: the code rules an agent would break if it did not read them. Examples:
 - Concurrent operations atomic in the database, never read-modify-write.
 
 Always:
+- Domain terms: use the words of `docs/reference/glossary.md` in code, issues and PRs. A dependency between contexts that is not in `depends_on` of `docs/agents-map.json` (`contexts`; see `docs/reference/contexts.md`) needs an ADR; with no contexts declared (`contexts` empty) there is nothing to check. While the glossary is still `TODO`, propose the terms in the PR that introduces them instead of blocking (`docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`).
 - Never secrets in logs, code or repo. `.env*` are ignored.
 - If a document and the code do not match, the code wins and the document is updated.
 
@@ -63,11 +64,13 @@ What an agent can do on its own and what it has to ask about first. "Ask" means 
 
 A hook (`scripts/agents/guardrails.py`, registered in `.claude/settings.json`) stops, before they run, the commands on this list that can be recognized: merging or approving PRs, pushing to a trunk branch, creating tags or releases, changing branch protection and `--no-verify`. In Codex, Copilot and Cursor it is registered by `.codex/hooks.json`, `.github/hooks/guardrails.json` and `.cursor/hooks.json`; in pi, the `barrilete-pi` package (`packages/pi/` of the template). If it stops you, do not look for another way: ask the person to run it themselves (in Claude Code, in the chat with `! <command>`; in pi, with `!<command>`). Claude Code only loads it if the session was opened at the repo root. Changing the hook or its registration is touching CI and infrastructure: ask first.
 
+A second hook (`scripts/agents/task_events.py`, registered in `.claude/settings.json` and `.codex/hooks.json`) records the task events of a `bk` agent (ADR-005): it only writes when `bk` launched the session (`BK_TASK_DIR`), only metadata, and it never stops anything. A `bk` agent closes its task with `bk done` (`pr <n>`, `blockers`, `dropped "<reason>"`, `escalate "<reason>"`).
+
 The skills improve with use: `implement-issue` and `review-pr` end with a retro on the `agents/retros` branch (`retro.sh`) and `/improve-skills` proposes adjustments **always in a PR**; it never removes or loosens these rules. What does not make it into a skill stays in `docs/agents/lessons.md`: it is the only thing from the retros that agents read. A PR with `business-logic` has to amend the rule's ADR or say "ADR unchanged: <reason>" (checked by the labels check; the Spanish form "ADR sin cambios: <motivo>" is still accepted).
 
-**Subagents** (`.claude/agents/`, launched by `/orchestrate`, in pi through the `subagent` tool of `barrilete-pi`: `implementer` on Sonnet, `implementer-light` on Haiku, `reviewer` on Opus): the same rules, plus `docs/agents/subagent-contract.md`. They work only in their worktree, cannot ask the person (they comment on the issue and return `question`), never publish reviews or comments on PRs, and the light one stops and returns `escalate` if the issue touches sensitive paths or business logic (the orchestrator relaunches it with Sonnet).
+**Subagents** (`.claude/agents/`, launched by `/orchestrate`, in pi through the `subagent` tool of `barrilete-pi`: `implementer` on Sonnet, `implementer-light` on Haiku, `reviewer` on Opus): the same rules, plus `docs/agents/subagent-contract.md`. They work only in their worktree, cannot ask the person (they comment on the issue and return `question`), never publish reviews or comments on PRs, and the light one stops and returns `escalate` if the issue touches sensitive paths or business logic (the orchestrator relaunches it with Sonnet). An `implementer` that `roles.yml` marks as `bk` is launched instead as a `bk` agent (kit/ADR-004; `reviewer` and `implementer-light` always run as `sub`): a normal `implement-issue` session, outside this contract, that does ask the person in its window.
 
-The paths of each category are in `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` says whether a change touches them, and `scripts/agents/verify.py` runs, before the PR, the verifications that apply to what changed (`verify` section of the map).
+The paths of each category are in `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` says whether a change touches them and which bounded contexts (`contexts` section of the map) it crosses, and `scripts/agents/verify.py` runs, before the PR, the verifications that apply to what changed (`verify` section of the map).
 
 ## GitHub conventions (mandatory)
 
@@ -96,6 +99,8 @@ Nothing goes into the trunk branches without a PR. The only branch written witho
 - `docs/github-naming-convention.md` — branches, commits, PRs, issues, labels
 - `docs/agents-map.json` — which docs to review depending on what changes, sensitive paths, required docs
 - `docs/reference/` — glossary, domain, surfaces, modules, journeys
+- `docs/reference/glossary.md` — the domain terms, in the words the code uses (ADR-003)
+- `docs/reference/contexts.md` — the bounded contexts and what each one depends on (ADR-003)
 - `docs/development/` — setup, architecture, vision, roadmap, horizon, deploy, audits
 - `docs/guides/` — integrations and usage guides
 - `docs/decisions/` — ADRs

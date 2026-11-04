@@ -6,15 +6,20 @@ Instructions for models: read this file and AGENTS.md. Aspirational spec = /READ
 
 ## Documentation
 
-<!-- Rule: a document goes into this list only once it has content. If it only says "TODO: fill in", it is not listed: a model that reads it gains nothing and may assume nothing is defined. When you fill it in, add it with its line. -->
+<!-- Rule: a document goes into this list only once it has content. If it only says "TODO: fill in", it is not listed: a model that reads it gains nothing and may assume nothing is defined. When you fill it in, add it with its line. Exception (ADR-003 D7): the glossary and the contexts are listed from the start, even as TODO templates. -->
 
 - [Hub](README.md)
+- [Glossary: domain words](reference/glossary.md)
+- [Contexts: bounded contexts and their limits](reference/contexts.md)
 - [GitHub naming convention](github-naming-convention.md) — labels in ../.github/labels.yml
 - [Decisions (ADRs)](decisions/README.md)
 <!-- template:start -->
 - [ADR-001: kit language, labels and names in English (kit ADR)](decisions/ADR-001-language-labels-and-names-in-english.md)
 <!-- template:end -->
 - [ADR-002: structured validation of the red test](decisions/kit/ADR-002-structured-red-validation.md)
+- [ADR-003: minimal DDD, glossary and bounded-context map](decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md)
+- [ADR-004: `/orchestrate` launch mode per role (bk or subagent)](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md)
+- [ADR-005: tasks and events for bk agents](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md)
 - [Map for agents: docs by change, sensitive paths](agents-map.json)
 - [Subagent contract: common rules and output](agents/subagent-contract.md)
 - [Lessons from the agent retros (reviewed in a PR; read before implementing)](agents/lessons.md)

@@ -13,6 +13,13 @@ tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# Ningún git de la prueba corre gc ni mantenimiento automático (#224): ver scripts/agents/git-quiet.sh.
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/git-quiet.sh"
+git_quiet_env
+cfg=$(git -C "$TMP" config --list 2>/dev/null)
+grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
+grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "los git de la prueba no corren mantenimiento automático"
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 unset BASE
 
@@ -26,6 +33,11 @@ copiar() { # copiar <destino>
 # Las claves del mapa del proyecto, o "(sin mapa)" si no existe: un archivo que falta es una aserción que falla, no un crash de python.
 claves_mapa() {
   if [ -f "$1" ]; then python3 -c "import json, sys; print(sorted(json.load(open(sys.argv[1]))))" "$1"; else echo "(sin mapa)"; fi
+}
+
+# mapa_lista <mapa> required|review <ruta>: True si la ruta está en el array required o en algún review de la sección docs.
+mapa_lista() {
+  python3 -c "import json, sys; m = json.load(open(sys.argv[1])); l = m['required'] if sys.argv[2] == 'required' else [x for e in m['docs'] for x in e.get('review', [])]; print(sys.argv[3] in l)" "$1" "$2" "$3"
 }
 
 for modo in completo chico; do
@@ -495,5 +507,44 @@ p="$TMP/no-flow"
 copiar "$p"
 (cd "$p" && ./scripts/init-template.sh Demo main --no-flow-line >/dev/null 2>&1) && ! grep -q statusLine "$p/.claude/settings.json"
 tap_check $? "--no-flow-line se acepta y no agrega el statusLine"
+
+# tiene <texto> <archivo>: falla (con 1) si el archivo no existe; un grep sobre un archivo que falta sería un crash (status 2), no un caso que falla.
+tiene() { [ -f "$2" ] && grep -qF -- "$1" "$2"; }
+# DDD mínimo (ADR-003, #216): glosario y mapa de contextos en todo proyecto nuevo, completo y chico, en los dos idiomas.
+# Completo: docs/reference/{glossary,contexts}.md; chico: docs/{glossary,contexts}.md. Los dos enlazados desde sus índices.
+for combinacion in "completo en" "completo es" "chico en" "chico es"; do
+  read -r modo idioma <<<"$combinacion"
+  p="$TMP/ddd-$modo-$idioma"
+  copiar "$p"
+  extra=(); [ "$modo" = chico ] && extra=(--small)
+  (cd "$p" && ./scripts/init-template.sh Demo main --lang "$idioma" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1); tap_check $? "[<modo> --lang <idioma> ddd] el init termina bien" "[$modo --lang $idioma ddd] el init termina bien"
+  if [ "$modo" = completo ]; then d="$p/docs/reference"; ref=reference/; else d="$p/docs"; ref=""; fi
+  [ -f "$d/glossary.md" ] && [ -f "$d/contexts.md" ]; tap_check $? "[<modo> --lang <idioma> ddd] el proyecto trae el glosario y el mapa de contextos en su ruta" "[$modo --lang $idioma ddd] el proyecto trae el glosario y el mapa de contextos en su ruta"
+  tiene "(${ref}glossary.md)" "$p/docs/README.md"; tap_check $? "[<modo> --lang <idioma> ddd] docs/README.md enlaza el glosario" "[$modo --lang $idioma ddd] docs/README.md enlaza el glosario"
+  tiene "(${ref}contexts.md)" "$p/docs/README.md"; tap_check $? "[<modo> --lang <idioma> ddd] docs/README.md enlaza los contextos" "[$modo --lang $idioma ddd] docs/README.md enlaza los contextos"
+  tiene "(${ref}glossary.md)" "$p/docs/llms.txt"; tap_check $? "[<modo> --lang <idioma> ddd] docs/llms.txt enlaza el glosario" "[$modo --lang $idioma ddd] docs/llms.txt enlaza el glosario"
+  tiene "(${ref}contexts.md)" "$p/docs/llms.txt"; tap_check $? "[<modo> --lang <idioma> ddd] docs/llms.txt enlaza los contextos" "[$modo --lang $idioma ddd] docs/llms.txt enlaza los contextos"
+  if [ "$idioma" = en ]; then
+    gl_c='| Term | Definition | Name in the code'; gl_k='| Context |'; ct_c='| Context | Responsibility | Own terms | Depends on | Code paths |'; rel='## How they relate'
+  else
+    gl_c='| Término | Definición | Nombre en el código'; gl_k='| Contexto |'; ct_c='| Contexto | Responsabilidad | Términos propios | Depende de | Rutas de código |'; rel='## Cómo se relacionan'
+  fi
+  tiene "$gl_c" "$d/glossary.md"; tap_check $? "[<modo> --lang <idioma> ddd] el glosario es una tabla (término, definición, nombre en el código) en el idioma de la instalación" "[$modo --lang $idioma ddd] el glosario es una tabla (término, definición, nombre en el código) en el idioma de la instalación"
+  if [ "$modo" = completo ]; then
+    tiene "$gl_c $gl_k" "$d/glossary.md"; tap_check $? "[completo --lang <idioma> ddd] el glosario completo tiene la columna de contexto en el idioma de la instalación" "[completo --lang $idioma ddd] el glosario completo tiene la columna de contexto en el idioma de la instalación"
+    tiene "ADR-003 D7" "$p/docs/llms.txt"; tap_check $? "[completo --lang <idioma> ddd] la regla de llms.txt exceptúa el glosario y los contextos (ADR-003 D7)" "[completo --lang $idioma ddd] la regla de llms.txt exceptúa el glosario y los contextos (ADR-003 D7)"
+    tiene "$rel" "$d/contexts.md"; tap_check $? "[completo --lang <idioma> ddd] contexts.md tiene la sección de cómo se relacionan los contextos" "[completo --lang $idioma ddd] contexts.md tiene la sección de cómo se relacionan los contextos"
+    tiene "(contexts.md)" "$d/README.md"; tap_check $? "[completo --lang <idioma> ddd] docs/reference/README.md enlaza los contextos" "[completo --lang $idioma ddd] docs/reference/README.md enlaza los contextos"
+    tiene "(glossary.md)" "$d/README.md"; tap_check $? "[completo --lang <idioma> ddd] docs/reference/README.md enlaza el glosario" "[completo --lang $idioma ddd] docs/reference/README.md enlaza el glosario"
+    tiene '"contexts": []' "$p/docs/agents-map.json"; tap_check $? "[completo --lang <idioma> ddd] el mapa trae la sección contexts vacía" "[completo --lang $idioma ddd] el mapa trae la sección contexts vacía"
+    k=$(mapa_lista "$p/docs/agents-map.json" required docs/reference/contexts.md); [ "$k" = True ]; tap_check $? "[completo --lang <idioma> ddd] el mapa pide contexts.md en required" "[completo --lang $idioma ddd] el mapa pide contexts.md en required"
+    k=$(mapa_lista "$p/docs/agents-map.json" review docs/reference/contexts.md); [ "$k" = True ]; tap_check $? "[completo --lang <idioma> ddd] el mapa pide revisar contexts.md cuando cambia el mapa" "[completo --lang $idioma ddd] el mapa pide revisar contexts.md cuando cambia el mapa"
+    k=$(mapa_lista "$p/docs/agents-map.json" required docs/reference/glossary.md); [ "$k" = True ]; tap_check $? "[completo --lang <idioma> ddd] el mapa pide el glosario en required" "[completo --lang $idioma ddd] el mapa pide el glosario en required"
+    tiene 'depends_on' "$p/docs/agents-map.json"; tap_check $? "[completo --lang <idioma> ddd] el _help del mapa explica la sección contexts (name, paths, depends_on)" "[completo --lang $idioma ddd] el _help del mapa explica la sección contexts (name, paths, depends_on)"
+  else
+    tiene "$ct_c" "$d/contexts.md"; tap_check $? "[chico --lang <idioma> ddd] contexts.md del chico es una tabla con la columna de rutas de código" "[chico --lang $idioma ddd] contexts.md del chico es una tabla con la columna de rutas de código"
+    k=$(claves_mapa "$p/docs/agents-map.json"); [ "$k" = "['red']" ]; tap_check $? "[chico --lang <idioma> ddd] el mapa del chico sigue con solo la sección red" "[chico --lang $idioma ddd] el mapa del chico sigue con solo la sección red"
+  fi
+done
 
 tap_done

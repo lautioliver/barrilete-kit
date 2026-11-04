@@ -8,7 +8,9 @@
 # Usage: available.sh [owner/repo]   (default: the repo of the current directory)
 set -euo pipefail
 REPO="${1:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
-YO=$(gh api user -q .login 2>/dev/null || true)
+# BK_HUMAN: the person responsible when the agent runs as a GitHub App (gh api user fails there).
+YO="${BK_HUMAN:-$(gh api user -q .login 2>/dev/null || true)}"
+YO="${YO#@}"; YO=$(printf '%s' "$YO" | tr '[:upper:]' '[:lower:]')
 
 issues=$(gh api --paginate "repos/$REPO/issues?state=open&per_page=100" \
   | jq -s '[.[][] | select(.pull_request | not)]')
@@ -41,7 +43,7 @@ def prs: $prs[.number | tostring] // [];
 # Assigned = responsible (create-issue sets it according to .github/team.json); in progress = with an open PR.
 def enrelease: ($release[.number | tostring] // []) | length > 0;
 def tomado: (prs | length) > 0 or enrelease;
-def mio: any(.assignees[]; .login == $yo);
+def mio: any(.assignees[]; (.login | ascii_downcase) == $yo);
 def responsable: if (.assignees | length) == 0 then "no owner" else ([.assignees[].login | "@" + .] | join(", ")) end;
 def quien: ([.assignees[].login | "@" + .] + [prs[] | "PR #\(.)"]) | join(", ");
 def etiqueta: ([.labels[].name | select(startswith("priority:") or startswith("area:"))] | join(", "));'

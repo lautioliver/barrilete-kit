@@ -16,12 +16,15 @@ tap_at_exit "rm -rf \"\$TMP\""
 es() { test "$@"; }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
-# Ningún git de la prueba corre gc ni mantenimiento en segundo plano: un gc que empaqueta objetos sueltos mientras otro git
-# clona o lee ese repo puede romperlo ("failed to copy file ... No such file or directory"), a veces y solo en el CI.
-export GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=gc.auto GIT_CONFIG_VALUE_0=0 GIT_CONFIG_KEY_1=maintenance.auto GIT_CONFIG_VALUE_1=false
+# Ningún git de la prueba corre gc ni mantenimiento en segundo plano (#190, #186, #224): ver scripts/agents/git-quiet.sh.
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/git-quiet.sh"
+# Lo que GIT_CONFIG_* (y GIT_CONFIG_PARAMETERS, de git -c) traiga el entorno de quien corre el test no entra a sus repos (decisión de la persona en #238: https://github.com/lautioliver/barrilete-kit/pull/238#issuecomment-6618762051); el helper no pisa, así que se limpia acá.
+# shellcheck disable=SC2046
+unset GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS $(compgen -v | grep -E '^GIT_CONFIG_(KEY|VALUE)_' || :)
+git_quiet_env
 unset BASE AGENT_KIT_TEMPLATE
-# Ningún git de la prueba corre gc ni mantenimiento en segundo plano (#190, como en test-update.sh, #186).
-cfg=$(git config --list 2>/dev/null)
+cfg=$(git -C "$TMP" config --list 2>/dev/null)
 grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
 grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "los git de la prueba no corren mantenimiento automático"
 
@@ -208,6 +211,8 @@ c=0; s2=$(trap - ERR; cd "$U" && python3 scripts/agents/check-docs.py 2>&1) || c
 # puede fallar son los .md del usuario, ni las rutas del kit que acaba de instalar.
 ! grep -q 'roto.md\|NOTAS.md\|guia.md\|ADR-001-mio' <<<"$s2" && ! grep -q 'Traceback\|matches no file\|broken link\|missing path' <<<"$s2"
 tap_check $? "en un repo instalado check-docs.py no revisa los .md del usuario (NOTAS.md, docs/guia.md) y no marca rutas ni links rotos del kit"
+[[ "$s2" != *glossary* && "$s2" != *contexts.md* ]]
+tap_check $? "en un repo instalado check-docs.py no exige el glosario ni el mapa de contextos ni sus enlaces (los índices son del proyecto)" "en un repo instalado check-docs.py no exige el glosario ni el mapa de contextos ni sus enlaces (salida: $s2)"
 lista=$(cd "$U" && python3 scripts/agents/check-docs.py --list '*.sh')
 ! grep -q '^src/' <<<"$lista" && grep -q 'scripts/agents/test-base.sh' <<<"$lista"
 tap_check $? "la lista de scripts del CI no incluye los .sh del usuario"

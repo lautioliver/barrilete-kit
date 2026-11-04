@@ -14,6 +14,13 @@ tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# Ningún git de la prueba corre gc ni mantenimiento automático (#224): ver scripts/agents/git-quiet.sh.
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/git-quiet.sh"
+git_quiet_env
+cfg=$(git -C "$TMP" config --list 2>/dev/null)
+grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
+grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "los git de la prueba no corren mantenimiento automático"
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 
 # gh falso: cada issue es un JSON en $GH_ISSUES/<n>.json.
@@ -307,5 +314,63 @@ else  # proyecto instalado: un solo idioma, sin mezclar
   grep -Eq '## (What happens|Qué pasa)' "$CI" && ! { grep -q 'What happens' "$CI" && grep -q 'Qué pasa' "$CI"; }
 fi
 tap_check $? "create-issue paso 6: los títulos del cuerpo salen de la plantilla en el idioma de la instalación"
+
+# 8. /orchestrate y ADR-004 (tercera review de #237). Con --lang es el init deja el español como X.md y sin hermano: cada archivo que existe cumple el regex de su idioma.
+ADR4="$RAIZ/docs/decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md"; OS="$AQUI/SKILL.md"
+cada() {  # cada <regex> <archivo.md>: imprime ok si el .md (tiene que existir) y su .es.md (si existe) lo cumplen; si no, qué archivo falla
+  local re="$1" f falta=""; shift
+  [ -f "$1" ] || { echo "no existe ${1#"$RAIZ"/}"; return 0; }
+  for f in "$1" "${1%.md}.es.md"; do
+    [ -f "$f" ] || continue
+    [ "$(grep -Ec -- "$re" <"$f")" != 0 ] || falta="$falta ${f#"$RAIZ"/}"
+  done
+  echo "${falta:-ok}"
+}
+ninguna() {  # ninguna <regex> <archivo.md>: imprime ok si ni el .md (tiene que existir) ni su .es.md (si existe) tienen una línea que lo cumpla; si no, cuáles; grep va en una sustitución dentro de [ ] (un 2 es un crash, un 1 es una afirmación)
+  local re="$1" f hay=""; shift
+  [ -f "$1" ] || { echo "no existe ${1#"$RAIZ"/}"; return 0; }
+  for f in "$1" "${1%.md}.es.md"; do
+    [ -f "$f" ] || continue
+    [ "$(grep -Ec -- "$re" <"$f")" = 0 ] || hay="$hay ${f#"$RAIZ"/}"
+  done
+  echo "${hay:-ok}"
+}
+[ "$(cada 'D1 and D2 got|D1 y D2 tuvieron' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): cuenta que D1 y D2 cambiaron con (a) y (c)"
+[ -f "$ADR4" ]; tap_check $? "ADR-004 (Estado): el archivo existe (sin él, el caso de abajo no prueba nada)"
+[ "$(ninguna 'D1, D2, D4 and D5 are unchanged|D1, D2, D4 y D5 no cambiaron' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): no dice que D1 y D2 no cambiaron"
+[ "$(cada '^\| `escalate` \|.*(default branch|rama por defecto)' "$OS")" = ok ]; tap_check $? "orquestar (escalate): relanzar con bk run solo si la base es la rama por defecto"
+[ "$(cada '--worktree +# .*(mode is `sub`|modo es `sub`)' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): prepare.sh es solo para los issues de modo sub"
+[ "$(cada 'treat it as `pr` \(implementer\)|tratalo como `pr` \(implementador\)' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): un agente bk con PR abierto se trata como pr (implementer) y lanza al reviewer"
+
+# 9. Cuarta review de #237.
+AG="$RAIZ/AGENTS.md"
+[ "$(cada 'gh pr list --search .head:claude/<n>-' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): el PR de un agente bk se busca con --search head:claude/<n>-, no con --head de un prefijo"
+[ "$(ninguna '--head claude/<n>-' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): ya no usa gh pr list --head con un prefijo"
+[ "$(ninguna 'branch --show-current' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): el orquestador no conoce el worktree del agente bk: busca el PR solo con --search"
+[ "$(cada '(An|Un) `implementer` that|`implementer` que `roles.yml`' "$AG")" = ok ]; tap_check $? "AGENTS.md (subagentes): solo un implementer puede ser bk"
+[ "$(cada '`reviewer`.*`implementer-light`.*(always|siempre)' "$AG")" = ok ]; tap_check $? "AGENTS.md (subagentes): reviewer e implementer-light corren siempre como sub"
+[ "$(cada 'Only if the PR.s base is the repo.s default branch|Solo si la base del PR es la rama por defecto del repo' "$OS")" = ok ]; tap_check $? "orquestar (escalate): la condición de la base va al final de la fila"
+[ "$(cada '(no question either|tampoco hay pregunta).*`dropped`' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): un agente bk terminado sin PR ni comentario es dropped"
+[ "$(cada '(comment|comentario) .*before `bk run`|antes de `bk run`' "$OS")" = ok ]; tap_check $? "orquestar (escalate): dice dónde va el reason en modo bk"
+
+# 10. Seguimiento del #237 (#246).
+[ "$(ninguna 'gh pr list --head' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): ya no busca el PR con gh pr list --head"
+[ "$(cada 'D3\. (How|Cómo).*(--search|head:claude)' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): busca el PR con --search head:claude/<n>-"
+[ "$(cada 'D3\. (How|Cómo).*gh pr list --search' "$ADR4")" = ok ]; tap_check $? "ADR-004 (D3): cita gh pr list --search"
+[ "$(cada '#246' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): cita el cambio de redacción de D3 (#246)"
+RD="$RAIZ/README.md"
+[ "$(cada 'only the `implementer` as a `bk` agent|solo al `implementer`' "$RD")" = ok ]; tap_check $? "README: solo el implementer puede ser bk, dicho una vez"
+[ "$(ninguna '(Only an `implementer`|Solo un `implementer`)' "$RD")" = ok ]; tap_check $? "README: no repite la restricción en una segunda frase"
+[ "$(ninguna 'lanzar un rol como agente `bk`|launch a role as a `bk` agent' "$RD")" = ok ]; tap_check $? "README: ya no dice que cualquier rol puede ser bk"
+
+# 11. Review del #251.
+mkdir -p "$TMP/paso3"; for f in SKILL SKILL.es; do [ -f "$AQUI/$f.md" ] && grep -E 'mode\.py <(role|rol)>' <"$AQUI/$f.md" >"$TMP/paso3/$f.md"; done
+[ "$(grep -c . <"$TMP/paso3/SKILL.md")" = 1 ]; tap_check $? "orquestar (paso 3): el párrafo de mode.py se encontró (una línea)"
+[ "$(ninguna '2>/dev/null|read stdout alone|leé solo stdout' "$TMP/paso3/SKILL.md")" = ok ]; tap_check $? "orquestar (paso 3): no manda descartar stderr"
+[ "$(cada '(stdout and stderr apart|stdout y stderr separados) \((no|sin) `2>&1`\)' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): stdout es el modo, stderr va al plan (en y es igual)"
+[ "$(cada 'roles.yml` or from `bk mode`|roles.yml` o de `bk mode`' "$OS")" = ok ]; tap_check $? "orquestar (paso 3): el aviso vale también cuando el bk viene de bk mode"
+[ "$(ninguna 'confirmed D3 as it reads now|confirmó D3 con la redacción actual' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): no atribuye la redacción actual de D3 al segundo comentario"
+[ "$(cada 'the D3 of that time|la redacción de D3 de entonces' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): el segundo comentario confirmó la redacción de D3 de entonces"
+[ "$(cada 'approved rewriting D3|aprobó reescribir D3' "$ADR4")" = ok ]; tap_check $? "ADR-004 (Estado): el comentario del #237 aprobó reescribir D3"
 
 tap_done

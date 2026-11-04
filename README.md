@@ -206,7 +206,7 @@ They live in `.claude/skills/`.
 | 📚 | `update-docs` | Finds docs a change made stale (using the map) and fixes them in the same PR. |
 | 👀 | `/review-pr <n>` | A review focused on what's specific to the project: business rules, ADRs, autonomy, docs, tests and sensitive paths. Never approves. |
 | 📊 | `/project-status` | An on-the-spot summary (version, work, epics, PRs, debt, decisions, migrations) and "what can I work on now?". |
-| 🎛️ | `/orchestrate` | Splits up to 3 available issues among subagents working in parallel (Haiku or Sonnet per `routing.py`, Opus reviews), each in its own worktree, and gathers PRs, questions and escalations in a single message. Never merges or posts without confirmation. |
+| 🎛️ | `/orchestrate` | Splits up to 3 available issues among agents working in parallel, each launched as a subagent or as a `bk` agent in its own tmux window per `roles.yml` (kit/ADR-004; Haiku or Sonnet per `routing.py`, Opus reviews), each in its own worktree, and gathers PRs, questions and escalations in a single message. Never merges or posts without confirmation. |
 | 🔁 | `/improve-skills` | Gathers retros and objective signals (CI failures on agent branches, reverts) and proposes skill changes in a PR. Never loosens controls. |
 | 🌿 | `git-workflow` | Branches, commits and PRs. |
 | 👥 | `/add-member`, `/remove-member` | Add, edit, pause or remove the team members who receive issues. |
@@ -221,7 +221,7 @@ In `.claude/agents/`, each role with its model:
 | 🪶 | `implementer-light` | Haiku | Small issues without sensitive paths or business logic. If it runs into any of that, it stops and escalates. |
 | 👀 | `reviewer` | Opus | `review-pr` from another context, in its own worktree. It does not publish: it returns the findings. |
 
-`/orchestrate` launches them from the main session. They share the rules and the output format of `docs/agents/subagent-contract.md`, and each one works in its own worktree (`prepare.sh <n> --worktree`). `check-docs.py` checks that each one has a model, tools and the contract.
+`/orchestrate` launches them from the main session. They share the rules and the output format of `docs/agents/subagent-contract.md`, and each one works in its own worktree (`prepare.sh <n> --worktree`). With `bk`, `roles.yml` can launch only the `implementer` as a `bk` agent (`bk run`); `reviewer` and `implementer-light` always run as subagents. A `bk` agent is a normal `/implement-issue` session that asks the person at the moment, outside that contract. `check-docs.py` checks that each one has a model, tools and the contract.
 
 ### 🌱 How they learn
 

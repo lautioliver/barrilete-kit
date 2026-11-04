@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# Tests de mode.py: de dónde lee /orchestrate el modo de cada rol (kit/ADR-004, #236).
+# Uso: bash .claude/skills/orchestrate/test-mode.sh
+# shellcheck disable=SC2016,SC2154  # el printf del bk falso lleva $1 literal; `out` lo asigna tap_run
+set -uo pipefail
+AQUI=$(cd "$(dirname "$0")" && pwd)
+RAIZ=$(cd "$AQUI/../../.." && pwd)
+TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-mode-XXXXXX")" && pwd -P)
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/tap.sh"
+tap_begin "$0"
+tap_at_exit "rm -rf \"\$TMP\""
+
+# bk falso: "bk mode <rol>" contesta lo que dice el archivo global del test (siempre bk, para distinguirlo del proyecto).
+mkdir -p "$TMP/bin" "$TMP/nobin" "$TMP/proj/.barrilete" "$TMP/vacio"
+printf '#!/bin/sh\n[ "$1" = mode ] && [ "$2" = implementer-light ] && echo sub && exit 0\n[ "$1" = mode ] && [ "$2" = tester ] && echo main && exit 0\n[ "$1" = mode ] && echo bk && exit 0\nexit 1\n' >"$TMP/bin/bk"
+chmod +x "$TMP/bin/bk"
+printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -v python3)" >"$TMP/nobin/python3"
+chmod +x "$TMP/nobin/python3"
+PATH_ORIG=$PATH
+export PATH="$TMP/bin:$PATH_ORIG"
+M="$AQUI/mode.py"
+
+cat >"$TMP/proj/.barrilete/roles.yml" <<'Y'
+# roles del proyecto
+planner: claude/opus main
+implementer: claude/sonnet sub
+reviewer:    claude/opus    main   # con espacios y comentario
+orchestrator: claude/opus
+Y
+
+# 1. Con modo: manda el archivo del proyecto, no bk.
+tap_run out 0 python3 "$M" implementer --root "$TMP/proj"
+[ "$out" = sub ]; tap_check $? "mode: con modo en roles.yml del proyecto, lo lee"
+tap_run out 0 python3 "$M" reviewer --root "$TMP/proj"
+[ "$out" = main ]; tap_check $? "mode: tolera espacios y un comentario al final"
+
+# 2. Sin modo: el default es bk.
+tap_run out 0 python3 "$M" orchestrator --root "$TMP/proj"
+[ "$out" = bk ]; tap_check $? "mode: un rol sin modo es bk"
+
+# 3. Un rol que no está en el archivo del proyecto: lo resuelve bk (su archivo global).
+tap_run out 0 python3 "$M" tester --root "$TMP/proj"
+[ "$out" = main ]; tap_check $? "mode: un rol que no está en el proyecto lo resuelve bk mode"
+tap_run out 0 python3 "$M" implementer --root "$TMP/vacio"
+[ "$out" = bk ]; tap_check $? "mode: sin .barrilete/roles.yml en el proyecto, lo resuelve bk mode"
+
+# 4. Sin bk instalado: todo es sub, y lo avisa.
+export PATH="$TMP/nobin"
+tap_run out 0 python3 "$M" implementer --root "$TMP/proj"
+export PATH="$TMP/bin:$PATH_ORIG"
+grep -qx "sub" <<<"$out"; tap_check $? "mode: sin bk instalado, todo es sub"
+grep -q "bk is not installed" <<<"$out"; tap_check $? "mode: sin bk instalado, avisa en stderr"
+
+# 5. Un modo mal escrito no es "sin modo": falla en vez de lanzar una ventana bk sin que nadie lo note.
+mkdir -p "$TMP/typo/.barrilete"
+printf 'reviewer: claude/opus subagent\n' >"$TMP/typo/.barrilete/roles.yml"
+tap_run out 64 python3 "$M" reviewer --root "$TMP/typo"
+[ "$TAP_RC" = 64 ] && grep -q "subagent" <<<"$out"; tap_check $? "mode: un modo desconocido falla (exit 64) y lo nombra"
+
+# 6. Una línea del rol que no se entiende no es "el rol no está": falla (exit 64) en vez de caer en silencio a `bk mode`.
+mkdir -p "$TMP/extra/.barrilete" "$TMP/vaciorol/.barrilete" "$TMP/norol/.barrilete"
+printf 'implementer: claude/sonnet sub extra\n' >"$TMP/extra/.barrilete/roles.yml"
+tap_run out 64 python3 "$M" implementer --root "$TMP/extra"
+[ "$TAP_RC" = 64 ] && grep -q "implementer" <<<"$out"; tap_check $? "mode: una línea del rol con una palabra de más falla (exit 64) y nombra el rol"
+printf 'implementer:\n' >"$TMP/vaciorol/.barrilete/roles.yml"
+tap_run out 64 python3 "$M" implementer --root "$TMP/vaciorol"
+[ "$TAP_RC" = 64 ] && grep -q "implementer" <<<"$out"; tap_check $? "mode: una línea del rol vacía falla (exit 64) y nombra el rol"
+printf 'implementer-light: claude/haiku sub\nimplementerx: nada\n' >"$TMP/norol/.barrilete/roles.yml"
+tap_run out 0 python3 "$M" implementer --root "$TMP/norol"
+[ "$out" = bk ]; tap_check $? "mode: otro rol con prefijo parecido no cuenta como la línea del rol"
+
+# 7. --root que no existe: exit 64, sin traceback.
+tap_run out 64 python3 "$M" implementer --root "$TMP/no-existe"
+[ "$TAP_RC" = 64 ] && ! grep -q "Traceback" <<<"$out"; tap_check $? "mode: un --root que no existe falla (exit 64) sin traceback"
+
+# 8. bk que falla o que contesta algo fuera de main/bk/sub: exit 64.
+mkdir -p "$TMP/badbin" "$TMP/rarobin"
+printf '#!/bin/sh\nexit 3\n' >"$TMP/badbin/bk"
+printf '#!/bin/sh\necho subagent\n' >"$TMP/rarobin/bk"
+chmod +x "$TMP/badbin/bk" "$TMP/rarobin/bk"
+PATH="$TMP/badbin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$TMP/vacio"
+[ "$TAP_RC" = 64 ]; tap_check $? "mode: bk mode que falla da exit 64"
+PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 64 python3 "$M" implementer --root "$TMP/vacio"
+[ "$TAP_RC" = 64 ]; tap_check $? "mode: bk mode que contesta algo fuera de main, bk o sub da exit 64"
+
+# stdout y stderr por separado: tap_run los junta (2>&1) y no distingue uno de otro. Deja el modo en $out y el aviso en $err.
+split_run() { out=$(python3 "$M" "$@" 2>"$TMP/stderr"); err=$(<"$TMP/stderr"); }
+# Cuántas líneas de stderr (en $err) traen el patrón, en $n.
+cuenta_err() { n=$(awk -v p="$1" 'index($0, p) { c++ } END { print c + 0 }' <<<"$err"); }
+
+# 9. reviewer e implementer-light son siempre sub aunque el archivo diga bk (kit/ADR-004: límite de bk run); main y sub se respetan.
+mkdir -p "$TMP/limite/.barrilete"
+printf 'reviewer: claude/opus bk\nimplementer-light: claude/haiku\nimplementer: claude/sonnet bk\n' >"$TMP/limite/.barrilete/roles.yml"
+split_run reviewer --root "$TMP/limite"
+[ "$out" = sub ]; tap_check $? "mode: un reviewer con bk en roles.yml se lanza como sub (stdout es solo el modo)"
+split_run implementer-light --root "$TMP/limite"
+[ "$out" = sub ]; tap_check $? "mode: un implementer-light sin modo (bk) en roles.yml se lanza como sub (stdout es solo el modo)"
+tap_run out 0 python3 "$M" implementer --root "$TMP/limite"
+[ "$out" = bk ]; tap_check $? "mode: un implementer con bk en roles.yml sigue siendo bk"
+PATH="$TMP/rarobin:$PATH_ORIG" tap_run out 0 python3 "$M" reviewer --root "$TMP/proj"
+[ "$out" = main ]; tap_check $? "mode: un reviewer main explícito en roles.yml se respeta"
+
+# 10. Sin bk instalado, un main explícito del proyecto se respeta; lo demás es sub.
+export PATH="$TMP/nobin"
+tap_run out 0 python3 "$M" planner --root "$TMP/proj"
+export PATH="$TMP/bin:$PATH_ORIG"
+grep -qx "main" <<<"$out"; tap_check $? "mode: sin bk instalado, un main explícito del proyecto se respeta"
+
+# 11. La columna provider/model se valida: un modo en su lugar falla (exit 64) en vez de salir como bk.
+mkdir -p "$TMP/columna/.barrilete"
+printf 'implementer: sub\n' >"$TMP/columna/.barrilete/roles.yml"
+tap_run out 64 python3 "$M" implementer --root "$TMP/columna"
+[ "$TAP_RC" = 64 ] && grep -q "provider" <<<"$out"; tap_check $? "mode: un modo en la columna provider/model falla (exit 64)"
+
+# 12. Cuando convierte bk en sub (reviewer, implementer-light) avisa por stderr, para que el orquestador lo diga en el plan (#246). Stdout y stderr se capturan por separado.
+split_run reviewer --root "$TMP/limite"
+cuenta_err 'mode.py: reviewer is never bk'
+[ "$n" = 1 ]; tap_check $? "mode: reviewer bk -> sub avisa por stderr"
+split_run implementer-light --root "$TMP/limite"
+cuenta_err 'mode.py: implementer-light is never bk'
+[ "$n" = 1 ]; tap_check $? "mode: implementer-light bk -> sub avisa por stderr y nombra el rol"
+split_run implementer --root "$TMP/limite"
+cuenta_err 'mode.py:'
+[ "$n" = 0 ]; tap_check $? "mode: un implementer bk no avisa nada"
+split_run reviewer --root "$TMP/proj"
+cuenta_err 'mode.py:'
+[ "$n" = 0 ]; tap_check $? "mode: un reviewer main explícito no avisa nada"
+# El mismo camino cuando el bk viene de `bk mode` (el rol no está en el roles.yml del proyecto).
+split_run reviewer --root "$TMP/vacio"
+[ "$out" = sub ]; tap_check $? "mode: un reviewer que bk mode contesta bk sale como sub (stdout es solo el modo)"
+split_run reviewer --root "$TMP/vacio"
+cuenta_err 'mode.py: reviewer is never bk'
+[ "$n" = 1 ]; tap_check $? "mode: reviewer bk de bk mode -> sub avisa por stderr"
+
+tap_done

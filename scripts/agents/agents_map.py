@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cross-checks the changed files with docs/agents-map.json.
 
-Says which documents to review and which sensitive paths were touched.
+Says which documents to review, which sensitive paths were touched and which contexts (the `contexts` section) the change touches.
 Usage:
   agents_map.py                      # branch changes against the base (BASE, <BASE_BRANCH> or the remote default)
   agents_map.py --base develop       # against another base
@@ -170,9 +170,23 @@ def main():
         if tocados:
             sensibles.append({"type": s["type"], "files": tocados, "skill": s.get("skill")})
 
+    # The contexts (ADR-003 D3) the change touches: name → the changed files that match its paths. A malformed entry is
+    # check-docs.py's error, not a crash here.
+    contextos = {}
+    lista_contextos = mapa.get("contexts")
+    for c in lista_contextos if isinstance(lista_contextos, list) else []:
+        if not isinstance(c, dict) or not isinstance(c.get("name"), str) or not c["name"].strip() or not isinstance(c.get("paths"), list):
+            continue
+        globs = [g for g in c["paths"] if isinstance(g, str)]
+        tocados = [a for a in cambiados if coincide(a, globs)]
+        if tocados:
+            # two entries with the same name (check-docs.py rejects it) add their files up instead of overwriting each other
+            lista = contextos.setdefault(c["name"], [])
+            lista += [a for a in tocados if a not in lista]
+
     sin_par = pares_sin_actualizar(cambiados)
     if "--json" in args:
-        print(json.dumps({"changed": cambiados, "docs": docs, "sensitive": sensibles,
+        print(json.dumps({"changed": cambiados, "docs": docs, "sensitive": sensibles, "contexts": contextos,
                           "unpaired": [{"changed": a, "sibling": h} for a, h in sin_par]}, ensure_ascii=False, indent=2))
         return
 
@@ -183,6 +197,11 @@ def main():
     for d, e in docs.items():
         estado = "already modified in this change" if e["already_changed"] else "NOT MODIFIED"
         print(f"- {d} ({estado}) — {'; '.join(e['reasons'])}: {', '.join(e['files'][:5])}")
+    print("\n## Contexts touched")
+    if not contextos:
+        print("_None according to the map._")
+    for nombre, tocados in contextos.items():
+        print(f"- {nombre}: {', '.join(tocados[:5])}")
     print("\n## Language siblings")
     if not sin_par:
         print("_Every X.md / X.es.md that changed has its sibling in this change._")

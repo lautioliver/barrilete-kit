@@ -42,6 +42,7 @@ Rule: if a product document and the code do not match, [architecture.md](develop
 ### Reference
 
 - [Glossary](reference/glossary.md) — words that do not change
+- [Contexts](reference/contexts.md) — bounded contexts, their own terms and how they relate
 - [Domain and data](reference/domain.md) — tables, IDs, states
 - [Surfaces](reference/surfaces.md) — URLs and who gets in
 - [Modules](reference/modules.md) — where each thing lives in the code
@@ -64,6 +65,9 @@ Rule: if a product document and the code do not match, [architecture.md](develop
 - [ADR-001 (kit)](decisions/ADR-001-language-labels-and-names-in-english.md) — kit language: prose in two languages, labels and names in English (kit ADR: the init does not install it)
 <!-- template:end -->
 - [ADR-002](decisions/kit/ADR-002-structured-red-validation.md) — red tests are validated only with a structured report (JUnit or TAP)
+- [ADR-003](decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md) — every project gets a domain glossary and a bounded-context map, with the rules the agents apply to them
+- [ADR-004](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md) — `/orchestrate` launches each role as a `bk` agent or a subagent, per `roles.yml` (accepted)
+- [ADR-005](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md) — a `bk` agent works on a task with a state and an event log, and declares its close with `bk done` (accepted)
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — one-line summary`
 
 ### Guides

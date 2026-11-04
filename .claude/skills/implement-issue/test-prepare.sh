@@ -20,7 +20,7 @@ cat >"$TMP/bin/gh" <<'SH'
 echo "$*" >>"$GH_LOG"
 case "$*" in
   "repo view"*) echo o/r ;;
-  "api user"*) echo yo ;;
+  "api user"*) if [ -n "${GH_APP:-}" ]; then echo "gh: Resource not accessible by integration (HTTP 403)" >&2; exit 1; fi; echo yo ;;
   api\ repos/o/r/issues/*/dependencies/*) echo '[]' ;;
   api\ repos/o/r/issues/*/parent*) exit 1 ;;
   api\ repos/o/r/issues/*/comments*) ;;
@@ -32,7 +32,16 @@ esac
 SH
 chmod +x "$TMP/bin/gh"
 # Aislado de la config de git de quien corre los tests (firma de commits, hooks globales…).
+unset BK_HUMAN GH_APP   # que el entorno de quien corre los tests no cambie el resultado
+out=""   # lo reasigna tap_run
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# Ningún git de la prueba corre gc ni mantenimiento automático (#224): ver scripts/agents/git-quiet.sh.
+# shellcheck source=/dev/null
+. "$AQUI/../../../scripts/agents/git-quiet.sh"
+git_quiet_env
+cfg=$(git -C "$TMP" config --list 2>/dev/null)
+grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
+grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "los git de la prueba no corren mantenimiento automático"
 export PATH="$TMP/bin:$PATH" BASE=main GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 issue() { # issue <n> <título>
   printf '{"state":"open","title":"%s","labels":[],"assignees":[],"html_url":"u","body":"cuerpo"}\n' "$2" >"$TMP/issues/$1.json"
@@ -43,7 +52,7 @@ git init -q --bare -b main "$TMP/remoto.git"
 git clone -q "$TMP/remoto.git" "$TMP/proj" 2>/dev/null
 (cd "$TMP/proj" && git switch -q -c main && echo base >README.md && git add README.md && git commit -qm base && git push -q origin main 2>/dev/null)
 WT="$TMP/proj-wt"
-asignado() { grep -q "^issue edit $1 .*--add-assignee @me" "$GH_LOG"; }
+asignado() { grep -q "^issue edit $1 .*--add-assignee yo\( \|$\)" "$GH_LOG"; }
 worktrees() { git -C "$TMP/proj" worktree list | wc -l | tr -d ' '; }
 
 # 1. Issue nuevo: crea el worktree y la rama, y lo asigna. El checkout principal sucio no lo frena.
@@ -238,5 +247,66 @@ c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" --help 2>&1) || c=$?; tap_sta
 tap_check $c "--help termina bien"
 grep -q "git worktree remove" <<<"$s" && grep -q "fails without assigning" <<<"$s" && grep -q "git -C" <<<"$s"; tap_check $? "--help explica cómo trabajar en el worktree"
 ! [ -s "$GH_LOG" ]; tap_check $? "--help no llama a gh"
+
+# BK_HUMAN (#231): quien lanzó al agente es la persona responsable, aunque el token sea de otra identidad.
+issue 60 "Con persona responsable"
+cd "$TMP/proj" || exit 2
+export BK_HUMAN=lautioliver
+tap_run out 0 "$PREPARAR" 60 --worktree
+tap_check $? "BK_HUMAN: toma el issue con la persona definida"
+grep -q "^issue edit 60 .*--add-assignee lautioliver\( \|$\)" "$GH_LOG"; tap_check $? "BK_HUMAN: asigna el issue a esa persona y no a @me"
+grep -qx "Assigned to @lautioliver." <<<"$out"; tap_check $? "BK_HUMAN: dice a quién asignó"
+unset BK_HUMAN
+
+
+# Token de GitHub App (gh api user da 403), con y sin BK_HUMAN.
+issue 61 "App con persona"; issue 62 "App sin persona"; issue 63 "Ya es de la persona"
+printf '{"state":"open","title":"Ya es de la persona","labels":[],"assignees":[{"login":"lautioliver"}],"html_url":"u","body":"b"}\n' >"$TMP/issues/63.json"
+export GH_APP=1 BK_HUMAN=lautioliver
+tap_run out 0 "$PREPARAR" 61 --worktree
+tap_check $? "token de App con BK_HUMAN: toma el issue"
+grep -q "^issue edit 61 .*--add-assignee lautioliver\( \|$\)" "$GH_LOG"; tap_check $? "token de App con BK_HUMAN: asigna a la persona"
+tap_run out 0 "$PREPARAR" 63 --worktree
+tap_check $? "un issue asignado a BK_HUMAN no se ve como de otro"
+unset BK_HUMAN
+c=0; s=$(trap - ERR; "$PREPARAR" 62 --worktree 2>&1) || c=$?; tap_status "$c" 64
+grep -q "BK_HUMAN" <<<"$s"; tap_check $? "token de App sin BK_HUMAN: el mensaje nombra la variable que falta"
+grep -q "Resource not accessible" <<<"$s"; tap_check $? "token de App sin BK_HUMAN: muestra el error de gh junto al mensaje"
+! grep -q "^issue edit 62" "$GH_LOG"; tap_check $? "token de App sin BK_HUMAN: no asigna"
+! git -C "$TMP/proj" show-ref -q --verify refs/heads/claude/62-app-sin-persona; tap_check $? "token de App sin BK_HUMAN: no crea la rama"
+unset GH_APP
+tap_run out 0 "$PREPARAR" 62 --worktree
+tap_check $? "token de usuario sin BK_HUMAN: se comporta como siempre"
+grep -qx "Assigned to @yo." <<<"$out"; tap_check $? "token de usuario sin BK_HUMAN: asigna al usuario del token"
+
+# BK_HUMAN normalizado (#231, review de #234): sin @ inicial y en minúsculas, como los logins de GitHub.
+issue 64 "Persona con arroba y mayusculas"
+: >"$GH_LOG"
+export BK_HUMAN=@LautiOliver
+tap_run out 0 "$PREPARAR" 64 --worktree
+tap_check $? "BK_HUMAN con @ y mayúsculas: toma el issue"
+grep -q "^issue edit 64 .*--add-assignee lautioliver\( \|$\)" "$GH_LOG"; tap_check $? "BK_HUMAN con @ y mayúsculas: asigna el login normalizado"
+grep -qx "Assigned to @lautioliver." <<<"$out"; tap_check $? "BK_HUMAN con @ y mayúsculas: dice el login normalizado"
+unset BK_HUMAN
+
+# --help documenta BK_HUMAN.
+tap_run out 0 "$PREPARAR" --help
+grep -q "BK_HUMAN" <<<"$out"; tap_check $? "--help documenta BK_HUMAN"
+
+# Un issue asignado a lautioliver lo toma BK_HUMAN=@LautiOliver (no se ve como de otro).
+issue 65 "Ya es de la persona con arroba"
+printf '{"state":"open","title":"Ya es de la persona con arroba","labels":[],"assignees":[{"login":"lautioliver"}],"html_url":"u","body":"b"}\n' >"$TMP/issues/65.json"
+export BK_HUMAN=@LautiOliver
+tap_run out 0 "$PREPARAR" 65 --worktree
+tap_check $? "BK_HUMAN con @ y mayúsculas: un issue de esa persona no se ve como de otro"
+unset BK_HUMAN
+
+# BK_HUMAN que no es un login válido: corta con 64 antes de tocar nada.
+issue 66 "Persona invalida"
+export BK_HUMAN=@
+c=0; s=$(trap - ERR; "$PREPARAR" 66 --worktree 2>&1) || c=$?; tap_status "$c" 64
+grep -q "not a valid GitHub login" <<<"$s"; tap_check $? "BK_HUMAN inválido: dice que no es un login"
+! git -C "$TMP/proj" show-ref -q --verify refs/heads/claude/66-persona-invalida; tap_check $? "BK_HUMAN inválido: no crea la rama"
+unset BK_HUMAN
 
 tap_done

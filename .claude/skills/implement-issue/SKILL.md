@@ -22,6 +22,7 @@ For several issues in parallel, `--worktree` (how to work there: `prepare.sh --h
 - Read what the issue links: ADRs, audits, docs, files.
 - If the issue is part of an epic (`prepare.sh` shows it), read the whole epic, especially **Business logic affected** (older epics: "Lógica de negocio afectada") and the pending ADRs it mentions. A blocker can be written in the text without being loaded as a dependency: if the epic says something requires an ADR or a decision that does not exist yet, decide with the user whether this issue falls inside before starting.
 - Read `AGENTS.md` (code conventions and commands), `docs/agents/lessons.md` (what was learned in earlier runs) and whatever applies from `docs/development/architecture.md` and `docs/reference/`.
+- Read the glossary and the contexts map (`docs/reference/glossary.md`, `docs/reference/contexts.md`) and use their terms. If the change needs a term that is not there, add it to the glossary in the PR (while it is `TODO`, propose it in the PR and do not block). If it needs a new dependency between contexts (not in `depends_on`), **stop and ask**: it needs an ADR (`docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`).
 - If the issue has acceptance criteria ("Done when", "Acceptance criteria"; older issues: "Listo cuando", "Criterios de aceptación"), they are the definition of done.
 - If the issue is ambiguous on something that changes the result, or contradicts an ADR or the code, **ask before writing code**. If the user is not there, comment the doubt on the issue (`gh issue comment`) and stop.
 - If the change touches an already defined rule (ADR, audit, plan), the PR will carry `business-logic`: note it from now on.
@@ -70,7 +71,7 @@ With everything committed, `python3 scripts/agents/verify.py` runs what applies 
 
 ## 8. Open the PR
 
-`git push origin HEAD` (without `-u`: it writes `.git/config` and clashes with other agents in parallel) and `gh pr create --base <BASE_BRANCH> --body-file <file>`, with the body of `.github/pull_request_template.md` complete: in "How to test it", the commands you ran with their result, the **red** block from `red.sh` as is, with its `red commit:` sha (without that, the reviewer cannot check that the tests prove something). Labels: the issue's `type:` and `area:` (if it has no `area:`, pick the one that matches the paths you touched and say so in the PR), plus `business-logic` or `breaking-change` if they apply. CI validates the title (`pr-title.yml`), the labels, `Closes #<n>` (or `Refs #<n>` if the PR does not close the issue) and the structured red block, with `red commit:`, and per group `stack:`, `format:` and at least one failing case (`labels.yml`): if it fails, fix the PR.
+`git push origin HEAD` (without `-u`: it writes `.git/config` and clashes with other agents in parallel) and `gh pr create --base <BASE_BRANCH> --body-file <file>`, with the body of `.github/pull_request_template.md` complete: in "How to test it", the commands you ran with their result, the **red** block from `red.sh` as is, with its `red commit:` sha (without that, the reviewer cannot check that the tests prove something). Labels: the issue's `type:` and `area:` (if it has no `area:`, pick the one that matches the paths you touched and say so in the PR), plus `business-logic` or `breaking-change` if they apply. CI validates the title (`pr-title.yml`), the labels, `Closes #<n>` (or `Refs #<n>` if the PR does not close the issue) and the structured red block, with `red commit:` (its sha has to be a commit of the PR, in the main block and in any `<details>` with a `red commit:` line, not in code blocks; if you rewrite the red commit and do not update the block, CI fails) and, per group, `stack:`, `format:` and at least one failing case (`labels.yml`): if it fails, fix the PR.
 
 ## 9. Wait for CI and deliver
 
@@ -98,6 +99,16 @@ The temporary directory is left on purpose (the retry that `retro.sh` prints if 
 
 Be concrete and honest: a retro that says "all good" when there were deviations takes away the only signal `/improve-skills` has.
 
+## Close the task (`bk` agents)
+
+If `BK_TASK_DIR` exists (`bk` launched you, ADR-005), the last thing, after the retro, is to close your task with `bk done`:
+
+- PR open and CI green: `bk done pr <n>`.
+- It cannot be finished (see "If you have to drop the issue"): `bk done dropped "<reason in one line>"`.
+- You are `implementer-light` and the issue is not for the light model: `bk done escalate "<reason>"`.
+
+A question closes nothing: ask in your window and wait for the answer. Without `BK_TASK_DIR`, do not run `bk done`. If `bk done` fails (there is no task, or it was already closed), say so in your reply and do not close it any other way.
+
 ## If you have to drop the issue
 
-If you cannot finish (new blocker, pending decision, scope much larger than the issue says): comment on the issue what you did and what is missing, push the branch if it has something useful and unassign yourself (`gh issue edit <n> --remove-assignee @me`). That way `available.sh` shows it again.
+If you cannot finish (new blocker, pending decision, scope much larger than the issue says): comment on the issue what you did and what is missing, push the branch if it has something useful and unassign yourself (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`). That way `available.sh` shows it again.

@@ -24,6 +24,11 @@ changed; if there is more than one, it fails and lists them) and prints the issu
                 you would commit in the main checkout.
               - If the branch is already in another worktree, it fails without assigning.
               - With the PR merged, delete it with: git worktree remove <path>
+
+Environment:
+  BK_HUMAN   Login of the person responsible (a leading @ and the case are ignored). It wins
+             over the token's user. Required when the agent runs with a GitHub App token
+             (gh api user gives 403): without it, the script stops with exit 64.
 AYUDA
   exit 0
 fi
@@ -47,7 +52,21 @@ if [[ "$BASE" == "<"*">" ]]; then
   BASE="$defecto"
 fi
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-YO=$(gh api user -q .login)
+# The responsible person: BK_HUMAN (an agent that runs as a GitHub App has no "authenticated user": gh api user
+# gives 403 and a bot cannot be assigned), or else the user of the token.
+YO="${BK_HUMAN:-}"
+if [ -z "$YO" ]; then
+  yo_err=""
+  if ! YO=$(gh api user -q .login 2>&1); then yo_err="$YO"; YO=""; fi
+  if [ -z "$YO" ]; then
+    echo "prepare.sh: could not tell who is responsible. gh api user said: $yo_err" >&2
+    echo "If the token has no user (a GitHub App?), set BK_HUMAN=<login of the person who launched the agent>; otherwise fix the gh error above." >&2
+    exit 64
+  fi
+fi
+# GitHub logins are case-insensitive and have no @: normalize so the comparisons and --add-assignee work.
+YO="${YO#@}"; YO=$(printf '%s' "$YO" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+[[ "$YO" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || { echo "prepare.sh: '$YO' is not a valid GitHub login (check BK_HUMAN)." >&2; exit 64; }
 
 issue=$(gh api "repos/$REPO/issues/$N")
 error() { echo "CANNOT TAKE #$N: $*" >&2; exit 1; }
@@ -65,9 +84,9 @@ if deps=$(gh api "repos/$REPO/issues/$N/dependencies/blocked_by" 2>/dev/null); t
   bloq=$(jq -r '[.[] | select(.state == "open") | "#\(.number) \(.title)"] | join("; ")' <<<"$deps")
 fi
 [ -n "$bloq" ] && error "it is blocked by: $bloq"
-otros=$(jq -r --arg yo "$YO" '[.assignees[].login | select(. != $yo)] | join(", ")' <<<"$issue")
+otros=$(jq -r --arg yo "$YO" '[.assignees[].login | select(ascii_downcase != $yo)] | join(", ")' <<<"$issue")
 # Assigned = responsible (create-issue assigns it according to .github/team.json): it belongs to that person.
-[ -n "$otros" ] && error "it belongs to $otros (responsible). Ask them for it or reassign it: gh issue edit $N --remove-assignee <login> --add-assignee @me"
+[ -n "$otros" ] && error "it belongs to $otros (responsible). Ask them for it or reassign it: gh issue edit $N --remove-assignee <login> --add-assignee $YO"
 
 titulo=$(jq -r .title <<<"$issue")
 # Branch: claude/<n>-<description>, lowercase, no accents, only [a-z0-9-], ≤ 50 characters.
@@ -167,7 +186,7 @@ if [ -z "$WORKTREE" ]; then
   else
     git switch -q -c "$RAMA" "origin/$BASE"; echo "New branch: $RAMA (from origin/$BASE)"
   fi
-  gh issue edit "$N" -R "$REPO" --add-assignee @me >/dev/null
+  gh issue edit "$N" -R "$REPO" --add-assignee "$YO" >/dev/null
   echo "Assigned to @$YO."
   exit 0
 fi
@@ -192,6 +211,6 @@ else
   mkdir -p "$(dirname "$WT")"; git worktree add -q --no-track -b "$RAMA" "$WT" "origin/$BASE"
   echo "New branch: $RAMA (from origin/$BASE)"
 fi
-gh issue edit "$N" -R "$REPO" --add-assignee @me >/dev/null
+gh issue edit "$N" -R "$REPO" --add-assignee "$YO" >/dev/null
 echo "Worktree: $WT"
 echo "Assigned to @$YO."

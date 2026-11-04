@@ -42,6 +42,7 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 ### Referencia
 
 - [Glosario](reference/glossary.md) — palabras que no se cambian
+- [Contextos](reference/contexts.md) — contextos delimitados, sus términos propios y cómo se relacionan
 - [Dominio y datos](reference/domain.md) — tablas, IDs, estados
 - [Superficies](reference/surfaces.md) — URLs y quién entra
 - [Módulos](reference/modules.md) — dónde vive cada cosa en el código
@@ -64,6 +65,9 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 - [ADR-001 (kit)](decisions/ADR-001-language-labels-and-names-in-english.md) — idioma del kit: prosa en dos idiomas, labels y nombres en inglés (ADR del kit: el init no lo instala)
 <!-- template:end -->
 - [ADR-002](decisions/kit/ADR-002-structured-red-validation.md) — el rojo se valida solo con un reporte estructurado (JUnit o TAP)
+- [ADR-003](decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md) — cada proyecto recibe un glosario del dominio y un mapa de contextos, con las reglas que los agentes aplican
+- [ADR-004](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md) — `/orchestrate` lanza cada rol como agente `bk` o como subagente, según `roles.yml` (aceptado)
+- [ADR-005](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md) — un agente `bk` trabaja sobre una tarea con estado y registro de eventos, y declara su cierre con `bk done` (aceptado)
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — resumen en una línea`
 
 ### Guías

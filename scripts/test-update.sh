@@ -30,9 +30,16 @@ prep() {
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
-# Ningún git de la prueba corre gc ni mantenimiento en segundo plano: un gc que empaqueta objetos sueltos mientras otro git
-# clona o lee ese repo puede romperlo ("failed to copy file ... No such file or directory"), a veces y solo en el CI.
-export GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=gc.auto GIT_CONFIG_VALUE_0=0 GIT_CONFIG_KEY_1=maintenance.auto GIT_CONFIG_VALUE_1=false
+# Ningún git de la prueba corre gc ni mantenimiento en segundo plano (#186, #224): ver scripts/agents/git-quiet.sh.
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/git-quiet.sh"
+# Lo que GIT_CONFIG_* (y GIT_CONFIG_PARAMETERS, de git -c) traiga el entorno de quien corre el test no entra a sus repos (decisión de la persona en #238: https://github.com/lautioliver/barrilete-kit/pull/238#issuecomment-6618762051); el helper no pisa, así que se limpia acá.
+# shellcheck disable=SC2046
+unset GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS $(compgen -v | grep -E '^GIT_CONFIG_(KEY|VALUE)_' || :)
+git_quiet_env
+cfg=$(git -C "$TMP" config --list 2>/dev/null)
+grep -qxF gc.auto=0 <<<"$cfg"; tap_check $? "los git de la prueba no corren gc automático"
+grep -qxF maintenance.auto=false <<<"$cfg"; tap_check $? "los git de la prueba no corren mantenimiento automático"
 
 # La plantilla tal como está en el árbol, en un repo con dos versiones etiquetadas.
 P="$TMP/plantilla"
@@ -654,6 +661,25 @@ tap_check $? "update conserva lo que el proyecto ya tenía en el mapa al agregar
 git add -A
 tap_run s 0 python3 scripts/agents/check-docs.py
 tap_check $? "el proyecto 0.9 actualizado pasa check-docs.py con la sección red"
+cd "$TMP" || exit 1
+
+# El glosario y el mapa de contextos (ADR-003 D2, D5, #217): en el repo del kit es un error que falten o no estén enlazados; en un
+# proyecto es un aviso, como el índice de ADRs: después de un update el README del kit puede quedar en pending/ y el CI de docs del
+# proyecto no tiene que ponerse rojo por eso.
+D="$TMP/glosario-aviso"
+proyecto "$D" completo
+cd "$D" || exit 1
+cp "$RAIZ/scripts/agents/check-docs.py" "$RAIZ/scripts/agents/agents_map.py" scripts/agents/
+python3 "$TMP/mapa-red.py"
+for f in docs/README.md docs/README.es.md docs/llms.txt docs/llms.es.txt; do
+  [ -f "$f" ] && perl -ni -e 'print unless /reference\/(glossary|contexts)\.md/' "$f"
+done
+git add -A
+git commit -qm "proyecto con los índices sin el glosario"
+tap_run s 0 python3 scripts/agents/check-docs.py
+tap_check $? "en un proyecto, el glosario sin enlace desde el índice no hace fallar check-docs.py"
+[[ "$s" == *"Warning: docs/README.md: does not link docs/reference/glossary.md"* ]]
+tap_check $? "en un proyecto, el glosario sin enlace desde el índice se avisa y se nombra"
 cd "$TMP" || exit 1
 
 D="$TMP/con-red-propia"

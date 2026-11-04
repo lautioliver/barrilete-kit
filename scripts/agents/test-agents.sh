@@ -295,4 +295,212 @@ for f in .claude/skills/implement-issue/SKILL.md .claude/skills/implement-issue/
   grep -Eq 'your worktree \(or your checkout\)|tu worktree \(o tu checkout\)' "$RAIZ/$f"; tap_check $? "<f>: sin orquestador habla del worktree o del checkout" "$f: sin orquestador habla del worktree o del checkout"
 done
 
+# 8. Glosario y mapa de contextos en --small (ADR-003 D2, D5, #217). El mapa solo tiene `red`: el glosario y el mapa de
+# contextos son docs/glossary.md y docs/contexts.md, fijos, y tienen que estar enlazados desde docs/README.md. Los casos corren
+# sobre un repo mínimo (minimo): el resto de la plantilla tiene errores propios que ensucian el resultado. Cada caso mira el
+# mensaje que nombra el archivo o el contexto: un error que no lo nombra no cuenta.
+minimo() {
+  rm -rf "$TMP/r"
+  mkdir -p "$TMP/r/scripts/agents" "$TMP/r/docs" "$TMP/r/src/ventas" "$TMP/r/src/pagos"
+  cp "$RAIZ/scripts/agents/check-docs.py" "$RAIZ/scripts/agents/agents_map.py" "$TMP/r/scripts/agents/"
+  printf '# Docs\n\nIndex.\n' >"$TMP/r/docs/README.md"
+  printf 'x\n' >"$TMP/r/src/ventas/x.ts"
+  printf 'y\n' >"$TMP/r/src/pagos/y.ts"
+  printf '#!/bin/sh\n' >"$TMP/r/scripts/init-template.sh"  # el repo del kit: ahí el glosario es un error; en un proyecto, un aviso
+  git -C "$TMP/r" init -q
+  git -C "$TMP/r" add -A
+  git -C "$TMP/r" commit -qm base
+}
+modo_small() {
+  printf '%s\n' '{"red": [{"name": "bash", "when": ["**/test-*.sh"], "format": "tap", "run": "true {out}"}]}' >"$TMP/r/docs/agents-map.json"
+  printf '# Glossary\n\nDomain words.\n' >"$TMP/r/docs/glossary.md"
+  printf '# Contexts\n\nBounded contexts.\n' >"$TMP/r/docs/contexts.md"
+  printf '\n- [Glossary](glossary.md)\n- [Contexts](contexts.md)\n' >>"$TMP/r/docs/README.md"
+}
+# Quita de docs/README.md la línea que enlaza el destino dado (por ejemplo glossary.md).
+sin_enlace() {
+  python3 - "$TMP/r/docs/README.md" "$1" <<'PY'
+import sys
+ruta, destino = sys.argv[1], sys.argv[2]
+lineas = [l for l in open(ruta, encoding="utf-8") if f"({destino})" not in l]
+open(ruta, "w", encoding="utf-8").writelines(lineas)
+PY
+}
+minimo
+modo_small
+salida=$(check); grep -q "^Docs OK\.$" <<<"$salida"; tap_check $? "--small: con el glosario y el mapa de contextos enlazados, check-docs pasa"
+minimo
+modo_small
+rm "$TMP/r/docs/glossary.md"; sin_enlace glossary.md
+salida=$(check); grep -q "docs/glossary.md" <<<"$salida"; tap_check $? "--small: sin docs/glossary.md, check-docs falla y lo nombra"
+minimo
+modo_small
+sin_enlace glossary.md
+salida=$(check); grep -q "glossary.md" <<<"$salida"; tap_check $? "--small: docs/glossary.md sin enlace desde docs/README.md, check-docs falla y lo nombra"
+minimo
+modo_small
+rm "$TMP/r/docs/contexts.md"; sin_enlace contexts.md
+salida=$(check); grep -q "docs/contexts.md" <<<"$salida"; tap_check $? "--small: sin docs/contexts.md, check-docs falla y lo nombra"
+minimo
+modo_small
+sin_enlace contexts.md
+salida=$(check); grep -q "contexts.md" <<<"$salida"; tap_check $? "--small: docs/contexts.md sin enlace desde docs/README.md, check-docs falla y lo nombra"
+
+# 9. El mapa de contextos (full, ADR-003 D3): name único; depends_on solo nombres de la sección y sin autodependencia; paths
+# no vacío y con globs que matchean archivos (salvo los opcionales con ?). Cada caso nombra el contexto o el glob que falla.
+con_contextos() {
+  python3 - "$TMP/r/docs/agents-map.json" "$1" <<'PY'
+import json, sys
+ruta, contextos = sys.argv[1], json.loads(sys.argv[2])
+json.dump({"contexts": contextos}, open(ruta, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+}
+minimo
+con_contextos '[{"name": "ventas", "paths": ["src/ventas/**"], "depends_on": []}, {"name": "pagos", "paths": ["src/pagos/**"], "depends_on": ["ventas"]}]'
+# Con el glosario y el mapa de contextos de docs/reference/ enlazados, un mapa válido da exactamente "Docs OK.": cualquier error
+# (de contextos o de otra cosa) rompe el caso. Que la validación corre lo prueban los casos de abajo, cada uno con su error.
+mkdir -p "$TMP/r/docs/reference"
+printf '# Glossary\n' >"$TMP/r/docs/reference/glossary.md"
+printf '# Contexts\n' >"$TMP/r/docs/reference/contexts.md"
+printf '\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >>"$TMP/r/docs/README.md"
+printf '# Index\n\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >"$TMP/r/docs/llms.txt"
+git -C "$TMP/r" add -A
+git -C "$TMP/r" commit -qm "docs de referencia"
+salida=$(check); [ "$salida" = "Docs OK." ]; tap_check $? "contextos: un mapa válido con sus docs de referencia da Docs OK" "contextos: un mapa válido con sus docs de referencia da Docs OK (salida: $salida)"
+minimo
+con_contextos '[{"name": "dup-ventas", "paths": ["src/ventas/**"], "depends_on": []}, {"name": "dup-ventas", "paths": ["src/pagos/**"], "depends_on": []}]'
+salida=$(check); grep -q "dup-ventas" <<<"$salida"; tap_check $? "contextos: un name repetido es un error que lo nombra"
+minimo
+con_contextos '[{"name": "ventas", "paths": ["src/ventas/**"], "depends_on": ["fantasma-dep"]}]'
+salida=$(check); grep -q "fantasma-dep" <<<"$salida"; tap_check $? "contextos: depends_on con un nombre que no está en la sección es un error que lo nombra"
+minimo
+con_contextos '[{"name": "ctx-yo", "paths": ["src/ventas/**"], "depends_on": ["ctx-yo"]}]'
+salida=$(check); grep -q "ctx-yo" <<<"$salida"; tap_check $? "contextos: un contexto que depende de sí mismo es un error que lo nombra"
+minimo
+con_contextos '[{"name": "ctx-vacio", "paths": [], "depends_on": []}]'
+salida=$(check); grep -q "ctx-vacio" <<<"$salida"; tap_check $? "contextos: paths vacío es un error que nombra el contexto"
+minimo
+con_contextos '[{"name": "ctx-fantasma", "paths": ["src/fantasma/**"], "depends_on": []}]'
+salida=$(check); grep -q "src/fantasma" <<<"$salida"; tap_check $? "contextos: un glob de paths que no matchea ningún archivo es un error que lo nombra"
+minimo
+con_contextos '[{"name": "ctx-opcional", "paths": ["?src/opcional/**"], "depends_on": []}]'
+salida=$(check); [[ "$salida" != *ctx-opcional* && "$salida" != *src/opcional* ]]; tap_check $? "contextos: un glob opcional (?) que no matchea no es error"
+minimo
+con_contextos '[{"name": "ctx-lista", "paths": ["src/ventas/**"], "depends_on": [["ventas"]]}]'
+salida=$(check); [[ "$salida" == *"ctx-lista"*"depends_on must list context names"* ]]; tap_check $? "contextos: un depends_on con una lista adentro es un error claro que nombra el contexto, sin traceback" "contextos: un depends_on con una lista adentro es un error claro (salida: $salida)"
+minimo
+con_contextos '[{"paths": ["src/ventas/**"], "depends_on": [null]}]'
+salida=$(check); [[ "$salida" == *"depends_on must list context names"* && "$salida" != *"depends on itself"* ]]; tap_check $? "contextos: un depends_on con null en un contexto sin name es un error claro y no una autodependencia" "contextos: un depends_on con null en un contexto sin name es un error claro (salida: $salida)"
+
+# 10. agents_map.py dice qué contextos toca el diff (ADR-003 D3): el JSON trae los contextos que tocó el cambio, con su nombre
+# (como clave de "contexts" o como elemento de la lista).
+m="$TMP/m"
+mkdir -p "$m/scripts/agents" "$m/docs" "$m/src/ventas" "$m/src/pagos"
+cp "$RAIZ/scripts/agents/agents_map.py" "$m/scripts/agents/"
+printf '%s\n' '{"docs": [], "sensitive": [], "contexts": [{"name": "ventas", "paths": ["src/ventas/**"], "depends_on": []}, {"name": "pagos", "paths": ["src/pagos/**"], "depends_on": ["ventas"]}]}' >"$m/docs/agents-map.json"
+printf 'base\n' >"$m/README.md"
+git -C "$m" init -q
+git -C "$m" symbolic-ref HEAD refs/heads/main
+git -C "$m" add -A
+git -C "$m" commit -qm base
+git -C "$m" switch -q -c claude/1-contextos
+printf 'x\n' >"$m/src/ventas/x.ts"
+printf 'y\n' >"$m/src/pagos/y.ts"
+git -C "$m" add -A
+git -C "$m" commit -qm "feat: dos contextos"
+out=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>/dev/null)
+# La forma de "contexts" en --json es un mapa nombre → archivos tocados (ADR-003 D3): sin excepciones tragadas, un JSON mal
+# formado o sin "contexts" es un crash, no "ningún contexto".
+nombres=$(printf '%s' "$out" | python3 -c '
+import json, sys
+print(" ".join(sorted(json.load(sys.stdin)["contexts"])))
+')
+[ "$nombres" = "pagos ventas" ]; tap_check $? "agents_map: el JSON trae los dos contextos que tocó el diff" "agents_map: el JSON trae los contextos tocados (\"contexts\"): $nombres"
+archivos=$(printf '%s' "$out" | python3 -c '
+import json, sys
+print(" ".join(json.load(sys.stdin)["contexts"]["ventas"]))
+')
+[ "$archivos" = "src/ventas/x.ts" ]; tap_check $? "agents_map: contexts es un mapa de nombre a los archivos tocados" "agents_map: archivos de ventas: $archivos"
+# Dos contextos con el mismo nombre (check-docs.py lo rechaza, pero agents_map.py lo lee igual): se juntan los archivos, no se pisan.
+printf '%s\n' '{"docs": [], "sensitive": [], "contexts": [{"name": "ventas", "paths": ["src/ventas/**"], "depends_on": []}, {"name": "ventas", "paths": ["src/pagos/**"], "depends_on": []}]}' >"$m/docs/agents-map.json"
+out=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>/dev/null)
+archivos=$(printf '%s' "$out" | python3 -c '
+import json, sys
+print(" ".join(sorted(json.load(sys.stdin)["contexts"]["ventas"])))
+')
+[ "$archivos" = "src/pagos/y.ts src/ventas/x.ts" ]; tap_check $? "agents_map: dos contextos con el mismo nombre juntan sus archivos" "agents_map: archivos de ventas repetido: $archivos"
+
+# Un contexto con name vacío (check-docs.py lo rechaza): agents_map.py no lo cuenta como un contexto tocado.
+printf '%s\n' '{"docs": [], "sensitive": [], "contexts": [{"name": "", "paths": ["src/ventas/**"], "depends_on": []}, {"name": "pagos", "paths": ["src/pagos/**"], "depends_on": []}]}' >"$m/docs/agents-map.json"
+out=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>/dev/null)
+nombres=$(printf '%s' "$out" | python3 -c '
+import json, sys
+print(" ".join(sorted(json.load(sys.stdin)["contexts"])))
+')
+[ "$nombres" = "pagos" ]; tap_check $? "agents_map: un contexto con name vacío no cuenta como tocado" "agents_map: contextos con un name vacío en el mapa: $nombres"
+
+# "contexts": null (o un número) no es un crash: es el error de check-docs.py, y acá no hay contextos tocados.
+printf '%s\n' '{"docs": [], "sensitive": [], "contexts": null}' >"$m/docs/agents-map.json"
+out=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>&1)
+nombres=$(printf '%s' "$out" | python3 -c '
+import json, sys
+print(len(json.load(sys.stdin)["contexts"]))
+')
+[ "$nombres" = "0" ]; tap_check $? "agents_map: contexts null no es un crash y no trae contextos" "agents_map: con contexts null, salida: $out"
+
+# 11. Los enlaces del glosario y del mapa de contextos se leen con el parser de links de check-docs: ./x.md y <x.md> cuentan,
+# y un texto dentro de un bloque de código o de `código` no es un enlace.
+con_indice() {
+  printf '%s\n' "$1" >"$TMP/r/docs/README.md"
+}
+minimo
+modo_small
+con_indice "$(printf '# Docs\n\n- [Glossary](./glossary.md)\n- [Contexts](./contexts.md)')"
+salida=$(check); [ "$salida" = "Docs OK." ]; tap_check $? "--small: un enlace ./glossary.md cuenta como enlace" "--small: un enlace ./glossary.md cuenta como enlace (salida: $salida)"
+minimo
+modo_small
+con_indice "$(printf '# Docs\n\n- [Glossary](<glossary.md>)\n- [Contexts](<contexts.md>)')"
+salida=$(check); [ "$salida" = "Docs OK." ]; tap_check $? "--small: un enlace <glossary.md> cuenta como enlace" "--small: un enlace <glossary.md> cuenta como enlace (salida: $salida)"
+minimo
+modo_small
+# shellcheck disable=SC2016  # los backticks son parte del texto de prueba
+con_indice "$(printf '# Docs\n\n```\n- [Glossary](glossary.md)\n- [Contexts](contexts.md)\n```')"
+salida=$(check); [[ "$salida" == *"does not link docs/glossary.md"* ]]; tap_check $? "--small: un enlace dentro de un bloque de código no cuenta" "--small: un enlace dentro de un bloque de código no cuenta (salida: $salida)"
+minimo
+modo_small
+# shellcheck disable=SC2016  # los backticks son parte del texto de prueba
+con_indice "$(printf '# Docs\n\nEscribí `[Glossary](glossary.md)` y `[Contexts](contexts.md)` para enlazar.')"
+salida=$(check); [[ "$salida" == *"does not link docs/glossary.md"* ]]; tap_check $? "--small: un enlace dentro de código en línea no cuenta" "--small: un enlace dentro de código en línea no cuenta (salida: $salida)"
+
+# 12. Los índices en español (docs/README.es.md, docs/llms.es.txt) también tienen que enlazar el glosario y el mapa de contextos
+# (en el kit enlazan al archivo en inglés, igual que el resto de sus enlaces).
+minimo
+modo_small
+printf '# Docs\n\n- [Glosario](glossary.md)\n- [Contextos](contexts.md)\n' >"$TMP/r/docs/README.es.md"
+salida=$(check); [ "$salida" = "Docs OK." ]; tap_check $? "--small: docs/README.es.md que enlaza el glosario y los contextos pasa" "--small: docs/README.es.md que enlaza el glosario y los contextos pasa (salida: $salida)"
+minimo
+modo_small
+printf '# Docs\n\nSin enlaces.\n' >"$TMP/r/docs/README.es.md"
+salida=$(check); [[ "$salida" == *"docs/README.es.md: does not link docs/glossary.md"* ]]; tap_check $? "--small: docs/README.es.md sin el enlace al glosario falla y lo nombra" "--small: docs/README.es.md sin el enlace al glosario falla y lo nombra (salida: $salida)"
+minimo
+modo_small
+mkdir -p "$TMP/r/docs/reference"
+printf '# Glossary\n' >"$TMP/r/docs/reference/glossary.md"
+printf '# Contexts\n' >"$TMP/r/docs/reference/contexts.md"
+printf '{"contexts": []}\n' >"$TMP/r/docs/agents-map.json"
+printf '\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >>"$TMP/r/docs/README.md"
+printf '# Index\n\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >"$TMP/r/docs/llms.txt"
+printf '# Indice\n\nSin enlaces.\n' >"$TMP/r/docs/llms.es.txt"
+salida=$(check); [[ "$salida" == *"docs/llms.es.txt: does not link docs/reference/glossary.md"* ]]; tap_check $? "perfil completo: docs/llms.es.txt sin el enlace al glosario falla y lo nombra" "perfil completo: docs/llms.es.txt sin el enlace al glosario falla y lo nombra (salida: $salida)"
+
+# El glosario que falta en el perfil completo (docs/reference/) es un error que lo nombra, igual que en --small.
+minimo
+modo_small
+mkdir -p "$TMP/r/docs/reference"
+printf '# Contexts\n' >"$TMP/r/docs/reference/contexts.md"
+printf '{"contexts": []}\n' >"$TMP/r/docs/agents-map.json"
+printf '\n- [Contexts](reference/contexts.md)\n' >>"$TMP/r/docs/README.md"
+printf '# Index\n\n- [Contexts](reference/contexts.md)\n' >"$TMP/r/docs/llms.txt"
+salida=$(check); [[ "$salida" == *"docs/reference/glossary.md is missing"* ]]; tap_check $? "perfil completo: sin docs/reference/glossary.md check-docs falla y lo nombra" "perfil completo: sin docs/reference/glossary.md check-docs falla y lo nombra (salida: $salida)"
+
 tap_done

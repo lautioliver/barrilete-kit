@@ -6,15 +6,20 @@ Instrucciones para modelos: leer este archivo y AGENTS.md. Spec aspiracional = /
 
 ## Documentación
 
-<!-- Regla: un documento entra a esta lista recién cuando tiene contenido. Si solo dice "TODO: completar", no se lista: un modelo que lo lee no gana nada y puede asumir que no hay nada definido. Al completarlo, sumalo con su línea. -->
+<!-- Regla: un documento entra a esta lista recién cuando tiene contenido. Si solo dice "TODO: completar", no se lista: un modelo que lo lee no gana nada y puede asumir que no hay nada definido. Al completarlo, sumalo con su línea. Excepción (ADR-003 D7): el glosario y los contextos se listan desde el inicio, aunque sean plantillas TODO. -->
 
 - [Hub](README.md)
+- [Glosario: palabras del dominio](reference/glossary.md)
+- [Contextos: contextos delimitados y sus límites](reference/contexts.md)
 - [Convención de nombres en GitHub](github-naming-convention.md) — labels en ../.github/labels.yml
 - [Decisiones (ADRs)](decisions/README.md)
 <!-- template:start -->
 - [ADR-001: idioma del kit, labels y nombres en inglés (ADR del kit)](decisions/ADR-001-language-labels-and-names-in-english.md)
 <!-- template:end -->
 - [ADR-002: validación estructurada del test en rojo](decisions/kit/ADR-002-structured-red-validation.md)
+- [ADR-003: DDD mínimo, glosario y mapa de contextos](decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md)
+- [ADR-004: modo de lanzamiento de `/orchestrate` por rol (bk o subagente)](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md)
+- [ADR-005: tareas y eventos para los agentes bk](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md)
 - [Mapa para agentes: docs según cambios, rutas sensibles](agents-map.json)
 - [Contrato de los subagentes: reglas y salida común](agents/subagent-contract.md)
 - [Lecciones de las retros de agentes (revisadas en PR; leer antes de implementar)](agents/lessons.md)

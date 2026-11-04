@@ -145,11 +145,14 @@ for a in prioridad:critica prioridad:alta prioridad:media prioridad:baja estado:
 done
 grep -q '^  aliases:' "$l"; tap_check $? "labels.yml declares aliases"
 
-# Hooks: the four registrations must point to a script that exists (the hook exits 0 if it does not find it).
+# Hooks: the four registrations must point to scripts that exist (a hook exits 0 if it does not find its script), and
+# all of them to guardrails.py. Claude Code and Codex also name task_events.py (ADR-005).
 for h in .claude/settings.json .codex/hooks.json .cursor/hooks.json .github/hooks/guardrails.json; do
   [ -f "$h" ] || { tap_fail "<h> does not exist" "$h does not exist"; continue; }
   p=$(grep -o 'scripts/[a-z]*/[a-z_]*\.py' "$h" | sort -u)
-  [ "$p" = "scripts/agents/guardrails.py" ] && [ -f "$p" ]; tap_check $? "<h> points to scripts/agents/guardrails.py" "$h points to scripts/agents/guardrails.py (found: ${p:-nothing})"
+  falta=""; for s in $p; do [ -f "$s" ] || falta="$falta $s"; done
+  grep -qx 'scripts/agents/guardrails.py' <<<"$p" && [ -z "$falta" ]
+  tap_check $? "<h> points to scripts/agents/guardrails.py and to scripts that exist" "$h points to scripts/agents/guardrails.py and to scripts that exist (found: $(tr "\n" " " <<<"$p"); missing:${falta:- none})"
 done
 
 tap_done
