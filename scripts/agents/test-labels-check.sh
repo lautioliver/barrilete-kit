@@ -207,6 +207,11 @@ const cases = {
   'red-commit-short-in-pr-passes': [T + 'red commit: 0123abc\n\n' + G() + E, null],
   'red-commit-not-hex-in-extra-details-fails': [T + R + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: deadbeef1 (copied from another PR)\n\n' + G('pytest', 'junit') + E, /hexadecimal/],
   'red-commit-of-another-details-not-in-pr-fails': [T + R + G() + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: cafe1234\n\n' + G('pytest', 'junit') + E, /red commit cafe1234 is not a commit of this PR/],
+  // The check is only inside the red block (the main one and the extra <details> of the other stacks), not in the whole body.
+  'red-commit-in-prose-outside-block-passes': [T + R + G() + E + 'Red commit: `0123abc4` es el de los tests\n', null],
+  'red-commit-ninguno-with-no-tests-passes': ['Closes #1\nno tests: only docs\nred commit: ninguno, no hay tests\n', null],
+  'red-commit-in-code-block-passes': [T + R + G() + E + '```\nred commit: deadbeef1\n```\n', null],
+  'red-commit-not-hex-gives-one-error': [T + 'red commit: <sha>\n\n' + G() + E, /^PR out of convention:\n- [^\n]*hexadecimal[^\n]*$/],
 };
 const N = 10000;
 const perf = {
@@ -262,6 +267,10 @@ lc_case red-commit-not-in-pr-fails; tap_check $? "red-commit-not-in-pr-fails"
 lc_case red-commit-short-in-pr-passes; tap_check $? "red-commit-short-sha-in-pr-passes"
 lc_case red-commit-not-hex-in-extra-details-fails; tap_check $? "red-commit-not-hex-in-extra-details-fails"
 lc_case red-commit-of-another-details-not-in-pr-fails; tap_check $? "red-commit-in-extra-details-not-in-pr-fails"
+lc_case red-commit-in-prose-outside-block-passes; tap_check $? "red-commit-in-prose-outside-the-block-passes"
+lc_case red-commit-ninguno-with-no-tests-passes; tap_check $? "red-commit-ninguno-with-no-tests-passes"
+lc_case red-commit-in-code-block-passes; tap_check $? "red-commit-in-code-block-passes"
+lc_case red-commit-not-hex-gives-one-error; tap_check $? "red-commit-not-hex-gives-one-error"
 lc_perf spaces; tap_check $? "structured-block-performance-spaces"
 lc_perf colons; tap_check $? "structured-block-performance-colons"
 lc_perf lines; tap_check $? "structured-block-performance-many-lines"
