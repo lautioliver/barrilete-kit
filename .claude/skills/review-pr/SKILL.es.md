@@ -46,7 +46,7 @@ Alrededor de la verificación del TDD: instalá las dependencias de los tests en
 
 ## 4. Hallazgos
 
-Cada hallazgo con: **archivo:línea**, qué está mal, por qué importa (qué falla y cuándo), y sugerencia. Clasificalos:
+Cada hallazgo con: su ubicación (`archivo:línea`), qué está mal, por qué importa (qué falla y cuándo), y sugerencia. Clasificalos:
 
 - **Bloqueante** — bug, regresión, regla de negocio cambiada sin declarar, seguridad, migración sin rollback, tests que faltan para lo central.
 - **A corregir** — no rompe, pero no debería entrar así.

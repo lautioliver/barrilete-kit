@@ -46,7 +46,7 @@ Around the TDD check: install the test dependencies in the review worktree witho
 
 ## 4. Findings
 
-Each finding with: **file:line**, what is wrong, why it matters (what fails and when), and a suggestion. Classify them:
+Each finding with: its location (`file:line`), what is wrong, why it matters (what fails and when), and a suggestion. Classify them:
 
 - **Blocking** — bug, regression, business rule changed without declaring it, security, migration without rollback, missing tests for the core.
 - **To fix** — it does not break, but it should not go in like this.

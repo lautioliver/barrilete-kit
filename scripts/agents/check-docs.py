@@ -621,6 +621,7 @@ if os.path.exists(CLASES_YML):
         if actual and not actual[2]:
             errores.append(f"{CLASES_YML}:{actual[1]}: the class [{actual[0]}] has no description.")
     for n, linea in enumerate(open(CLASES_YML, encoding="utf-8").read().splitlines(), 1):
+        linea = linea.rstrip()  # trailing spaces or a CR (CRLF files) are not part of the value
         if not linea.strip() or linea.lstrip().startswith("#"):
             continue
         m_id = re.fullmatch(r"- id: ([a-z][a-z0-9]*(?:-[a-z0-9]+)*)", linea)
