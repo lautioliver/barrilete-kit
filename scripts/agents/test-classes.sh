@@ -141,6 +141,7 @@ mutar bad-indent 1
 grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea con otra indentación"
 
 mutar crlf-bad-tag 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un id inventado y classes.yml en CRLF"
 grep -q 'review-pr.*made-up-class' <<<"$out"; tap_check $? "check-docs: con classes.yml en CRLF y con espacios al final sigue validando los ids de la skill"
 [[ $out != *"classes.yml:"* ]]; tap_check $? "check-docs: espacios y CRLF al final de línea en classes.yml no se leen como línea inesperada"
 
