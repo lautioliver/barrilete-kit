@@ -231,6 +231,7 @@ grep -q 'classes.yml.*UTF-8' <<<"$out"; tap_check $? "check-docs: dice que class
 mutar quoted-desc
 con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción entre comillas en classes.yml"
 grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción entre comillas"
+[[ $out != *"has no description"* ]]; tap_check $? "check-docs: una descripción entre comillas es un error, no también una clase sin descripción"
 
 # Una skill que remite a un classes.yml que falta da un solo error por skill (el de rutas rotas), no dos.
 mutar drop-file

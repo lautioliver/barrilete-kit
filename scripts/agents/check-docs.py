@@ -646,6 +646,8 @@ if os.path.exists(CLASES_YML):
         elif m_desc and actual and not actual[2]:
             actual[2] = True
         else:
+            if actual and re.fullmatch(r"  description:.*", linea):
+                actual[2] = True  # one mistake, one error: a bad description is reported as such, not also as a missing one
             errores.append(f"{CLASES_YML}:{n}: unexpected line (expected `- id: <kebab-case>` and `  description: <text>`, unquoted).")
     cerrar()
 for ruta in SKILLS_CLASES:
