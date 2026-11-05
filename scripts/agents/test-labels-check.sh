@@ -251,6 +251,11 @@ const cases = {
   'no-tests-empty-then-bold-closes-fails': ['Closes #1\nno tests:\n**Closes #2**\n', /Red before implementing/],
   'no-tests-empty-then-real-reason-passes': ['Closes #1\nno tests:\nonly docs\n', null],
   'no-tests-empty-then-reason-mentioning-closes-passes': ['Closes #1\nno tests:\nit only closes #2 by hand\n', null],
+  // Review of #147: the next line is not a reason when it is a reference to another repo's issue or a rule; a reason that starts with "#123" is one.
+  'no-tests-empty-then-closes-other-repo-fails': ['Closes #1\nno tests:\nCloses owner/repo#2\n', /Red before implementing/],
+  'no-tests-empty-then-rule-fails': ['Closes #1\nno tests:\n---\n', /Red before implementing/],
+  'no-tests-empty-then-table-row-fails': ['Closes #1\nno tests:\n| a | b |\n', /Red before implementing/],
+  'no-tests-empty-then-issue-number-reason-passes': ['Closes #1\nno tests:\n#123 already covers this\n', null],
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
 };
@@ -374,6 +379,10 @@ lc_raw ps; tap_check $? "body-performance-65000-ps"
 lc_raw crlf; tap_check $? "body-performance-65000-crlf"
 lc_raw mixed; tap_check $? "body-performance-65000-mixed"
 lc_raw spaces; tap_check $? "body-performance-65000-spaces"
+lc_case no-tests-empty-then-closes-other-repo-fails; tap_check $? "no-tests-empty-then-closes-other-repo-fails"
+lc_case no-tests-empty-then-rule-fails; tap_check $? "no-tests-empty-then-rule-fails"
+lc_case no-tests-empty-then-table-row-fails; tap_check $? "no-tests-empty-then-table-row-fails"
+lc_case no-tests-empty-then-issue-number-reason-passes; tap_check $? "no-tests-empty-then-issue-number-reason-passes"
 # Every job of the workflow has a short timeout (a runaway job must not hold a runner for the 6-hour default).
 jobs=$(awk '/^jobs:/{j=1;next} j && /^  [a-z-]+:$/{n++} END{print n+0}' "$ROOT/.github/workflows/labels.yml")
 tm=$(grep -cE '^    timeout-minutes: 2( |$)' "$ROOT/.github/workflows/labels.yml")
