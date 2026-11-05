@@ -309,4 +309,27 @@ grep -q "not a valid GitHub login" <<<"$s"; tap_check $? "BK_HUMAN inválido: di
 ! git -C "$TMP/proj" show-ref -q --verify refs/heads/claude/66-persona-invalida; tap_check $? "BK_HUMAN inválido: no crea la rama"
 unset BK_HUMAN
 
+# #267: --worktree toma un candado en el directorio git del worktree (worktree-lock.sh) y retoma el de un dueño muerto.
+issue 70 "Con candado"
+sleep 300 &
+DUENIO=$!
+sleep 0 &
+MUERTO=$!
+wait "$MUERTO"
+tap_at_exit "kill $DUENIO 2>/dev/null; rm -rf \"\$TMP\""
+export WORKTREE_LOCK_PID=$DUENIO WORKTREE_LOCK_AGENT=agente-prepare
+tap_run out 0 "$PREPARAR" 70 --worktree
+GD=$(git -C "$WT/70" rev-parse --absolute-git-dir 2>/dev/null)
+es -f "$GD/agent-lock"; tap_check $? "--worktree escribe el candado del worktree"
+lk=""; if [ -f "$GD/agent-lock" ]; then lk=$(cat "$GD/agent-lock"); fi
+grep -qx "pid=$DUENIO" <<<"$lk"; tap_check $? "el candado guarda el pid del agente que lo tomó"
+grep -qx "agent=agente-prepare" <<<"$lk"; tap_check $? "el candado guarda el nombre del agente"
+n=$(git -C "$WT/70" status --porcelain | wc -l | tr -d ' ')
+es "$n" = 0; tap_check $? "el candado no ensucia el worktree"
+printf 'pid=%s\nstart=Thu Jan  1 00:00:00 1970\nagent=agente-viejo\nsince=2026-01-01T00:00:00Z\n' "$MUERTO" >"$GD/agent-lock"
+tap_run out 0 "$PREPARAR" 70 --worktree
+lk=""; if [ -f "$GD/agent-lock" ]; then lk=$(cat "$GD/agent-lock"); fi
+grep -qx "agent=agente-prepare" <<<"$lk"; tap_check $? "con un candado de un dueño muerto, retoma el worktree y lo reemplaza"
+unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
+
 tap_done
