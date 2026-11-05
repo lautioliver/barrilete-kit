@@ -61,6 +61,10 @@ n=$(awk '/^  description: ./ {n++} END {print n+0}' "$CLASES")
 # 2. review-pr (en y es) pide la clase al principio de cada hallazgo, con ids de classes.yml, y [other] si no encaja.
 for par in "en:$SKILL_EN" "es:$SKILL_ES"; do
   lang=${par%%:*}; f=${par#*:}
+  if [ ! -f "$f" ]; then  # a project installed in a single language has no .es.md siblings
+    tap_skip "review-pr: versión que no existe en este proyecto" "$lang: no existe $f"
+    continue
+  fi
   grep -q '\[stale-docs\]' "$f" 2>/dev/null; tap_check $? "review-pr: el ejemplo de hallazgo lleva la clase [stale-docs]" "review-pr ($lang): el ejemplo de hallazgo lleva la clase [stale-docs]"
   grep -q 'docs/agents/classes.yml' "$f" 2>/dev/null; tap_check $? "review-pr: remite a docs/agents/classes.yml" "review-pr ($lang): remite a docs/agents/classes.yml"
   grep -q '\[other\]' "$f" 2>/dev/null; tap_check $? "review-pr: usa [other] si ninguna clase encaja" "review-pr ($lang): usa [other] si ninguna clase encaja"
