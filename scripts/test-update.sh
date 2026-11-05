@@ -651,7 +651,7 @@ git add -A
 git commit -qm "mapa de un proyecto 0.9, sin red"
 tap_run s 0 python3 scripts/update.py --template "$P"
 m=$(python3 "$TMP/map-view.py" bash 2>&1)
-[ "$m" = "1 tap **/test-*.sh True" ]
+[ "$m" = "1 junit **/test-*.sh True" ]
 tap_check $? "update agrega la sección red con la entrada bash del kit a un mapa que no la tiene"
 grep -q "red-per-runner" <<<"$s"
 tap_check $? "update avisa que agregó red y remite a la guía por runner"

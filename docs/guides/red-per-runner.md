@@ -4,9 +4,9 @@
 
 Each entry has `name`, `when` (globs of test files), `run` (with `{out}`: `red.sh` replaces it with the path where the report must be written), `format` (`junit` or `tap`) and an optional `timeout` in seconds. There is no `report` field. Change the paths, the test globs and the timeout to the project's. `check-docs.py` validates the section. The entries are examples: the reporter options are the ones that matter. They were checked against the regression corpus of the kit repo (`.claude/skills/implement-issue/corpus/` there; it is not installed in projects), and go and cargo only against the documented output of their tools.
 
-## bash (TAP)
+## bash (JUnit from `tap.sh`)
 
-A bash test sources `scripts/agents/tap.sh` and calls `tap_check $? "literal id"` for each case; the id is a literal written in the source and what varies goes in the description. This is the entry the kit ships in the default `docs/agents-map.json`. It runs only the `test-*.sh` files the red commit adds or changes, each one with `TAP_OUT={out}` (the helper writes there, never redirect stdout), and checks that each script wrote its `# file: <path>` line: a script that dies before it sources `tap.sh` leaves no cases, and without that check a valid failure of another script would hide it, so the entry appends `Bail out!`. If you write your own entry, keep that check.
+A bash test sources `scripts/agents/tap.sh` and calls `tap_check $? "literal id"` for each case; the id is a literal written in the source and what varies goes in the description. This is the entry the kit ships in the default `docs/agents-map.json`. It runs only the `test-*.sh` files the red commit adds or changes, each one with `TAP_OUT=$tmp` (the helper appends there one closed `<testsuite file="<script>">` with a `<testcase>` per case and an `<error>` testcase on a crash; red.sh also exports `TAP_FORMAT=junit`), and at the end wraps the testsuites in `<testsuites>` in `{out}`. The helper never writes the root, so several scripts can share the file. A script that dies before it sources `tap.sh` leaves no testsuite, and `red.sh` rejects the red because that test file of the diff is not in the report: the entry needs no `grep` on `{out}`. Without `TAP_OUT` (a person running the test) the helper prints TAP on stdout.
 
 ```json
 {
@@ -14,8 +14,8 @@ A bash test sources `scripts/agents/tap.sh` and calls `tap_check $? "literal id"
   "when": [
     "**/test-*.sh"
   ],
-  "format": "tap",
-  "run": "rc=0; while IFS= read -r -d '' t; do TAP_OUT={out} bash \"$t\" </dev/null || rc=1; grep -qxF \"# file: $t\" {out} || echo \"Bail out! $t wrote no TAP\" >>{out}; done < <(git diff -z --name-only --diff-filter=AM HEAD^ HEAD -- ':(glob)**/test-*.sh'); exit $rc",
+  "format": "junit",
+  "run": "rc=0; tmp=$(mktemp); trap 'rm -f \"$tmp\"' EXIT; while IFS= read -r -d '' t; do TAP_OUT=$tmp bash \"$t\" </dev/null || rc=1; done < <(git diff -z --name-only --diff-filter=AMR HEAD^ HEAD -- ':(glob)**/test-*.sh'); { echo '<testsuites>'; cat \"$tmp\"; echo '</testsuites>'; } >{out}; exit $rc",
   "timeout": 1800
 }
 ```
