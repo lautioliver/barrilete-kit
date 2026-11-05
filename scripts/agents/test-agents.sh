@@ -330,7 +330,7 @@ minimo() {
   git -C "$TMP/r" commit -qm base
 }
 modo_small() {
-  printf '%s\n' '{"red": [{"name": "bash", "when": ["**/test-*.sh"], "format": "tap", "run": "true {out}"}]}' >"$TMP/r/docs/agents-map.json"
+  printf '%s\n' '{"red": [{"name": "bash", "when": ["**/test-*.sh"], "format": "junit", "run": "true {out}"}]}' >"$TMP/r/docs/agents-map.json"
   printf '# Glossary\n\nDomain words.\n' >"$TMP/r/docs/glossary.md"
   printf '# Contexts\n\nBounded contexts.\n' >"$TMP/r/docs/contexts.md"
   printf '\n- [Glossary](glossary.md)\n- [Contexts](contexts.md)\n' >>"$TMP/r/docs/README.md"

@@ -53,6 +53,48 @@ def con_red(texto, kit):
     return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
 
 
+# `run` of the kit's `bash` entry in every version of the kit that was published (v1.0.0, v1.1.0): the way update.py
+# recognizes the entry as the kit's (ADR-002 D8). Whitespace is normalized before comparing. Add the new `run` here
+# whenever a release changes it.
+RED_RUNS_DEL_KIT = [
+    "rc=0; while IFS= read -r -d '' t; do TAP_OUT={out} bash \"$t\" </dev/null || rc=1; grep -qxF \"# file: $t\" {out} || "
+    "echo \"Bail out! $t wrote no TAP\" >>{out}; done < <(git diff -z --name-only --diff-filter=AM HEAD^ HEAD -- "
+    "':(glob)**/test-*.sh'); exit $rc",
+]
+# The 1.x warning for a `tap` entry (ADR-002 D8). It is a literal: red.sh and check-docs.py print the same text.
+AVISO_TAP = ('warning: red stack \'{name}\' uses format "tap", which 2.0.0 removes; '
+             'switch it to "junit" (docs/guides/red-per-runner.md)')
+
+
+def es_del_kit(entrada):
+    """True if `entrada` is the `bash` entry of a published version of the kit (its `run`, whitespace aside)."""
+    if not isinstance(entrada, dict) or entrada.get("name") != "bash" or not isinstance(entrada.get("run"), str):
+        return False
+    return " ".join(entrada["run"].split()) in [" ".join(r.split()) for r in RED_RUNS_DEL_KIT]
+
+
+def con_red_actual(texto, kit):
+    """The project's map with the kit's own `bash` entry (and only that one) brought to the current one: only its `run`
+    and its `format`; the project's `when` and `timeout` stay. (new text or None if nothing changes, names of the
+    entries with format "tap" the project keeps). ValueError if either map is not a JSON object."""
+    try:
+        mio, del_kit = json.loads(texto), json.loads(kit)
+    except ValueError as e:
+        raise ValueError(f"it is not valid JSON ({e})")
+    if not isinstance(mio, dict) or not isinstance(del_kit, dict):
+        raise ValueError("it is not a JSON object")
+    entradas = mio.get("red") if isinstance(mio.get("red"), list) else []
+    actual = next((e for e in (del_kit.get("red") if isinstance(del_kit.get("red"), list) else [])
+                   if isinstance(e, dict) and e.get("name") == "bash" and e.get("format") == "junit"), None)
+    cambio = False
+    for e in entradas:
+        if actual is not None and es_del_kit(e):
+            e["run"], e["format"] = actual["run"], actual["format"]
+            cambio = True
+    taps = [e.get("name") for e in entradas if isinstance(e, dict) and e.get("format") == "tap"]
+    return (json.dumps(mio, ensure_ascii=False, indent=2) + "\n" if cambio else None), taps
+
+
 def salir(msg):
     print(f"update.py: {msg}", file=sys.stderr)
     sys.exit(1)
@@ -388,6 +430,22 @@ def completar_red(kit):
     return True, None
 
 
+def actualizar_red(kit):
+    """ADR-002 D8 in 1.x: replaces the kit's own `bash` entry by the current one (JUnit) and lists the entries with
+    format "tap" that stay as they are (never converted, deleted or rewritten): (replaced, names)."""
+    if not os.path.isfile(MAPA) or not os.path.isfile(kit):
+        return False, []
+    try:
+        with open(MAPA, encoding="utf-8") as f, open(kit, encoding="utf-8") as g:
+            texto, taps = con_red_actual(f.read(), g.read())
+    except (ValueError, OSError):
+        return False, []  # completar_red already warned about an unreadable map
+    if texto is not None:
+        with open(MAPA, "w", encoding="utf-8") as f:
+            f.write(texto)
+    return texto is not None, taps
+
+
 def renombrar(raiz, renombres):
     """Applies the project's renames (a workflow installed as barrilete-<name>.yml) to an initialized template."""
     for viejo, nuevo in renombres.items():
@@ -529,6 +587,7 @@ def main():
         plan = planear(nueva, base, registradas, set(kit.get("withheld", [])))
         hechos, errores = aplicar(plan, nueva)
         red_agregada, aviso_red = completar_red(os.path.join(nueva, MAPA))
+        _, taps = actualizar_red(os.path.join(nueva, MAPA))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -612,6 +671,9 @@ def main():
     # check-docs.py reads the git index: with files moved or added and not staged it reports false missing paths.
     print("  2. git add -A, then python3 scripts/agents/check-docs.py (it reads the git index), and review the diff.")
     print("  3. Commit and open a PR. If .github/labels.yml changed, run the Labels workflow after the merge.")
+    sys.stdout.flush()
+    for nombre in taps:  # the end of the summary (ADR-002 D8); on stderr, like the one of red.sh
+        print(AVISO_TAP.format(name=nombre), file=sys.stderr)
 
 
 if __name__ == "__main__":
