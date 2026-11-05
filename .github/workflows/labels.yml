@@ -110,7 +110,7 @@ jobs:
                 out += t.slice(i, a); i = b + 3;
               }
             };
-            const lineas = t => t.split('\n');   // the body is already normal(): no \r is left
+            const lineas = t => normal(t).split('\n');
             // Which lines are inside a ``` or ~~~ fenced code block (the fence lines too): what is quoted there is not a red block.
             // As in CommonMark: a fence closes with the same character, at least as long as the opening one and nothing else on its line,
             // and a backtick fence cannot have a backtick in its info string (so ```npm test``` is not a fence at all).
@@ -238,7 +238,7 @@ jobs:
               // stay as aliases. "no tests"/"sin tests" need the colon and a reason (on the same line or the next one): without it,
               // any "there is no test coverage" would pass. A reason that is only <…> (the placeholder copied as is) does not count.
               // The next line is not the reason when it is a "Closes/Refs #n" or a heading (issue #147): it is the next thing of the body.
-              const otraCosa = /^[\s>*_`-]*(?:(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?):?\s+#\d|#)/i;
+              const otraCosa = /^\s*\||^[\s>*_`-]*(?:(?:(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?):?\s+[\w.\/-]*#\d)|#{1,6}(?:\s|$))/i;
               const sinTests = hayMotivo(body, /(?:^|[^A-Za-z0-9])(?:no|sin) tests?:([^\n]*)$/i, (resto, sig) => !otraCosa.test(sig));
               // A block with the title is judged by its structure, whatever else the body says: a malformed block is not a red, and
               // a "no tests:" line cannot hide it (a PR may carry a block for what is tested and "no tests:" for what is not).

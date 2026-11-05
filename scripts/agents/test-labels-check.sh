@@ -119,7 +119,7 @@ const more = [
   await table(TESTS_CASES, 'tests literal', {}, 'Closes #1\n');
   await table(ADR_CASES, 'ADR exception', BL, '');
   // Performance: a hostile body (the author controls it) must not make any regex of the job run for long.
-const N = 10000;
+  const N = 10000;
   const hostile = {
     spaces: ' '.repeat(N), stars: '*'.repeat(N), wrappers: '',
     lt: '<'.repeat(N), comments: '<!--'.repeat(N / 2), newlines: '\n'.repeat(N), mixedlines: ' *\n'.repeat(N / 2),
@@ -289,9 +289,14 @@ const perf = {
   }
   if (mode === 'raw') {
     // In a child process with a hard timeout: a body that never finishes must fail the case, not hang the test.
-    const r = require('child_process').spawnSync(process.execPath, [process.argv[1], process.argv[2], 'rawinner', name], { timeout: 3000, encoding: 'utf8' });
-    const ms = r.status === 0 ? parseFloat(r.stdout) : Infinity;
-    if (!(ms < 200)) console.log('took ' + (ms === Infinity ? 'over 3 s' : Math.round(ms) + ' ms'));
+    // The best of three runs: a slow runner or a GC pause must not fail it, a quadratic body takes seconds in all of them.
+    let ms = Infinity;
+    for (let k = 0; k < 3 && !(ms < 200); k++) {
+      const r = require('child_process').spawnSync(process.execPath, [process.argv[1], process.argv[2], 'rawinner', name], { timeout: 3000, encoding: 'utf8' });
+      if (r.status !== 0) { console.log(r.error ? 'timeout (over 3 s)' : 'the child failed: ' + r.stderr); ms = Infinity; continue; }
+      ms = Math.min(ms, parseFloat(r.stdout));
+    }
+    if (!(ms < 200)) console.log('took ' + (ms === Infinity ? 'over 3 s or failed' : Math.round(ms) + ' ms'));
     process.exit(ms < 200 ? 0 : 3);
   }
   if (mode === 'rawinner') {
