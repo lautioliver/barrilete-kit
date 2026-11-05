@@ -69,6 +69,7 @@ class Case:
 class Report:
     def __init__(self):
         self.cases = []
+        self.suite_files = []   # the `file` of every testsuite (a script that ran and ended leaves one)
         self.errors = []    # reasons that make the run an error (D3: 0 error)
         self.aborted = []   # reasons that make the report incomplete (D3: no aborted case)
 
@@ -170,6 +171,8 @@ def parse_junit(path):
         rep.cases.append(Case(tc.get("file") or suite_file(tc), tc.get("classname") or "", tc.get("name") or "", status))
 
     for suite in root.iter("testsuite"):
+        if suite.get("file"):
+            rep.suite_files.append(suite.get("file"))
         inner = list(suite.iter("testcase"))
         declared = int_attr(suite, "tests")
         if declared is not None and declared != len(inner):
@@ -212,6 +215,7 @@ def parse_tap(path):
         m = re.match(r"^#\s*file:\s*(.+?)\s*$", line)
         if m:
             cur_file = m.group(1)
+            rep.suite_files.append(cur_file)  # a script that ran leaves its `# file:` line, as a testsuite leaves its `file` (D6)
             continue
         m = TAP_CASE.match(line)
         if not m:
@@ -603,7 +607,7 @@ def rust_defines(diff, path, added, name):
 
 def defines(diff, path, added, name, ext_kind):
     """Does an added line of `path` define the test `name` (a whole identifier, never in a comment)?"""
-    if ext_kind == "tap":
+    if ext_kind == "tap" or path.endswith(".sh"):
         # The case line of tap.sh: the id is the literal first argument of tap_ok, tap_fail or tap_check (after
         # the status). A line that only mentions the id (an echo, a variable) does not define the case.
         spellings = {name, name.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")}
@@ -650,7 +654,7 @@ def check_cases(diff, report, fmt):
             # Ambiguous names: the same name in more than one describe or class of the scope.
             # (Not in TAP: the id is a literal of the helper, and a loop repeats it on purpose.)
             peers = []
-            for o in ([] if fmt == "tap" else report.cases):
+            for o in ([] if fmt == "tap" or files[0].endswith(".sh") else report.cases):
                 if o is c:
                     continue
                 try:
@@ -691,6 +695,61 @@ def check_cases(diff, report, fmt):
 
 # --------------------------------------------------------------------------- one stack
 
+# What the runner runs as a test, by name (ADR-002 D6, decided in #225): the union of the patterns of the reference runners,
+# intersected with the `when` of the entry. A test file with another name (*.bats, a python_files of its own) is not
+# recognized and is not checked: that opens, it does not close. Rust is not recognized by name but by a `fn` under a test attribute.
+TEST_NAME = re.compile(
+    r"(?:^|/)(?:test-[^/]*\.sh|test_[^/]*\.py|[^/]*_test\.py|[^/]*_test\.go"
+    r"|[^/]*\.(?:test|spec)\.(?:js|jsx|mjs|cjs|ts|tsx|mts|cts))$")
+TEST_DIR = re.compile(r"(?:^|/)__tests__/[^/]*\.(?:js|jsx|mjs|cjs|ts|tsx|mts|cts)$")
+
+
+def rust_adds_test(diff, path):
+    lines = (diff.read(path) or "").split("\n")
+    rx = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?(?:unsafe\s+)?fn\s+\w+\s*[(<]")
+    for no, line in diff.added(path):
+        if not rx.match(line):
+            continue
+        k = no - 2
+        while 0 <= k < len(lines):
+            above = lines[k].strip()
+            if re.search(r"\bfn\b", above):
+                break
+            if above.startswith("#[") and above.endswith("test]"):
+                return True
+            if not (above.startswith("#[") or above.startswith("///")):
+                break
+            k -= 1
+    return False
+
+
+def test_files(diff, entry):
+    """The test files of the red diff that this entry has to run."""
+    whens = [glob_to_regex(g) for g in entry["when"]]
+    out = []
+    for f in diff.files():
+        if not any(w.match(f) for w in whens):
+            continue
+        if TEST_NAME.search(f) or TEST_DIR.search(f) or (f.endswith(".rs") and rust_adds_test(diff, f)):
+            out.append(f)
+    return out
+
+
+def missing_test_files(diff, entry, report):
+    """Test files of the diff that no testsuite or testcase of the report names: they did not run (or did not finish)."""
+    seen = set()
+    for f in report.suite_files:
+        n = normalize_path(diff, f)
+        if n:
+            seen.add(n)
+    for c in report.cases:
+        try:
+            seen.update(case_files(diff, c)[1])
+        except Unmapped:
+            pass
+    return [f for f in test_files(diff, entry) if f not in seen]
+
+
 SECOND_MARKER = re.compile(r"(?:\d+: )?second marker:")
 
 
@@ -728,15 +787,17 @@ def judge(entry, rc, timed_out, report_error, report, diff):
         msgs.append("the run failed but the report has no failure (an assertion): it did not fail on a test")
     if msgs:
         return 2, msgs, []
-    if fmt == "tap":
-        # The runner of #182 (#211): the case of the second marker (id starting with SECOND_MARKER, after an optional "<n>: ") proves the
-        # nested test reached the step under test, so it passes in the red; if it fails, a crash could hide in it.
-        bad = [c.name for c in report.cases if c.status in ("failure", "skipped") and SECOND_MARKER.match(c.name)]
-        if bad:
-            return 2, [f'the case of the second marker failed or was skipped (skip/TODO): "{n}". It has to pass in the red '
-                       "(it proves the nested test reached the step under test); a failure there may be a crash, not an assertion"
-                       for n in bad], []
+    # The runner of #182 (#211): the case of the second marker (id starting with SECOND_MARKER, after an optional "<n>: ") proves the
+    # nested test reached the step under test, so it passes in the red; if it fails, a crash could hide in it.
+    bad = [c.name for c in report.cases if c.status in ("failure", "skipped") and SECOND_MARKER.match(c.name)]
+    if bad:
+        return 2, [f'the case of the second marker failed or was skipped (skip/TODO): "{n}". It has to pass in the red '
+                   "(it proves the nested test reached the step under test); a failure there may be a crash, not an assertion"
+                   for n in bad], []
     problems, listed = check_cases(diff, report, fmt)
+    where = "has no `# file:` line in the TAP" if fmt == "tap" else "is not in the report"
+    problems += [f"the test file {f} of the red commit {where}: it did not run or did not finish "
+                 "(a test of the red diff that did not run makes the red fail)" for f in missing_test_files(diff, entry, report)]
     if problems:
         return 2, problems, []
     return 0, [], listed
@@ -746,8 +807,9 @@ def run_stack(entry, out_dir, cwd):
     out = os.path.join(out_dir, "report." + ("xml" if entry["format"] == "junit" else "tap"))
     run = entry["run"].replace("{out}", out)
     env = dict(os.environ)
-    if entry["format"] == "tap":
-        env["TAP_OUT"] = out  # tap.sh writes the stream there (and not to stdout) when it sees it
+    # tap.sh writes the report there (and not to stdout) when it sees it, in the format of the entry (ADR-002 D6)
+    env["TAP_OUT"] = out
+    env["TAP_FORMAT"] = entry["format"]
     proc = subprocess.Popen(["bash", "-o", "pipefail", "-c", run], cwd=cwd, stdin=subprocess.DEVNULL,
                             start_new_session=True, env=env)
     timed_out = False

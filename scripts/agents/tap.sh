@@ -2,16 +2,16 @@
 # TAP 14 helper for the kit's tests (ADR-002 D6, issue #151). It is sourced, not run:
 #
 #   . "$ROOT/scripts/agents/tap.sh"
-#   tap_begin "$0"                       # writes "# file: <path of the script from the repo root>"
+#   tap_begin "$0"                       # the path of the script from the repo root (its `file` in JUnit, "# file:" in TAP)
 #   tap_at_exit 'rm -rf "$TMP"'          # instead of trap ... EXIT, which would replace the helper's
 #   tap_run   out 64 prog args...        # runs a program that may fail: output in $out, status in $TAP_RC
 #   c=0; out=$(trap - ERR; prog) || c=$?; tap_status "$c" 64    # the same, for a command line; tap_no_traceback "$out"
 #   tap_ok    "literal id" ["description"]
 #   tap_fail  "literal id" ["description"]
 #   tap_check $? "literal id" ["description"]   # 0 is ok, 1 is not ok, any other status is a bail out
-#   tap_skip  "literal id" "reason"       # a case that does not apply here: ok N - id # SKIP reason
-#   tap_done                             # writes the plan 1..N and exits (1 if a case failed)
-#   tap_skip_all "reason"                # for a script that does not apply: 1..0 # SKIP, exits 0
+#   tap_skip  "literal id" "reason"       # a case that does not apply here: a skipped testcase (TAP: ok N - id # SKIP reason)
+#   tap_done                             # writes the report of the script and exits (1 if a case failed)
+#   tap_skip_all "reason"                # for a script that does not apply: a testsuite with tests="0", exits 0
 #
 # The id is a literal, written in the source: red.sh compares only that name with the lines the red
 # commit adds (ADR-002 D4). What varies at run time goes in the description, which is not compared
@@ -22,7 +22,16 @@
 #
 # The cases are held until tap_done (or a bail out) and written then, in the order of their first call.
 #
-# Where the TAP goes. Under red.sh, TAP_OUT is the file it created ({out}): the helper opens it once,
+# What it writes (ADR-002 D6, #225). With TAP_OUT, JUnit XML: when the script ends (tap_done, tap_skip_all or a bail out) it
+# appends ONE closed <testsuite name= file= tests= failures= errors= skipped=> with a <testcase name=id file=> per case (a
+# <failure> child for a failed one, <skipped> for tap_skip, the description in its <system-out>), and a bail out adds a
+# testcase with an <error> child, so a crash is never a failed case. It does not write the root: several scripts append
+# to the same file and the `run` of the entry wraps the testsuites in <testsuites>...</testsuites> at the end. An id that
+# repeats is ONE testcase: a failure if any turn failed (a crash ends the script, and its error testcase counts for D3 anyway).
+# TAP_FORMAT=tap (1.x, until 2.0.0, D8) writes the TAP stream instead; unset or "junit" is JUnit; any other value
+# writes no report and exits with 2 (fails closed). Without TAP_OUT the helper prints TAP on stdout, for people.
+#
+# Where the report goes. Under red.sh, TAP_OUT is the file it created ({out}): the helper opens it once,
 # on fd 8 (a path that cannot be opened is a bail out with exit 2), and unsets the variable, so the test does not see the path and what it prints on stdout
 # cannot inject cases. Without TAP_OUT (a person running the test, the docs CI) the TAP goes to
 # stdout. Several scripts can write the same file: the numbering continues and the plan is rewritten
@@ -93,18 +102,26 @@ _TAP_DONE=0
 _TAP_BAILED=0
 _TAP_AT_EXIT=""
 _TAP_PATH=""
+_TAP_FMT=tap        # junit when there is a TAP_OUT and no TAP_FORMAT=tap
+_TAP_FILE=""        # the path of the script, from tap_begin
 _TAP_BAILFILE=""    # where a subshell leaves the reason of a bail out for the main shell (it cannot exit the script)
 TAP_RC=0
 
 if [ -n "${TAP_OUT:-}" ]; then
   _TAP_PATH=$TAP_OUT
   { exec 8>>"$_TAP_PATH"; } 2>/dev/null || { echo "Bail out! cannot open TAP_OUT ($_TAP_PATH)" >&2; exit 2; }
-  _TAP_BASE=$(grep -c -E '^(not )?ok ' "$_TAP_PATH" 2>/dev/null || true)
-  _TAP_BASE=${_TAP_BASE:-0}
+  case ${TAP_FORMAT:-junit} in
+    junit|tap) _TAP_FMT=${TAP_FORMAT:-junit} ;;
+    *) echo "Bail out! TAP_FORMAT=${TAP_FORMAT} is not junit or tap: the helper writes no report" >&2; exit 2 ;;
+  esac
+  if [ "$_TAP_FMT" = tap ]; then
+    _TAP_BASE=$(grep -c -E '^(not )?ok ' "$_TAP_PATH" 2>/dev/null || true)
+    _TAP_BASE=${_TAP_BASE:-0}
+  fi
 else
   exec 8>&1
 fi
-unset TAP_OUT
+unset TAP_OUT TAP_FORMAT
 
 _tap_line() { printf '%s\n' "$1" >&8; }
 
@@ -124,9 +141,13 @@ _tap_strip_plans() {
 _tap_bail() {
   [ "$_TAP_BAILED" -eq 0 ] || return 0
   _TAP_BAILED=1
-  _tap_flush
-  _tap_strip_plans
-  _tap_line "Bail out! $(_tap_flat "$1")"
+  if [ "$_TAP_FMT" = junit ]; then
+    _tap_junit_suite "$(_tap_flat "$1")"
+  else
+    _tap_flush
+    _tap_strip_plans
+    _tap_line "Bail out! $(_tap_flat "$1")"
+  fi
   [ -z "$_TAP_PATH" ] || echo "Bail out! $(_tap_flat "$1")" >&2
 }
 
@@ -202,7 +223,47 @@ _tap_rel() {
   if [ "$d" = "$top" ]; then printf '%s' "$b"; else printf '%s/%s' "${d#"$top"/}" "$b"; fi
 }
 
-tap_begin() { _tap_line "# file: $(_tap_rel "${1:?tap_begin needs the path of the script}")"; }
+tap_begin() {
+  _TAP_FILE=$(_tap_rel "${1:?tap_begin needs the path of the script}")
+  [ "$_TAP_FMT" != tap ] || _tap_line "# file: $_TAP_FILE"
+}
+
+# Usage: _tap_xml <text>: the text as XML character data or attribute value (no control characters XML 1.0 forbids).
+# The replacements go through variables: bash 5.2 reads an & in a bare replacement as the matched text.
+_tap_xml() {
+  local t=$1 amp='&amp;' lt='&lt;' gt='&gt;' quot='&quot;'
+  t=${t//&/"$amp"}; t=${t//</"$lt"}; t=${t//>/"$gt"}; t=${t//\"/"$quot"}
+  printf '%s' "$t" | LC_ALL=C tr -d '\000-\010\013\014\016-\037' | { iconv -c -f UTF-8 -t UTF-8 2>/dev/null || cat; }
+}
+
+# Usage: _tap_junit_suite [<error message>] [<skip reason>]: appends the closed testsuite of this script to the file: its cases
+# (held until now), an error testcase if there is a message (a bail out), and the reason in its system-out for tap_skip_all.
+_tap_junit_suite() {
+  local err=${1:-} why=${2:-} i n=${#_TAP_IDS[@]} fails=0 skips=0 errs=0 f d id out=""
+  f=$(_tap_xml "${_TAP_FILE:-$(_tap_rel "$0")}")
+  [ -z "$err" ] || errs=1
+  for ((i = 0; i < n; i++)); do
+    if [ -n "${_TAP_SKIPS[$i]:-}" ]; then skips=$((skips + 1)); elif [ "${_TAP_VERDICTS[$i]}" = "not ok" ]; then fails=$((fails + 1)); fi
+  done
+  out="<testsuite name=\"$f\" file=\"$f\" tests=\"$((n + errs))\" failures=\"$fails\" errors=\"$errs\" skipped=\"$skips\">"$'\n'
+  for ((i = 0; i < n; i++)); do
+    id=$(_tap_xml "${_TAP_IDS[$i]}"); d=$(_tap_xml "${_TAP_DESCS[$i]}")
+    out+="<testcase name=\"$id\" classname=\"$f\" file=\"$f\">"
+    if [ -n "${_TAP_SKIPS[$i]:-}" ]; then
+      out+="<skipped message=\"$(_tap_xml "${_TAP_SKIPS[$i]}")\"/>"
+    elif [ "${_TAP_VERDICTS[$i]}" = "not ok" ]; then
+      out+="<failure message=\"$(_tap_xml "${_TAP_DESCS[$i]%%$'\n'*}")\"/>"
+    fi
+    [ -z "$d" ] || out+="<system-out>$d</system-out>"
+    out+="</testcase>"$'\n'
+  done
+  if [ "$errs" -eq 1 ]; then
+    out+="<testcase name=\"bail out\" classname=\"$f\" file=\"$f\"><error message=\"$(_tap_xml "$err")\"/></testcase>"$'\n'
+  fi
+  [ -z "$why" ] || out+="<system-out>$(_tap_xml "$why")</system-out>"$'\n'
+  out+="</testsuite>"
+  _tap_line "$out"
+}
 
 tap_at_exit() { _TAP_AT_EXIT=$1; }
 
@@ -373,8 +434,12 @@ _tap_plan() {
 
 tap_done() {
   _TAP_DONE=1
-  _tap_flush
-  _tap_plan
+  if [ "$_TAP_FMT" = junit ]; then
+    _tap_junit_suite
+  else
+    _tap_flush
+    _tap_plan
+  fi
   if [ "$_TAP_FAILED" -ne 0 ]; then
     echo "$_TAP_FAILED test(s) failed." >&2
     exit 1
@@ -384,8 +449,12 @@ tap_done() {
 
 tap_skip_all() {
   _TAP_DONE=1
-  _tap_flush
-  _tap_line "# skip: $(_tap_flat "${1:-}")"
-  _tap_plan "${1:-}"
+  if [ "$_TAP_FMT" = junit ]; then
+    _tap_junit_suite "" "$(_tap_flat "${1:-}")"
+  else
+    _tap_flush
+    _tap_line "# skip: $(_tap_flat "${1:-}")"
+    _tap_plan "${1:-}"
+  fi
   exit 0
 }
