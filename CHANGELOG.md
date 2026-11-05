@@ -6,6 +6,10 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 ## [Sin publicar]
 
+### Cambiado
+
+- `scripts/agents/tap.sh` escribe JUnit XML en `TAP_OUT` (#225): un `<testsuite>` cerrado por script, con un `<testcase>` por caso y un testcase `error` donde antes iba `Bail out!`. Con `TAP_FORMAT=tap` sigue escribiendo TAP (1.x); un valor desconocido falla cerrado (exit 2). Sin `TAP_OUT` sigue imprimiendo TAP en stdout. La entrada `bash` de `red` del kit pasa a `format: junit` y usa `--diff-filter=AMR` (un test renombrado también corre); `update.py` la reemplaza si el proyecto no la tocó. Qué hacer: si un proyecto leía `TAP_OUT` a mano esperando TAP, que exporte `TAP_FORMAT=tap` o lea el XML. `red.sh` exporta `TAP_OUT` y `TAP_FORMAT` a toda entrada, y rechaza (exit 2) un archivo de test del diff del rojo que no aparece en el reporte.
+
 ### Corregido
 
 - `barrilete-pi` 0.1.1: sin `pi` en el PATH, `barrilete` no encontraba el pi que npm instala junto al paquete (pi declara `exports` sin `./package.json`), así que `npm i -g barrilete-pi` solo no alcanzaba.
