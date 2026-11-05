@@ -116,6 +116,58 @@ AN
 tap_run out 0 "$TMP/bin/claude" "$TMP/ancestro.sh"
 leer; grep -qx "pid=$(cat "$TMP/ancestro.pid")" <<<"$LK"; tap_check $? "sin WORKTREE_LOCK_PID: el dueño es el ancestro claude"
 
+# 6e. Toma de un candado stale (#267, review del PR #268): dos agentes que lo ven stale no pueden quedar los dos con claimed.
+# Un date falso (el claim lo llama después de ver el estado y antes de reemplazar) deja que el agente B tome el candado
+# justo en ese hueco; A, que ya lo vio stale, no tiene que borrarle el candado recién tomado a B.
+unset WORKTREE_LOCK_PID
+cat >"$GDIR/agent-lock" <<LK
+pid=$MUERTO
+start=Thu Jan  1 00:00:00 1970
+agent=agente-viejo
+since=2026-01-01T00:00:00Z
+LK
+mkdir -p "$TMP/fake"
+ORIG_PATH=$PATH
+cat >"$TMP/fake/date" <<FD
+#!/usr/bin/env bash
+if [ ! -f "$TMP/fake/ya" ]; then
+  : >"$TMP/fake/ya"
+  PATH="$ORIG_PATH" WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b "$LOCK" claim "$TMP/wt" >"$TMP/fake/b.out"
+fi
+PATH="$ORIG_PATH" exec date "\$@"
+FD
+chmod +x "$TMP/fake/date"
+PATH="$TMP/fake:$ORIG_PATH" WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a "$LOCK" claim "$TMP/wt" >"$TMP/fake/a.out"
+grep -qx claimed "$TMP/fake/b.out"; tap_check $? "candado stale: el agente que llega en el hueco toma el candado (claimed)"
+grep -q '^held: agente-b' "$TMP/fake/a.out"; tap_check $? "candado stale: el agente que lo vio stale no pisa al que ya lo tomó (held)"
+leer; grep -qx 'agent=agente-b' <<<"$LK"; tap_check $? "candado stale: el candado queda del agente que lo tomó primero"
+
+# 6f. Un claim que muere antes de ln/mv no deja agent-lock.XXXXXX en el directorio git.
+rm -f "$GDIR/agent-lock"
+# Este date falso le manda TERM al claim (el proceso que lo llamó, o su padre si es el subshell de $(…)) y sigue.
+cat >"$TMP/fake/date" <<FD
+#!/usr/bin/env bash
+for p in \$PPID \$(ps -o ppid= -p \$PPID); do
+  case \$(ps -o args= -p \$p) in *" claim "*) kill -TERM \$p ;; esac
+done
+sleep 1
+PATH="$ORIG_PATH" exec date "\$@"
+FD
+tap_run out 143 env PATH="$TMP/fake:$ORIG_PATH" WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a "$LOCK" claim "$TMP/wt"
+sobras=$(find "$GDIR" -maxdepth 1 -name 'agent-lock.*' | wc -l | tr -d ' ')
+[ "$sobras" = 0 ]; tap_check $? "claim interrumpido: no deja agent-lock.XXXXXX en el directorio git"
+rm -f "$GDIR"/agent-lock.* "$GDIR/agent-lock"
+
+# 6g. /orchestrate: prepare.sh toma el candado como (pid del orquestador, su nombre) y los subagentes comparten ese pid:
+# el orquestador lo suelta antes de lanzar, y entonces el subagente (otro nombre, mismo pid) puede tomarlo.
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=orquestador
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+tap_run out 0 "$LOCK" release "$TMP/wt"
+export WORKTREE_LOCK_AGENT=implementer-267
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx claimed <<<"$out"; tap_check $? "orquestador: soltado el candado, el subagente (mismo pid) lo toma"
+rm -f "$GDIR/agent-lock"
+
 # 7. Las docs dicen que el reviewer hace implementar en un worktree propio y qué hace el candado. Se busca por contenido
 # (un proyecto instalado en español tiene el texto en español en el archivo sin .es y no tiene los .es.md).
 # Si falta el archivo, el caso falla (el último comando es la aserción [ -f ]): no es un crash ni un return 1.
@@ -139,11 +191,18 @@ if [ "$CHICO" = 1 ]; then tap_skip "reviewer: hace implementar en un worktree pr
 if [ "$CHICO" = 1 ]; then tap_skip "review-pr: el implementer del reviewer usa un worktree propio" "$SIN"; else mencion .claude/skills/review-pr/SKILL.md "own worktree" "worktree propio"; tap_check $? "review-pr: el implementer del reviewer usa un worktree propio"; fi
 if [ "$CHICO" = 1 ]; then tap_skip "contrato: pide fijar WORKTREE_LOCK_AGENT a cada subagente" "$SIN"; else mencion docs/agents/subagent-contract.md WORKTREE_LOCK_AGENT WORKTREE_LOCK_AGENT; tap_check $? "contrato: pide fijar WORKTREE_LOCK_AGENT a cada subagente"; fi
 
+if [ "$CHICO" = 1 ]; then tap_skip "orchestrate: suelta el candado antes de lanzar al subagente" "$SIN"; else mencion .claude/skills/orchestrate/SKILL.md "worktree-lock.sh release" "worktree-lock.sh release"; tap_check $? "orchestrate: suelta el candado antes de lanzar al subagente"; fi
+if [ "$CHICO" = 1 ]; then tap_skip "orchestrate: pasa WORKTREE_LOCK_AGENT a prepare.sh" "$SIN"; else mencion .claude/skills/orchestrate/SKILL.md WORKTREE_LOCK_AGENT WORKTREE_LOCK_AGENT; tap_check $? "orchestrate: pasa WORKTREE_LOCK_AGENT a prepare.sh"; fi
+if [ "$CHICO" = 1 ]; then tap_skip "contrato: el orquestador suelta el candado de prepare.sh" "$SIN"; else mencion docs/agents/subagent-contract.md "orchestrator releases" "orquestador suelta"; tap_check $? "contrato: el orquestador suelta el candado de prepare.sh"; fi
+
 # Los hermanos en español existen solo en un proyecto instalado en inglés.
 if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "agent-lock" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): nombra el candado agent-lock"; else tap_skip "contrato (es): nombra el candado agent-lock" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
 if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "worktree propio" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): el implementer de un reviewer usa su worktree propio"; else tap_skip "contrato (es): el implementer de un reviewer usa su worktree propio" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
 if [ -f "$RAIZ/.claude/i18n/agents/reviewer.es.md" ]; then grep -qF -- "worktree propio" "$RAIZ/.claude/i18n/agents/reviewer.es.md"; tap_check $? "reviewer (es): hace implementar en un worktree propio"; else tap_skip "reviewer (es): hace implementar en un worktree propio" "no existe .claude/i18n/agents/reviewer.es.md en este proyecto"; fi
 if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "worktree propio" "$RAIZ/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "review-pr (es): el implementer del reviewer usa un worktree propio"; else tap_skip "review-pr (es): el implementer del reviewer usa un worktree propio" "no existe .claude/skills/review-pr/SKILL.es.md en este proyecto"; fi
 if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "WORKTREE_LOCK_AGENT" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): pide fijar WORKTREE_LOCK_AGENT a cada subagente"; else tap_skip "contrato (es): pide fijar WORKTREE_LOCK_AGENT a cada subagente" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
+
+if [ -f "$RAIZ/.claude/skills/orchestrate/SKILL.es.md" ]; then grep -qF -- "worktree-lock.sh release" "$RAIZ/.claude/skills/orchestrate/SKILL.es.md"; tap_check $? "orchestrate (es): suelta el candado antes de lanzar al subagente"; else tap_skip "orchestrate (es): suelta el candado antes de lanzar al subagente" "no existe SKILL.es.md de orchestrate en este proyecto"; fi
+if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "orquestador suelta" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): el orquestador suelta el candado de prepare.sh"; else tap_skip "contrato (es): el orquestador suelta el candado de prepare.sh" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
 
 tap_done
