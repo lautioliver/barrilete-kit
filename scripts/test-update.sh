@@ -782,6 +782,7 @@ cd "$TMP" || exit 1
 # final de su resumen. La entrada del kit no avisa.
 AVISO_TAP() { printf 'warning: red stack '"'"'%s'"'"' uses format "tap", which 2.0.0 removes; switch it to "junit" (docs/guides/red-per-runner.md)' "$1"; }
 # Un run publicado por el kit en v1.1.0 (con los espacios cambiados: el kit normaliza los espacios al compararlo).
+# shellcheck disable=SC2016  # el run es un literal: no se expande nada
 RUN_KIT_1_1='rc=0;  while IFS= read -r -d '"''"' t; do TAP_OUT={out} bash "$t" </dev/null || rc=1; grep -qxF "# file: $t" {out} || echo "Bail out! $t wrote no TAP" >>{out}; done < <(git diff -z --name-only --diff-filter=AM HEAD^ HEAD -- '"':(glob)**/test-*.sh'"'); exit $rc'
 # poner_mapa_red <dir> <json de la sección red>: reemplaza la sección red del mapa del proyecto y la commitea.
 poner_mapa_red() {
