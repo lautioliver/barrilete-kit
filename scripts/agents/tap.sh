@@ -15,12 +15,14 @@
 #
 # The id is a literal, written in the source: red.sh compares only that name with the lines the red
 # commit adds (ADR-002 D4). What varies at run time goes in the description, which is not compared
-# and is written as a "# desc:" line. An id cannot be empty and cannot have a newline (the helper bails
-# out). An id that repeats is the same case, not a new one (red.sh rejects an ambiguous name): a loop
+# and is written as a "# desc:" line (in JUnit, the system-out of the testcase). An id cannot be empty and cannot have a
+# newline (the helper bails out). An id that repeats is the same case, not a new one (red.sh rejects an ambiguous name): a loop
 # that checks the same thing for several inputs passes one literal id and the input as the description,
 # and the case fails if any of them fails; each failing description is written under it.
 #
 # The cases are held until tap_done (or a bail out) and written then, in the order of their first call.
+# Where this header says "Bail out!", "the plan" or "the numbering", it speaks of the TAP stream (TAP_FORMAT=tap, or no TAP_OUT):
+# in JUnit a bail out is an error testcase in the closed testsuite, and there is no plan or numbering.
 #
 # What it writes (ADR-002 D6, #225). With TAP_OUT, JUnit XML: when the script ends (tap_done, tap_skip_all or a bail out) it
 # appends ONE closed <testsuite name= file= tests= failures= errors= skipped=> with a <testcase name=id file=> per case (a
@@ -34,14 +36,14 @@
 # Where the report goes. Under red.sh, TAP_OUT is the file it created ({out}): the helper opens it once,
 # on fd 8 (a path that cannot be opened is a bail out with exit 2), and unsets the variable, so the test does not see the path and what it prints on stdout
 # cannot inject cases. Without TAP_OUT (a person running the test, the docs CI) the TAP goes to
-# stdout. Several scripts can write the same file: the numbering continues and the plan is rewritten
-# at the end so the stream keeps a single 1..N. Each failing case is also printed on
+# stdout. In TAP, several scripts can write the same file: the numbering continues and the plan is rewritten
+# at the end so the stream keeps a single 1..N (in JUnit each script appends its own testsuite). Each failing case is also printed on
 # stderr as "FAIL - <id>", so a CI log shows it.
 #
 # Unexpected errors (ADR-002 D6: a crash is never a failed assertion). The helper turns on errtrace
 # (set -E) and pipefail, so the ERR trap runs in functions, command and process substitutions, subshells
 # and every element of a pipeline. Any command that fails is an unexpected error and the run ends with
-# "Bail out!" (exit 1), except an assertion that fails with status 1: test, [, [[, ((, grep, egrep, fgrep,
+# a bail out (exit 1; an error testcase in JUnit, "Bail out!" in TAP), except an assertion that fails with status 1: test, [, [[, ((, grep, egrep, fgrep,
 # diff and cmp. A failing assertion is what "<assertion>; tap_check $? ..." is for, wherever it runs (inside
 # a function, an argument, a pipeline). So "[ "$(python3 x.py 2>&1)" = 3 ]", "python3 x.py | grep -q 3" and a
 # setup function that crashes before its last command all bail out (on bash 3.2 a lone program in a substitution is
@@ -228,11 +230,12 @@ tap_begin() {
   [ "$_TAP_FMT" != tap ] || _tap_line "# file: $_TAP_FILE"
 }
 
-# Usage: _tap_xml <text>: the text as XML character data or attribute value (no control characters XML 1.0 forbids).
+# Usage: _tap_xml <text>: the text as XML character data or attribute value (no control characters XML 1.0 forbids; a tab as &#9;,
+# because an attribute value read back would turn a raw tab into a space and the id would no longer match its source line).
 # The replacements go through variables: bash 5.2 reads an & in a bare replacement as the matched text.
 _tap_xml() {
-  local t=$1 amp='&amp;' lt='&lt;' gt='&gt;' quot='&quot;'
-  t=${t//&/"$amp"}; t=${t//</"$lt"}; t=${t//>/"$gt"}; t=${t//\"/"$quot"}
+  local t=$1 amp='&amp;' lt='&lt;' gt='&gt;' quot='&quot;' tab='&#9;'
+  t=${t//&/"$amp"}; t=${t//</"$lt"}; t=${t//>/"$gt"}; t=${t//\"/"$quot"}; t=${t//$'\t'/"$tab"}
   printf '%s' "$t" | LC_ALL=C tr -d '\000-\010\013\014\016-\037' | { iconv -c -f UTF-8 -t UTF-8 2>/dev/null || cat; }
 }
 
@@ -289,8 +292,8 @@ _tap_flush() {
 _tap_case() {
   local verdict=$1 id=$2 desc=${3:-} i found=-1
   case $id in
-    '') _tap_bail "a case needs an id"; exit 1 ;;
-    *$'\n'*|*$'\r'*) _tap_bail "the id of a case cannot have a newline: $(_tap_flat "$id")"; exit 1 ;;
+    '') _tap_crash "a case needs an id" ;;
+    *$'\n'*|*$'\r'*) _tap_crash "the id of a case cannot have a newline: $(_tap_flat "$id")" ;;
   esac
   desc=$(_tap_flat "$desc")
   for ((i = 0; i < ${#_TAP_IDS[@]}; i++)); do

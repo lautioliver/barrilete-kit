@@ -353,14 +353,28 @@ def normalize_path(diff, p):
     return ends[0] if len(ends) == 1 else None
 
 
+def memo(diff, key, compute):
+    """compute() once per diff: the files it reads are the same for every case of the report (no git process per case)."""
+    cache = diff.__dict__.setdefault("_memo", {})
+    if key not in cache:
+        cache[key] = compute()
+    return cache[key]
+
+
 def go_module(diff):
-    text = diff.read("go.mod")
-    m = re.search(r"^module\s+(\S+)", text or "", re.M)
-    return m.group(1).strip('"') if m else None
+    def compute():
+        text = diff.read("go.mod")
+        m = re.search(r"^module\s+(\S+)", text or "", re.M)
+        return m.group(1).strip('"') if m else None
+    return memo(diff, "go_module", compute)
 
 
 def cargo_crates(diff):
     """[(dir, package name)] of the root package and of the members of the root Cargo.toml workspace."""
+    return memo(diff, "cargo_crates", lambda: _cargo_crates(diff))
+
+
+def _cargo_crates(diff):
     text = diff.read("Cargo.toml")
     if text is None:
         return []
