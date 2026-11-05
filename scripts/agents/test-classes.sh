@@ -89,24 +89,18 @@ MUT = {
 MUT[name]()
 '
 
-# check-docs.py sale con 1 cuando encuentra algo (su veredicto): un solo programa que lo corre y escribe su salida y `RC=<estado>`,
-# así tap_run lo espera con 0 y un fallo del runner (no del check) corta la corrida.
-RUN='
-import subprocess, sys
-r = subprocess.run([sys.executable, "scripts/agents/check-docs.py"], capture_output=True, text=True)
-sys.stdout.write(r.stdout + r.stderr + "\nRC=%d\n" % r.returncode)
-'
-
 # Deshace la mutación anterior, aplica <nombre> y corre check-docs.py en la copia: su salida queda en $out y su estado en $RC.
-# Con un tercer argumento (sin-resumen) no exige el resumen ni la ausencia de traceback: el caso mira eso él mismo.
+# check-docs.py sale con 1 cuando encuentra algo (su veredicto) y con 0 si no: tap_run lo espera con 1, deja el estado en $TAP_RC y
+# corta la corrida con cualquier otro estado de caída (2, 126, 127, 128 o más); un traceback (estado 1) lo ve tap_no_traceback.
+# Con un segundo argumento (sin-resumen) no exige el resumen ni la ausencia de traceback: el caso mira eso él mismo.
 mutar() {
   local nombre=$1
   out=""
   cd "$TMP/r" || return 1
   tap_run _ 0 git checkout -q -- .
   tap_run _ 0 python3 -c "$MUT" "$nombre"
-  tap_run out 0 python3 -c "$RUN"
-  RC=${out##*RC=}
+  tap_run out 1 python3 scripts/agents/check-docs.py
+  RC=$TAP_RC
   cd "$RAIZ" || return 1
   [ "${2:-}" = sin-resumen ] && return 0
   tap_no_traceback "$out"
@@ -117,7 +111,8 @@ mutar() {
 
 
 # El idioma de un review-pr/SKILL*.md. Con `init --lang es` el SKILL.md instalado es el texto en español y no queda SKILL.es.md.
-idioma_de() { if grep -q 'Bloqueante' "$1"; then echo es; else echo en; fi; }
+# Se decide por el encabezado de la sección de hallazgos, que el texto no cita en otro idioma.
+idioma_de() { if grep -q '^## 4\. Hallazgos$' "$1"; then echo es; else echo en; fi; }
 INST="$TMP/instalado-es"
 mkdir -p "$INST"
 if [ -f "$SKILL_ES" ]; then cp "$SKILL_ES" "$INST/SKILL.md"; fi
@@ -161,10 +156,12 @@ else
   tap_skip "review-pr: un SKILL.md en español (instalado con --lang es) se reconoce por su contenido" "no hay $SKILL_ES"
 fi
 
-# Hay errores nuevos: check-docs salió con 1 y dijo algo que el repo tal cual no decía (un proyecto nuevo ya sale con 1 por los TODO del mapa).
+# Hay errores nuevos: check-docs salió con 1 y tiene una línea de error (las "- " bajo "Docs with N problem(s):") que el repo tal cual no
+# tenía. Un aviso ("Warning: ...") no es un error: en un proyecto nuevo, que ya sale con 1 por los TODO del mapa, un error de clase
+# pasado a aviso no se notaría si se contaran las líneas nuevas de cualquier clase.
 con_errores_nuevos() {
   local nuevos
-  nuevos=$(awk 'NR==FNR {a[$0]; next} !($0 in a)' "$TMP/base.out" - <<<"$out" 2>/dev/null)
+  nuevos=$(awk 'NR==FNR {a[$0]; next} /^- / && !($0 in a)' "$TMP/base.out" - <<<"$out" 2>/dev/null)
   [ "$RC" -eq 1 ] && [ -n "$nuevos" ]
 }
 

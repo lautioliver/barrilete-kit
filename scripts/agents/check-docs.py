@@ -21,7 +21,10 @@ Checks:
 - Map paths (docs, sensitive, verify) that match no file (except the ones marked as optional
   with a leading "?"); warns about code folders the map does not cover.
 - What AGENTS.md says is ignored (`.env*`...) and git does not ignore.
-- The classes ([id]) that review-pr names exist in docs/agents/classes.yml (ADR-006 D4).
+- docs/agents/classes.yml (ADR-006 D4): readable UTF-8 (a BOM is fine), at least one class, only `- id: <kebab-case>` followed by
+  `  description: <plain text>` (no quotes or YAML syntax that a real parser would read differently), ids not repeated, a
+  description on each one, and `other` (reserved) not listed. The classes ([id]) that review-pr names exist in it; if the
+  file is missing, unreadable or empty, that is its own error and the skill is not blamed for each tag.
 - Skills (.claude/skills/*/SKILL.md) over 120 lines, and docs/agents/lessons.md over 40.
 - Subagents (.claude/agents/*.md) without name, description or tools, with a model that is not
   opus, sonnet or haiku, or that do not point to the common contract (docs/agents/subagent-contract.md).
@@ -612,36 +615,39 @@ if os.path.isdir(".claude/skills"):
 # `other` is reserved (no class fits) and is not listed there. Only the review-pr skill (en and es) is checked; if classes.yml is missing, it is an error only when a line of the skill points to it.
 CLASES_YML = "docs/agents/classes.yml"
 SKILLS_CLASES = (".claude/skills/review-pr/SKILL.md", ".claude/skills/review-pr/SKILL.es.md")
-ids_clases = None
+ids_clases = None  # None: no usable list of classes (missing, unreadable or empty file), so the skill's tags are not checked
 if os.path.exists(CLASES_YML):
     # A strict reader of the file (no YAML library): `- id: <kebab-case>` followed by `  description: <text>`, nothing else.
-    ids_clases = set()
+    ids_leidos = set()
     actual = None  # [id, line, has_description]
     def cerrar():
         if actual and not actual[2]:
             errores.append(f"{CLASES_YML}:{actual[1]}: the class [{actual[0]}] has no description.")
+    legible = True
     try:
-        lineas_yml = open(CLASES_YML, encoding="utf-8-sig").read().splitlines()  # utf-8-sig: a BOM is not part of the first line
+        with open(CLASES_YML, encoding="utf-8-sig") as f:  # utf-8-sig: a BOM is not part of the first line
+            lineas_yml = f.read().splitlines()
     except UnicodeDecodeError as e:
         errores.append(f"{CLASES_YML}: is not valid UTF-8 ({e.reason} at byte {e.start}).")
-        lineas_yml = []
+        lineas_yml, legible = [], False
     for n, linea in enumerate(lineas_yml, 1):
         linea = linea.rstrip()  # trailing spaces or a CR (CRLF files) are not part of the value
         if not linea.strip() or linea.lstrip().startswith("#"):
             continue
         m_id = re.fullmatch(r"- id: ([a-z][a-z0-9]*(?:-[a-z0-9]+)*)", linea)
-        # Plain scalar a real YAML parser also reads as text: no quote, flow or tag opening, no ": " or " #" inside.
-        m_desc = re.fullmatch(r"  description: ([^\s\"'#&*!|>%@`\[{].*)", linea)
-        if m_desc and (": " in m_desc.group(1) or " #" in m_desc.group(1)):
+        # A plain scalar a real YAML parser reads as the same text (conservative): it starts with a letter or a digit (no quote,
+        # flow, tag, "- ", "? ", ", " or "] "), has no ":" before a space or at the end and no "#" after a space or a tab.
+        m_desc = re.fullmatch(r"  description: (\w.*)", linea)
+        if m_desc and re.search(r":(\s|$)|\s#", m_desc.group(1)):
             m_desc = None
         if m_id:
             cerrar()
             cid = m_id.group(1)
             if cid == "other":
                 errores.append(f"{CLASES_YML}:{n}: `other` is reserved (review-pr uses it when no class fits): do not list it.")
-            if cid in ids_clases:
+            if cid in ids_leidos:
                 errores.append(f"{CLASES_YML}:{n}: duplicate class id [{cid}].")
-            ids_clases.add(cid)
+            ids_leidos.add(cid)
             actual = [cid, n, False]
         elif m_desc and actual and not actual[2]:
             actual[2] = True
@@ -650,21 +656,27 @@ if os.path.exists(CLASES_YML):
                 actual[2] = True  # one mistake, one error: a bad description is reported as such, not also as a missing one
             errores.append(f"{CLASES_YML}:{n}: unexpected line (expected `- id: <kebab-case>` and `  description: <text>`, unquoted).")
     cerrar()
-for ruta in SKILLS_CLASES:
+    if ids_leidos:
+        ids_clases = ids_leidos
+    elif legible:
+        errores.append(f"{CLASES_YML}: lists no classes (expected at least one `- id: <kebab-case>` with its description).")
+# A missing classes.yml is reported by the broken-paths check above; an unreadable or empty one, just above.
+for ruta in SKILLS_CLASES if ids_clases is not None else ():
     if not os.path.exists(ruta):
         continue
-    for n, linea in enumerate(open(ruta, encoding="utf-8"), 1):
-        if ids_clases is None:  # a missing classes.yml is reported by the broken-paths check above
-            continue
+    with open(ruta, encoding="utf-8") as f:
+        lineas_skill = f.read().splitlines()
+    for n, linea in enumerate(lineas_skill, 1):
         # On the lines of the finding format (they mention file:line or the classes file) every `[...]` is a class,
         # whatever it holds (bold, code span, bare, `[Stale-Doc]`, `[ x y ]`) and must be a known id; a link `[t](u)`,
         # a reference link `[t][r]`, a checkbox `[x]` and `[ ]` are not. `[class]`/`[clase]` are the placeholders.
-        if re.search(r"file:line|archivo:línea|" + re.escape(CLASES_YML), linea):
+        if re.search(r"file:line|archivo:línea|\]\s+(?:PR|\S+:\d+):|" + re.escape(CLASES_YML), linea):
             for cid in re.findall(r"(?<!\])\[([^\]\n]+)\](?![(\[])", linea):
                 if cid.strip() in ("", "x", "X"):
                     continue
                 if cid not in ("other", "class", "clase") and cid not in ids_clases:
-                    errores.append(f"{ruta}:{n}: the class [{cid}] is not in {CLASES_YML}. Add it there or fix the id.")
+                    errores.append(f"{ruta}:{n}: the class [{cid}] is not in {CLASES_YML}. If it is a class, add it there or fix the id; "
+                                   "if it is not a class, remove it from this line or write it as a link.")
 
 # What AGENTS.md says is ignored (`.env*` are ignored) must be: the agent
 # trusts that sentence and, if it is false, ends up committing a secret.
