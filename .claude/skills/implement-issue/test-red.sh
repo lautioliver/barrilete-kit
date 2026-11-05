@@ -194,6 +194,189 @@ test "$code" -eq 2 && grep -q 'second marker' "$TMP/out"; tap_check $? "211: a r
 marker_red marker-passes "ok"
 test "$code" -eq 0; tap_check $? "211: a red where the case of the second marker passes is accepted (exit 0)"
 
+# ---------------------------------------------------------------- the bash entry in JUnit (#225, ADR-002 D6)
+# The `run` that these cases execute is the one the kit ships: it is read from docs/agents-map.json and from the small profile,
+# not copied here (a copy can drift from the shipped string, and a quoting error in the shipped one would go unseen).
+FULL_MAP="$KIT/docs/agents-map.json"; SMALL_MAP="$KIT/profiles/small/docs/agents-map.json"
+# jrepo <name> [map]: a repo whose map has only the `bash` entry of that map (default: the kit's), with the real helper
+jrepo() {
+  local r="$TMP/w/$1"
+  new_repo "$r"; install_kit "$r"; cp "$KIT/scripts/agents/tap.sh" "$r/scripts/agents/tap.sh"
+  python3 - "${2:-$FULL_MAP}" "$r/docs/agents-map.json" <<'PYEOF'
+import json, sys
+entry = [e for e in json.load(open(sys.argv[1]))["red"] if e["name"] == "bash"][0]
+json.dump({"red": [entry]}, open(sys.argv[2], "w"))
+PYEOF
+}
+shead() { printf '#!/usr/bin/env bash\n. "$(dirname "$0")/agents/tap.sh"\ntap_begin "$0"\n'; }
+# says <text>: does the output of the last run_red contain it? A function that is an assertion (status 1 when it does not)
+says() { local t; t=$(<"$TMP/out"); [ "${t#*"$1"}" != "$t" ]; }
+# block_has_line <line>: is it a whole line of the block that red.sh left for the PR?
+block_has_line() {
+  local b="" t l
+  while IFS= read -r l; do case $l in "Block for "*": "*) b=${l##*: } ;; esac; done <"$TMP/out"
+  t=$(<"$b"); [[ $'\n'"$t"$'\n' == *$'\n'"$1"$'\n'* ]]
+}
+
+for prof in full small; do
+  map=$FULL_MAP; [ "$prof" = small ] && map=$SMALL_MAP
+  jrepo "j-new-$prof" "$map"
+  commit_all "$TMP/w/j-new-$prof" base
+  { shead; printf 'tap_ok "passes"\n[ 1 -eq 2 ]; tap_check $? "new case fails"\ntap_done\n'; } >"$TMP/w/j-new-$prof/scripts/test-new.sh"
+  commit_all "$TMP/w/j-new-$prof" red
+  run_red "$TMP/w/j-new-$prof"
+  test "$code" -eq 0; tap_check $? "225: the shipped bash entry gives a valid red with the real helper (exit 0)" "map: $prof"
+  says 'test-new.sh::new case fails'; tap_check $? "225: the failing case of the shipped bash entry is listed as file::id" "map: $prof"
+  block_has_line 'format: junit'; tap_check $? "225: the block of the shipped bash entry says format: junit" "map: $prof"
+done
+
+# an edited old script: the case that fails has to be defined by an added line (.sh in JUnit is read like the helper's TAP)
+jrepo j-old
+{ shead; printf 'tap_ok "old case"\ntap_done\n'; } >"$TMP/w/j-old/scripts/test-old.sh"
+commit_all "$TMP/w/j-old" base
+{ shead; printf 'tap_ok "old case"\n[ 1 -eq 2 ]; tap_check $? "added case"\ntap_done\n'; } >"$TMP/w/j-old/scripts/test-old.sh"
+commit_all "$TMP/w/j-old" red
+run_red "$TMP/w/j-old"
+test "$code" -eq 0; tap_check $? "225: in JUnit a failing case defined by an added line of an old .sh is accepted (exit 0)"
+says 'test-old.sh::added case'; tap_check $? "225: in JUnit the case of an added line of an old .sh is listed"
+jrepo j-old2
+{ shead; printf '[ 1 -eq 2 ]; tap_check $? "old broken case"\ntap_done\n'; } >"$TMP/w/j-old2/scripts/test-old.sh"
+commit_all "$TMP/w/j-old2" base
+{ shead; printf '[ 1 -eq 2 ]; tap_check $? "old broken case"\n[ 1 -eq 2 ]; tap_check $? "added case"\ntap_done\n'; } >"$TMP/w/j-old2/scripts/test-old.sh"
+commit_all "$TMP/w/j-old2" red
+run_red "$TMP/w/j-old2"
+test "$code" -eq 2; tap_check $? "225: in JUnit an old failing case of a .sh is rejected (exit 2)"
+says 'old broken case'; tap_check $? "225: in JUnit the rejected old case is named"
+says 'not defined by a line this commit adds'; tap_check $? "225: in JUnit the old case is rejected by D4, not by something else"
+
+# a test file of the diff that left nothing in the report makes the red fail, even next to a valid failure
+jrepo j-missing
+commit_all "$TMP/w/j-missing" base
+{ shead; printf '[ 1 -eq 2 ]; tap_check $? "new case fails"\ntap_done\n'; } >"$TMP/w/j-missing/scripts/test-a.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$TMP/w/j-missing/scripts/test-b.sh"
+commit_all "$TMP/w/j-missing" red
+run_red "$TMP/w/j-missing"
+test "$code" -eq 2; tap_check $? "225: a test file of the red diff that left nothing in the report makes red.sh exit 2"
+says 'test-b.sh'; tap_check $? "225: red.sh names the test file that left nothing in the report"
+jrepo j-missing2
+mkdir -p "$TMP/w/j-missing2/src"; printf 'x = 1\n' >"$TMP/w/j-missing2/src/helper.py"; printf 'x\n' >"$TMP/w/j-missing2/README.md"
+commit_all "$TMP/w/j-missing2" base
+{ shead; printf '[ 1 -eq 2 ]; tap_check $? "new case fails"\ntap_done\n'; } >"$TMP/w/j-missing2/scripts/test-a.sh"
+printf 'y = 2\n' >"$TMP/w/j-missing2/src/helper.py"; printf 'y\n' >"$TMP/w/j-missing2/README.md"
+commit_all "$TMP/w/j-missing2" red
+run_red "$TMP/w/j-missing2"
+test "$code" -eq 0; tap_check $? "225: code and docs in the red diff are not test files (no check on them)"
+
+# a script that ran and left no case (tap_skip_all) is a script that ran: it is not "left nothing in the report"
+jrepo j-skipall
+commit_all "$TMP/w/j-skipall" base
+{ shead; printf '[ 1 -eq 2 ]; tap_check $? "new case fails"\ntap_done\n'; } >"$TMP/w/j-skipall/scripts/test-a.sh"
+{ shead; printf 'tap_skip_all "needs docker"\n'; } >"$TMP/w/j-skipall/scripts/test-b.sh"
+commit_all "$TMP/w/j-skipall" red
+run_red "$TMP/w/j-skipall"
+test "$code" -eq 0; tap_check $? "225: in JUnit a script of the red diff that ran with tap_skip_all is not rejected as not run (exit 0)"
+t3="$TMP/tapskip"; mkdir -p "$t3"; : >"$t3/output.txt"
+printf '# file: scripts/test-a.sh\nnot ok 1 - new case fails\n# file: scripts/test-b.sh\n# skip: needs docker\n1..1\n' >"$t3/report.tap"
+r="$TMP/w/tf-skipall"; new_repo "$r"; install_kit "$r"
+write_map "$r" "[{\"name\": \"bash\", \"when\": [\"**/test-*.sh\"], \"format\": \"tap\", \"run\": \"bash $TMP/fake-run.sh $t3 {out} 1 0\"}]"
+mkdir -p "$r/scripts"; echo x >"$r/scripts/old.sh"; commit_all "$r" base
+printf 'tap_check $? "new case fails"\n' >"$r/scripts/test-a.sh"; printf 'echo b\n' >"$r/scripts/test-b.sh"
+commit_all "$r" red
+run_red "$r"
+test "$code" -eq 0; tap_check $? "225: in tap a script with a # file: line and only a skip is not rejected as not run (exit 0)"
+
+# a renamed test is a test the run runs (the file is named by its new path)
+for prof in full small; do
+  map=$FULL_MAP; [ "$prof" = small ] && map=$SMALL_MAP
+  jrepo "j-rename-$prof" "$map"
+  { shead; printf 'tap_ok "old case"\ntap_ok "another old case"\ntap_ok "a third old case"\ntap_done\n'; } >"$TMP/w/j-rename-$prof/scripts/test-old.sh"
+  commit_all "$TMP/w/j-rename-$prof" base
+  git -C "$TMP/w/j-rename-$prof" mv scripts/test-old.sh scripts/test-renamed.sh
+  { shead; printf 'tap_ok "old case"\ntap_ok "another old case"\ntap_ok "a third old case"\n[ 1 -eq 2 ]; tap_check $? "renamed case"\ntap_done\n'; } >"$TMP/w/j-rename-$prof/scripts/test-renamed.sh"
+  commit_all "$TMP/w/j-rename-$prof" red
+  run_red "$TMP/w/j-rename-$prof"
+  test "$code" -eq 0; tap_check $? "225: a renamed test is run by the shipped bash entry: the red is valid (exit 0)" "map: $prof"
+  says 'test-renamed.sh::renamed case'; tap_check $? "225: the failing case of a renamed test is listed" "map: $prof"
+done
+
+# a test file by its name under another runner is a test file when the entry's `when` matches it
+r="$TMP/w/j-pytest"; new_repo "$r"; install_kit "$r"
+mkdir -p "$TMP/jp"; cp "$CORPUS/pytest-assert/"{report.xml,output.txt} "$TMP/jp/"
+write_map "$r" "[{\"name\": \"py\", \"when\": [\"**/*.py\"], \"format\": \"junit\", \"run\": \"bash $TMP/fake-run.sh $TMP/jp {out} 1 0\"}]"
+cp -R "$CORPUS/pytest-assert/base/." "$r/"; commit_all "$r" base
+cp -R "$CORPUS/pytest-assert/red/." "$r/"; printf 'def test_other_new():\n    assert True\n' >"$r/test_not_in_report.py"; mkdir -p "$r/__tests__"; printf 'it("x", () => {})\n' >"$r/__tests__/x.js"; commit_all "$r" red
+run_red "$r"
+test "$code" -eq 2; tap_check $? "225: a pytest file (test_*.py) of the diff that is not in the report makes red.sh exit 2"
+says 'test_not_in_report.py'; tap_check $? "225: red.sh names the pytest file that is not in the report"
+out_text=$(<"$TMP/out")
+[ "${out_text#*__tests__/x.js}" = "$out_text" ]; tap_check $? "225: a file the entry's when does not match is not checked (when intersects the patterns)"
+r="$TMP/w/j-spec"; new_repo "$r"; install_kit "$r"
+write_map "$r" "[{\"name\": \"js\", \"when\": [\"**\"], \"format\": \"junit\", \"run\": \"bash $TMP/fake-run.sh $TMP/jp {out} 1 0\"}]"
+mkdir -p "$r/src/__tests__"; echo x >"$r/a"; commit_all "$r" base
+printf 'it("x", () => {})\n' >"$r/src/a.spec.ts"; printf 'it("y", () => {})\n' >"$r/src/__tests__/b.js"; commit_all "$r" red
+run_red "$r"
+says 'a.spec.ts'; tap_check $? "225: a *.spec.* file of the diff is a test file"
+says '__tests__/b.js'; tap_check $? "225: a __tests__/ file of the diff is a test file"
+
+# a `tap` entry applies the same rule through its `# file:` line (ADR-002 D6): a test file of the diff with no line is rejected
+t="$TMP/tapfile"; mkdir -p "$t"
+printf '# file: scripts/test-a.sh\nnot ok 1 - new case fails\n1..1\n' >"$t/report.tap"; : >"$t/output.txt"
+tapfile_repo() { # tapfile_repo <name> <report dir>
+  local r="$TMP/w/$1"; new_repo "$r"; install_kit "$r"
+  write_map "$r" "[{\"name\": \"bash\", \"when\": [\"**/test-*.sh\"], \"format\": \"tap\", \"run\": \"bash $TMP/fake-run.sh $2 {out} 1 0\"}]"
+  mkdir -p "$r/scripts"; echo x >"$r/scripts/old.sh"; commit_all "$r" base
+  printf 'tap_check $? "new case fails"\n' >"$r/scripts/test-a.sh"
+}
+tapfile_repo tf-missing "$t"; printf 'echo b\n' >"$TMP/w/tf-missing/scripts/test-b.sh"; commit_all "$TMP/w/tf-missing" red
+run_red "$TMP/w/tf-missing"
+test "$code" -eq 2; tap_check $? "225: a tap report with no # file: line for a test file of the diff makes red.sh exit 2"
+says 'test-b.sh'; tap_check $? "225: red.sh names the test file that has no # file: line"
+says '# file:'; tap_check $? "225: the message for a tap entry speaks of the # file: line"
+t2="$TMP/tapfile2"; mkdir -p "$t2"; : >"$t2/output.txt"
+printf '# file: scripts/test-a.sh\nnot ok 1 - new case fails\n# file: scripts/test-b.sh\nok 2 - b passes\n1..2\n' >"$t2/report.tap"
+tapfile_repo tf-all "$t2"; printf 'tap_ok "b passes"\n' >"$TMP/w/tf-all/scripts/test-b.sh"; commit_all "$TMP/w/tf-all" red
+run_red "$TMP/w/tf-all"
+test "$code" -eq 0; tap_check $? "225: a tap report with a # file: line for every test file of the diff is a valid red (exit 0)"
+tapfile_repo tf-code "$t"; printf 'echo b\n' >"$TMP/w/tf-code/scripts/helper.sh"; commit_all "$TMP/w/tf-code" red
+run_red "$TMP/w/tf-code"
+test "$code" -eq 0; tap_check $? "225: in a tap entry a script that is not a test file needs no # file: line (exit 0)"
+
+# what red.sh gives the run: TAP_OUT and TAP_FORMAT, for every entry
+envfmt=(); envout=()
+for fmt in junit tap; do
+  r="$TMP/w/env-$fmt"; new_repo "$r"; install_kit "$r"
+  write_map "$r" "[{\"name\": \"e\", \"when\": [\"**\"], \"format\": \"$fmt\", \"run\": \"printf '%s|%s' \\\"\${TAP_FORMAT-unset}\\\" \\\"\${TAP_OUT-unset}\\\" >$TMP/env-$fmt.txt; true {out}\"}]"
+  echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
+  run_red "$r"
+  [ "$(cut -d'|' -f1 "$TMP/env-$fmt.txt" 2>/dev/null)" = "$fmt" ]; envfmt[${#envfmt[@]}]=$?
+  grep -q '|.*report\.' "$TMP/env-$fmt.txt" 2>/dev/null; envout[${#envout[@]}]=$?
+done
+tap_check "${envfmt[0]}" "225: red.sh exports TAP_FORMAT=junit to an entry with format junit"
+tap_check "${envfmt[1]}" "225: red.sh exports TAP_FORMAT=tap to an entry with format tap"
+tap_check "${envout[0]}" "225: red.sh exports TAP_OUT (the path of {out}) to an entry with format junit"
+tap_check "${envout[1]}" "225: red.sh exports TAP_OUT (the path of {out}) to an entry with format tap"
+
+# the second marker, in JUnit (the kit's bash entry is JUnit now)
+jmarker() { # jmarker <name> <second marker: pass|failure|skipped>
+  local r="$TMP/w/$1" t="$TMP/m-$1"
+  new_repo "$r"; install_kit "$r"; mkdir -p "$t" "$r/scripts"
+  local child=""
+  case $2 in failure) child='<failure message="x"/>' ;; skipped) child='<skipped message="x"/>' ;; esac
+  printf '<testsuites><testsuite name="scripts/new.sh" file="scripts/new.sh" tests="2" failures="1"><testcase name="runner prints its marker" file="scripts/new.sh"><failure message="x"/></testcase><testcase name="second marker: the nested test reached the step under test" file="scripts/new.sh">%s</testcase></testsuite></testsuites>\n' "$child" >"$t/report.xml"
+  write_map "$r" "[{\"name\": \"sh\", \"when\": [\"**/*.sh\"], \"format\": \"junit\", \"run\": \"bash $TMP/fake-run.sh $t {out} 1 0\"}]"
+  printf 'x\n' >"$r/scripts/old.sh"; commit_all "$r" base
+  printf '# runner prints its marker\ntap_ok "runner prints its marker"\ntap_ok "second marker: the nested test reached the step under test"\n' >"$r/scripts/new.sh"; commit_all "$r" red
+  run_red "$r"
+}
+jmarker jm-failure failure
+test "$code" -eq 2; tap_check $? "225: JUnit: a red where the case of the second marker failed is rejected (exit 2)"
+says 'second marker'; tap_check $? "225: JUnit: the rejection of a failed second marker names the second marker"
+jmarker jm-skipped skipped
+test "$code" -eq 2; tap_check $? "225: JUnit: a red where the case of the second marker was skipped is rejected (exit 2)"
+says 'second marker'; tap_check $? "225: JUnit: the rejection of a skipped second marker names the second marker"
+jmarker jm-pass pass
+test "$code" -eq 0; tap_check $? "225: JUnit: a red where the case of the second marker passes is accepted (exit 0)"
+
 # ---------------------------------------------------------------- several stacks, the choice of stack
 r="$TMP/w/two-stacks"; new_repo "$r"; install_kit "$r"
 mkdir -p "$TMP/py" "$TMP/tp"; cp "$CORPUS/pytest-assert/"{report.xml,output.txt} "$TMP/py/"; cp "$CORPUS/tap-new-script/"{report.tap,output.txt} "$TMP/tp/"

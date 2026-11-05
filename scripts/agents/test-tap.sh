@@ -25,9 +25,15 @@ run_tap() {
 }
 run_tap_child() {
   if [ "${2:-}" = "dir" ]; then
-    (trap - ERR; cd "$ROOT" || exit; TAP_OUT="$TMP" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
+    (trap - ERR; cd "$ROOT" || exit; TAP_FORMAT=tap TAP_OUT="$TMP" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
   elif [ "${2:-}" = "file" ]; then
-    (trap - ERR; cd "$ROOT" || exit; TAP_OUT="$TMP/tap" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
+    # the cases about the TAP stream (1.x keeps writing it for TAP_FORMAT=tap, ADR-002 D6)
+    (trap - ERR; cd "$ROOT" || exit; TAP_FORMAT=tap TAP_OUT="$TMP/tap" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
+  elif [ "${2:-}" = "junit" ]; then
+    # TAP_OUT without TAP_FORMAT: the helper writes JUnit XML (the testsuite fragment of one script) to the file
+    (trap - ERR; cd "$ROOT" || exit; env -u TAP_FORMAT TAP_OUT="$TMP/tap" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
+  elif case "${2:-}" in fmt=*) true ;; *) false ;; esac; then
+    (trap - ERR; cd "$ROOT" || exit; TAP_FORMAT="${2#fmt=}" TAP_OUT="$TMP/tap" bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
   else
     (trap - ERR; cd "$ROOT" || exit; env -u TAP_OUT bash "$TMP/t.sh" >"$TMP/stdout" 2>"$TMP/stderr"; echo $? >"$TMP/rc")
   fi
@@ -83,7 +89,7 @@ grep -q '^# file: ' "$TMP/tap" 2>/dev/null; check $? "writes a # file: line"
 before_cases; check $? "the # file: line comes before the cases"
 git init -q "$TMP/repo" && mkdir -p "$TMP/repo/sub"
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_ok "x"\ntap_done\n' "$ROOT" >"$TMP/repo/sub/test-demo.sh"
-(cd "$TMP/repo" && TAP_OUT="$TMP/tap2" bash sub/test-demo.sh)
+(cd "$TMP/repo" && TAP_FORMAT=tap TAP_OUT="$TMP/tap2" bash sub/test-demo.sh)
 has "# file: sub/test-demo.sh" "$TMP/tap2"; check $? "the # file: path is relative to the repository root"
 
 # 3. Description: not compared, apart from the id.
@@ -186,7 +192,7 @@ has 'ok 1 - fixes \#12' "$TMP/tap"; check $? "a # in the id is escaped, as TAP 1
 # 7b. Several scripts, one stream: the numbering continues and there is a single plan at the end.
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_ok "a"\ntap_ok "b"\ntap_done\n' "$ROOT" >"$TMP/one.sh"
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_fail "c"\ntap_done\n' "$ROOT" >"$TMP/two.sh"
-rm -f "$TMP/tap3"; (trap - ERR; cd "$ROOT" || exit; TAP_OUT="$TMP/tap3" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap3" bash "$TMP/two.sh") 2>/dev/null || true  # the script exits with 1 or 4 on purpose
+rm -f "$TMP/tap3"; (trap - ERR; cd "$ROOT" || exit; TAP_FORMAT=tap TAP_OUT="$TMP/tap3" bash "$TMP/one.sh"; TAP_FORMAT=tap TAP_OUT="$TMP/tap3" bash "$TMP/two.sh") 2>/dev/null || true  # the script exits with 1 or 4 on purpose
 has "ok 2 - b" "$TMP/tap3" && has "not ok 3 - c" "$TMP/tap3"; check $? "a second script writing the same file continues the numbering"
 count_is 1 '^1\.\.' "$TMP/tap3" && [ "$(tail -1 "$TMP/tap3")" = "1..3" ]; check $? "two scripts in one file leave a single plan, at the end, with the total"
 count_is 2 '^# file: ' "$TMP/tap3"; check $? "each script writes its own # file: line"
@@ -228,7 +234,7 @@ nogrep "input a" "$TMP/tap" && has "# desc: only one" "$TMP/tap"; check $? "a pa
 
 # 8e. A bail out leaves no plan from an earlier script in the stream.
 printf '#!/usr/bin/env bash\n. "%s/scripts/agents/tap.sh"\ntap_begin "$0"\ntap_ok "d"\nexit 4\n' "$ROOT" >"$TMP/three.sh"
-rm -f "$TMP/tap4"; (trap - ERR; cd "$ROOT" || exit; TAP_OUT="$TMP/tap4" bash "$TMP/one.sh"; TAP_OUT="$TMP/tap4" bash "$TMP/three.sh") 2>/dev/null || true  # the script exits with 1 or 4 on purpose
+rm -f "$TMP/tap4"; (trap - ERR; cd "$ROOT" || exit; TAP_FORMAT=tap TAP_OUT="$TMP/tap4" bash "$TMP/one.sh"; TAP_FORMAT=tap TAP_OUT="$TMP/tap4" bash "$TMP/three.sh") 2>/dev/null || true  # the script exits with 1 or 4 on purpose
 has_bail4() { grep -q '^Bail out!' "$TMP/tap4" 2>/dev/null; }
 has_bail4 && nogrep '^1\.\.' "$TMP/tap4"; check $? "a bail out removes the plan an earlier script wrote"
 
@@ -603,5 +609,131 @@ else
   tap_skip "184: the guard accepts the expected-to-fail calls, the tap_run calls and the known exceptions" "the project has no install.py"
   tap_skip "184: the guard flags an instalar call that must succeed and an install.py call with an rm -f next to it" "the project has no install.py"
 fi
+
+# 9. JUnit XML in the file (ADR-002 D6, #225): one closed testsuite per script, appended to the file that the entry's run wraps in <testsuites>.
+# xq <expression>: python evaluates it with `root` = the elements of the file wrapped in one root; true is 0, false (or a file that does not parse) is 1.
+cat >"$TMP/xq.py" <<'PYEOF'
+import sys, xml.etree.ElementTree as ET
+# Only a file that does not parse, or a case or suite that is not there, answers "no". Anything else (a typo in the
+# expression: NameError, TypeError; a missing file) leaves with a traceback and a non-zero status, so that tap_run bails
+# out and the red cannot take a crash for a failed assertion.
+data = open(sys.argv[1], "rb").read()
+try:
+    root = ET.fromstring(b"<r>" + data + b"</r>")
+except ET.ParseError:
+    print("no")
+    sys.exit(0)
+suites = root.findall("testsuite")
+cases = {c.get("name"): c for c in root.iter("testcase")}
+try:
+    print("yes" if eval(sys.argv[2]) else "no")
+except (KeyError, IndexError):
+    print("no")
+PYEOF
+xq() { tap_run XQ 0 python3 "$TMP/xq.py" "$TMP/tap" "$1"; [ "$XQ" = yes ]; }
+
+run_tap 'tap_ok "creates the branch"
+tap_fail "assigns the issue" "input 7"
+tap_ok "labels it"
+tap_done' junit
+xq 'len(suites) == 1 and suites[0].get("tests") == "3" and len(cases) == 3'; tap_check $? "225: JUnit: one testsuite per script, with tests= the number of cases"
+xq 'all(c.get("file") for c in cases.values()) and suites[0].get("file") and suites[0].get("file") == cases["labels it"].get("file")'; tap_check $? "225: JUnit: the testsuite and every testcase carry the file of the script"
+xq 'cases["assigns the issue"].find("failure") is not None and cases["creates the branch"].find("failure") is None and suites[0].get("failures") == "1"'; tap_check $? "225: JUnit: a failed case has a failure child, a passing one has none, failures= counts them"
+xq '"input 7" in (cases["assigns the issue"].findtext("system-out") or "") and "input 7" not in "".join(cases)'; tap_check $? "225: JUnit: the description goes in the system-out of the testcase, not in its name"
+rc_is 1; tap_check $? "225: JUnit: exits with 1 when a case fails"
+empty "$TMP/stdout"; tap_check $? "225: JUnit: writes nothing to stdout when it has an output file"
+has "FAIL - assigns the issue" "$TMP/stderr"; tap_check $? "225: JUnit: a failing case is reported on stderr as FAIL - id"
+nogrep '^ok \|^not ok \|^1\.\.\|^# file:' "$TMP/tap"; tap_check $? "225: JUnit: the file has no TAP lines"
+
+run_tap 'tap_ok "a"
+tap_done' junit
+rc_is 0; tap_check $? "225: JUnit: exits with 0 when every case passes"
+xq 'suites[0].get("failures") in ("0", None) and suites[0].get("errors") in ("0", None)'; tap_check $? "225: JUnit: a passing run has no failures or errors"
+
+run_tap 'tap_ok "a <b> & \"c\" '"'"'d'"'"'"
+tap_done' junit
+xq '"a <b> & \"c\" '"'"'d'"'"'" in cases'; tap_check $? "225: JUnit: an id with XML characters is escaped and comes back whole"
+
+# bytes that are not UTF-8 in a description are dropped: the file stays well-formed XML
+run_tap 'tap_fail "binary desc" "bad $(printf "\377\376") byte"
+tap_done' junit
+xq '"binary desc" in cases and cases["binary desc"].find("failure") is not None'; tap_check $? "225: JUnit: a description with bytes that are not UTF-8 still leaves a well-formed file"
+
+# a repeated id (a loop) is one case: an error if any turn ended in an error (a bail out), else a failure if any failed
+run_tap 'for i in 1 2 3; do
+  if [ "$i" -eq 2 ]; then tap_fail "loop id" "turn $i"; else tap_ok "loop id" "turn $i"; fi
+done
+tap_done' junit
+xq 'len(cases) == 1 and cases["loop id"].find("failure") is not None and suites[0].get("tests") == "1"'; tap_check $? "225: JUnit: a repeated id is one testcase, a failure if any turn failed"
+run_tap 'set -e
+for i in 1 2 3; do
+  if [ "$i" -eq 1 ]; then tap_fail "loop id" "turn $i"; else tap_ok "loop id" "turn $i"; fi
+done
+false
+tap_done' junit
+xq 'any(c.find("error") is not None for c in root.iter("testcase")) and cases["loop id"].find("failure") is not None'; tap_check $? "225: JUnit: a crash after a failed turn leaves an error testcase next to the failure (an error is never hidden by grouping)"
+
+# a bail out is an error testcase in a closed testsuite, and the cases before it stay
+run_tap 'set -e
+tap_ok "before"
+false
+tap_ok "after"
+tap_done' junit
+xq 'len(suites) == 1 and any(c.find("error") is not None for c in suites[0].iter("testcase")) and "before" in cases and "after" not in cases'; tap_check $? "225: JUnit: an unexpected error closes the testsuite with an error testcase and keeps the earlier cases"
+xq 'suites[0].get("errors") == "1" and suites[0].get("tests") == str(len(list(suites[0].iter("testcase"))))'; tap_check $? "225: JUnit: after a bail out errors= and tests= match the testcase elements"
+rc_not 0; tap_check $? "225: JUnit: an unexpected error exits non-zero"
+run_tap 'tap_ok "before"
+exit 3' junit
+xq 'len(suites) == 1 and any(c.find("error") is not None for c in suites[0].iter("testcase"))'; tap_check $? "225: JUnit: leaving before tap_done leaves an error testcase in a closed testsuite"
+rc_is 3; tap_check $? "225: JUnit: leaving before tap_done keeps the exit code"
+
+# skipped cases
+run_tap 'tap_ok "runs"
+tap_skip "does not apply" "no docker here"
+tap_done' junit
+xq 'cases["does not apply"].find("skipped") is not None and cases["runs"].find("skipped") is None and suites[0].get("tests") == "2"'; tap_check $? "225: JUnit: tap_skip is a testcase with a skipped child"
+xq '"no docker here" in ET.tostring(cases["does not apply"], encoding="unicode")'; tap_check $? "225: JUnit: the reason of tap_skip is in the testcase"
+run_tap 'tap_skip_all "needs a network"' junit
+xq 'len(suites) == 1 and suites[0].get("tests") == "0" and len(cases) == 0 and "needs a network" in (suites[0].findtext("system-out") or "")'; tap_check $? "225: JUnit: tap_skip_all is a closed testsuite with tests=0 and the reason in its system-out"
+rc_is 0; tap_check $? "225: JUnit: tap_skip_all exits with 0"
+
+# a tab in an id is written as &#9;: an attribute value read back by XML would turn a raw tab into a space and D4 would not find the id
+TAB=$(printf '\t'); tabid="a${TAB}b"
+run_tap "tap_ok \"$tabid\"
+tap_done" junit
+xq '"a\tb" in cases'; tap_check $? "225: JUnit: a tab in an id comes back as a tab (escaped, not normalized to a space)"
+
+# a bail out inside a substitution is one bail out: the main shell does not write a second testsuite for the same script
+run_tap 'tap_ok "before"
+x=$(tap_ok "")
+tap_done' junit
+xq 'len(suites) == 1 and "before" in cases'; tap_check $? "225: JUnit: a bail out inside a substitution leaves one testsuite, not two"
+
+# several scripts share the file: each one appends its testsuite
+run_tap 'tap_ok "first script"
+tap_done' junit
+printf '%s\n' '#!/usr/bin/env bash' ". \"$ROOT/scripts/agents/tap.sh\"" 'tap_begin "$0"' 'tap_ok "second script"' 'tap_done' >"$TMP/t2.sh"
+tap_run SECOND 0 env -u TAP_FORMAT TAP_OUT="$TMP/tap" bash "$TMP/t2.sh"
+xq 'len(suites) == 2 and "first script" in cases and "second script" in cases and suites[0].get("file") != suites[1].get("file")'; tap_check $? "225: JUnit: a second script appends its own testsuite to the same file"
+
+# the format: TAP_FORMAT
+run_tap 'tap_ok "x"
+tap_done' fmt=junit
+xq '"x" in cases'; tap_check $? "225: TAP_FORMAT=junit writes JUnit"
+run_tap 'tap_ok "x"
+tap_done' fmt=tap
+has "ok 1 - x" "$TMP/tap"; tap_check $? "225: TAP_FORMAT=tap writes the TAP stream (1.x keeps it for an entry that says format tap)"
+has "1..1" "$TMP/tap"; tap_check $? "225: TAP_FORMAT=tap writes the plan of the TAP stream"
+run_tap 'tap_ok "x"
+tap_done' fmt=yaml
+empty "$TMP/tap"; tap_check $? "225: an unknown TAP_FORMAT writes no report"
+rc_not 0; tap_check $? "225: an unknown TAP_FORMAT exits non-zero (fails closed)"
+has_msg 'TAP_FORMAT'; tap_check $? "225: an unknown TAP_FORMAT is named on stderr"
+
+# TAP_FORMAT, like TAP_OUT, is not left in the environment of the test: a fixture it starts decides its own format
+run_tap 'echo "format=${TAP_FORMAT-unset} out=${TAP_OUT-unset}"
+tap_ok "x"
+tap_done' fmt=junit
+has "format=unset out=unset" "$TMP/stdout"; tap_check $? "225: TAP_FORMAT and TAP_OUT are unset for the test once the helper has opened the file"
 
 tap_done
