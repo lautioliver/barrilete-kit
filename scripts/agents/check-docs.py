@@ -609,7 +609,7 @@ if os.path.isdir(".claude/skills"):
                 errores.append(f"{ruta}: {lineas} lines (maximum {MAX_SKILL}). Move something to a script or remove what adds nothing.")
 
 # Finding classes (ADR-006 D4): the ids that review-pr tags findings with must exist in docs/agents/classes.yml.
-# `other` is reserved (no class fits) and is not listed there. Only skills that point to the file are checked.
+# `other` is reserved (no class fits) and is not listed there. Only the review-pr skill (en and es) is checked; if classes.yml is missing, it is an error only when a line of the skill points to it.
 CLASES_YML = "docs/agents/classes.yml"
 SKILLS_CLASES = (".claude/skills/review-pr/SKILL.md", ".claude/skills/review-pr/SKILL.es.md")
 ids_clases = None

@@ -15,26 +15,25 @@ CLASES="$RAIZ/docs/agents/classes.yml"
 SKILL_EN="$RAIZ/.claude/skills/review-pr/SKILL.md"
 SKILL_ES="$RAIZ/.claude/skills/review-pr/SKILL.es.md"
 
-# Copia el repo una sola vez y, por cada mutación, la aplica in situ, corre check-docs.py, guarda la salida en
-# $TMP/out-<nombre> ("RC=<n>" y la salida) y la deshace. Termina siempre con 0.
-PY='
-import os, re, shutil, subprocess, sys
-raiz, tmp = sys.argv[1], sys.argv[2]
-dst = os.path.join(tmp, "r"); shutil.rmtree(dst, ignore_errors=True); os.makedirs(dst)
-files = subprocess.run(["git", "ls-files", "-co", "--exclude-standard", "-z"], cwd=raiz, capture_output=True, text=True).stdout.split("\0")
-for f in files:
-    if f and os.path.isfile(os.path.join(raiz, f)):
-        os.makedirs(os.path.dirname(os.path.join(dst, f)) or dst, exist_ok=True)
-        shutil.copy2(os.path.join(raiz, f), os.path.join(dst, f))
-subprocess.run(["git", "init", "-q", "-b", "main"], cwd=dst, check=True)
-subprocess.run(["git", "add", "-A"], cwd=dst, check=True)
-subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], cwd=dst, check=True)
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
+
+# Copia del repo con lo commiteado y lo que está en el working tree (la misma que test-agents.sh y test-i18n.sh).
+copia() {
+  rm -rf "$TMP/r" || true
+  mkdir -p "$TMP/r"
+  (cd "$RAIZ" && git ls-files -co --exclude-standard -z | tar --null -T - -cf - 2>/dev/null || true) | tar -xf - -C "$TMP/r"
+  (cd "$TMP/r" && git init -q && git add -A && git commit -qm base)
+}
+
+# Una mutación por nombre, aplicada in situ sobre la copia (el directorio actual): un solo programa, sin shell.
+MUT='
+import os, re, sys
+name = sys.argv[1]
 YML = "docs/agents/classes.yml"
 SK = [".claude/skills/review-pr/SKILL.md", ".claude/skills/review-pr/SKILL.es.md"]
 def edit(path, fn):
-    p = os.path.join(dst, path)
-    if os.path.exists(p):
-        t = open(p, encoding="utf-8").read(); open(p, "w", encoding="utf-8").write(fn(t))
+    if os.path.exists(path):
+        t = open(path, encoding="utf-8").read(); open(path, "w", encoding="utf-8").write(fn(t))
 def skills(fn):
     for s in SK: edit(s, fn)
 MUT = {
@@ -42,7 +41,7 @@ MUT = {
  "drop-class": lambda: edit(YML, lambda t: re.sub(r"- id: stale-docs\n(  .*\n)*", "", t)),
  "rename-tag": lambda: skills(lambda t: t.replace("[stale-docs]", "[made-up-class]")),
  "add-link": lambda: skills(lambda t: t + "\nSee [architecture](../../../README.md) and [x] and [todo].\n"),
- "drop-file": lambda: os.remove(os.path.join(dst, YML)),
+ "drop-file": lambda: os.remove(YML),
  "bold-tag": lambda: skills(lambda t: t + "\n**[stale-doc]** file:line: x\n"),
  "bare-tag": lambda: skills(lambda t: t + "\n[typo] file:line: x\n"),
  "spaced-tag": lambda: skills(lambda t: t + "\n` [typo] file:line: x`\n"),
@@ -52,26 +51,28 @@ MUT = {
  "other-listed": lambda: edit(YML, lambda t: t + "- id: other\n  description: reserved\n"),
  "bad-indent": lambda: edit(YML, lambda t: t.replace("  description: a doc, skill", "    description: a doc, skill")),
 }
-for name, fn in MUT.items():
-    saved = {}
-    for f in [YML] + SK:
-        p = os.path.join(dst, f)
-        if os.path.exists(p): saved[p] = open(p, "rb").read()
-    fn()
-    r = subprocess.run([sys.executable, "scripts/agents/check-docs.py"], cwd=dst, capture_output=True, text=True)
-    open(os.path.join(tmp, "out-" + name), "w").write("RC=%d\n%s\n%s\n" % (r.returncode, r.stdout, r.stderr))
-    for p, b in saved.items(): open(p, "wb").write(b)
-    if not os.path.exists(os.path.join(dst, YML)): pass
+MUT[name]()
 '
 
-IDS="pr-metadata ci-claim undecided-decision test-cannot-fail stale-docs wrong-command text-code-mismatch uncovered-case unhandled-input"
+# Deshace la mutación anterior, aplica <nombre> y corre check-docs.py en la copia: su salida queda en $out y su
+# estado en $TAP_RC. Con <esperado> 0 el repo tal cual tiene que pasar; con 1, la mutación tiene que hacerlo fallar.
+mutar() {
+  local nombre=$1 esperado=$2
+  out=""
+  cd "$TMP/r" || return 1
+  tap_run _ 0 git checkout -q -- .
+  tap_run _ 0 python3 -c "$MUT" "$nombre"
+  tap_run out "$esperado" python3 scripts/agents/check-docs.py
+  tap_no_traceback "$out"
+  cd "$RAIZ" || return 1
+}
+
 
 # 1. classes.yml existe y trae las clases que hoy adivina bk learn, cada una con descripción.
-for id in $IDS; do
-  grep -q "^- id: $id\$" "$CLASES" 2>/dev/null; tap_check $? "classes.yml: trae la clase" "classes.yml: trae la clase $id"
-done
-n=$(awk '/^  description: ./ {n++} END {print n+0}' "$CLASES")
-total=$(grep -c '^- id: ' "$CLASES")
+total=$(grep -c '^- id: ' "$CLASES" 2>/dev/null || true)
+n=$(awk '/^  description: ./ {n++} END {print n+0}' "$CLASES" 2>/dev/null || true)
+grep -q '^- id: stale-docs$' "$CLASES" 2>/dev/null; tap_check $? "classes.yml: trae la clase stale-docs que usa el ejemplo de review-pr"
+[ "$total" != 0 ]; tap_check $? "classes.yml: existe y lista al menos una clase"
 [ "$n" = "$total" ]; tap_check $? "classes.yml: cada clase tiene una descripción"
 
 # 2. review-pr (en y es) fija el formato de cada hallazgo: la clase al principio, una sola, y [other] si no encaja.
@@ -94,33 +95,46 @@ for par in "en:$SKILL_EN" "es:$SKILL_ES"; do
 done
 
 # 3. check-docs.py: los ids que nombra la skill existen en classes.yml, y classes.yml está bien formado.
-tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP"
-o() { out=$(cat "$TMP/out-$1" 2>/dev/null); }
-o none
+# Cada caso mira el estado de salida de check-docs.py (0 el repo tal cual, 1 cada mutación) y lo que dice.
+copia
+mutar none 0
+[ "$TAP_RC" -eq 0 ]; tap_check $? "check-docs: el repo tal cual sale con 0"
 [[ $out != *"the class ["* && $out != *"classes.yml"* ]]; tap_check $? "check-docs: el repo tal cual no marca errores de clases en review-pr"
-o drop-class
-grep -q 'review-pr.*stale-docs.*classes.yml' <<<"$out"; tap_check $? "check-docs: falla si la skill nombra una clase que classes.yml no tiene"
-o rename-tag
-grep -q 'review-pr.*made-up-class.*classes.yml' <<<"$out"; tap_check $? "check-docs: falla con un id inventado en la skill"
-o add-link
+mutar drop-class 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 si la skill nombra una clase que classes.yml no tiene"
+grep -q 'review-pr.*stale-docs.*classes.yml' <<<"$out"; tap_check $? "check-docs: dice qué clase de la skill falta en classes.yml"
+mutar rename-tag 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un id inventado en la skill"
+grep -q 'review-pr.*made-up-class.*classes.yml' <<<"$out"; tap_check $? "check-docs: dice qué id inventado hay en la skill"
+mutar add-link 0
+[ "$TAP_RC" -eq 0 ]; tap_check $? "check-docs: un enlace o un [x] de la skill no hace fallar el check"
 [[ $out != *"the class ["* ]]; tap_check $? "check-docs: un enlace o un [x] de la skill no se toma por una clase"
-o drop-file
-grep -q 'review-pr.*classes.yml.*missing' <<<"$out"; tap_check $? "check-docs: falla si la skill remite a un classes.yml que no existe"
-o bold-tag
+mutar drop-file 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 si la skill remite a un classes.yml que no existe"
+grep -q 'review-pr.*classes.yml.*missing' <<<"$out"; tap_check $? "check-docs: dice que falta classes.yml"
+mutar bold-tag 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un [id] en negrita desconocido"
 grep -q 'the class \[stale-doc\]' <<<"$out"; tap_check $? "check-docs: valida un [id] en negrita en una línea de hallazgo"
-o bare-tag
+mutar bare-tag 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un [id] sin code span desconocido"
 grep -q 'the class \[typo\]' <<<"$out"; tap_check $? "check-docs: valida un [id] sin code span en una línea de hallazgo"
-o spaced-tag
+mutar spaced-tag 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un [id] desconocido en code span con espacio"
 grep -q 'the class \[typo\]' <<<"$out"; tap_check $? "check-docs: valida un [id] en code span con espacio previo"
-o quoted-id
-grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: falla con un id entre comillas en classes.yml"
-o dup-id
-grep -q 'classes.yml:[0-9]*:.*duplicate' <<<"$out"; tap_check $? "check-docs: falla con un id duplicado en classes.yml"
-o no-desc
-grep -q 'classes.yml:[0-9]*:.*description' <<<"$out"; tap_check $? "check-docs: falla con una clase sin descripción"
-o other-listed
-grep -q 'classes.yml:[0-9]*:.*reserved' <<<"$out"; tap_check $? "check-docs: falla si classes.yml lista other"
-o bad-indent
-grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: falla con otra indentación en classes.yml"
+mutar quoted-id 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un id entre comillas en classes.yml"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea del id entre comillas"
+mutar dup-id 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un id duplicado en classes.yml"
+grep -q 'classes.yml:[0-9]*:.*duplicate' <<<"$out"; tap_check $? "check-docs: dice la línea del id duplicado"
+mutar no-desc 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con una clase sin descripción"
+grep -q 'classes.yml:[0-9]*:.*description' <<<"$out"; tap_check $? "check-docs: dice qué clase no tiene descripción"
+mutar other-listed 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 si classes.yml lista other"
+grep -q 'classes.yml:[0-9]*:.*reserved' <<<"$out"; tap_check $? "check-docs: dice que other está reservada"
+mutar bad-indent 1
+[ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con otra indentación en classes.yml"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea con otra indentación"
 
 tap_done
