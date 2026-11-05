@@ -99,6 +99,9 @@ jobs:
             // Text helpers for the body checks. The author controls the body, so none of the regexes here has two quantifiers that can
             // split the same run of characters (a hostile body must not make the job run for minutes): the body is cut into lines and
             // each marker is read with one simple regex per line.
+            // Every line break the regexes with `^` and the `m` flag know (\r, \r\n, U+2028, U+2029) becomes \n before the body is read:
+            // a run of them made `^[^\S\n]*` quadratic (issue #147), and the lines are only cut at \n.
+            const normal = t => t.replace(/\r\n?|\u2028|\u2029/g, '\n');
             const sinComentarios = t => {
               let out = '', i = 0;
               for (;;) {
@@ -107,7 +110,7 @@ jobs:
                 out += t.slice(i, a); i = b + 3;
               }
             };
-            const lineas = t => t.split('\n').map(l => l.replace(/\r$/, ''));
+            const lineas = t => t.split('\n');   // the body is already normal(): no \r is left
             // Which lines are inside a ``` or ~~~ fenced code block (the fence lines too): what is quoted there is not a red block.
             // As in CommonMark: a fence closes with the same character, at least as long as the opening one and nothing else on its line,
             // and a backtick fence cannot have a backtick in its info string (so ```npm test``` is not a fence at all).
@@ -212,7 +215,7 @@ jobs:
               });
               const tocaAdr = archivos.some(f => f.filename.startsWith('docs/decisions/'));
               // The body without the <!-- … --> comments, which GitHub does not show (an exception written inside one does not count).
-              const cuerpo = sinComentarios(pr.body || '');
+              const cuerpo = sinComentarios(normal(pr.body || ''));
               // The reason on the same line (or, after a bold `**ADR unchanged:**`, on the next one, if it is not a heading):
               // a blank line followed by the next heading is not a reason. A reason that is only <…> is not one either.
               const adr = hayMotivo(cuerpo, /ADR (?:unchanged|sin cambios):([^\n]*)$/i,
@@ -224,7 +227,7 @@ jobs:
             // Agent branches: what implement-issue asks for in the body, validated here instead of in the skill.
             if (/^claude\//.test(pr.head.ref)) {
               // Without the <!-- … --> comments of the template: they mention "Red before implementing" and "no tests".
-              const body = sinComentarios(pr.body || '');
+              const body = sinComentarios(normal(pr.body || ''));
               // Refs #n, on its own line: the PR is part of the issue but does not close it (a diagnosis,
               // one step of several). A passing "ref #38" in the text does not count.
               const cierra = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#\d+/i;
@@ -234,7 +237,9 @@ jobs:
               // The English literals are the current ones; the Spanish ones ("Rojo antes de implementar", "sin tests:")
               // stay as aliases. "no tests"/"sin tests" need the colon and a reason (on the same line or the next one): without it,
               // any "there is no test coverage" would pass. A reason that is only <…> (the placeholder copied as is) does not count.
-              const sinTests = hayMotivo(body, /(?:^|[^A-Za-z0-9])(?:no|sin) tests?:([^\n]*)$/i, () => true);
+              // The next line is not the reason when it is a "Closes/Refs #n" or a heading (issue #147): it is the next thing of the body.
+              const otraCosa = /^[\s>*_`-]*(?:(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?):?\s+#\d|#)/i;
+              const sinTests = hayMotivo(body, /(?:^|[^A-Za-z0-9])(?:no|sin) tests?:([^\n]*)$/i, (resto, sig) => !otraCosa.test(sig));
               // A block with the title is judged by its structure, whatever else the body says: a malformed block is not a red, and
               // a "no tests:" line cannot hide it (a PR may carry a block for what is tested and "no tests:" for what is not).
               // "no tests: <reason>" stands in for the block only when there is no block.
