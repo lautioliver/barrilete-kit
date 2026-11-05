@@ -68,6 +68,7 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 - [ADR-003](decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md) — cada proyecto recibe un glosario del dominio y un mapa de contextos, con las reglas que los agentes aplican
 - [ADR-004](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md) — `/orchestrate` lanza cada rol como agente `bk` o como subagente, según `roles.yml` (aceptado)
 - [ADR-005](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md) — un agente `bk` trabaja sobre una tarea con estado y registro de eventos, y declara su cierre con `bk done` (aceptado)
+- [ADR-006](decisions/kit/ADR-006-rules-store-for-agents.md) — un solo store de reglas para los agentes (`barrilete-rules`) que reemplaza docs/agents/lessons.md y las lecciones de `bk learn` (propuesto)
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — resumen en una línea`
 
 ### Guías
