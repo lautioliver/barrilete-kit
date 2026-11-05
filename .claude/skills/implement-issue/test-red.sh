@@ -615,6 +615,7 @@ walks, missing = run(["**/*.nomatch"])
 print("none=ok" if walks == 0 and missing == [] else "none=%d missing=%s" % (walks, missing))
 PY
 tap_run out 0 python3 -I "$TMP/tree-count.py" "$KIT/scripts/agents"
+# shellcheck disable=SC2154  # tap_run leaves the output in $out
 case $out in *"walks=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "225: missing_test_files walks the tree a few times for 400 cases, not once per case"
 case $out in *"none=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "225: missing_test_files does not map a case when the diff has no test file for the entry"
 
