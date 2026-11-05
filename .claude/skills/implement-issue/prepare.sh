@@ -25,6 +25,7 @@ changed; if there is more than one, it fails and lists them) and prints the issu
               - If the branch is already in another worktree, it fails without assigning.
               - Takes a lock (agent-lock, in the worktree's git directory; scripts/agents/worktree-lock.sh):
                 if another live agent holds the worktree, it fails without assigning and says who.
+                Subagents of one process set WORKTREE_LOCK_AGENT; release with worktree-lock.sh release <worktree>.
               - With the PR merged, delete it with: git worktree remove <path>
 
 Environment:
@@ -204,9 +205,15 @@ fi
 # already holds it, stop: it is not shared (scripts/agents/worktree-lock.sh). A new worktree is claimed after creating it.
 tomar_candado() {
   local r
-  r=$("$(dirname "${BASH_SOURCE[0]}")/../../../scripts/agents/worktree-lock.sh" claim "$WT")
-  case "$r" in held:*) error "the worktree $WT is in use. ${r#held: }" ;; esac
+  r=$("$(dirname "${BASH_SOURCE[0]}")/../../../scripts/agents/worktree-lock.sh" claim "$WT") \
+    || error "could not take the lock of the worktree $WT (scripts/agents/worktree-lock.sh failed)."
+  case "$r" in
+    claimed) CANDADO=1 ;;
+    held:*) error "the worktree $WT is in use. ${r#held: }" ;;
+    *) error "unexpected answer taking the lock of the worktree $WT: $r" ;;
+  esac
 }
+CANDADO=""
 [ -d "$WT" ] && tomar_candado
 traer
 if [ -n "$en_uso" ]; then
@@ -221,7 +228,7 @@ else
   mkdir -p "$(dirname "$WT")"; git worktree add -q --no-track -b "$RAMA" "$WT" "origin/$BASE"
   echo "New branch: $RAMA (from origin/$BASE)"
 fi
-tomar_candado
+[ -n "$CANDADO" ] || tomar_candado
 gh issue edit "$N" -R "$REPO" --add-assignee "$YO" >/dev/null
 echo "Worktree: $WT"
 echo "Assigned to @$YO."
