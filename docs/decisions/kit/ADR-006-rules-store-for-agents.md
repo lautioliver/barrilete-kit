@@ -16,7 +16,7 @@ The rest (the fields, the class list, where rules are injected, the measurement 
 
 Today there are two lesson systems that do not talk to each other:
 
-- **Kit**: `docs/agents/lessons.md`. Only `/improve-skills` writes it, from the retros, through a PR and with at most 40 lines, and `implement-issue` reads it.
+- **Kit**: docs/agents/lessons.md. Only `/improve-skills` writes it, from the retros, through a PR and with at most 40 lines, and `implement-issue` reads it.
 - **`bk learn`** (barrilete-workspace). It reads transcripts and reviews every ~2 min and stores deviations in an Obsidian vault. When a pattern repeats 3 times in 14 days, it proposes a lesson. The person accepts it and the rule goes to an `INDEX.md` imported from the person's global `CLAUDE.md`: it reaches every session of every project.
 
 What was measured on 2026-11-05 with `bk learn effect`:
@@ -27,7 +27,7 @@ What was measured on 2026-11-05 with `bk learn effect`:
 
 ## Decision
 
-1. **D1. One rules system.** `barrilete-rules` replaces the kit's `docs/agents/lessons.md` and the `bk learn` lessons, including `INDEX.md` and its import in the global `CLAUDE.md`. When the transition (D11) ends:
+1. **D1. One rules system.** `barrilete-rules` replaces the kit's docs/agents/lessons.md and the `bk learn` lessons, including `INDEX.md` and its import in the global `CLAUDE.md`. When the transition (D11) ends:
    - `lessons.md` goes away;
    - `/improve-skills` and `bk learn` propose rules to the store instead of writing lessons;
    - the vault stays only for reading: deviations, patterns and measurement.
@@ -97,7 +97,7 @@ What was measured on 2026-11-05 with `bk learn effect`:
     | phase | what changes | what stays the same |
     |---|---|---|
     | 0 | `classes.yml` and the reviewer's tag (D4) | everything else |
-    | 1 | `barrilete-rules` is created; the vault lessons (accepted and retired) and `docs/agents/lessons.md` (as `origin: human`) are migrated | `INDEX.md` and `lessons.md` keep working |
+    | 1 | `barrilete-rules` is created; the vault lessons (accepted and retired) and docs/agents/lessons.md (as `origin: human`) are migrated | `INDEX.md` and `lessons.md` keep working |
     | 2 | `sync-rules` and injection per role (D7, D9); `lessons.md` and the global `CLAUDE.md` import are deleted | `bk learn` keeps detecting |
     | 3 | `bk learn` and `/improve-skills` propose to the store (D6) | — |
     | 4 | the first checks in `verify.py` (D8), starting with `pr-metadata` | — |
