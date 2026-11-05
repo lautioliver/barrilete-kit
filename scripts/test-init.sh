@@ -415,7 +415,7 @@ for combinacion in "completo main" "chico main" "completo develop" "chico develo
   esperado="[main]"; [ "$base" = develop ] && esperado="[main, develop]"
   for w in docs labels; do
     grep -qxF "    branches: $esperado" "$p/.github/workflows/$w.yml" && ! grep -q 'for the template itself' "$p/.github/workflows/$w.yml"
-    tap_check $? "[<modo>, base <base>] <w>.yml corre en los pushes a <esperado>" "[$modo, base $base] $w.yml corre en los pushes a $esperado"
+    tap_check $? "[<modo>, base <base>] <w>.yml corre en los pushes a <esperado>" "[$modo, base $base${idioma:+, --lang $idioma}] $w.yml corre en los pushes a $esperado"
   done
   # Un test del proyecto instalado que falla o se cae corta la corrida: tap_run muestra el final de su salida
   # (las líneas FAIL) en el Bail out!, y una falla que no se repite (#77) se puede investigar con el log del CI.
