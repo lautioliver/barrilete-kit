@@ -614,7 +614,31 @@ CLASES_YML = "docs/agents/classes.yml"
 SKILLS_CLASES = (".claude/skills/review-pr/SKILL.md", ".claude/skills/review-pr/SKILL.es.md")
 ids_clases = None
 if os.path.exists(CLASES_YML):
-    ids_clases = set(re.findall(r"^- id: (\S+)\s*$", open(CLASES_YML, encoding="utf-8").read(), re.M))
+    # A strict reader of the file (no YAML library): `- id: <kebab-case>` followed by `  description: <text>`, nothing else.
+    ids_clases = set()
+    actual = None  # [id, line, has_description]
+    def cerrar():
+        if actual and not actual[2]:
+            errores.append(f"{CLASES_YML}:{actual[1]}: the class [{actual[0]}] has no description.")
+    for n, linea in enumerate(open(CLASES_YML, encoding="utf-8").read().splitlines(), 1):
+        if not linea.strip() or linea.lstrip().startswith("#"):
+            continue
+        m_id = re.fullmatch(r"- id: ([a-z][a-z0-9]*(?:-[a-z0-9]+)*)", linea)
+        m_desc = re.fullmatch(r"  description: (\S.*)", linea)
+        if m_id:
+            cerrar()
+            cid = m_id.group(1)
+            if cid == "other":
+                errores.append(f"{CLASES_YML}:{n}: `other` is reserved (review-pr uses it when no class fits): do not list it.")
+            if cid in ids_clases:
+                errores.append(f"{CLASES_YML}:{n}: duplicate class id [{cid}].")
+            ids_clases.add(cid)
+            actual = [cid, n, False]
+        elif m_desc and actual and not actual[2]:
+            actual[2] = True
+        else:
+            errores.append(f"{CLASES_YML}:{n}: unexpected line (expected `- id: <kebab-case>` and `  description: <text>`, unquoted).")
+    cerrar()
 for ruta in SKILLS_CLASES:
     if not os.path.exists(ruta):
         continue
@@ -623,10 +647,12 @@ for ruta in SKILLS_CLASES:
             errores.append(f"{ruta}:{n}: points to {CLASES_YML}, which is missing.")
         if ids_clases is None:
             continue
-        # A tag is a `[id]` in a code span, as the skill writes it: a link or a [x] is not a class.
-        for cid in re.findall(r"`\[([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\]", linea):
-            if cid != "other" and cid not in ids_clases:
-                errores.append(f"{ruta}:{n}: the class [{cid}] is not in {CLASES_YML}. Add it there or fix the id.")
+        # On the lines of the finding format (they mention file:line or the classes file) every `[id]` is a class,
+        # wherever it sits (bold, code span, bare); a link or a [x] elsewhere in the skill is not. `[class]`/`[clase]` are the placeholders.
+        if re.search(r"file:line|archivo:línea|" + re.escape(CLASES_YML), linea):
+            for cid in re.findall(r"\[([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\](?!\()", linea):
+                if cid not in ("other", "class", "clase") and cid not in ids_clases:
+                    errores.append(f"{ruta}:{n}: the class [{cid}] is not in {CLASES_YML}. Add it there or fix the id.")
 
 # What AGENTS.md says is ignored (`.env*` are ignored) must be: the agent
 # trusts that sentence and, if it is false, ends up committing a secret.
