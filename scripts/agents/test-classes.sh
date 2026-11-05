@@ -98,7 +98,8 @@ mutar() {
   [ "${2:-}" = sin-resumen ] && return 0
   tap_no_traceback "$out"
   # Un check-docs que no llega al resumen (se cayó antes) no es un caso fallido: lo dice este caso, que en un rojo válido pasa.
-  [[ $out == *"Docs OK."* || $out == *"Docs with "* ]]; tap_check $? "second marker: check-docs llegó al resumen"
+  if [[ $out == *"Docs OK."* || $out == *"Docs with "* ]]; then llego=0; else llego=1; fi
+  tap_check "$llego" "second marker: check-docs llegó al resumen"
 }
 
 
@@ -236,7 +237,10 @@ grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: d
 # Una skill que remite a un classes.yml que falta da un solo error por skill (el de rutas rotas), no dos.
 mutar drop-file
 skills_en_copia=("$RAIZ"/.claude/skills/review-pr/SKILL*.md)
-n=$(grep -c 'review-pr/SKILL.*classes.yml' <<<"$out")
+n=0
+while IFS= read -r linea; do
+  case $linea in *review-pr/SKILL*classes.yml*) n=$((n + 1)) ;; esac
+done <<<"$out"
 [ "$n" -eq "${#skills_en_copia[@]}" ]; tap_check $? "check-docs: un classes.yml que falta da un solo error por skill, no uno repetido"
 
 tap_done
