@@ -20,6 +20,7 @@ Instructions for models: read this file and AGENTS.md. Aspirational spec = /READ
 - [ADR-003: minimal DDD, glossary and bounded-context map](decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md)
 - [ADR-004: `/orchestrate` launch mode per role (bk or subagent)](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md)
 - [ADR-005: tasks and events for bk agents](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md)
+- [ADR-006: rules store for agents](decisions/kit/ADR-006-rules-store-for-agents.md)
 - [Map for agents: docs by change, sensitive paths](agents-map.json)
 - [Subagent contract: common rules and output](agents/subagent-contract.md)
 - [Lessons from the agent retros (reviewed in a PR; read before implementing)](agents/lessons.md)
