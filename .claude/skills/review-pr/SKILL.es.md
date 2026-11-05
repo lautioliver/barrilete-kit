@@ -52,7 +52,7 @@ Cada hallazgo con: su ubicación (`archivo:línea`), qué está mal, por qué im
 - **A corregir** — no rompe, pero no debería entrar así.
 - **Sugerencia** — opcional.
 
-Cada hallazgo **Bloqueante** y **A corregir** empieza con su clase, un id de `docs/agents/classes.yml`, con este formato exacto: `[clase] file:line: …` (por ejemplo `[stale-docs] archivo:línea: …`), una sola clase por hallazgo: si encaja en dos, elegí la principal y mencioná la otra en el texto. `bk learn` y la medición de las reglas (ADR-006) leerán esa etiqueta. Si ninguna clase encaja, etiquetalo `[other]` y decí en la review cuál faltaría. Las sugerencias no llevan clase.
+Cada hallazgo **Bloqueante** y **A corregir** empieza con su clase, un id de `docs/agents/classes.yml`, con este formato exacto: `[clase] file:line: …` (por ejemplo `[stale-docs] file:line: …`), una sola clase por hallazgo: si encaja en dos, elegí la principal y mencioná la otra en el texto. `bk learn` y la medición de las reglas (ADR-006) leerán esa etiqueta. Si ninguna clase encaja, etiquetalo `[other]` y decí en la review cuál faltaría. Si el hallazgo no tiene archivo (por ejemplo, el cuerpo del PR), poné `PR` en lugar de `file:line`: `[pr-metadata] PR: …`. Las sugerencias no llevan clase.
 
 No infles la lista: si no hay hallazgos de una categoría, decilo. Un PR sin hallazgos es un resultado válido.
 

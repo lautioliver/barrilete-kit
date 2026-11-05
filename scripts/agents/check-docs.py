@@ -620,12 +620,20 @@ if os.path.exists(CLASES_YML):
     def cerrar():
         if actual and not actual[2]:
             errores.append(f"{CLASES_YML}:{actual[1]}: the class [{actual[0]}] has no description.")
-    for n, linea in enumerate(open(CLASES_YML, encoding="utf-8").read().splitlines(), 1):
+    try:
+        lineas_yml = open(CLASES_YML, encoding="utf-8-sig").read().splitlines()  # utf-8-sig: a BOM is not part of the first line
+    except UnicodeDecodeError as e:
+        errores.append(f"{CLASES_YML}: is not valid UTF-8 ({e.reason} at byte {e.start}).")
+        lineas_yml = []
+    for n, linea in enumerate(lineas_yml, 1):
         linea = linea.rstrip()  # trailing spaces or a CR (CRLF files) are not part of the value
         if not linea.strip() or linea.lstrip().startswith("#"):
             continue
         m_id = re.fullmatch(r"- id: ([a-z][a-z0-9]*(?:-[a-z0-9]+)*)", linea)
-        m_desc = re.fullmatch(r"  description: (\S.*)", linea)
+        # Plain scalar a real YAML parser also reads as text: no quote, flow or tag opening, no ": " or " #" inside.
+        m_desc = re.fullmatch(r"  description: ([^\s\"'#&*!|>%@`\[{].*)", linea)
+        if m_desc and (": " in m_desc.group(1) or " #" in m_desc.group(1)):
+            m_desc = None
         if m_id:
             cerrar()
             cid = m_id.group(1)
@@ -644,14 +652,15 @@ for ruta in SKILLS_CLASES:
     if not os.path.exists(ruta):
         continue
     for n, linea in enumerate(open(ruta, encoding="utf-8"), 1):
-        if CLASES_YML in linea and ids_clases is None:
-            errores.append(f"{ruta}:{n}: points to {CLASES_YML}, which is missing.")
-        if ids_clases is None:
+        if ids_clases is None:  # a missing classes.yml is reported by the broken-paths check above
             continue
-        # On the lines of the finding format (they mention file:line or the classes file) every `[id]` is a class,
-        # wherever it sits (bold, code span, bare); a link or a [x] elsewhere in the skill is not. `[class]`/`[clase]` are the placeholders.
+        # On the lines of the finding format (they mention file:line or the classes file) every `[...]` is a class,
+        # whatever it holds (bold, code span, bare, `[Stale-Doc]`, `[ x y ]`) and must be a known id; a link `[t](u)`,
+        # a reference link `[t][r]`, a checkbox `[x]` and `[ ]` are not. `[class]`/`[clase]` are the placeholders.
         if re.search(r"file:line|archivo:línea|" + re.escape(CLASES_YML), linea):
-            for cid in re.findall(r"\[([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\](?!\()", linea):
+            for cid in re.findall(r"(?<!\])\[([^\]\n]+)\](?![(\[])", linea):
+                if cid.strip() in ("", "x", "X"):
+                    continue
                 if cid not in ("other", "class", "clase") and cid not in ids_clases:
                     errores.append(f"{ruta}:{n}: the class [{cid}] is not in {CLASES_YML}. Add it there or fix the id.")
 
