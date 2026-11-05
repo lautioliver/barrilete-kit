@@ -37,7 +37,7 @@ sin_errores_agentes() { local o; o=$(errores_agentes); [ -z "$o" ]; }
 frontmatter() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1"; }
 
 # 1. Los tres roles existen con su modelo y herramientas acotadas.
-for par in implementer:sonnet implementer-light:haiku reviewer:opus; do
+for par in implementer:sonnet implementer-light:haiku; do
   rol=${par%%:*}; modelo=${par##*:}; f="$RAIZ/$AGENTES/$rol.md"
   fm=$(frontmatter "$f" 2>/dev/null)
   grep -qx "name: $rol" <<<"$fm"; tap_check $? "<rol>: existe con name: <rol>" "$rol: existe con name: $rol"
@@ -45,6 +45,12 @@ for par in implementer:sonnet implementer-light:haiku reviewer:opus; do
   grep -q "^tools: " <<<"$fm"; tap_check $? "<rol>: lista sus herramientas (tools:)" "$rol: lista sus herramientas (tools:)"
   grep -q "$CONTRATO" "$f" 2>/dev/null; tap_check $? "<rol>: remite al contrato de salida común" "$rol: remite al contrato de salida común"
 done
+# El reviewer corre en Sonnet (enmienda de ADR-004 D2, #263); sus otras comprobaciones son las del bucle.
+f="$RAIZ/$AGENTES/reviewer.md"; fm=$(frontmatter "$f" 2>/dev/null)
+grep -qx "name: reviewer" <<<"$fm"; tap_check $? "reviewer: existe con name: reviewer"
+grep -qx "model: sonnet" <<<"$fm"; tap_check $? "reviewer: model: sonnet"
+grep -q "^tools: " <<<"$fm"; tap_check $? "reviewer: lista sus herramientas (tools:)"
+grep -q "$CONTRATO" "$f" 2>/dev/null; tap_check $? "reviewer: remite al contrato de salida común"
 ! grep -q "Edit" <<<"$(frontmatter "$RAIZ/$AGENTES/reviewer.md" 2>/dev/null | grep '^tools:')"; tap_check $? "revisor: no puede editar código (Write solo para la revisión y la retro)"
 
 # 2. El contrato de salida está en un solo lugar, con todos los resultados.
