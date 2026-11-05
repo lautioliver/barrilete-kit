@@ -106,6 +106,7 @@ _TAP_AT_EXIT=""
 _TAP_PATH=""
 _TAP_FMT=tap        # junit when there is a TAP_OUT and no TAP_FORMAT=tap
 _TAP_FILE=""        # the path of the script, from tap_begin
+_TAP_ERR_NAME="script error: did not finish"   # the name of the error testcase (JUnit): it says the script did not finish
 _TAP_BAILFILE=""    # where a subshell leaves the reason of a bail out for the main shell (it cannot exit the script)
 TAP_RC=0
 
@@ -230,41 +231,50 @@ tap_begin() {
   [ "$_TAP_FMT" != tap ] || _tap_line "# file: $_TAP_FILE"
 }
 
-# Usage: _tap_xml <text>: the text as XML character data or attribute value (no control characters XML 1.0 forbids; a tab as &#9;,
-# because an attribute value read back would turn a raw tab into a space and the id would no longer match its source line).
+# Usage: _tap_xml <text>: leaves in $_X the text as XML character data or attribute value: &, <, >, " and a tab (as &#9;, because an
+# attribute value read back would turn a raw tab into a space and the id would no longer match its source line) are escaped.
+# No subshell and no process per value: _tap_clean takes the characters XML 1.0 forbids out of the whole suite at once.
 # The replacements go through variables: bash 5.2 reads an & in a bare replacement as the matched text.
 _tap_xml() {
   local t=$1 amp='&amp;' lt='&lt;' gt='&gt;' quot='&quot;' tab='&#9;'
   t=${t//&/"$amp"}; t=${t//</"$lt"}; t=${t//>/"$gt"}; t=${t//\"/"$quot"}; t=${t//$'\t'/"$tab"}
-  printf '%s' "$t" | LC_ALL=C tr -d '\000-\010\013\014\016-\037' | { iconv -c -f UTF-8 -t UTF-8 2>/dev/null || cat; }
+  _X=$t
+}
+
+# Usage: _tap_clean: filters stdin to stdout without the C0 control characters XML 1.0 forbids, the bytes that are not UTF-8 and
+# U+FFFE and U+FFFF (valid UTF-8, not allowed in XML). Called once per testsuite.
+_tap_clean() {
+  LC_ALL=C tr -d '\000-\010\013\014\016-\037' | { iconv -c -f UTF-8 -t UTF-8 2>/dev/null || cat; } | LC_ALL=C sed -e $'s/\357\277\276//g' -e $'s/\357\277\277//g'
 }
 
 # Usage: _tap_junit_suite [<error message>] [<skip reason>]: appends the closed testsuite of this script to the file: its cases
 # (held until now), an error testcase if there is a message (a bail out), and the reason in its system-out for tap_skip_all.
 _tap_junit_suite() {
   local err=${1:-} why=${2:-} i n=${#_TAP_IDS[@]} fails=0 skips=0 errs=0 f d id out=""
-  f=$(_tap_xml "${_TAP_FILE:-$(_tap_rel "$0")}")
+  _tap_xml "${_TAP_FILE:-$(_tap_rel "$0")}"; f=$_X
   [ -z "$err" ] || errs=1
   for ((i = 0; i < n; i++)); do
     if [ -n "${_TAP_SKIPS[$i]:-}" ]; then skips=$((skips + 1)); elif [ "${_TAP_VERDICTS[$i]}" = "not ok" ]; then fails=$((fails + 1)); fi
   done
   out="<testsuite name=\"$f\" file=\"$f\" tests=\"$((n + errs))\" failures=\"$fails\" errors=\"$errs\" skipped=\"$skips\">"$'\n'
   for ((i = 0; i < n; i++)); do
-    id=$(_tap_xml "${_TAP_IDS[$i]}"); d=$(_tap_xml "${_TAP_DESCS[$i]}")
+    _tap_xml "${_TAP_IDS[$i]}"; id=$_X; _tap_xml "${_TAP_DESCS[$i]}"; d=$_X
     out+="<testcase name=\"$id\" classname=\"$f\" file=\"$f\">"
     if [ -n "${_TAP_SKIPS[$i]:-}" ]; then
-      out+="<skipped message=\"$(_tap_xml "${_TAP_SKIPS[$i]}")\"/>"
+      _tap_xml "${_TAP_SKIPS[$i]}"; out+="<skipped message=\"$_X\"/>"
     elif [ "${_TAP_VERDICTS[$i]}" = "not ok" ]; then
-      out+="<failure message=\"$(_tap_xml "${_TAP_DESCS[$i]%%$'\n'*}")\"/>"
+      _tap_xml "${_TAP_DESCS[$i]%%$'\n'*}"; out+="<failure message=\"$_X\"/>"
     fi
     [ -z "$d" ] || out+="<system-out>$d</system-out>"
     out+="</testcase>"$'\n'
   done
   if [ "$errs" -eq 1 ]; then
-    out+="<testcase name=\"bail out\" classname=\"$f\" file=\"$f\"><error message=\"$(_tap_xml "$err")\"/></testcase>"$'\n'
+    _tap_xml "$err"
+    out+="<testcase name=\"$_TAP_ERR_NAME\" classname=\"$f\" file=\"$f\"><error message=\"$_X\"/></testcase>"$'\n'
   fi
-  [ -z "$why" ] || out+="<system-out>$(_tap_xml "$why")</system-out>"$'\n'
+  if [ -n "$why" ]; then _tap_xml "$why"; out+="<system-out>$_X</system-out>"$'\n'; fi
   out+="</testsuite>"
+  out=$(printf '%s' "$out" | _tap_clean)
   _tap_line "$out"
 }
 

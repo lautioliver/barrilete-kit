@@ -349,8 +349,11 @@ def normalize_path(diff, p):
     if p in tree:
         return p
     # The runner ran in a subdirectory (rootdir): a path that only one file of the repository ends with.
-    ends = [t for t in tree if t.endswith("/" + p)]
-    return ends[0] if len(ends) == 1 else None
+    # One walk of the tree per path, not per case (a report repeats the same file for every case).
+    def suffix_match():
+        ends = [t for t in tree if t.endswith("/" + p)]
+        return ends[0] if len(ends) == 1 else None
+    return memo(diff, ("suffix", p), suffix_match)
 
 
 def memo(diff, key, compute):
@@ -481,8 +484,8 @@ def case_files_uncached(diff, case):
         if mod and (cls == mod or cls.startswith(mod + "/")):
             d = cls[len(mod) + 1:]
             pre = d + "/" if d else ""
-            files = sorted(t for t in diff.tree()
-                           if t.startswith(pre) and t.endswith("_test.go") and "/" not in t[len(pre):])
+            files = memo(diff, ("go_files", pre), lambda: sorted(
+                t for t in diff.tree() if t.startswith(pre) and t.endswith("_test.go") and "/" not in t[len(pre):]))
             if not files:
                 raise Unmapped(f'the package "{cls}" has no *_test.go file in "{d or "."}"')
             return "go", files, "go:" + cls
@@ -751,6 +754,9 @@ def test_files(diff, entry):
 
 def missing_test_files(diff, entry, report):
     """Test files of the diff that no testsuite or testcase of the report names: they did not run (or did not finish)."""
+    wanted = test_files(diff, entry)
+    if not wanted:
+        return []   # nothing to look for: do not map the cases of the report
     seen = set()
     for f in report.suite_files:
         n = normalize_path(diff, f)
@@ -761,7 +767,7 @@ def missing_test_files(diff, entry, report):
             seen.update(case_files(diff, c)[1])
         except Unmapped:
             pass
-    return [f for f in test_files(diff, entry) if f not in seen]
+    return [f for f in wanted if f not in seen]
 
 
 SECOND_MARKER = re.compile(r"(?:\d+: )?second marker:")
@@ -809,7 +815,8 @@ def judge(entry, rc, timed_out, report_error, report, diff):
                    "(it proves the nested test reached the step under test); a failure there may be a crash, not an assertion"
                    for n in bad], []
     problems, listed = check_cases(diff, report, fmt)
-    where = "has no `# file:` line in the TAP" if fmt == "tap" else "is not in the report"
+    where = ("has no `# file:` line in the TAP (if your entry reads the diff with --diff-filter=AM, use AMR: "
+             "a renamed test is run under its new path)") if fmt == "tap" else "is not in the report"
     problems += [f"the test file {f} of the red commit {where}: it did not run or did not finish "
                  "(a test of the red diff that did not run makes the red fail)" for f in missing_test_files(diff, entry, report)]
     if problems:
