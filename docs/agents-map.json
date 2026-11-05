@@ -250,7 +250,7 @@
       "when": [
         "docs/agents/classes.yml",
         ".claude/skills/review-pr/SKILL.md",
-        ".claude/skills/review-pr/SKILL.es.md",
+        "?.claude/skills/review-pr/SKILL.es.md",
         "scripts/agents/check-docs.py",
         "scripts/agents/test-classes.sh"
       ],
