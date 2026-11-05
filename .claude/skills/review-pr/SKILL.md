@@ -46,11 +46,13 @@ Around the TDD check: install the test dependencies in the review worktree witho
 
 ## 4. Findings
 
-Each finding with: **file:line**, what is wrong, why it matters (what fails and when), and a suggestion. Classify them:
+Each finding with: its location (`file:line`), what is wrong, why it matters (what fails and when), and a suggestion. Classify them:
 
 - **Blocking** — bug, regression, business rule changed without declaring it, security, migration without rollback, missing tests for the core.
 - **To fix** — it does not break, but it should not go in like this.
 - **Suggestion** — optional.
+
+Each **Blocking** and **To fix** finding starts with its class, an id from `docs/agents/classes.yml`, in this exact format: `[class] file:line: …` (for example `[stale-docs] file:line: …`), one class per finding: if it fits two, pick the main one and mention the other in the text. `bk learn` and the measurement of the rules (ADR-006) will read that tag. If no class fits, tag it `[other]` and say in the review which class would be missing. If the finding has no file (for example, the PR body), put `PR` in place of `file:line`: `[pr-metadata] PR: …`. Suggestions carry no class.
 
 If the review session has the findings fixed by launching an `implementer`, that one gets its own worktree (`prepare.sh <n> --worktree`) and never uses a worktree where another agent is working: `prepare.sh` refuses it (`agent-lock`, `docs/agents/subagent-contract.md`). Look at `bk ls` first: a live agent on the same PR is a reason to ask, not to share the branch.
 

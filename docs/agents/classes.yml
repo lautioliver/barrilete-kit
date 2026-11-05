@@ -1,0 +1,21 @@
+# Provisional (ADR-006 D4). The finding classes of review-pr: stable ids, one line each.
+# The ids come from the classes that `bk learn` guesses today. In phase 1 this file moves to barrilete-rules.
+# `other` is reserved: it is not listed here, review-pr uses it when no class fits.
+- id: pr-metadata
+  description: the PR body, title, number or red block says something that is not true of this PR
+- id: ci-claim
+  description: it claims something about the CI that the checks do not show (green, flaky, passes)
+- id: undecided-decision
+  description: the change decides something the issue did not approve (ADR, rule, scope)
+- id: test-cannot-fail
+  description: a test that still passes if what it checks is removed, or a form forbidden in the red
+- id: stale-docs
+  description: a doc, skill or README still says what the change made false
+- id: wrong-command
+  description: a command, flag, prefix or path that the real tool does not accept
+- id: text-code-mismatch
+  description: what the text says and what the code does are not the same thing
+- id: uncovered-case
+  description: a case that no rule, test or branch covers (it is skipped or ignored)
+- id: unhandled-input
+  description: a malformed, hostile or edge input that crashes or fails silently
