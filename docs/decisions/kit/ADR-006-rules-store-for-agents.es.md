@@ -2,7 +2,7 @@
 
 ## Estado
 
-Propuesto (2026-11-05).
+Aceptado (2026-11-05). @lautioliver lo aprobó al mergear lautioliver/barrilete-kit#257 el 2026-11-05, D1 a D12 tal como están en d89240a. Las preguntas abiertas siguen abiertas: se deciden en el issue de la fase que las necesita.
 
 Origen: lautioliver/barrilete-kit#256 y una propuesta de la persona del 2026-11-04 ("store de reglas generales para agentes").
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-11-05).
+Accepted (2026-11-05). @lautioliver approved it by merging lautioliver/barrilete-kit#257 on 2026-11-05, D1 to D12 as they are in d89240a. The open questions stay open: they are decided in the issue of the phase that needs them.
 
 Origin: lautioliver/barrilete-kit#256 and a proposal from the person on 2026-11-04 ("store of general rules for agents").
 
