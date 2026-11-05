@@ -182,7 +182,7 @@
         "scripts/agents/worktree-lock.sh",
         "scripts/agents/test-worktree-lock.sh",
         "docs/agents/subagent-contract.md",
-        "docs/agents/subagent-contract.es.md",
+        "?docs/agents/subagent-contract.es.md",
         ".claude/agents/reviewer.md",
         "?.claude/i18n/agents/reviewer.es.md",
         ".claude/skills/review-pr/SKILL.md",
