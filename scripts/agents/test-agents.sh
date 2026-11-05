@@ -230,6 +230,8 @@ salida=$(check)
 grep -qxF "$(aviso_tap nodo)" <<<"$salida"; tap_check $? "check-docs avisa con el texto exacto de una entrada red con format tap"
 grep -qxF "$(aviso_tap b)" <<<"$salida"; tap_check $? "check-docs avisa de cada entrada tap, no solo de la primera"
 [ -z "$(errores_red)" ]; tap_check $? "check-docs no cuenta el aviso de tap como un error del mapa"
+solo_stdout=$(cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>/dev/null)
+[[ "$solo_stdout" != *'uses format "tap"'* ]]; tap_check $? "check-docs avisa de tap por stderr, no por stdout"
 poner_red "[$OK]"
 salida=$(check)
 [[ "$salida" != *'uses format "tap"'* ]]; tap_check $? "check-docs no avisa de una entrada red con format junit"
