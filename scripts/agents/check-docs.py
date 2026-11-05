@@ -611,15 +611,22 @@ if os.path.isdir(".claude/skills"):
 # Finding classes (ADR-006 D4): the ids that review-pr tags findings with must exist in docs/agents/classes.yml.
 # `other` is reserved (no class fits) and is not listed there. Only skills that point to the file are checked.
 CLASES_YML = "docs/agents/classes.yml"
+SKILLS_CLASES = (".claude/skills/review-pr/SKILL.md", ".claude/skills/review-pr/SKILL.es.md")
+ids_clases = None
 if os.path.exists(CLASES_YML):
     ids_clases = set(re.findall(r"^- id: (\S+)\s*$", open(CLASES_YML, encoding="utf-8").read(), re.M))
-    for ruta in (".claude/skills/review-pr/SKILL.md", ".claude/skills/review-pr/SKILL.es.md"):
-        if not os.path.exists(ruta):
+for ruta in SKILLS_CLASES:
+    if not os.path.exists(ruta):
+        continue
+    for n, linea in enumerate(open(ruta, encoding="utf-8"), 1):
+        if CLASES_YML in linea and ids_clases is None:
+            errores.append(f"{ruta}:{n}: points to {CLASES_YML}, which is missing.")
+        if ids_clases is None:
             continue
-        for n, linea in enumerate(open(ruta, encoding="utf-8"), 1):
-            for cid in re.findall(r"`?\[([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\]`?", linea):
-                if cid != "other" and cid not in ids_clases:
-                    errores.append(f"{ruta}:{n}: the class [{cid}] is not in {CLASES_YML}. Add it there or fix the id.")
+        # A tag is a `[id]` in a code span, as the skill writes it: a link or a [x] is not a class.
+        for cid in re.findall(r"`\[([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\]", linea):
+            if cid != "other" and cid not in ids_clases:
+                errores.append(f"{ruta}:{n}: the class [{cid}] is not in {CLASES_YML}. Add it there or fix the id.")
 
 # What AGENTS.md says is ignored (`.env*` are ignored) must be: the agent
 # trusts that sentence and, if it is false, ends up committing a secret.
