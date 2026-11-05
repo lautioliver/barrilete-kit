@@ -36,6 +36,11 @@ if mut == "drop-class":
 elif mut == "rename-tag":
     for s in ("SKILL.md", "SKILL.es.md"):
         edit(".claude/skills/review-pr/" + s, lambda t: t.replace("[" + sys.argv[4] + "]", "[" + sys.argv[5] + "]"))
+elif mut == "add-link":
+    for s in ("SKILL.md", "SKILL.es.md"):
+        edit(".claude/skills/review-pr/" + s, lambda t: t + "\nSee [architecture](../../../README.md) and [x] and [todo].\n")
+elif mut == "drop-file":
+    os.remove(os.path.join(dst, "docs/agents/classes.yml"))
 subprocess.run(["git", "init", "-q", "-b", "main"], cwd=dst, check=True)
 subprocess.run(["git", "add", "-A"], cwd=dst, check=True)
 subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], cwd=dst, check=True)
@@ -68,5 +73,9 @@ tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP" drop-class stale-docs
 grep -q 'review-pr.*stale-docs.*classes.yml' <<<"$out"; tap_check $? "check-docs: falla si la skill nombra una clase que classes.yml no tiene"
 tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP" rename-tag stale-docs made-up-class
 grep -q 'review-pr.*made-up-class.*classes.yml' <<<"$out"; tap_check $? "check-docs: falla con un id inventado en la skill"
+tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP" add-link
+grep -q '^RC=0$' <<<"$out"; tap_check $? "check-docs: un enlace o un [x] de la skill no se toma por una clase"
+tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP" drop-file
+grep -q 'review-pr.*classes.yml.*missing' <<<"$out"; tap_check $? "check-docs: falla si la skill remite a un classes.yml que no existe"
 
 tap_done
