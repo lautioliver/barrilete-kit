@@ -36,10 +36,11 @@ Show the person the **plan**: a table (issue, title, role, model, mode, `reason`
 
 ```bash
 git -C <root> fetch -q origin        # only once, before launching: parallel fetches clash on .git/*.lock
-.claude/skills/implement-issue/prepare.sh <n> --worktree   # one per issue whose mode is `sub`, one at a time
+WORKTREE_LOCK_AGENT=orchestrator .claude/skills/implement-issue/prepare.sh <n> --worktree   # one per issue whose mode is `sub`, one at a time
+WORKTREE_LOCK_AGENT=orchestrator scripts/agents/worktree-lock.sh release <worktree>      # before launching the subagent
 ```
 
-`prepare.sh` is only for the issues whose mode is `sub` (a `bk` agent does it itself and a `main` issue is not launched: it would stay assigned with nobody on it). It validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. If it fails for an issue, do not launch it and note it for the final message.
+`prepare.sh` is only for the issues whose mode is `sub` (a `bk` agent does it itself and a `main` issue is not launched: it would stay assigned with nobody on it). It validates, assigns, creates the worktree at `../<repo>-wt/<n>` and prints `Worktree: <path>`. `prepare.sh` takes the worktree lock (`agent-lock`) as (your pid, your name); your `sub` agents share your pid with other names, so you give it a name (`WORKTREE_LOCK_AGENT=orchestrator`) and **release it with `worktree-lock.sh release <worktree>` (same name) before launching the subagent**: otherwise a relaunch in the same worktree (escalate, another round) would find it `held` by you. If it fails for an issue, do not launch it and note it for the final message.
 
 Per the plan's mode. A `bk` agent: `bk run <n> --role <role> --orchestrated` (`--orchestrated`: you launch the `reviewer`, so `bk` does not propose it; it creates the worktree and the window itself: do not run `prepare.sh` for it), one at a time, and tell the person the window (`i<n>`). A `bk` agent is a normal standalone session: it gets none of `BASE`, `agent_sha`, `skill_sha` or `retro_sh` (it takes the base from the default branch and its `retro.sh` from `origin/<base>`). So **launch an issue as `bk` only if its PR base is the repo's default branch**; if not, launch it as `sub` and say so in the plan. A `main` implementer or a `bk run` that fails is not launched: note it for the final message. A `sub` agent: the rest of this step.
 

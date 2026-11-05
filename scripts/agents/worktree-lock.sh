@@ -71,17 +71,42 @@ case "$cmd" in
     if [ "$E" = held ]; then rm -f "$lock"; echo released; else echo "$E"; fi
     ;;
   claim)
-    # Se escribe completo en un temporal y se toma con ln, que falla si el candado ya existe: dos agentes que llegan
-    # a la vez no pueden ganar los dos, y nadie ve un candado a medio escribir.
+    # Se escribe completo en un temporal y se toma con ln, que falla si el candado ya existe: nadie ve un candado a
+    # medio escribir. Reemplazar uno stale o renovar el propio no es atómico, así que todo el claim corre bajo un
+    # mutex corto (agent-lock.mutex, también tomado con ln): adentro se vuelve a mirar el estado, y nadie borra a ciegas
+    # un candado que otro tomó entre medio. El temporal se borra aunque el proceso muera (EXIT, INT, TERM).
     tmp=$(mktemp "$gdir/agent-lock.XXXXXX") || { echo "$0: could not write in $gdir" >&2; exit 64; }
+    mtx="$gdir/agent-lock.mutex"; mtmp=""
+    limpiar() { rm -f "$tmp" ${mtmp:+"$mtmp"}; }
+    trap 'limpiar' EXIT
+    trap 'limpiar; exit 143' INT TERM
     printf 'pid=%s\nstart=%s\nagent=%s\nsince=%s\n' "$mio" "$(inicio "$mio")" "$agente" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$tmp"
-    if [ "$E" = held ]; then mv -f "$tmp" "$lock"; echo claimed; exit 0; fi   # el mismo dueño la renueva
-    [ "$E" = stale ] && rm -f "$lock"
-    if ln "$tmp" "$lock" 2>/dev/null; then
-      rm -f "$tmp"; echo claimed
+    mtmp=$(mktemp "$gdir/agent-lock.XXXXXX") || { echo "$0: could not write in $gdir" >&2; exit 64; }
+    printf 'pid=%s\n' "$$" >"$mtmp"
+    n=0
+    until ln "$mtmp" "$mtx" 2>/dev/null; do
+      # Un mutex cuyo dueño murió dentro de la sección crítica se retira (se compara el pid antes de borrar).
+      mp=$(sed -n 's/^pid=//p' "$mtx" 2>/dev/null | head -1)
+      if [ -n "$mp" ] && ! kill -0 "$mp" 2>/dev/null && [ "$(sed -n 's/^pid=//p' "$mtx" 2>/dev/null | head -1)" = "$mp" ]; then rm -f "$mtx"; continue; fi
+      n=$((n + 1)); [ "$n" -gt 100 ] && { echo "$0: the lock of $wt is busy (remove $mtx if no claim is running)" >&2; exit 64; }
+      sleep 0.05
+    done
+    trap 'rm -f "$mtx"; limpiar' EXIT
+    trap 'rm -f "$mtx"; limpiar; exit 143' INT TERM
+    estado
+    ajeno=""
+    if [ "$E" = held ] && { [ "$l_pid" != "$mio" ] || [ "$l_agent" != "$agente" ]; }; then ajeno=1; fi
+    if [ -n "$ajeno" ]; then
+      echo "held: ${l_agent:-agent} (pid $l_pid, since ${l_since:-?}); another agent is working in $wt. Use your own worktree (prepare.sh <n> --worktree) and do not share it."
+    elif [ "$E" = held ]; then
+      mv -f "$tmp" "$lock"; echo claimed   # el mismo dueño la renueva
     else
-      rm -f "$tmp"; estado
-      echo "held: ${l_agent:-agent} (pid ${l_pid:-?}, since ${l_since:-?}); another agent is working in $wt. Use your own worktree (prepare.sh <n> --worktree) and do not share it."
+      [ "$E" = stale ] && rm -f "$lock"
+      if ln "$tmp" "$lock" 2>/dev/null; then echo claimed
+      else
+        estado
+        echo "held: ${l_agent:-agent} (pid ${l_pid:-?}, since ${l_since:-?}); another agent is working in $wt. Use your own worktree (prepare.sh <n> --worktree) and do not share it."
+      fi
     fi
     ;;
 esac
