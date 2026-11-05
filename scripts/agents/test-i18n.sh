@@ -377,7 +377,7 @@ grep -q 'reviewer.md: missing its Spanish sibling .claude/i18n/agents/reviewer.e
 copia
 sed -i.bak 's#docs/agents/subagent-contract.md#docs/otro.md#g; s/^model: sonnet/model: gpt/' "$TMP/r/.claude/i18n/agents/reviewer.es.md"
 s=$(check)
-grep -q '.claude/i18n/agents/reviewer.es.md: does not point to the common contract' <<<"$s" && grep -q ".claude/i18n/agents/reviewer.es.md: model 'gpt'" <<<"$s" && grep -q "reviewer.es.md: 'model:' is 'gpt' but .claude/agents/reviewer.md has 'opus'" <<<"$s"
+grep -q '.claude/i18n/agents/reviewer.es.md: does not point to the common contract' <<<"$s" && grep -q ".claude/i18n/agents/reviewer.es.md: model 'gpt'" <<<"$s" && grep -q "reviewer.es.md: 'model:' is 'gpt' but .claude/agents/reviewer.md has 'sonnet'" <<<"$s"
 tap_check $? "agentes: el hermano en español se valida como agente (contrato, model) y debe coincidir con el inglés"
 copia; parity true
 printf '\n## Extra\n' >>"$TMP/r/.claude/i18n/agents/reviewer.es.md"
