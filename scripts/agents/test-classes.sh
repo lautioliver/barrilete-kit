@@ -49,6 +49,7 @@ MUT = {
  "dup-id": lambda: edit(YML, lambda t: t + "- id: stale-docs\n  description: again\n"),
  "no-desc": lambda: edit(YML, lambda t: re.sub(r"(- id: stale-docs\n)  description: .*\n", r"\1", t)),
  "other-listed": lambda: edit(YML, lambda t: t + "- id: other\n  description: reserved\n"),
+ "crlf-bad-tag": lambda: (edit(YML, lambda t: t.replace("\n", " \r\n")), skills(lambda t: t.replace("[stale-docs]", "[made-up-class]"))),
  "bad-indent": lambda: edit(YML, lambda t: t.replace("  description: a doc, skill", "    description: a doc, skill")),
 }
 MUT[name]()
@@ -85,6 +86,8 @@ for par in "en:$SKILL_EN" "es:$SKILL_ES"; do
   grep -q '\[stale-docs\]' "$f" 2>/dev/null; tap_check $? "review-pr: el ejemplo de hallazgo lleva la clase [stale-docs]" "review-pr ($lang): el ejemplo de hallazgo lleva la clase [stale-docs]"
   grep -q 'docs/agents/classes.yml' "$f" 2>/dev/null; tap_check $? "review-pr: remite a docs/agents/classes.yml" "review-pr ($lang): remite a docs/agents/classes.yml"
   grep -q '\[other\]' "$f" 2>/dev/null; tap_check $? "review-pr: usa [other] si ninguna clase encaja" "review-pr ($lang): usa [other] si ninguna clase encaja"
+  n=$(grep -c '\*\*\(file\|archivo\):\(line\|línea\)\*\*' "$f" 2>/dev/null || true)
+  [ "$n" = 0 ]; tap_check $? "review-pr: el hallazgo no se describe con **file:line** en negrita" "review-pr ($lang): el hallazgo no se describe con **file:line** en negrita"
   if [ "$lang" = en ]; then
     grep -q '`\[class\] file:line: …`' "$f" 2>/dev/null; tap_check $? "review-pr: fija el formato [clase] file:line: …" "review-pr ($lang): fija el formato [class] file:line: …"
     grep -q 'one class per finding' "$f" 2>/dev/null; tap_check $? "review-pr: una sola clase por hallazgo" "review-pr ($lang): una sola clase por hallazgo"
@@ -136,5 +139,9 @@ grep -q 'classes.yml:[0-9]*:.*reserved' <<<"$out"; tap_check $? "check-docs: dic
 mutar bad-indent 1
 [ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con otra indentación en classes.yml"
 grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea con otra indentación"
+
+mutar crlf-bad-tag 1
+grep -q 'review-pr.*made-up-class' <<<"$out"; tap_check $? "check-docs: con classes.yml en CRLF y con espacios al final sigue validando los ids de la skill"
+[[ $out != *"classes.yml:"* ]]; tap_check $? "check-docs: espacios y CRLF al final de línea en classes.yml no se leen como línea inesperada"
 
 tap_done
