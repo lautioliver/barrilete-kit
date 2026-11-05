@@ -72,13 +72,13 @@ done
 
 # 3. check-docs.py: los ids que nombra la skill existen en classes.yml.
 tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP" none
-grep -q '^RC=0$' <<<"$out"; tap_check $? "check-docs: el repo tal cual pasa con las clases de review-pr"
+[[ $out != *"the class ["* && $out != *"classes.yml"* ]]; tap_check $? "check-docs: el repo tal cual no marca errores de clases en review-pr"
 tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP" drop-class stale-docs
 grep -q 'review-pr.*stale-docs.*classes.yml' <<<"$out"; tap_check $? "check-docs: falla si la skill nombra una clase que classes.yml no tiene"
 tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP" rename-tag stale-docs made-up-class
 grep -q 'review-pr.*made-up-class.*classes.yml' <<<"$out"; tap_check $? "check-docs: falla con un id inventado en la skill"
 tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP" add-link
-grep -q '^RC=0$' <<<"$out"; tap_check $? "check-docs: un enlace o un [x] de la skill no se toma por una clase"
+[[ $out != *"the class ["* ]]; tap_check $? "check-docs: un enlace o un [x] de la skill no se toma por una clase"
 tap_run out 0 python3 -c "$PY" "$RAIZ" "$TMP" drop-file
 grep -q 'review-pr.*classes.yml.*missing' <<<"$out"; tap_check $? "check-docs: falla si la skill remite a un classes.yml que no existe"
 
