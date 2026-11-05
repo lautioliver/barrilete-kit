@@ -119,7 +119,7 @@ const more = [
   await table(TESTS_CASES, 'tests literal', {}, 'Closes #1\n');
   await table(ADR_CASES, 'ADR exception', BL, '');
   // Performance: a hostile body (the author controls it) must not make any regex of the job run for long.
-  const N = 10000;
+const N = 10000;
   const hostile = {
     spaces: ' '.repeat(N), stars: '*'.repeat(N), wrappers: '',
     lt: '<'.repeat(N), comments: '<!--'.repeat(N / 2), newlines: '\n'.repeat(N), mixedlines: ' *\n'.repeat(N / 2),
@@ -243,8 +243,26 @@ const cases = {
   // Regresiones de la 3.ª review (punto 3): pasaban en main y fallaban con el parser por substrings.
   'details-in-a-case-name-does-not-break-the-block': [T + R + G('bash', 'tap', '- ui.sh::renders <details> toggle') + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: 0123abc4\n\n' + G('pytest', 'junit') + E, null],
   'fence-opened-and-closed-on-one-line-is-not-a-fence': ['Closes #1\n```npm test``` first\n' + T.split('\n').slice(1).join('\n') + R + G() + E, null],
+  // #147: a "no tests:" whose reason is missing does not take the next line as its reason when that line is a Closes/Refs or a heading.
+  'no-tests-placeholder-then-closes-fails': ['no tests: <reason>\nCloses #1\n', /placeholder/i],
+  'no-tests-empty-then-closes-fails': ['Closes #1\nno tests:\nCloses #2\n', /Red before implementing/],
+  'no-tests-empty-then-refs-fails': ['Closes #1\nno tests:\nRefs #2\n', /Red before implementing/],
+  'no-tests-empty-then-heading-fails': ['Closes #1\nno tests:\n## How to test it\n', /Red before implementing/],
+  'no-tests-empty-then-bold-closes-fails': ['Closes #1\nno tests:\n**Closes #2**\n', /Red before implementing/],
+  'no-tests-empty-then-real-reason-passes': ['Closes #1\nno tests:\nonly docs\n', null],
+  'no-tests-empty-then-reason-mentioning-closes-passes': ['Closes #1\nno tests:\nit only closes #2 by hand\n', null],
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
+};
+  // #147: bodies of 65,000 characters with each kind of line break (no Closes, so the body is read for Refs too).
+const BIG = 65000;
+const raw = {
+  cr: 'x' + '\r'.repeat(BIG),
+  ls: 'x' + '\u2028'.repeat(BIG),
+  ps: 'x' + '\u2029'.repeat(BIG),
+  crlf: 'x' + '\r\n'.repeat(BIG / 2),
+  mixed: 'x' + '\r\u2028\u2029\n \t'.repeat(BIG / 6),
+  spaces: 'x' + ' '.repeat(BIG),
 };
 const N = 10000;
 const perf = {
@@ -264,6 +282,19 @@ const perf = {
     if (!good) console.log('got: ' + JSON.stringify(failed));
     process.exit(good ? 0 : 3);
   }
+  if (mode === 'raw') {
+    // In a child process with a hard timeout: a body that never finishes must fail the case, not hang the test.
+    const r = require('child_process').spawnSync(process.execPath, [process.argv[1], process.argv[2], 'rawinner', name], { timeout: 3000, encoding: 'utf8' });
+    const ms = r.status === 0 ? parseFloat(r.stdout) : Infinity;
+    if (!(ms < 200)) console.log('took ' + (ms === Infinity ? 'over 3 s' : Math.round(ms) + ' ms'));
+    process.exit(ms < 200 ? 0 : 3);
+  }
+  if (mode === 'rawinner') {
+    const t0 = performance.now();
+    await run(raw[name]);
+    console.log(performance.now() - t0);
+    process.exit(0);
+  }
   // perf: the title, the hostile text, and nothing else; it has to end quickly, with any verdict.
   const t0 = performance.now();
   await run(T + perf[name] + E);
@@ -274,6 +305,7 @@ const perf = {
 JS
 lc_out=
 lc_case() { tap_run lc_out 0 node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" case "$1"; printf '%s\n' "$lc_out" >&2; [ "$TAP_RC" -eq 0 ]; }
+lc_raw() { tap_run lc_out 0 node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" raw "$1"; printf '%s\n' "$lc_out" >&2; [ "$TAP_RC" -eq 0 ]; }
 lc_perf() { tap_run lc_out 0 perl -e 'alarm 10; exec @ARGV' node "$CASE_JS" "$ROOT/.github/workflows/labels.yml" perf "$1"; printf '%s\n' "$lc_out" >&2; [ "$TAP_RC" -eq 0 ]; }
 lc_case valid-block; tap_check $? "structured-block-valid-passes"
 lc_case valid-block-es-title; tap_check $? "structured-block-spanish-title-passes"
@@ -329,6 +361,19 @@ lc_perf lines; tap_check $? "structured-block-performance-many-lines"
 lc_perf groups; tap_check $? "structured-block-performance-many-groups"
 lc_perf hex; tap_check $? "structured-block-performance-long-sha"
 lc_perf stars; tap_check $? "structured-block-performance-wrappers"
+lc_case no-tests-placeholder-then-closes-fails; tap_check $? "no-tests-placeholder-then-closes-fails"
+lc_case no-tests-empty-then-closes-fails; tap_check $? "no-tests-empty-then-closes-fails"
+lc_case no-tests-empty-then-refs-fails; tap_check $? "no-tests-empty-then-refs-fails"
+lc_case no-tests-empty-then-heading-fails; tap_check $? "no-tests-empty-then-heading-fails"
+lc_case no-tests-empty-then-bold-closes-fails; tap_check $? "no-tests-empty-then-bold-closes-fails"
+lc_case no-tests-empty-then-real-reason-passes; tap_check $? "no-tests-empty-then-real-reason-passes"
+lc_case no-tests-empty-then-reason-mentioning-closes-passes; tap_check $? "no-tests-empty-then-reason-mentioning-closes-passes"
+lc_raw cr; tap_check $? "body-performance-65000-cr"
+lc_raw ls; tap_check $? "body-performance-65000-ls"
+lc_raw ps; tap_check $? "body-performance-65000-ps"
+lc_raw crlf; tap_check $? "body-performance-65000-crlf"
+lc_raw mixed; tap_check $? "body-performance-65000-mixed"
+lc_raw spaces; tap_check $? "body-performance-65000-spaces"
 # Every job of the workflow has a short timeout (a runaway job must not hold a runner for the 6-hour default).
 jobs=$(awk '/^jobs:/{j=1;next} j && /^  [a-z-]+:$/{n++} END{print n+0}' "$ROOT/.github/workflows/labels.yml")
 tm=$(grep -cE '^    timeout-minutes: 2( |$)' "$ROOT/.github/workflows/labels.yml")
