@@ -52,6 +52,8 @@ Each finding with: **file:line**, what is wrong, why it matters (what fails and 
 - **To fix** — it does not break, but it should not go in like this.
 - **Suggestion** — optional.
 
+Each **Blocking** and **To fix** finding starts with its class, an id from `docs/agents/classes.yml`: `[stale-docs] file:line: …`. `bk learn` and the measurement of the rules (ADR-006) read that tag. If no class fits, tag it `[other]` and say in the review which class would be missing. Suggestions carry no class.
+
 Do not pad the list: if there are no findings in a category, say so. A PR with no findings is a valid result.
 
 ## 5. Publish

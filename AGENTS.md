@@ -105,4 +105,5 @@ Nothing goes into the trunk branches without a PR. The only branch written witho
 - `docs/guides/` — integrations and usage guides
 - `docs/decisions/` — ADRs
 - `docs/agents/lessons.md` — what was learned from the retros, reviewed in a PR
+- `docs/agents/classes.yml` — the finding classes `review-pr` tags with (provisional, ADR-006 D4)
 - `docs/agents/subagent-contract.md` — common rules and output of the subagents (`.claude/agents/`)

@@ -52,6 +52,8 @@ Cada hallazgo con: **archivo:línea**, qué está mal, por qué importa (qué fa
 - **A corregir** — no rompe, pero no debería entrar así.
 - **Sugerencia** — opcional.
 
+Cada hallazgo **Bloqueante** y **A corregir** empieza con su clase, un id de `docs/agents/classes.yml`: `[stale-docs] archivo:línea: …`. `bk learn` y la medición de las reglas (ADR-006) leen esa etiqueta. Si ninguna clase encaja, etiquetalo `[other]` y decí en la review cuál faltaría. Las sugerencias no llevan clase.
+
 No infles la lista: si no hay hallazgos de una categoría, decilo. Un PR sin hallazgos es un resultado válido.
 
 ## 5. Publicar

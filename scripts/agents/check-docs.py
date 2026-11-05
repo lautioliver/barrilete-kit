@@ -21,6 +21,7 @@ Checks:
 - Map paths (docs, sensitive, verify) that match no file (except the ones marked as optional
   with a leading "?"); warns about code folders the map does not cover.
 - What AGENTS.md says is ignored (`.env*`...) and git does not ignore.
+- The classes ([id]) that review-pr names exist in docs/agents/classes.yml (ADR-006 D4).
 - Skills (.claude/skills/*/SKILL.md) over 120 lines, and docs/agents/lessons.md over 40.
 - Subagents (.claude/agents/*.md) without name, description or tools, with a model that is not
   opus, sonnet or haiku, or that do not point to the common contract (docs/agents/subagent-contract.md).
@@ -606,6 +607,19 @@ if os.path.isdir(".claude/skills"):
             lineas = sum(1 for _ in open(ruta, encoding="utf-8"))
             if lineas > MAX_SKILL:
                 errores.append(f"{ruta}: {lineas} lines (maximum {MAX_SKILL}). Move something to a script or remove what adds nothing.")
+
+# Finding classes (ADR-006 D4): the ids that review-pr tags findings with must exist in docs/agents/classes.yml.
+# `other` is reserved (no class fits) and is not listed there. Only skills that point to the file are checked.
+CLASES_YML = "docs/agents/classes.yml"
+if os.path.exists(CLASES_YML):
+    ids_clases = set(re.findall(r"^- id: (\S+)\s*$", open(CLASES_YML, encoding="utf-8").read(), re.M))
+    for ruta in (".claude/skills/review-pr/SKILL.md", ".claude/skills/review-pr/SKILL.es.md"):
+        if not os.path.exists(ruta):
+            continue
+        for n, linea in enumerate(open(ruta, encoding="utf-8"), 1):
+            for cid in re.findall(r"`?\[([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\]`?", linea):
+                if cid != "other" and cid not in ids_clases:
+                    errores.append(f"{ruta}:{n}: the class [{cid}] is not in {CLASES_YML}. Add it there or fix the id.")
 
 # What AGENTS.md says is ignored (`.env*` are ignored) must be: the agent
 # trusts that sentence and, if it is false, ends up committing a secret.

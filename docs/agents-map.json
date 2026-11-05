@@ -246,6 +246,17 @@
       "run": "bash scripts/agents/test-i18n.sh"
     },
     {
+      "name": "classes",
+      "when": [
+        "docs/agents/classes.yml",
+        ".claude/skills/review-pr/SKILL.md",
+        ".claude/skills/review-pr/SKILL.es.md",
+        "scripts/agents/check-docs.py",
+        "scripts/agents/test-classes.sh"
+      ],
+      "run": "bash scripts/agents/test-classes.sh"
+    },
+    {
       "name": "tap",
       "when": [
         "scripts/agents/tap.sh",

@@ -105,4 +105,5 @@ Nada entra a las ramas troncales sin PR. La única rama que se escribe sin PR es
 - `docs/guides/` — integraciones y guías de uso
 - `docs/decisions/` — ADRs
 - `docs/agents/lessons.md` — lo aprendido de las retros, revisado en un PR
+- `docs/agents/classes.yml` — las clases con que `review-pr` etiqueta los hallazgos (provisorio, ADR-006 D4)
 - `docs/agents/subagent-contract.md` — reglas y salida común de los subagentes (`.claude/agents/`)

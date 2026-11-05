@@ -83,6 +83,7 @@ Rule: if a product document and the code do not match, [architecture.md](develop
 - [`agents-map.json`](agents-map.json) — which docs to review depending on what changes, sensitive paths and required docs
 - [`agents/subagent-contract.md`](agents/subagent-contract.md) — rules and output format of the subagents in `.claude/agents/` (implementer, light implementer, reviewer)
 - [`agents/lessons.md`](agents/lessons.md) — what was learned from the agents' retros, reviewed in a PR (the raw retros live on the `agents/retros` branch)
+- [`agents/classes.yml`](agents/classes.yml) — the finding classes `review-pr` tags with (provisional, ADR-006 D4)
 - Skills in [`../.claude/skills/`](../.claude/skills/): `plan-feature`, `create-issue`, `implement-issue`, `debug`, `db-migration`, `update-docs`, `review-pr`, `project-status`, `git-workflow`, `improve-skills`, `orchestrate`
 - The docs are validated in CI: [`../scripts/agents/check-docs.py`](../scripts/agents/check-docs.py)
 
