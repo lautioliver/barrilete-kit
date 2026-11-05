@@ -72,6 +72,19 @@ MUT = {
  "quoted-desc": lambda: edit(YML, lambda t: t.replace("description: a doc, skill", "description: \"a doc, skill")),
  "ref-link": lambda: skills(lambda t: t + "\n- [x] file:line: hecho, ver [texto][ref] y [ ] pendiente\n"),
  "bad-indent": lambda: edit(YML, lambda t: t.replace("  description: a doc, skill", "    description: a doc, skill")),
+ "desc-colon": lambda: edit(YML, lambda t: t.replace("description: a doc, skill", "description: a doc: skill")),
+ "desc-hash": lambda: edit(YML, lambda t: t.replace("description: a doc, skill", "description: a doc #skill")),
+ "desc-tab-hash": lambda: edit(YML, lambda t: t.replace("description: a doc, skill", "description: a\t#doc, skill")),
+ "desc-ends-colon": lambda: edit(YML, lambda t: re.sub(r"(  description: a doc, skill[^\n]*)", r"\1 ends with colon:", t)),
+ "desc-dash": lambda: edit(YML, lambda t: t.replace("description: a doc, skill", "description: - a doc, skill")),
+ "desc-question": lambda: edit(YML, lambda t: t.replace("description: a doc, skill", "description: ? a doc, skill")),
+ "desc-comma": lambda: edit(YML, lambda t: t.replace("description: a doc, skill", "description: , a doc, skill")),
+ "desc-bracket": lambda: edit(YML, lambda t: t.replace("description: a doc, skill", "description: ] a doc, skill")),
+ "empty-yml": lambda: edit(YML, lambda t: ""),
+ "comments-yml": lambda: edit(YML, lambda t: "# nothing here\n"),
+ "inline-link": lambda: skills(lambda t: t + "\nSee [docs](../../../README.md) for file:line: x\n"),
+ "pr-tag": lambda: skills(lambda t: t + "\n[typo] PR: x\n"),
+ "path-tag": lambda: skills(lambda t: t + "\n[typo] docs/x.md:12: x\n"),
 }
 MUT[name]()
 '
@@ -211,6 +224,7 @@ grep -q 'review-pr.*made-up-class' <<<"$out"; tap_check $? "check-docs: con clas
 mutar upper-tag
 con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [Id] en mayúsculas en una línea de hallazgo"
 grep -q 'the class \[Stale-Doc\]' <<<"$out"; tap_check $? "check-docs: dice qué [Id] en mayúsculas hay en la skill"
+grep -q 'remove it from this line or write it as a link' <<<"$out"; tap_check $? "check-docs: el mensaje dice que, si no es una clase, se saque de la línea o se escriba como enlace"
 mutar snake-tag
 con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [id_con_guion_bajo] en una línea de hallazgo"
 grep -q 'the class \[stale_doc\]' <<<"$out"; tap_check $? "check-docs: dice qué [id_con_guion_bajo] hay en la skill"
@@ -234,6 +248,56 @@ con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción en
 grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción entre comillas"
 [[ $out != *"has no description"* ]]; tap_check $? "check-docs: una descripción entre comillas es un error, no también una clase sin descripción"
 
+# Una descripción que un parser YAML real leería distinto (o rechazaría) es un error: ": ", " #", tab y "#", ":" al final,
+# y un primer carácter que no sea una letra o un número ("- ", "? ", ", ", "] "), cada regla con su caso.
+mutar desc-colon
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción que lleva dos puntos y un espacio"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción con dos puntos y un espacio"
+mutar desc-hash
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción que lleva un espacio y #"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción con un espacio y #"
+mutar desc-tab-hash
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción que lleva una tabulación y #"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción con una tabulación y #"
+mutar desc-ends-colon
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción que termina en dos puntos"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción que termina en dos puntos"
+mutar desc-dash
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción que empieza con un guion y un espacio"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción que empieza con un guion"
+mutar desc-question
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción que empieza con ? y un espacio"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción que empieza con ?"
+mutar desc-comma
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción que empieza con una coma"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción que empieza con una coma"
+mutar desc-bracket
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción que empieza con ]"
+grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción que empieza con ]"
+
+# Un classes.yml vacío, de solo comentarios o ilegible es un error de ese archivo: no se culpa a la skill de cada etiqueta.
+mutar empty-yml
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un classes.yml vacío"
+grep -q 'classes.yml:.*lists no classes' <<<"$out"; tap_check $? "check-docs: dice que classes.yml no lista ninguna clase si está vacío"
+[[ $out != *"is not in docs/agents/classes.yml"* ]]; tap_check $? "check-docs: un classes.yml vacío no hace culpable a la skill de cada clase"
+mutar comments-yml
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un classes.yml de solo comentarios"
+grep -q 'classes.yml:.*lists no classes' <<<"$out"; tap_check $? "check-docs: dice que classes.yml no lista ninguna clase si solo tiene comentarios"
+[[ $out != *"is not in docs/agents/classes.yml"* ]]; tap_check $? "check-docs: un classes.yml de solo comentarios no hace culpable a la skill de cada clase"
+mutar bad-utf8 sin-resumen
+[[ $out != *"is not in docs/agents/classes.yml"* ]]; tap_check $? "check-docs: un classes.yml que no es UTF-8 no hace culpable a la skill de cada clase"
+
+# Un enlace en línea [t](u) en una línea de hallazgo no se toma por una clase; la ubicación puede ser PR o ruta:línea.
+mutar inline-link
+[ "$RC" -eq "$BASE_RC" ]; tap_check $? "check-docs: un enlace en línea en una línea de hallazgo no hace fallar el check"
+[[ $out != *"the class ["* ]]; tap_check $? "check-docs: un enlace en línea en una línea de hallazgo no se toma por una clase"
+mutar pr-tag
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [id] desconocido en una línea de hallazgo con PR:"
+grep -q 'the class \[typo\]' <<<"$out"; tap_check $? "check-docs: valida un [id] en una línea de hallazgo con PR:"
+mutar path-tag
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [id] desconocido en una línea de hallazgo con ruta:línea"
+grep -q 'the class \[typo\]' <<<"$out"; tap_check $? "check-docs: valida un [id] en una línea de hallazgo con ruta:línea"
+
 # Una skill que remite a un classes.yml que falta da un solo error por skill (el de rutas rotas), no dos.
 mutar drop-file
 skills_en_copia=("$RAIZ"/.claude/skills/review-pr/SKILL*.md)
@@ -242,5 +306,13 @@ while IFS= read -r linea; do
   case $linea in *review-pr/SKILL*classes.yml*) n=$((n + 1)) ;; esac
 done <<<"$out"
 [ "$n" -eq "${#skills_en_copia[@]}" ]; tap_check $? "check-docs: un classes.yml que falta da un solo error por skill, no uno repetido"
+
+# con_errores_nuevos cuenta solo líneas de error (las "- " bajo "Docs with N problem(s):"): un aviso nuevo no es un error. En un proyecto
+# instalado el repo tal cual ya sale con 1 por los TODO del mapa, así que sin esto un error de clase pasado a aviso no se notaría.
+printf '%s\n' "Warning: code that no map path covers" "Docs with 1 problem(s):" "- TODO base" >"$TMP/base.out"
+out=$'Warning: the class [x] is not in docs/agents/classes.yml\nWarning: code that no map path covers\nDocs with 1 problem(s):\n- TODO base'; RC=1
+con_errores_nuevos; [ $? -eq 1 ]; tap_check $? "check-docs: un aviso nuevo no cuenta como error nuevo en un proyecto que ya sale con 1"
+out=$'Docs with 2 problem(s):\n- TODO base\n- the class [x] is not in docs/agents/classes.yml'; RC=1
+con_errores_nuevos; tap_check $? "check-docs: una línea de error nueva cuenta como error nuevo en un proyecto que ya sale con 1"
 
 tap_done
