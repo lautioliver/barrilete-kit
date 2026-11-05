@@ -35,6 +35,11 @@ claves_mapa() {
   if [ -f "$1" ]; then python3 -c "import json, sys; print(sorted(json.load(open(sys.argv[1]))))" "$1"; else echo "(sin mapa)"; fi
 }
 
+# entrada_bash_junit <mapa>: yes si el mapa tiene una sola entrada bash, con format junit y sin grep sobre {out}; no si no (un mapa ilegible es un error, no un no).
+entrada_bash_junit() {
+  python3 -c "import json, sys; r = [e for e in json.load(open(sys.argv[1]))['red'] if e['name'] == 'bash']; print('yes' if len(r) == 1 and r[0]['format'] == 'junit' and 'grep' not in r[0]['run'] else 'no')" "$1"
+}
+
 # mapa_lista <mapa> required|review <ruta>: True si la ruta está en el array required o en algún review de la sección docs.
 mapa_lista() {
   python3 -c "import json, sys; m = json.load(open(sys.argv[1])); l = m['required'] if sys.argv[2] == 'required' else [x for e in m['docs'] for x in e.get('review', [])]; print(sys.argv[3] in l)" "$1" "$2" "$3"
@@ -93,9 +98,11 @@ for modo in completo chico; do
   if [ "$modo" = chico ]; then
     # #152: el modo chico declara el rojo en un mapa mínimo que solo tiene la sección red (decidido en el ADR-002, D2).
     k=$(claves_mapa "$p/docs/agents-map.json"); [ "$k" = "['red']" ]; tap_check $? "[<modo>] el modo chico deja un docs/agents-map.json mínimo con solo la sección red" "[$modo] el modo chico deja un docs/agents-map.json mínimo con solo la sección red"
+    [ "$(entrada_bash_junit "$p/docs/agents-map.json")" = yes ]; tap_check $? "225: [<modo>] la entrada bash del modo chico es format junit y no revisa {out} con grep" "225: [$modo] la entrada bash del modo chico es format junit y no revisa {out} con grep"
     [ -f "$p/docs/agents-map.json" ] && ! grep -q '"name": "init"' "$p/docs/agents-map.json"; tap_check $? "[<modo>] el mapa mínimo del modo chico no trae la verificación init" "[$modo] el mapa mínimo del modo chico no trae la verificación init"
   else
-    python3 -c "import json,sys; r=json.load(open('$p/docs/agents-map.json'))['red']; sys.exit(0 if r and all('{out}' in e['run'] and e['format'] in ('junit','tap') for e in r) else 1)" 2>/dev/null; tap_check $? "[<modo>] el mapa instalado trae la sección red por defecto (bash/TAP con {out})" "[$modo] el mapa instalado trae la sección red por defecto (bash/TAP con {out})"
+    python3 -c "import json,sys; r=json.load(open('$p/docs/agents-map.json'))['red']; sys.exit(0 if r and all('{out}' in e['run'] and e['format'] in ('junit','tap') for e in r) else 1)" 2>/dev/null; tap_check $? "[<modo>] el mapa instalado trae la sección red por defecto (bash con {out})" "[$modo] el mapa instalado trae la sección red por defecto (bash con {out})"
+    [ "$(entrada_bash_junit "$p/docs/agents-map.json")" = yes ]; tap_check $? "225: [<modo>] la entrada bash del mapa instalado es format junit y no revisa {out} con grep" "225: [$modo] la entrada bash del mapa instalado es format junit y no revisa {out} con grep"
     ! grep -q '^- docs/agents-map.json: red' <<<"$s"; tap_check $? "[<modo>] check-docs del proyecto recién creado no rechaza la sección red por defecto" "[$modo] check-docs del proyecto recién creado no rechaza la sección red por defecto"
     python3 -c "import json,sys; sys.exit(1 if any(v.get('name') == 'red' for v in json.load(open('$p/docs/agents-map.json')).get('verify', [])) else 0)" 2>/dev/null; tap_check $? "[<modo>] el init saca del mapa la verificación red (apuntaba al corpus y a test-red.sh borrados)" "[$modo] el init saca del mapa la verificación red (apuntaba al corpus y a test-red.sh borrados)"
     ! grep -q '"name": "init"' "$p/docs/agents-map.json"; tap_check $? "[<modo>] el init saca del mapa la verificación init (su test ya no existe)" "[$modo] el init saca del mapa la verificación init (su test ya no existe)"

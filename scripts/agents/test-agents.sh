@@ -255,7 +255,11 @@ for idioma in en es; do
   if [ "$idioma" = en ]; then g="$RAIZ/docs/guides/red-per-runner.md"; else g="$RAIZ/docs/guides/red-per-runner.es.md"; fi
   [ -f "$g" ] || continue
   run=$(guia_entrada "$g" bash)
-  grep -qF '# file: ' <<<"$run" && grep -q 'Bail out!' <<<"$run"; tap_check $? "[<idioma>] la entrada bash de la guía comprueba el # file: de cada script (D3)" "[$idioma] la entrada bash de la guía comprueba el # file: de cada script (D3)"
+  # shellcheck disable=SC2016  # el texto buscado es literal
+  grep -qF '<testsuites>' <<<"$run"; tap_check $? "[<idioma>] la entrada bash de la guía envuelve los testsuites en <testsuites> (#225)" "[$idioma] la entrada bash de la guía envuelve los testsuites en <testsuites> (#225)"
+  # shellcheck disable=SC2016
+  grep -qF 'TAP_OUT=$tmp' <<<"$run"; tap_check $? "[<idioma>] la entrada bash de la guía le da a cada script un TAP_OUT temporal (#225)" "[$idioma] la entrada bash de la guía le da a cada script un TAP_OUT temporal (#225)"
+  grep -qE '(^|[ ;|&(])grep ' <<<"$run"; [ $? -eq 1 ]; tap_check $? "[<idioma>] la entrada bash de la guía no revisa {out} con grep (#225)" "[$idioma] la entrada bash de la guía no revisa {out} con grep (#225)"
   run=$(guia_entrada "$g" cargo-nextest)
   grep -q 'rm -f target/nextest/red/junit.xml' <<<"$run"; tap_check $? "[<idioma>] la entrada nextest de la guía borra el reporte viejo antes de correr" "[$idioma] la entrada nextest de la guía borra el reporte viejo antes de correr"
   grep -qi 'unverified\|sin verificar' <(guia_seccion "$g" "cargo (nextest)"); tap_check $? "[<idioma>] la guía marca la entrada nextest como sin verificar" "[$idioma] la guía marca la entrada nextest como sin verificar"
