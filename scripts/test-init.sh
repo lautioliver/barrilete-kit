@@ -404,11 +404,13 @@ for malo in "--lang fr" "--lang" "--lang="; do
 done
 
 # Los test-*.sh que deja el init pasan en el proyecto nuevo (los corre el CI), con cualquier rama base.
-for combinacion in "completo main" "chico main" "completo develop" "chico develop"; do
-  read -r modo base <<<"$combinacion"
-  p="$TMP/tests-$modo-$base"
+# "completo main es": con --lang es el SKILL.md instalado ya es el español y no queda su hermano .es.md (#259).
+for combinacion in "completo main" "chico main" "completo develop" "chico develop" "completo main es"; do
+  read -r modo base idioma <<<"$combinacion"
+  p="$TMP/tests-$modo-$base${idioma:+-$idioma}"
   copiar "$p"
   extra=(); [ "$modo" = chico ] && extra=(--small)
+  [ -n "$idioma" ] && extra+=(--lang "$idioma")
   (cd "$p" && ./scripts/init-template.sh Demo "$base" ${extra[@]+"${extra[@]}"} >/dev/null 2>&1 && git add -A && git commit -qm init)
   esperado="[main]"; [ "$base" = develop ] && esperado="[main, develop]"
   for w in docs labels; do
@@ -421,7 +423,7 @@ for combinacion in "completo main" "chico main" "completo develop" "chico develo
   while read -r t; do
     tap_run salida 0 bash "$p/$t"
   done < <(cd "$p" && git ls-files '*test-*.sh')
-  tap_ok "[<modo>, base <base>] los test-*.sh del proyecto instalado pasan todos" "[$modo, base $base] los test-*.sh del proyecto instalado pasan todos"
+  tap_ok "[<modo>, base <base>] los test-*.sh del proyecto instalado pasan todos" "[$modo, base $base${idioma:+, --lang $idioma}] los test-*.sh del proyecto instalado pasan todos"
 done
 
 # check-docs.py falla si AGENTS.md dice que algo está ignorado y no lo está.
