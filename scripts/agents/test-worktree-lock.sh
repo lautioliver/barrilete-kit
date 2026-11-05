@@ -118,17 +118,26 @@ leer; grep -qx "pid=$(cat "$TMP/ancestro.pid")" <<<"$LK"; tap_check $? "sin WORK
 
 # 7. Las docs dicen que el reviewer hace implementar en un worktree propio y qué hace el candado. Se busca por contenido
 # (un proyecto instalado en español tiene el texto en español en el archivo sin .es y no tiene los .es.md).
+# Si falta el archivo, el caso falla (el último comando es la aserción [ -f ]): no es un crash ni un return 1.
 mencion() { # mencion <archivo> <texto en inglés> <texto en español>
   local f="$RAIZ/$1"
-  if [ ! -f "$f" ]; then return 1; fi
-  if grep -qF -- "$2" "$f"; then return 0; fi
-  grep -qF -- "$3" "$f"
+  if [ ! -f "$f" ]; then
+    [ -f "$f" ]
+  elif grep -qF -- "$2" "$f"; then
+    :
+  else
+    grep -qF -- "$3" "$f"
+  fi
 }
-mencion docs/agents/subagent-contract.md agent-lock agent-lock; tap_check $? "contrato: nombra el candado agent-lock"
-mencion docs/agents/subagent-contract.md "own worktree" "worktree propio"; tap_check $? "contrato: el implementer de un reviewer usa su worktree propio"
-mencion .claude/agents/reviewer.md "own worktree" "worktree propio"; tap_check $? "reviewer: hace implementar en un worktree propio"
-mencion .claude/skills/review-pr/SKILL.md "own worktree" "worktree propio"; tap_check $? "review-pr: el implementer del reviewer usa un worktree propio"
-mencion docs/agents/subagent-contract.md WORKTREE_LOCK_AGENT WORKTREE_LOCK_AGENT; tap_check $? "contrato: pide fijar WORKTREE_LOCK_AGENT a cada subagente"
+# Un proyecto chico (mode: small) no tiene agentes: el init no instala el contrato, el reviewer ni review-pr.
+CHICO=0
+if [ -f "$RAIZ/.agent-kit.json" ] && grep -q '"mode": *"small"' "$RAIZ/.agent-kit.json"; then CHICO=1; fi
+SIN="proyecto chico (mode: small): no tiene el contrato de subagentes, el reviewer ni review-pr"
+if [ "$CHICO" = 1 ]; then tap_skip "contrato: nombra el candado agent-lock" "$SIN"; else mencion docs/agents/subagent-contract.md agent-lock agent-lock; tap_check $? "contrato: nombra el candado agent-lock"; fi
+if [ "$CHICO" = 1 ]; then tap_skip "contrato: el implementer de un reviewer usa su worktree propio" "$SIN"; else mencion docs/agents/subagent-contract.md "own worktree" "worktree propio"; tap_check $? "contrato: el implementer de un reviewer usa su worktree propio"; fi
+if [ "$CHICO" = 1 ]; then tap_skip "reviewer: hace implementar en un worktree propio" "$SIN"; else mencion .claude/agents/reviewer.md "own worktree" "worktree propio"; tap_check $? "reviewer: hace implementar en un worktree propio"; fi
+if [ "$CHICO" = 1 ]; then tap_skip "review-pr: el implementer del reviewer usa un worktree propio" "$SIN"; else mencion .claude/skills/review-pr/SKILL.md "own worktree" "worktree propio"; tap_check $? "review-pr: el implementer del reviewer usa un worktree propio"; fi
+if [ "$CHICO" = 1 ]; then tap_skip "contrato: pide fijar WORKTREE_LOCK_AGENT a cada subagente" "$SIN"; else mencion docs/agents/subagent-contract.md WORKTREE_LOCK_AGENT WORKTREE_LOCK_AGENT; tap_check $? "contrato: pide fijar WORKTREE_LOCK_AGENT a cada subagente"; fi
 
 # Los hermanos en español existen solo en un proyecto instalado en inglés.
 if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "agent-lock" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): nombra el candado agent-lock"; else tap_skip "contrato (es): nombra el candado agent-lock" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
