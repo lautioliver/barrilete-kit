@@ -56,7 +56,7 @@ MUT[name]()
 '
 
 # Deshace la mutación anterior, aplica <nombre> y corre check-docs.py en la copia: su salida queda en $out y su
-# estado en $TAP_RC. Con <esperado> 0 el repo tal cual tiene que pasar; con 1, la mutación tiene que hacerlo fallar.
+# estado en $TAP_RC. <esperado> es el estado que acepta tap_run (1: la mutación tiene que hacerlo fallar; el repo tal cual se compara aparte).
 mutar() {
   local nombre=$1 esperado=$2
   out=""
@@ -100,8 +100,11 @@ done
 # 3. check-docs.py: los ids que nombra la skill existen en classes.yml, y classes.yml está bien formado.
 # Cada caso mira el estado de salida de check-docs.py (0 el repo tal cual, 1 cada mutación) y lo que dice.
 copia
-mutar none 0
-[ "$TAP_RC" -eq 0 ]; tap_check $? "check-docs: el repo tal cual sale con 0"
+# En un proyecto recién inicializado check-docs.py sale con 1 por los TODO del mapa (test-init.sh corre este test ahí):
+# el repo tal cual sale con 0 o solo por eso, y un enlace de más no cambia ese estado.
+mutar none 1
+BASE_RC=$TAP_RC
+[[ $BASE_RC -eq 0 || $out == *"replace the example paths"* ]]; tap_check $? "check-docs: el repo tal cual sale con 0 (o solo por los TODO del mapa de un proyecto nuevo)"
 [[ $out != *"the class ["* && $out != *"classes.yml"* ]]; tap_check $? "check-docs: el repo tal cual no marca errores de clases en review-pr"
 mutar drop-class 1
 [ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 si la skill nombra una clase que classes.yml no tiene"
@@ -109,8 +112,8 @@ grep -q 'review-pr.*stale-docs.*classes.yml' <<<"$out"; tap_check $? "check-docs
 mutar rename-tag 1
 [ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un id inventado en la skill"
 grep -q 'review-pr.*made-up-class.*classes.yml' <<<"$out"; tap_check $? "check-docs: dice qué id inventado hay en la skill"
-mutar add-link 0
-[ "$TAP_RC" -eq 0 ]; tap_check $? "check-docs: un enlace o un [x] de la skill no hace fallar el check"
+mutar add-link 1
+[ "$TAP_RC" -eq "$BASE_RC" ]; tap_check $? "check-docs: un enlace o un [x] de la skill no hace fallar el check"
 [[ $out != *"the class ["* ]]; tap_check $? "check-docs: un enlace o un [x] de la skill no se toma por una clase"
 mutar drop-file 1
 [ "$TAP_RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 si la skill remite a un classes.yml que no existe"
