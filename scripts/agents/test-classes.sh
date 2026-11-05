@@ -17,11 +17,25 @@ SKILL_ES="$RAIZ/.claude/skills/review-pr/SKILL.es.md"
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 
+# Los archivos del repo (commiteados y sin commitear, sin los ignorados) que existen: en un proyecto instalado el init borró
+# algunos que git todavía lista, y tar fallaría con ellos.
+COPIAR='
+import os, shutil, subprocess, sys
+src, dst = sys.argv[1:]
+lista = subprocess.run(["git", "ls-files", "-z", "-co", "--exclude-standard"], cwd=src, capture_output=True, check=True).stdout
+for rel in filter(None, lista.decode().split("\0")):
+    de = os.path.join(src, rel)
+    if os.path.lexists(de):
+        a = os.path.join(dst, rel)
+        os.makedirs(os.path.dirname(a), exist_ok=True)
+        shutil.copy2(de, a, follow_symlinks=False)
+'
+
 # Copia del repo con lo commiteado y lo que está en el working tree (la misma que test-agents.sh y test-i18n.sh).
 copia() {
   rm -rf "$TMP/r"
   mkdir -p "$TMP/r"
-  (cd "$RAIZ" && git ls-files -z -co --exclude-standard | tar --null -T - -cf -) | (cd "$TMP/r" && tar -xf -)
+  tap_run _ 0 python3 -c "$COPIAR" "$RAIZ" "$TMP/r"
   (cd "$TMP/r" && git init -q && git add -A && git commit -qm base)
 }
 
@@ -89,7 +103,7 @@ mutar() {
 
 
 # El idioma de un review-pr/SKILL*.md. Con `init --lang es` el SKILL.md instalado es el texto en español y no queda SKILL.es.md.
-idioma_de() { case ${1##*/} in SKILL.es.md) echo es ;; *) echo en ;; esac; }
+idioma_de() { if grep -q 'Bloqueante' "$1"; then echo es; else echo en; fi; }
 INST="$TMP/instalado-es"
 mkdir -p "$INST"
 if [ -f "$SKILL_ES" ]; then cp "$SKILL_ES" "$INST/SKILL.md"; fi
@@ -102,25 +116,27 @@ grep -q '^- id: stale-docs$' "$CLASES" 2>/dev/null; tap_check $? "classes.yml: t
 [ "$n" = "$total" ]; tap_check $? "classes.yml: cada clase tiene una descripción"
 
 # 2. review-pr (en y es) fija el formato de cada hallazgo: la clase al principio, una sola, y [other] si no encaja.
-for par in "en:$SKILL_EN" "es:$SKILL_ES"; do
-  lang=${par%%:*}; f=${par#*:}
-  if [ ! -f "$f" ]; then  # a project installed in a single language has no .es.md siblings
-    tap_skip "review-pr: versión que no existe en este proyecto" "$lang: no existe $f"
+for f in "$SKILL_EN" "$SKILL_ES" "$INST/SKILL.md"; do
+  if [ ! -f "$f" ]; then  # a project installed in a single language has no .es.md siblings (the copy below exists only if there is a SKILL.es.md)
+    if [ "$f" = "$INST/SKILL.md" ]; then continue; fi
+    tap_skip "review-pr: versión que no existe en este proyecto" "no existe $f"
     continue
   fi
-  grep -q '\[stale-docs\]' "$f" 2>/dev/null; tap_check $? "review-pr: el ejemplo de hallazgo lleva la clase [stale-docs]" "review-pr ($lang): el ejemplo de hallazgo lleva la clase [stale-docs]"
-  grep -q 'docs/agents/classes.yml' "$f" 2>/dev/null; tap_check $? "review-pr: remite a docs/agents/classes.yml" "review-pr ($lang): remite a docs/agents/classes.yml"
-  grep -q '\[other\]' "$f" 2>/dev/null; tap_check $? "review-pr: usa [other] si ninguna clase encaja" "review-pr ($lang): usa [other] si ninguna clase encaja"
+  lang=$(idioma_de "$f")
+  etiqueta=$lang; if [ "$f" = "$INST/SKILL.md" ]; then etiqueta="$lang, instalado con --lang es"; fi
+  grep -q '\[stale-docs\]' "$f" 2>/dev/null; tap_check $? "review-pr: el ejemplo de hallazgo lleva la clase [stale-docs]" "review-pr ($etiqueta): el ejemplo de hallazgo lleva la clase [stale-docs]"
+  grep -q 'docs/agents/classes.yml' "$f" 2>/dev/null; tap_check $? "review-pr: remite a docs/agents/classes.yml" "review-pr ($etiqueta): remite a docs/agents/classes.yml"
+  grep -q '\[other\]' "$f" 2>/dev/null; tap_check $? "review-pr: usa [other] si ninguna clase encaja" "review-pr ($etiqueta): usa [other] si ninguna clase encaja"
   n=$(awk '/\*\*(file|archivo):(line|línea)\*\*/ {n++} END {print n+0}' "$f" 2>/dev/null)
-  [ "$n" = 0 ]; tap_check $? "review-pr: el hallazgo no se describe con **file:line** en negrita" "review-pr ($lang): el hallazgo no se describe con **file:line** en negrita"
-  grep -q '`\[stale-docs\] file:line: …`' "$f" 2>/dev/null; tap_check $? "review-pr: el ejemplo usa file:line como el formato" "review-pr ($lang): el ejemplo usa file:line como el formato"
-  grep -q '`\[pr-metadata\] PR: …`' "$f" 2>/dev/null; tap_check $? "review-pr: dice qué ubicación poner si el hallazgo no tiene archivo" "review-pr ($lang): dice qué ubicación poner si el hallazgo no tiene archivo"
+  [ "$n" = 0 ]; tap_check $? "review-pr: el hallazgo no se describe con **file:line** en negrita" "review-pr ($etiqueta): el hallazgo no se describe con **file:line** en negrita"
+  grep -q '`\[stale-docs\] file:line: …`' "$f" 2>/dev/null; tap_check $? "review-pr: el ejemplo usa file:line como el formato" "review-pr ($etiqueta): el ejemplo usa file:line como el formato"
+  grep -q '`\[pr-metadata\] PR: …`' "$f" 2>/dev/null; tap_check $? "review-pr: dice qué ubicación poner si el hallazgo no tiene archivo" "review-pr ($etiqueta): dice qué ubicación poner si el hallazgo no tiene archivo"
   if [ "$lang" = en ]; then
-    grep -q '`\[class\] file:line: …`' "$f" 2>/dev/null; tap_check $? "review-pr: fija el formato [clase] file:line: …" "review-pr ($lang): fija el formato [class] file:line: …"
-    grep -q 'one class per finding' "$f" 2>/dev/null; tap_check $? "review-pr: una sola clase por hallazgo" "review-pr ($lang): una sola clase por hallazgo"
+    grep -q '`\[class\] file:line: …`' "$f" 2>/dev/null; tap_check $? "review-pr: fija el formato [clase] file:line: …" "review-pr ($etiqueta): fija el formato [class] file:line: …"
+    grep -q 'one class per finding' "$f" 2>/dev/null; tap_check $? "review-pr: una sola clase por hallazgo" "review-pr ($etiqueta): una sola clase por hallazgo"
   else
-    grep -q '`\[clase\] file:line: …`' "$f" 2>/dev/null; tap_check $? "review-pr: fija el formato [clase] file:line: …" "review-pr ($lang): fija el formato [clase] file:line: …"
-    grep -q 'una sola clase por hallazgo' "$f" 2>/dev/null; tap_check $? "review-pr: una sola clase por hallazgo" "review-pr ($lang): una sola clase por hallazgo"
+    grep -q '`\[clase\] file:line: …`' "$f" 2>/dev/null; tap_check $? "review-pr: fija el formato [clase] file:line: …" "review-pr ($etiqueta): fija el formato [clase] file:line: …"
+    grep -q 'una sola clase por hallazgo' "$f" 2>/dev/null; tap_check $? "review-pr: una sola clase por hallazgo" "review-pr ($etiqueta): una sola clase por hallazgo"
   fi
 done
 
@@ -130,7 +146,13 @@ if [ -f "$INST/SKILL.md" ]; then
 else
   tap_skip "review-pr: un SKILL.md en español (instalado con --lang es) se reconoce por su contenido" "no hay $SKILL_ES"
 fi
-[ "$(idioma_de "$SKILL_EN")" = en ]; tap_check $? "review-pr: el SKILL.md en inglés se reconoce por su contenido"
+
+# Hay errores nuevos: check-docs salió con 1 y dijo algo que el repo tal cual no decía (un proyecto nuevo ya sale con 1 por los TODO del mapa).
+con_errores_nuevos() {
+  local nuevos
+  nuevos=$(awk 'NR==FNR {a[$0]; next} !($0 in a)' "$TMP/base.out" - <<<"$out" 2>/dev/null)
+  [ "$RC" -eq 1 ] && [ -n "$nuevos" ]
+}
 
 # 3. check-docs.py: los ids que nombra la skill existen en classes.yml, y classes.yml está bien formado.
 # Cada caso mira el estado de salida de check-docs.py (0 el repo tal cual, 1 cada mutación) y lo que dice.
@@ -139,59 +161,60 @@ copia
 # el repo tal cual sale con 0 o solo por eso, y un enlace de más no cambia ese estado.
 mutar none
 BASE_RC=$RC
+printf '%s\n' "$out" >"$TMP/base.out"
 [[ $BASE_RC -eq 0 || $out == *"replace the example paths"* ]]; tap_check $? "check-docs: el repo tal cual sale con 0 (o solo por los TODO del mapa de un proyecto nuevo)"
 [[ $out != *"the class ["* && $out != *"classes.yml"* ]]; tap_check $? "check-docs: el repo tal cual no marca errores de clases en review-pr"
 mutar drop-class
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 si la skill nombra una clase que classes.yml no tiene"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 si la skill nombra una clase que classes.yml no tiene"
 grep -q 'review-pr.*stale-docs.*classes.yml' <<<"$out"; tap_check $? "check-docs: dice qué clase de la skill falta en classes.yml"
 mutar rename-tag
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un id inventado en la skill"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un id inventado en la skill"
 grep -q 'review-pr.*made-up-class.*classes.yml' <<<"$out"; tap_check $? "check-docs: dice qué id inventado hay en la skill"
 mutar add-link
 [ "$RC" -eq "$BASE_RC" ]; tap_check $? "check-docs: un enlace o un [x] de la skill no hace fallar el check"
 [[ $out != *"the class ["* ]]; tap_check $? "check-docs: un enlace o un [x] de la skill no se toma por una clase"
 mutar drop-file
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 si la skill remite a un classes.yml que no existe"
-grep -q 'review-pr.*classes.yml.*missing' <<<"$out"; tap_check $? "check-docs: dice que falta classes.yml"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 si la skill remite a un classes.yml que no existe"
+grep -q 'review-pr/SKILL.*missing path.*classes.yml' <<<"$out"; tap_check $? "check-docs: dice que falta classes.yml"
 mutar bold-tag
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un [id] en negrita desconocido"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [id] en negrita desconocido"
 grep -q 'the class \[stale-doc\]' <<<"$out"; tap_check $? "check-docs: valida un [id] en negrita en una línea de hallazgo"
 mutar bare-tag
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un [id] sin code span desconocido"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [id] sin code span desconocido"
 grep -q 'the class \[typo\]' <<<"$out"; tap_check $? "check-docs: valida un [id] sin code span en una línea de hallazgo"
 mutar spaced-tag
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un [id] desconocido en code span con espacio"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [id] desconocido en code span con espacio"
 grep -q 'the class \[typo\]' <<<"$out"; tap_check $? "check-docs: valida un [id] en code span con espacio previo"
 mutar quoted-id
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un id entre comillas en classes.yml"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un id entre comillas en classes.yml"
 grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea del id entre comillas"
 mutar dup-id
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un id duplicado en classes.yml"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un id duplicado en classes.yml"
 grep -q 'classes.yml:[0-9]*:.*duplicate' <<<"$out"; tap_check $? "check-docs: dice la línea del id duplicado"
 mutar no-desc
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con una clase sin descripción"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una clase sin descripción"
 grep -q 'classes.yml:[0-9]*:.*description' <<<"$out"; tap_check $? "check-docs: dice qué clase no tiene descripción"
 mutar other-listed
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 si classes.yml lista other"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 si classes.yml lista other"
 grep -q 'classes.yml:[0-9]*:.*reserved' <<<"$out"; tap_check $? "check-docs: dice que other está reservada"
 mutar bad-indent
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con otra indentación en classes.yml"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con otra indentación en classes.yml"
 grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea con otra indentación"
 
 mutar crlf-bad-tag
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un id inventado y classes.yml en CRLF"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un id inventado y classes.yml en CRLF"
 grep -q 'review-pr.*made-up-class' <<<"$out"; tap_check $? "check-docs: con classes.yml en CRLF y con espacios al final sigue validando los ids de la skill"
 [[ $out != *"classes.yml:"* ]]; tap_check $? "check-docs: espacios y CRLF al final de línea en classes.yml no se leen como línea inesperada"
 
 # El id de hallazgo es cualquier [..] que no sea un enlace ni una casilla: mayúsculas, guion bajo o espacios no se cuelan.
 mutar upper-tag
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un [Id] en mayúsculas en una línea de hallazgo"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [Id] en mayúsculas en una línea de hallazgo"
 grep -q 'the class \[Stale-Doc\]' <<<"$out"; tap_check $? "check-docs: dice qué [Id] en mayúsculas hay en la skill"
 mutar snake-tag
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un [id_con_guion_bajo] en una línea de hallazgo"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [id_con_guion_bajo] en una línea de hallazgo"
 grep -q 'the class \[stale_doc\]' <<<"$out"; tap_check $? "check-docs: dice qué [id_con_guion_bajo] hay en la skill"
 mutar spaced-id
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un [ id ] con espacios en una línea de hallazgo"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [ id ] con espacios en una línea de hallazgo"
 grep -q 'the class \[ made-up \]' <<<"$out"; tap_check $? "check-docs: dice qué [ id ] con espacios hay en la skill"
 mutar ref-link
 [ "$RC" -eq "$BASE_RC" ]; tap_check $? "check-docs: una casilla [x] o un enlace [texto][ref] en una línea de hallazgo no hace fallar el check"
@@ -203,10 +226,10 @@ mutar bom-yml
 [[ $out != *"classes.yml:"* ]]; tap_check $? "check-docs: un BOM al principio de classes.yml no se lee como línea inesperada"
 mutar bad-utf8 sin-resumen
 [[ $out != *"Traceback"* ]]; tap_check $? "check-docs: un byte que no es UTF-8 en classes.yml no da un traceback"
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con un byte que no es UTF-8 en classes.yml"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un byte que no es UTF-8 en classes.yml"
 grep -q 'classes.yml.*UTF-8' <<<"$out"; tap_check $? "check-docs: dice que classes.yml no es UTF-8"
 mutar quoted-desc
-[ "$RC" -eq 1 ]; tap_check $? "check-docs: sale con 1 con una descripción entre comillas en classes.yml"
+con_errores_nuevos; tap_check $? "check-docs: sale con 1 con una descripción entre comillas en classes.yml"
 grep -q 'classes.yml:[0-9]*:.*unexpected' <<<"$out"; tap_check $? "check-docs: dice la línea de la descripción entre comillas"
 
 # Una skill que remite a un classes.yml que falta da un solo error por skill (el de rutas rotas), no dos.
