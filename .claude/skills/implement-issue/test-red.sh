@@ -332,6 +332,7 @@ run_red "$TMP/w/tf-missing"
 test "$code" -eq 2; tap_check $? "225: a tap report with no # file: line for a test file of the diff makes red.sh exit 2"
 says 'test-b.sh'; tap_check $? "225: red.sh names the test file that has no # file: line"
 says '# file:'; tap_check $? "225: the message for a tap entry speaks of the # file: line"
+says 'AMR'; tap_check $? "225: the message for a tap entry says that an entry with --diff-filter=AM has to use AMR"
 t2="$TMP/tapfile2"; mkdir -p "$t2"; : >"$t2/output.txt"
 printf '# file: scripts/test-a.sh\nnot ok 1 - new case fails\n# file: scripts/test-b.sh\nok 2 - b passes\n1..2\n' >"$t2/report.tap"
 tapfile_repo tf-all "$t2"; printf 'tap_ok "b passes"\n' >"$TMP/w/tf-all/scripts/test-b.sh"; commit_all "$TMP/w/tf-all" red
@@ -577,5 +578,44 @@ fi
 c=0; usage=$(trap - ERR; cd "$TMP/w/pytest-assert" && .claude/skills/implement-issue/red.sh a b 2>&1) || c=$?; tap_status "$c" 64  # usage error
 grep -q "^Usage: red.sh" <<<"$usage"; tap_check $? "red.sh prints its usage in English"
 ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$HERE/red.sh" "$KIT/scripts/agents/red_report.py"; tap_check $? "red.sh and red_report.py have no Spanish"
+
+
+# missing_test_files does not walk the tree once per case (a go or rust report can have thousands of passing cases)
+cat >"$TMP/tree-count.py" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import red_report as rr
+
+
+class Counting(set):
+    walks = 0
+
+    def __iter__(self):
+        Counting.walks += 1
+        return super().__iter__()
+
+
+def run(when):
+    Counting.walks = 0
+    diff = rr.Diff.__new__(rr.Diff)
+    diff.root, diff.commit, diff.status, diff.old_path, diff._added = ".", "x", {"pkg/a/a_test.go": "A"}, {}, {}
+    diff._tree = Counting(["go.mod", "pkg/a/a_test.go", "pkg/b/y_test.go"])
+    diff.read = lambda p: "module ex.com/m\n" if p == "go.mod" else None
+    report = rr.Report()
+    for i in range(200):
+        report.cases.append(rr.Case(None, "ex.com/m/pkg/a", "TestA%d" % i, "pass"))
+        report.cases.append(rr.Case("b/y_test.go", "", "TestB%d" % i, "pass"))
+    missing = rr.missing_test_files(diff, {"when": when}, report)
+    return Counting.walks, missing
+
+
+walks, missing = run(["**/*_test.go"])
+print("walks=ok" if walks <= 6 and missing == [] else "walks=%d missing=%s" % (walks, missing))
+walks, missing = run(["**/*.nomatch"])
+print("none=ok" if walks == 0 and missing == [] else "none=%d missing=%s" % (walks, missing))
+PY
+tap_run out 0 python3 -I "$TMP/tree-count.py" "$KIT/scripts/agents"
+case $out in *"walks=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "225: missing_test_files walks the tree a few times for 400 cases, not once per case"
+case $out in *"none=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "225: missing_test_files does not map a case when the diff has no test file for the entry"
 
 tap_done

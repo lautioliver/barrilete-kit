@@ -709,6 +709,30 @@ x=$(tap_ok "")
 tap_done' junit
 xq 'len(suites) == 1 and "before" in cases'; tap_check $? "225: JUnit: a bail out inside a substitution leaves one testsuite, not two"
 
+# U+FFFE and U+FFFF are valid UTF-8 and not allowed in XML 1.0: they must not break the file
+run_tap "tap_fail \"x\" \"\$(printf 'a\\357\\277\\276b\\357\\277\\277c')\"
+tap_done" junit
+xq 'len(suites) == 1 and "x" in cases and cases["x"].find("failure") is not None'; tap_check $? "225: JUnit: U+FFFE and U+FFFF in a description leave a well-formed file"
+
+# the error testcase says it is the script that failed, and cannot be mistaken for an id of the test
+run_tap 'set -e
+false
+tap_done' junit
+xq 'any(c.get("name") == "script error: did not finish" and c.find("error") is not None for c in suites[0].iter("testcase"))'; tap_check $? "225: JUnit: the error testcase is named script error: did not finish"
+
+# writing the file does not start a tr and an iconv per value: they run once over the suite (500 cases)
+SHIMS="$TMP/shims"; mkdir -p "$SHIMS"; : >"$TMP/spawns.log"
+REAL_TR=$(command -v tr); REAL_ICONV=$(command -v iconv)
+printf '#!/bin/sh\necho tr >>"%s"\nexec "%s" "$@"\n' "$TMP/spawns.log" "$REAL_TR" >"$SHIMS/tr"
+printf '#!/bin/sh\necho iconv >>"%s"\nexec "%s" "$@"\n' "$TMP/spawns.log" "$REAL_ICONV" >"$SHIMS/iconv"
+chmod +x "$SHIMS/tr" "$SHIMS/iconv"
+OLD_PATH=$PATH; PATH="$SHIMS:$PATH"
+run_tap "$(awk 'BEGIN { for (i = 1; i <= 500; i++) printf "tap_ok \"case-%d\" \"description %d\"\n", i, i }')
+tap_done" junit
+PATH=$OLD_PATH
+xq 'len(cases) == 500 and suites[0].get("tests") == "500"'; tap_check $? "225: JUnit: 500 cases leave 500 testcases"
+[ "$(count . "$TMP/spawns.log")" -le 6 ]; tap_check $? "225: JUnit: tr and iconv run a few times for the whole suite, not once per value"
+
 # several scripts share the file: each one appends its testsuite
 run_tap 'tap_ok "first script"
 tap_done' junit
