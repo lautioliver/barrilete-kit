@@ -141,6 +141,36 @@ echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
 run_red "$r"
 test "$code" -eq 2 && grep -q "no .red. section" "$TMP/out" && grep -q "gotestsum" "$TMP/out" && grep -q "no text fallback" "$TMP/out"; tap_check $? "D1: no red section -> exit 2 with a guide"
 
+# The warning of 1.x for a stack with format "tap" (ADR-002 D8, #226): one line on stderr, exit codes unchanged.
+tap_warning() { printf 'warning: red stack '"'"'%s'"'"' uses format "tap", which 2.0.0 removes; switch it to "junit" (docs/guides/red-per-runner.md)' "$1"; }
+# warn_run <format> <expect>: a stack named "mine" over the corpus case that ends valid (tap) or a plain failing runner; stderr in $TMP/err
+warn_run() {
+  local c="$CORPUS/tap-two-scripts-share-one-report" r="$TMP/w/warn"
+  new_repo "$r"; cp -R "$c/base/." "$r/" 2>/dev/null; install_kit "$r"
+  printf '{"red": [{"name": "mine", "when": ["**"], "format": "tap", "run": "bash %s %s {out} 1 0"}]}\n' "$TMP/fake-run.sh" "$c" >"$r/docs/agents-map.json"
+  commit_all "$r" base; cp -R "$c/red/." "$r/"; commit_all "$r" red
+  code=0
+  (trap - ERR; cd "$r" && "$r/.claude/skills/implement-issue/red.sh") >"$TMP/stdout" 2>"$TMP/err" || code=$?
+}
+warn_run
+test "$code" -eq 0; tap_check $? "warning: a stack with format tap keeps its exit code (a valid red is still 0)"
+grep -qxF "$(tap_warning mine)" "$TMP/err"; tap_check $? "warning: a stack with format tap prints the literal line on stderr"
+o=$(<"$TMP/stdout")
+[[ "$o" != *'uses format "tap"'* ]]; tap_check $? "warning: the line goes to stderr, not to stdout (the block of the PR is stdout)"
+r="$TMP/w/warn-junit"; new_repo "$r"; install_kit "$r"
+write_map "$r" '[{"name":"mine","when":["**"],"format":"junit","run":"true {out}"}]'
+echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
+code=0; (trap - ERR; cd "$r" && "$r/.claude/skills/implement-issue/red.sh") >"$TMP/stdout" 2>"$TMP/err" || code=$?
+test "$code" -eq 2; tap_check $? "warning: a junit stack with no report still exits with 2"
+e=$(<"$TMP/err"); o=$(<"$TMP/stdout")
+[[ "$e$o" != *'uses format "tap"'* ]]; tap_check $? "warning: a stack with format junit does not print it"
+r="$TMP/w/warn-notrun"; new_repo "$r"; install_kit "$r"
+write_map "$r" '[{"name":"mine","when":["**/*.nomatch"],"format":"tap","run":"true {out}"},{"name":"other","when":["**"],"format":"junit","run":"true {out}"}]'
+echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
+code=0; (trap - ERR; cd "$r" && "$r/.claude/skills/implement-issue/red.sh") >"$TMP/stdout" 2>"$TMP/err" || code=$?
+e=$(<"$TMP/err"); o=$(<"$TMP/stdout")
+[[ "$e$o" != *'uses format "tap"'* ]]; tap_check $? "warning: a tap stack that does not run (its when matches nothing) does not warn"
+
 bad_map() { # bad_map <json of the red section> <text expected>: 0 if red.sh rejects it with that text
   local r="$TMP/w/badmap"; new_repo "$r"; install_kit "$r"; write_map "$r" "$1"
   echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
