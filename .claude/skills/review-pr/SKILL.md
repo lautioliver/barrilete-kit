@@ -52,6 +52,8 @@ Each finding with: **file:line**, what is wrong, why it matters (what fails and 
 - **To fix** — it does not break, but it should not go in like this.
 - **Suggestion** — optional.
 
+If the review session has the findings fixed by launching an `implementer`, that one gets its own worktree (`prepare.sh <n> --worktree`) and never uses a worktree where another agent is working: `prepare.sh` refuses it (`agent-lock`, `docs/agents/subagent-contract.md`). Look at `bk ls` first: a live agent on the same PR is a reason to ask, not to share the branch.
+
 Do not pad the list: if there are no findings in a category, say so. A PR with no findings is a valid result.
 
 ## 5. Publish

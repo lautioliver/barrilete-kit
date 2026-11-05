@@ -332,4 +332,14 @@ lk=""; if [ -f "$GD/agent-lock" ]; then lk=$(cat "$GD/agent-lock"); fi
 grep -qx "agent=agente-prepare" <<<"$lk"; tap_check $? "con un candado de un dueño muerto, retoma el worktree y lo reemplaza"
 unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
 
+# Otro agente vivo tiene el worktree: prepare.sh se niega, dice quién lo tiene y no pisa el candado.
+printf 'pid=%s\nstart=%s\nagent=agente-ajeno\nsince=2026-01-01T00:00:00Z\n' "$DUENIO" "$(LC_ALL=C ps -o lstart= -p "$DUENIO" | sed 's/^ *//; s/ *$//')" >"$GD/agent-lock"
+export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-intruso
+c=0; s=$(trap - ERR; "$PREPARAR" 70 --worktree 2>&1) || c=$?; tap_status "$c" 1
+es "$c" -ne 0; tap_check $? "un worktree con dueño vivo ajeno: prepare.sh se niega"
+grep -q "in use.*agente-ajeno" <<<"$s"; tap_check $? "el mensaje dice que el worktree está en uso y por quién"
+lk=$(cat "$GD/agent-lock")
+grep -qx "agent=agente-ajeno" <<<"$lk"; tap_check $? "el candado del dueño vivo no se pisa"
+unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
+
 tap_done

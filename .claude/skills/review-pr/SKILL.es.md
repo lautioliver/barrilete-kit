@@ -52,6 +52,8 @@ Cada hallazgo con: **archivo:línea**, qué está mal, por qué importa (qué fa
 - **A corregir** — no rompe, pero no debería entrar así.
 - **Sugerencia** — opcional.
 
+Si la sesión de revisión hace corregir los hallazgos lanzando un `implementer`, ese usa su worktree propio (`prepare.sh <n> --worktree`) y nunca uno donde trabaja otro agente: `prepare.sh` lo rechaza (`agent-lock`, `docs/agents/subagent-contract.md`). Mirá antes `bk ls`: un agente vivo sobre el mismo PR es un motivo para preguntar, no para compartir la rama.
+
 No infles la lista: si no hay hallazgos de una categoría, decilo. Un PR sin hallazgos es un resultado válido.
 
 ## 5. Publicar

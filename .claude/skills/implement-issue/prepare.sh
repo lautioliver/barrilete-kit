@@ -23,6 +23,8 @@ changed; if there is more than one, it fails and lists them) and prints the issu
                 git -C <path>: if the current directory is reset between commands,
                 you would commit in the main checkout.
               - If the branch is already in another worktree, it fails without assigning.
+              - Takes a lock (agent-lock, in the worktree's git directory; scripts/agents/worktree-lock.sh):
+                if another live agent holds the worktree, it fails without assigning and says who.
               - With the PR merged, delete it with: git worktree remove <path>
 
 Environment:
@@ -198,6 +200,14 @@ if [ -n "$en_uso" ]; then
 elif [ -e "$WT" ]; then
   error "$WT already exists and is not the worktree of $RAMA."
 fi
+# #267: a worktree has one live owner. Claiming it is how this agent says "mine"; if another live agent
+# already holds it, stop: it is not shared (scripts/agents/worktree-lock.sh). A new worktree is claimed after creating it.
+tomar_candado() {
+  local r
+  r=$("$(dirname "${BASH_SOURCE[0]}")/../../../scripts/agents/worktree-lock.sh" claim "$WT")
+  case "$r" in held:*) error "the worktree $WT is in use. ${r#held: }" ;; esac
+}
+[ -d "$WT" ] && tomar_candado
 traer
 if [ -n "$en_uso" ]; then
   echo "Existing branch: $RAMA (resuming)"; atrasada
@@ -211,6 +221,7 @@ else
   mkdir -p "$(dirname "$WT")"; git worktree add -q --no-track -b "$RAMA" "$WT" "origin/$BASE"
   echo "New branch: $RAMA (from origin/$BASE)"
 fi
+tomar_candado
 gh issue edit "$N" -R "$REPO" --add-assignee "$YO" >/dev/null
 echo "Worktree: $WT"
 echo "Assigned to @$YO."
