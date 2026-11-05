@@ -24,6 +24,7 @@ Instrucciones para modelos: leer este archivo y AGENTS.md. Spec aspiracional = /
 - [Mapa para agentes: docs según cambios, rutas sensibles](agents-map.json)
 - [Contrato de los subagentes: reglas y salida común](agents/subagent-contract.md)
 - [Lecciones de las retros de agentes (revisadas en PR; leer antes de implementar)](agents/lessons.md)
+- [Clases de hallazgo de review-pr (provisorio, ADR-006 D4)](agents/classes.yml)
 - [AGENTS.md](../AGENTS.md)
 - [Spec](../README.md)
 
