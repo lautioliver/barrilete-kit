@@ -745,6 +745,10 @@ for carpeta, es in ((AGENTES, False), (AGENTES_ES, True)):
 
 for a in avisos:
     print(f"Warning: {a}")
+# ADR-002 D8 (1.x): a `tap` entry of the map is a warning, never an error. The text is a literal that red.sh and update.py also print.
+for e in (MAPA.get("red") if isinstance(MAPA.get("red"), list) else []):
+    if isinstance(e, dict) and e.get("format") == "tap":
+        print(f'warning: red stack \'{e.get("name")}\' uses format "tap", which 2.0.0 removes; switch it to "junit" (docs/guides/red-per-runner.md)', file=sys.stderr)
 errores = list(dict.fromkeys(errores))
 if errores:
     print(f"Docs with {len(errores)} problem(s):")
