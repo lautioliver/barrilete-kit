@@ -163,9 +163,9 @@ const job = next < 0 ? src.slice(from) : src.slice(from, from + 1 + next);
 const start = job.indexOf('script: |\n') + 'script: |\n'.length;
 const script = job.slice(start).split('\n').map(l => l.replace(/^ {12}/, '')).join('\n');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-const run = async (body, { apiError = false } = {}) => {
+const run = async (body, { apiError = false, labels = ['type:task'] } = {}) => {
   const out = { failed: null };
-  const pr = { labels: [{ name: 'type:task' }], body, head: { ref: 'claude/1-x' } };
+  const pr = { labels: labels.map(name => ({ name })), body, head: { ref: 'claude/1-x' } };
   const commits = [{ sha: '0123abc4' + 'f'.repeat(32) }];
   const github = {
     rest: { pulls: { get: async () => ({ data: pr }), listFiles: 'listFiles', listCommits: 'listCommits' } },
@@ -253,9 +253,20 @@ const cases = {
   'no-tests-empty-then-reason-mentioning-closes-passes': ['Closes #1\nno tests:\nit only closes #2 by hand\n', null],
   // Review of #147: the next line is not a reason when it is a reference to another repo's issue or a rule; a reason that starts with "#123" is one.
   'no-tests-empty-then-closes-other-repo-fails': ['Closes #1\nno tests:\nCloses owner/repo#2\n', /Red before implementing/],
-  'no-tests-empty-then-rule-fails': ['Closes #1\nno tests:\n---\n', /Red before implementing/],
   'no-tests-empty-then-table-row-fails': ['Closes #1\nno tests:\n| a | b |\n', /Red before implementing/],
   'no-tests-empty-then-issue-number-reason-passes': ['Closes #1\nno tests:\n#123 already covers this\n', null],
+  // Review of #147 (second round): a reason that starts like a reference passes when text follows; every other next-line shape of
+  // a reference, a list item or a trailer fails; the ADR exception has the same guard.
+  'no-tests-empty-then-refs-with-reason-passes': ['Closes #1\nno tests:\nrefs #12 already covers it\n', null],
+  'no-tests-empty-then-closes-with-reason-passes': ['Closes #1\nno tests:\nCloses #9 is the real test\n', null],
+  'no-tests-empty-then-closes-url-fails': ['Closes #1\nno tests:\nCloses https://github.com/o/r/issues/2\n', /Red before implementing/],
+  'no-tests-empty-then-bare-url-fails': ['Closes #1\nno tests:\nhttps://github.com/o/r/issues/2\n', /Red before implementing/],
+  'no-tests-empty-then-related-to-fails': ['Closes #1\nno tests:\nRelated to #2\n', /Red before implementing/],
+  'no-tests-empty-then-checkbox-fails': ['Closes #1\nno tests:\n- [ ] item\n', /Red before implementing/],
+  'no-tests-empty-then-trailer-fails': ['Closes #1\nno tests:\nSigned-off-by: A B <a@b.c>\n', /Red before implementing/],
+  'adr-empty-then-closes-fails': ['**ADR unchanged:**\nCloses #1\nno tests: ci only\n', /add "ADR unchanged: <reason>"/, { labels: ['type:task', 'business-logic'] }],
+  'adr-empty-then-heading-fails': ['Closes #1\nno tests: ci only\n**ADR unchanged:**\n## Why\n', /add "ADR unchanged: <reason>"/, { labels: ['type:task', 'business-logic'] }],
+  'adr-empty-then-real-reason-passes': ['Closes #1\nno tests: ci only\n**ADR unchanged:**\nthe rule is not touched\n', null, { labels: ['type:task', 'business-logic'] }],
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
 };
@@ -378,6 +389,16 @@ lc_case no-tests-empty-then-heading-fails; tap_check $? "no-tests-empty-then-hea
 lc_case no-tests-empty-then-bold-closes-fails; tap_check $? "no-tests-empty-then-bold-closes-fails"
 lc_case no-tests-empty-then-real-reason-passes; tap_check $? "no-tests-empty-then-real-reason-passes"
 lc_case no-tests-empty-then-reason-mentioning-closes-passes; tap_check $? "no-tests-empty-then-reason-mentioning-closes-passes"
+lc_case no-tests-empty-then-refs-with-reason-passes; tap_check $? "no-tests-empty-then-refs-with-reason-passes"
+lc_case no-tests-empty-then-closes-with-reason-passes; tap_check $? "no-tests-empty-then-closes-with-reason-passes"
+lc_case no-tests-empty-then-closes-url-fails; tap_check $? "no-tests-empty-then-closes-url-fails"
+lc_case no-tests-empty-then-bare-url-fails; tap_check $? "no-tests-empty-then-bare-url-fails"
+lc_case no-tests-empty-then-related-to-fails; tap_check $? "no-tests-empty-then-related-to-fails"
+lc_case no-tests-empty-then-checkbox-fails; tap_check $? "no-tests-empty-then-checkbox-fails"
+lc_case no-tests-empty-then-trailer-fails; tap_check $? "no-tests-empty-then-trailer-fails"
+lc_case adr-empty-then-closes-fails; tap_check $? "adr-empty-then-closes-fails"
+lc_case adr-empty-then-heading-fails; tap_check $? "adr-empty-then-heading-fails"
+lc_case adr-empty-then-real-reason-passes; tap_check $? "adr-empty-then-real-reason-passes"
 lc_raw cr; tap_check $? "body-performance-65000-cr"
 lc_raw ls; tap_check $? "body-performance-65000-ls"
 lc_raw ps; tap_check $? "body-performance-65000-ps"
@@ -385,7 +406,6 @@ lc_raw crlf; tap_check $? "body-performance-65000-crlf"
 lc_raw mixed; tap_check $? "body-performance-65000-mixed"
 lc_raw spaces; tap_check $? "body-performance-65000-spaces"
 lc_case no-tests-empty-then-closes-other-repo-fails; tap_check $? "no-tests-empty-then-closes-other-repo-fails"
-lc_case no-tests-empty-then-rule-fails; tap_check $? "no-tests-empty-then-rule-fails"
 lc_case no-tests-empty-then-table-row-fails; tap_check $? "no-tests-empty-then-table-row-fails"
 lc_case no-tests-empty-then-issue-number-reason-passes; tap_check $? "no-tests-empty-then-issue-number-reason-passes"
 # Every job of the workflow has a short timeout (a runaway job must not hold a runner for the 6-hour default).
