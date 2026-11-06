@@ -223,6 +223,24 @@ rechaza '{"name":"rep","when":["**/*.py"],"run":"pytest --junitxml={out}","forma
 rechaza '{"when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red\[0\]" 'name'; tap_check $? "check-docs rechaza una entrada red sin name"
 rechaza '"pytest"' "red\[0\]" 'object'; tap_check $? "check-docs rechaza una entrada red que no es un objeto"
 
+# El aviso de 1.x por format "tap" (ADR-002 D8, #226): una línea con el texto exacto, solo para una entrada tap del mapa; no es un error.
+aviso_tap() { printf 'warning: red stack '"'"'%s'"'"' uses format "tap", which 2.0.0 removes; switch it to "junit" (docs/guides/red-per-runner.md)' "$1"; }
+poner_red '[{"name":"nodo","when":["**/*.test.js"],"run":"node --test > {out}","format":"tap"},{"name":"b","when":["**/test-*.sh"],"run":"TAP_OUT={out} bash t.sh","format":"tap"}]'
+salida=$(check)
+grep -qxF "$(aviso_tap nodo)" <<<"$salida"; tap_check $? "check-docs avisa con el texto exacto de una entrada red con format tap"
+grep -qxF "$(aviso_tap b)" <<<"$salida"; tap_check $? "check-docs avisa de cada entrada tap, no solo de la primera"
+[ -z "$(errores_red)" ]; tap_check $? "check-docs no cuenta el aviso de tap como un error del mapa"
+# (en un proyecto recién inicializado check-docs sale con 1 por los TODO del mapa: como en `check`, 0 y 1 valen)
+c=0; solo_stdout=$(trap - ERR; cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>/dev/null) || c=$?
+[ "$c" -le 1 ]; tap_check $? "check-docs sin stderr sale con 0 o 1, no con un crash"
+[[ "$solo_stdout" != *'uses format "tap"'* ]]; tap_check $? "check-docs avisa de tap por stderr, no por stdout"
+poner_red "[$OK]"
+salida=$(check)
+[[ "$salida" != *'uses format "tap"'* ]]; tap_check $? "check-docs no avisa de una entrada red con format junit"
+copia
+salida=$(check)
+[[ "$salida" != *'uses format "tap"'* ]]; tap_check $? "check-docs no avisa de la entrada bash del kit"
+
 # red.sh solo acepta names con [A-Za-z0-9._-]+ (van en el camino de {out}) y una sección red no vacía: check-docs falla antes.
 rechaza '{"name":"unit tests","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red 'unit tests'" 'name'; tap_check $? "check-docs rechaza un name con espacios (red.sh lo rechaza)"
 rechaza '{"name":"py/unit","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red 'py/unit'" 'name'; tap_check $? "check-docs rechaza un name con barra (red.sh lo rechaza)"
@@ -316,7 +334,7 @@ minimo() {
   git -C "$TMP/r" commit -qm base
 }
 modo_small() {
-  printf '%s\n' '{"red": [{"name": "bash", "when": ["**/test-*.sh"], "format": "tap", "run": "true {out}"}]}' >"$TMP/r/docs/agents-map.json"
+  printf '%s\n' '{"red": [{"name": "bash", "when": ["**/test-*.sh"], "format": "junit", "run": "true {out}"}]}' >"$TMP/r/docs/agents-map.json"
   printf '# Glossary\n\nDomain words.\n' >"$TMP/r/docs/glossary.md"
   printf '# Contexts\n\nBounded contexts.\n' >"$TMP/r/docs/contexts.md"
   printf '\n- [Glossary](glossary.md)\n- [Contexts](contexts.md)\n' >>"$TMP/r/docs/README.md"

@@ -194,6 +194,11 @@ TAP_CASE = re.compile(r"^(not )?ok(?=\s|$)(?:\s+(\d+))?\s*(?:-\s*)?(.*)$")
 TAP_DIRECTIVE = re.compile(r"\s#\s*(TODO|SKIP)\w*\b", re.I)
 
 
+# The warning of the 1.x that removes "tap" in 2.0.0 (ADR-002 D8). check-docs.py and update.py print the same literal.
+TAP_WARNING = ('warning: red stack \'{name}\' uses format "tap", which 2.0.0 removes; '
+               'switch it to "junit" (docs/guides/red-per-runner.md)')
+
+
 def parse_tap(path):
     data = read_report(path)
     if not data.strip():
@@ -944,6 +949,9 @@ def main(argv):
     for entry in chosen:
         out_dir = tempfile.mkdtemp(prefix=entry["name"][:20] + "-", dir=tmp)
         print(f'== red: stack "{entry["name"]}" ({entry["format"]}, timeout {entry["timeout"]} s)', flush=True)
+        if entry["format"] == "tap":
+            # 1.x only (ADR-002 D8): one line on stderr, no change to the exit code. 2.0.0 turns it into an error.
+            print(TAP_WARNING.format(name=entry["name"]), file=sys.stderr, flush=True)
         rc, timed_out, out = run_stack(entry, out_dir, root)
         report, report_error = None, None
         if not timed_out:
