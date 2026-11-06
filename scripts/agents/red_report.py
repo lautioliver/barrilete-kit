@@ -573,7 +573,7 @@ def rust_defines(diff, path, added, name):
     return False
 
 
-def defines(diff, path, added, name, ext_kind):
+def defines(diff, path, added, name):
     """Does an added line of `path` define the test `name` (a whole identifier, never in a comment)?"""
     if path.endswith(".sh"):
         # The case line of tap.sh: the id is the literal first argument of tap_ok, tap_fail or tap_check (after
@@ -638,7 +638,7 @@ def check_cases(diff, report):
                 if f not in diff.status:
                     continue
                 whole_file = diff.is_new(f) and len(files) == 1 and kind != "go"  # in a file the diff adds, every case qualifies
-                if whole_file or defines(diff, f, diff.added(f), ident, ext):
+                if whole_file or defines(diff, f, diff.added(f), ident):
                     ok = True
                     break
             if not ok:
@@ -813,6 +813,9 @@ def load_stacks(map_path):
             "cargo: nextest (junit) or cargo2junit | bash: tap.sh. There is no text fallback.")
     if not isinstance(stacks, list):
         raise Reject("`red` has to be a list of stacks")
+    for e in stacks:  # ADR-002 D8: a removed format is named before any other problem of its entry
+        if isinstance(e, dict) and e.get("format") == "tap":
+            raise Removed(TAP_REMOVED.format(name=e.get("name")))
     seen = set()
     for e in stacks:
         if not isinstance(e, dict):
@@ -822,8 +825,6 @@ def load_stacks(map_path):
             raise Reject("each `red` entry needs a unique `name` made of letters, digits, `.`, `_` and `-` "
                          "(it is part of the path of {out})")
         seen.add(name)
-        if e.get("format") == "tap":
-            raise Removed(TAP_REMOVED.format(name=name))
         if e.get("format") != "junit":
             raise Reject(f'red "{name}": `format` has to be "junit"')
         if not isinstance(e.get("run"), str) or "{out}" not in e["run"]:

@@ -224,7 +224,7 @@ rechaza '{"when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' 
 rechaza '"pytest"' "red\[0\]" 'object'; tap_check $? "check-docs rechaza una entrada red que no es un objeto"
 
 # 2.0.0 sacó format "tap" (ADR-002 D8, #227): una entrada tap del mapa es un error con el texto de red.sh, no un aviso.
-rechaza '{"name":"nodo","when":["**/*.test.js"],"run":"node --test > {out}","format":"tap"}' "red 'nodo'" 'format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)'; tap_check $? "227: check-docs rechaza una entrada red con format tap con el texto de ADR-002 D8"
+rechaza '{"name":"nodo","when":["**/*.test.js"],"run":"node --test > {out}","format":"tap"}' "red stack 'nodo'" 'format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)'; tap_check $? "227: check-docs rechaza una entrada red con format tap con el texto de ADR-002 D8"
 poner_red '[{"name":"nodo","when":["**/*.test.js"],"run":"node --test > {out}","format":"tap"}]'
 salida=$(check)
 grep -qxF -- "- docs/agents-map.json: red stack 'nodo': format \"tap\" was removed in 2.0.0; use \"junit\" (docs/guides/red-per-runner.md)" <<<"$salida"; tap_check $? "227: el error de check-docs por tap es el literal de red.sh, sin repetir el nombre"

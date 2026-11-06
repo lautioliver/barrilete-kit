@@ -422,7 +422,8 @@ def validar_red(red):
             errs.append(f"{pre} 'run' must be a command that contains {{out}}: red.sh replaces it with the path where the report is written")
         if e.get("format") == "tap":
             # ADR-002 D8: 2.0.0 removed it. The text is the literal red.sh prints.
-            errs.append(f'{pre} red stack \'{nombre}\': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)')
+            errs.append(f'docs/agents-map.json: red stack \'{nombre}\': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)'
+                        if isinstance(nombre, str) and nombre.strip() else f'{pre} format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)')
         elif e.get("format") != "junit":
             errs.append(f"{pre} 'format' must be \"junit\" (it is {e.get('format')!r})")
         if "timeout" in e:
