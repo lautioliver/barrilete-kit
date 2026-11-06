@@ -195,8 +195,10 @@ const cases = {
   'no-case-fails': [T + R + 'stack: bash\nformat: junit\nfailing cases:\n\n' + E, /failing case|case/i],
   'bad-sha-fails': [T + 'red commit: <sha>\n\n' + G() + E, /red commit:/],
   'two-red-commits-fails': [T + R + R + G() + E, /red commit:/],
-  // 2.0.0 removed format tap (ADR-002 D8/D9, #228): the block says it with the line of red.sh, and junit is the only format.
+  // 2.0.0 removed format tap (ADR-002 D8/D9, #228): the check says so with its own message (not the line of red.sh), and junit is the only format.
   'format-tap-fails': [T + R + G('bash', 'tap') + E, /group 1: format "tap" was removed in 2\.0\.0;/],
+  // Only that message: the "format:" line is there, so the generic "is missing or is not junit" would mislead.
+  'format-tap-gets-only-the-new-message': [T + R + G('bash', 'tap') + E, /^(?![\s\S]*is missing or is not junit)[\s\S]*group 1: format "tap" was removed in 2\.0\.0;/],
   // The message says how to get out: rerunning red.sh alone prints the same tap block again while the entry says tap.
   'format-tap-says-how-to-fix': [T + R + G('bash', 'tap') + E, /group 1: format "tap" was removed in 2\.0\.0; switch the red entry of docs\/agents-map\.json to "junit" \(docs\/guides\/red-per-runner\.md\), run red\.sh again and paste the new block\.$/m],
   'format-tap-uppercase-fails': [T + R + G('bash', 'TAP') + E, /group 1: format "tap" was removed in 2\.0\.0/],
@@ -293,6 +295,7 @@ lc_case no-case-fails; tap_check $? "structured-block-without-case-fails"
 lc_case bad-sha-fails; tap_check $? "structured-block-bad-sha-fails"
 lc_case two-red-commits-fails; tap_check $? "structured-block-two-red-commits-fail"
 lc_case format-tap-fails; tap_check $? "228: format tap fails and says 2.0.0 removed it"
+lc_case format-tap-gets-only-the-new-message; tap_check $? "228: format tap gets only the 2.0.0 message, not the generic one"
 lc_case format-tap-says-how-to-fix; tap_check $? "228: format tap says to switch the map entry and where the guide is"
 lc_case format-tap-uppercase-fails; tap_check $? "228: format TAP in capitals fails too"
 lc_case format-tap-in-second-group-fails; tap_check $? "228: format tap in a second group fails and names it"
