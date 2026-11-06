@@ -250,4 +250,34 @@ if [ -f "$RAIZ/.claude/skills/orchestrate/SKILL.es.md" ]; then grep -qF -- "en s
 if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "WORKTREE_LOCK_AGENT=<nombre> scripts/agents/worktree-lock.sh release" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): el release lleva WORKTREE_LOCK_AGENT con el nombre"; else tap_skip "contrato (es): el release lleva WORKTREE_LOCK_AGENT con el nombre" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
 if [ -f "$RAIZ/.claude/i18n/agents/implementer.es.md" ]; then grep -qF -- "devolvé \`question\` (" "$RAIZ/.claude/i18n/agents/implementer.es.md"; tap_check $? "implementer (es): ante held devuelve solo question"; else tap_skip "implementer (es): ante held devuelve solo question" "no existe .claude/i18n/agents/implementer.es.md en este proyecto"; fi
 
+# 9. Una sesión de review que hace implementar los arreglos (review-pr, #262) hace lo mismo que el orquestador: toma el
+# candado con su nombre, lo suelta antes de lanzar, y el implementer (mismo pid, otro nombre) lo toma y lo suelta al terminar.
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=sesion-review
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+tap_run out 0 "$LOCK" release "$TMP/wt"
+export WORKTREE_LOCK_AGENT=implementer-268
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+tap_run out 0 "$LOCK" release "$TMP/wt"
+export WORKTREE_LOCK_AGENT=sesion-review
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx claimed <<<"$out"; tap_check $? "sesión de review: tras soltar el implementer, la sesión toma el candado de nuevo"
+rm -f "$GDIR/agent-lock"
+
+# Docs de la sesión de review.
+if [ "$CHICO" = 1 ]; then
+  tap_skip "review-pr: la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh" "$SIN"
+  tap_skip "review-pr: la sesión suelta el candado antes de lanzar al implementer" "$SIN"
+  tap_skip "contrato: la sesión de revisión suelta el candado como el orquestador" "$SIN"
+  tap_skip "reviewer: el implementer del arreglo lleva su WORKTREE_LOCK_AGENT" "$SIN"
+else
+  mencion .claude/skills/review-pr/SKILL.md "WORKTREE_LOCK_AGENT" "WORKTREE_LOCK_AGENT"; tap_check $? "review-pr: la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh"
+  mencion .claude/skills/review-pr/SKILL.md "worktree-lock.sh release" "worktree-lock.sh release"; tap_check $? "review-pr: la sesión suelta el candado antes de lanzar al implementer"
+  mencion docs/agents/subagent-contract.md "review session releases" "sesión de revisión suelta"; tap_check $? "contrato: la sesión de revisión suelta el candado como el orquestador"
+  mencion .claude/agents/reviewer.md "WORKTREE_LOCK_AGENT" "WORKTREE_LOCK_AGENT"; tap_check $? "reviewer: el implementer del arreglo lleva su WORKTREE_LOCK_AGENT"
+fi
+if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "WORKTREE_LOCK_AGENT" "$RAIZ/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "review-pr (es): la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh"; else tap_skip "review-pr (es): la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh" "no existe .claude/skills/review-pr/SKILL.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "worktree-lock.sh release" "$RAIZ/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "review-pr (es): la sesión suelta el candado antes de lanzar al implementer"; else tap_skip "review-pr (es): la sesión suelta el candado antes de lanzar al implementer" "no existe .claude/skills/review-pr/SKILL.es.md en este proyecto"; fi
+if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "sesión de revisión suelta" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): la sesión de revisión suelta el candado como el orquestador"; else tap_skip "contrato (es): la sesión de revisión suelta el candado como el orquestador" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/i18n/agents/reviewer.es.md" ]; then grep -qF -- "WORKTREE_LOCK_AGENT" "$RAIZ/.claude/i18n/agents/reviewer.es.md"; tap_check $? "reviewer (es): el implementer del arreglo lleva su WORKTREE_LOCK_AGENT"; else tap_skip "reviewer (es): el implementer del arreglo lleva su WORKTREE_LOCK_AGENT" "no existe .claude/i18n/agents/reviewer.es.md en este proyecto"; fi
+
 tap_done
