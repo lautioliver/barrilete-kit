@@ -25,7 +25,7 @@ changed; if there is more than one, it fails and lists them) and prints the issu
               - If the branch is already in another worktree, it fails without assigning.
               - Takes a lock (agent-lock, in the worktree's git directory; scripts/agents/worktree-lock.sh):
                 if another live agent holds the worktree, it fails without assigning and says who.
-                Subagents of one process set WORKTREE_LOCK_AGENT; release with worktree-lock.sh release <worktree>.
+                Subagents of one process set WORKTREE_LOCK_AGENT; release with WORKTREE_LOCK_AGENT=<name> worktree-lock.sh release <worktree>.
               - With the PR merged, delete it with: git worktree remove <path>
 
 Environment:
