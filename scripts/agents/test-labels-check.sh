@@ -267,6 +267,15 @@ const cases = {
   'adr-empty-then-closes-fails': ['**ADR unchanged:**\nCloses #1\nno tests: ci only\n', /add "ADR unchanged: <reason>"/, { labels: ['type:task', 'business-logic'] }],
   'adr-empty-then-heading-fails': ['Closes #1\nno tests: ci only\n**ADR unchanged:**\n## Why\n', /add "ADR unchanged: <reason>"/, { labels: ['type:task', 'business-logic'] }],
   'adr-empty-then-real-reason-passes': ['Closes #1\nno tests: ci only\n**ADR unchanged:**\nthe rule is not touched\n', null, { labels: ['type:task', 'business-logic'] }],
+  // Review of #147 (third round): a line of only references is not a reason, and a "#..." line is not one unless it is "#n" plus words.
+  'no-tests-empty-then-lone-issue-ref-fails': ['Closes #1\nno tests:\n#7\n', /Red before implementing/],
+  'no-tests-empty-then-two-refs-fails': ['Closes #1\nno tests:\n#2, #3\n', /Red before implementing/],
+  'no-tests-empty-then-repo-ref-fails': ['Closes #1\nno tests:\nowner/repo#2\n', /Red before implementing/],
+  'no-tests-empty-then-plus-closes-fails': ['Closes #1\nno tests:\n+ Closes #2\n', /Red before implementing/],
+  'no-tests-empty-then-numbered-closes-fails': ['Closes #1\nno tests:\n1. Closes #2\n', /Red before implementing/],
+  'adr-empty-then-lone-hash-fails': ['Closes #1\nno tests: ci only\n**ADR unchanged:**\n#7\n', /add "ADR unchanged: <reason>"/, { labels: ['type:task', 'business-logic'] }],
+  'adr-empty-then-hash-word-fails': ['Closes #1\nno tests: ci only\n**ADR unchanged:**\n#nope\n', /add "ADR unchanged: <reason>"/, { labels: ['type:task', 'business-logic'] }],
+  'adr-empty-then-long-hash-fails': ['Closes #1\nno tests: ci only\n**ADR unchanged:**\n####### x\n', /add "ADR unchanged: <reason>"/, { labels: ['type:task', 'business-logic'] }],
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
 };
@@ -408,6 +417,14 @@ lc_case no-tests-empty-then-trailer-fails; tap_check $? "no-tests-empty-then-tra
 lc_case adr-empty-then-closes-fails; tap_check $? "adr-empty-then-closes-fails"
 lc_case adr-empty-then-heading-fails; tap_check $? "adr-empty-then-heading-fails"
 lc_case adr-empty-then-real-reason-passes; tap_check $? "adr-empty-then-real-reason-passes"
+lc_case no-tests-empty-then-lone-issue-ref-fails; tap_check $? "no-tests-empty-then-lone-issue-ref-fails"
+lc_case no-tests-empty-then-two-refs-fails; tap_check $? "no-tests-empty-then-two-refs-fails"
+lc_case no-tests-empty-then-repo-ref-fails; tap_check $? "no-tests-empty-then-repo-ref-fails"
+lc_case no-tests-empty-then-plus-closes-fails; tap_check $? "no-tests-empty-then-plus-closes-fails"
+lc_case no-tests-empty-then-numbered-closes-fails; tap_check $? "no-tests-empty-then-numbered-closes-fails"
+lc_case adr-empty-then-lone-hash-fails; tap_check $? "adr-empty-then-lone-hash-fails"
+lc_case adr-empty-then-hash-word-fails; tap_check $? "adr-empty-then-hash-word-fails"
+lc_case adr-empty-then-long-hash-fails; tap_check $? "adr-empty-then-long-hash-fails"
 lc_raw cr; tap_check $? "body-performance-65000-cr"
 lc_raw ls; tap_check $? "body-performance-65000-ls"
 lc_raw ps; tap_check $? "body-performance-65000-ps"
