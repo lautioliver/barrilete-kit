@@ -1,0 +1,6 @@
+<testsuites>
+<testsuite name="scripts/calc.test.sh" file="scripts/calc.test.sh" tests="2" failures="1" errors="0" skipped="0">
+<testcase name="adds numbers" classname="scripts/calc.test.sh" file="scripts/calc.test.sh"></testcase>
+<testcase name="old broken" classname="scripts/calc.test.sh" file="scripts/calc.test.sh"><failure message=""/></testcase>
+</testsuite>
+</testsuites>

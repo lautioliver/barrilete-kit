@@ -1,0 +1,5 @@
+<testsuites>
+<testsuite name="scripts/new.test.sh" file="scripts/new.test.sh" tests="1" failures="0" errors="0" skipped="0">
+<testcase name="creates the branch" classname="scripts/new.test.sh" file="scripts/new.test.sh"></testcase>
+</testsuite>
+</testsuites>

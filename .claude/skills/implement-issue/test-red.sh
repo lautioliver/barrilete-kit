@@ -4,11 +4,11 @@
 # the corpus cannot express (usage, the `red` section, the report path, timeouts, the trusted checkout).
 #
 # A corpus case is a directory:
-#   meta        expect=<exit code of red.sh> format=junit|tap exit=<exit code of the runner> source=<how the fixture was made>
+#   meta        expect=<exit code of red.sh> format=junit exit=<exit code of the runner> source=<how the fixture was made>
 #               optional: says=<text red.sh must print>, timeout=<s>, sleep=<s the runner stays alive>, note=
 #   base/       the files of the parent commit
 #   red/        the files the red commit adds or changes
-#   report.xml  | report.tap   what the runner wrote to {out} (absent: it wrote nothing)
+#   report.xml  what the runner wrote to {out} (absent: it wrote nothing)
 #   output.txt  what the runner printed
 # The runner is simulated: it prints output.txt, copies the report to {out} and exits with `exit`.
 # The reports of pytest, vitest and jest are real output; the rest is written by hand (see `source`).
@@ -33,7 +33,7 @@ cat >"$TMP/fake-run.sh" <<'EOF'
 #!/usr/bin/env bash
 case_dir=$1 out=$2 code=$3 pause=$4
 cat "$case_dir/output.txt" 2>/dev/null
-for r in "$case_dir"/report.xml "$case_dir"/report.tap; do [ -f "$r" ] && cp "$r" "$out"; done
+[ -f "$case_dir/report.xml" ] && cp "$case_dir/report.xml" "$out"
 [ "$pause" != 0 ] && sleep "$pause"
 exit "$code"
 EOF
@@ -141,35 +141,28 @@ echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
 run_red "$r"
 test "$code" -eq 2 && grep -q "no .red. section" "$TMP/out" && grep -q "gotestsum" "$TMP/out" && grep -q "no text fallback" "$TMP/out"; tap_check $? "D1: no red section -> exit 2 with a guide"
 
-# The warning of 1.x for a stack with format "tap" (ADR-002 D8, #226): one line on stderr, exit codes unchanged.
-tap_warning() { printf 'warning: red stack '"'"'%s'"'"' uses format "tap", which 2.0.0 removes; switch it to "junit" (docs/guides/red-per-runner.md)' "$1"; }
-# warn_run <format> <expect>: a stack named "mine" over the corpus case that ends valid (tap) or a plain failing runner; stderr in $TMP/err
-warn_run() {
-  local c="$CORPUS/tap-two-scripts-share-one-report" r="$TMP/w/warn"
-  new_repo "$r"; cp -R "$c/base/." "$r/" 2>/dev/null; install_kit "$r"
-  printf '{"red": [{"name": "mine", "when": ["**"], "format": "tap", "run": "bash %s %s {out} 1 0"}]}\n' "$TMP/fake-run.sh" "$c" >"$r/docs/agents-map.json"
-  commit_all "$r" base; cp -R "$c/red/." "$r/"; commit_all "$r" red
-  code=0
-  (trap - ERR; cd "$r" && "$r/.claude/skills/implement-issue/red.sh") >"$TMP/stdout" 2>"$TMP/err" || code=$?
-}
-warn_run
-test "$code" -eq 0; tap_check $? "warning: a stack with format tap keeps its exit code (a valid red is still 0)"
-grep -qxF "$(tap_warning mine)" "$TMP/err"; tap_check $? "warning: a stack with format tap prints the literal line on stderr"
-o=$(<"$TMP/stdout")
-[[ "$o" != *'uses format "tap"'* ]]; tap_check $? "warning: the line goes to stderr, not to stdout (the block of the PR is stdout)"
-r="$TMP/w/warn-junit"; new_repo "$r"; install_kit "$r"
-write_map "$r" '[{"name":"mine","when":["**"],"format":"junit","run":"true {out}"}]'
+# 2.0.0 removed format "tap" (ADR-002 D8, #227): a stack with it exits with 2 and prints the literal line, and its run never starts.
+tap_removed() { printf 'red stack '"'"'%s'"'"': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)' "$1"; }
+r="$TMP/w/tap-removed"; new_repo "$r"; install_kit "$r"
+write_map "$r" "[{\"name\": \"mine\", \"when\": [\"**\"], \"format\": \"tap\", \"run\": \"touch $TMP/tap-removed-ran; bash $TMP/fake-run.sh $CORPUS/bash-new-script {out} 1 0\"}]"
+cp -R "$CORPUS/bash-new-script/base/." "$r/"; commit_all "$r" base; cp -R "$CORPUS/bash-new-script/red/." "$r/"; commit_all "$r" red
+run_red "$r"
+test "$code" -eq 2; tap_check $? "227: a stack with format tap exits with 2 (2.0.0 removed it)"
+grep -qxF "$(tap_removed mine)" "$TMP/out"; tap_check $? "227: a stack with format tap prints the literal line of ADR-002 D8"
+test ! -e "$TMP/tap-removed-ran"; tap_check $? "227: the run of a stack with format tap never starts"
+o=$(<"$TMP/out")
+[[ "$o" != *'which 2.0.0 removes'* ]]; tap_check $? "227: the warning of 1.x is gone (2.0.0 rejects, it does not warn)"
+r="$TMP/w/tap-removed-notrun"; new_repo "$r"; install_kit "$r"
+write_map "$r" "[{\"name\": \"old\", \"when\": [\"**/*.nomatch\"], \"format\": \"tap\", \"run\": \"true {out}\"}, {\"name\": \"py\", \"when\": [\"**\"], \"format\": \"junit\", \"run\": \"bash $TMP/fake-run.sh $CORPUS/pytest-assert {out} 1 0\"}]"
+cp -R "$CORPUS/pytest-assert/base/." "$r/"; commit_all "$r" base; cp -R "$CORPUS/pytest-assert/red/." "$r/"; commit_all "$r" red
+run_red "$r"
+test "$code" -eq 2; tap_check $? "227: a map with a tap stack is rejected even when that stack does not match the commit"
+grep -qxF "$(tap_removed old)" "$TMP/out"; tap_check $? "227: the rejection of a tap stack that does not match names it with the literal line"
+r="$TMP/w/tap-removed-badname"; new_repo "$r"; install_kit "$r"
+write_map "$r" '[{"name":"py","when":["**"],"format":"junit","run":"true {out}"},{"name":"py","when":["**"],"format":"tap","run":"true {out}"}]'
 echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
-code=0; (trap - ERR; cd "$r" && "$r/.claude/skills/implement-issue/red.sh") >"$TMP/stdout" 2>"$TMP/err" || code=$?
-test "$code" -eq 2; tap_check $? "warning: a junit stack with no report still exits with 2"
-e=$(<"$TMP/err"); o=$(<"$TMP/stdout")
-[[ "$e$o" != *'uses format "tap"'* ]]; tap_check $? "warning: a stack with format junit does not print it"
-r="$TMP/w/warn-notrun"; new_repo "$r"; install_kit "$r"
-write_map "$r" '[{"name":"mine","when":["**/*.nomatch"],"format":"tap","run":"true {out}"},{"name":"other","when":["**"],"format":"junit","run":"true {out}"}]'
-echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
-code=0; (trap - ERR; cd "$r" && "$r/.claude/skills/implement-issue/red.sh") >"$TMP/stdout" 2>"$TMP/err" || code=$?
-e=$(<"$TMP/err"); o=$(<"$TMP/stdout")
-[[ "$e$o" != *'uses format "tap"'* ]]; tap_check $? "warning: a tap stack that does not run (its when matches nothing) does not warn"
+run_red "$r"
+grep -qxF "$(tap_removed py)" "$TMP/out"; tap_check $? "227: a tap stack is rejected with the literal line before the checks of its name"
 
 bad_map() { # bad_map <json of the red section> <text expected>: 0 if red.sh rejects it with that text
   local r="$TMP/w/badmap"; new_repo "$r"; install_kit "$r"; write_map "$r" "$1"
@@ -179,50 +172,25 @@ bad_map() { # bad_map <json of the red section> <text expected>: 0 if red.sh rej
   show >&2
   return 1
 }
-bad_map '[{"name":"t","when":["**"],"run":"true","format":"tap"}]' '{out}'; tap_check $? "map: run without {out} is rejected"
-bad_map '[{"name":"t","when":["**"],"run":"true {out}","format":"text"}]' '"junit" or "tap"'; tap_check $? "map: unknown format is rejected"
-bad_map '[{"name":"t","run":"true {out}","format":"tap"}]' '`when`'; tap_check $? "map: no when is rejected"
-bad_map '[{"name":"t","when":["**"],"run":"true {out}","format":"tap","timeout":"soon"}]' '`timeout`'; tap_check $? "map: timeout must be a positive number"
-bad_map '[{"name":"t","when":["**"],"run":"true {out}","format":"tap","timeout":0}]' '`timeout`'; tap_check $? "map: zero timeout is rejected"
-bad_map '[{"name":"t","when":["**"],"run":"true {out}","format":"tap"},{"name":"t","when":["**"],"run":"true {out}","format":"tap"}]' 'unique `name`'; tap_check $? "map: duplicate names are rejected"
-bad_map '[{"name":"my tests","when":["**"],"run":"true {out}","format":"tap"}]' 'letters, digits'; tap_check $? "map: a stack name with a space is rejected (it ends up in the path of {out})"
-bad_map '[{"name":"a;b","when":["**"],"run":"true {out}","format":"tap"}]' 'letters, digits'; tap_check $? "map: a stack name with a shell metacharacter is rejected"
-bad_map '[{"name":"t","when":["src/**"],"run":"true {out}","format":"tap"}]' 'no `red` entry matches'; tap_check $? "map: a stack that matches no changed file"
+bad_map '[{"name":"t","when":["**"],"run":"true","format":"junit"}]' '{out}'; tap_check $? "map: run without {out} is rejected"
+bad_map '[{"name":"t","when":["**"],"run":"true {out}","format":"text"}]' 'has to be "junit"'; tap_check $? "map: unknown format is rejected"
+bad_map '[{"name":"t","run":"true {out}","format":"junit"}]' '`when`'; tap_check $? "map: no when is rejected"
+bad_map '[{"name":"t","when":["**"],"run":"true {out}","format":"junit","timeout":"soon"}]' '`timeout`'; tap_check $? "map: timeout must be a positive number"
+bad_map '[{"name":"t","when":["**"],"run":"true {out}","format":"junit","timeout":0}]' '`timeout`'; tap_check $? "map: zero timeout is rejected"
+bad_map '[{"name":"t","when":["**"],"run":"true {out}","format":"junit"},{"name":"t","when":["**"],"run":"true {out}","format":"junit"}]' 'unique `name`'; tap_check $? "map: duplicate names are rejected"
+bad_map '[{"name":"my tests","when":["**"],"run":"true {out}","format":"junit"}]' 'letters, digits'; tap_check $? "map: a stack name with a space is rejected (it ends up in the path of {out})"
+bad_map '[{"name":"a;b","when":["**"],"run":"true {out}","format":"junit"}]' 'letters, digits'; tap_check $? "map: a stack name with a shell metacharacter is rejected"
+bad_map '[{"name":"t","when":["src/**"],"run":"true {out}","format":"junit"}]' 'no `red` entry matches'; tap_check $? "map: a stack that matches no changed file"
 
 # ---------------------------------------------------------------- the commit
 r="$TMP/w/dirty"; cp -R "$TMP/w/pytest-assert" "$r"; echo "# x" >>"$r/test_old.py"
 run_red "$r"
 test "$code" -eq 2 && grep -q "uncommitted" "$TMP/out"; tap_check $? "a tracked file changed after the red commit -> exit 2"
 
-r="$TMP/w/rootcommit"; new_repo "$r"; install_kit "$r"; write_map "$r" '[{"name":"t","when":["**"],"run":"true {out}","format":"tap"}]'
+r="$TMP/w/rootcommit"; new_repo "$r"; install_kit "$r"; write_map "$r" '[{"name":"t","when":["**"],"run":"true {out}","format":"junit"}]'
 commit_all "$r" only
 run_red "$r"
 test "$code" -eq 2 && grep -q "no parent" "$TMP/out"; tap_check $? "a red commit without parent -> exit 2"
-
-# ---------------------------------------------------------------- the second marker of the runner of #182 (#211)
-# The case whose id starts with "second marker:" proves the nested test reached the step under test: it passes in the red.
-marker_red() { # marker_red <name> <verdict of the second marker: ok|not ok> [<directive, e.g. " # TODO">] [<id prefix, e.g. "182: ">]
-  local r="$TMP/w/$1" t="$TMP/m-$1"
-  new_repo "$r"; install_kit "$r"; mkdir -p "$t" "$r/scripts"
-  printf 'FAIL - runner prints its marker\n' >"$t/output.txt"
-  printf '# file: scripts/new.test.sh\nnot ok 1 - runner prints its marker\n%s 2 - %ssecond marker: the nested test reached the step under test%s\n1..2\n' "$2" "${4:-}" "${3:-}" >"$t/report.tap"
-  write_map "$r" "[{\"name\": \"sh\", \"when\": [\"**/*.sh\"], \"format\": \"tap\", \"run\": \"bash $TMP/fake-run.sh $t {out} 1 0\"}]"
-  printf 'x\n' >"$r/scripts/old.test.sh"; commit_all "$r" base
-  printf 'x\n' >"$r/scripts/new.test.sh"; commit_all "$r" red
-  run_red "$r"
-}
-marker_red marker-fails "not ok"
-test "$code" -eq 2 && grep -q 'second marker' "$TMP/out"; tap_check $? "211: a red where the case of the second marker is among the failed ones is rejected (exit 2)"
-marker_red marker-todo "not ok" " # TODO"
-test "$code" -eq 2 && grep -q 'second marker' "$TMP/out"; tap_check $? "211: a red where the case of the second marker is marked TODO (not run) is rejected (exit 2)"
-marker_red marker-skip "ok" " # SKIP"
-test "$code" -eq 2 && grep -q 'second marker' "$TMP/out"; tap_check $? "211: a red where the case of the second marker is marked SKIP is rejected (exit 2)"
-marker_red marker-fails-numbered "not ok" "" "182: "
-test "$code" -eq 2 && grep -q 'second marker' "$TMP/out"; tap_check $? "211: a red where the case \"<N>: second marker: …\" (id with the issue number first) is among the failed ones is rejected (exit 2)"
-marker_red marker-skip-numbered "ok" " # SKIP" "182: "
-test "$code" -eq 2 && grep -q 'second marker' "$TMP/out"; tap_check $? "211: a red where the case \"<N>: second marker: …\" is marked SKIP is rejected (exit 2)"
-marker_red marker-passes "ok"
-test "$code" -eq 0; tap_check $? "211: a red where the case of the second marker passes is accepted (exit 0)"
 
 # ---------------------------------------------------------------- the bash entry in JUnit (#225, ADR-002 D6)
 # The `run` that these cases execute is the one the kit ships: it is read from docs/agents-map.json and from the small profile,
@@ -305,15 +273,6 @@ commit_all "$TMP/w/j-skipall" base
 commit_all "$TMP/w/j-skipall" red
 run_red "$TMP/w/j-skipall"
 test "$code" -eq 0; tap_check $? "225: in JUnit a script of the red diff that ran with tap_skip_all is not rejected as not run (exit 0)"
-t3="$TMP/tapskip"; mkdir -p "$t3"; : >"$t3/output.txt"
-printf '# file: scripts/test-a.sh\nnot ok 1 - new case fails\n# file: scripts/test-b.sh\n# skip: needs docker\n1..1\n' >"$t3/report.tap"
-r="$TMP/w/tf-skipall"; new_repo "$r"; install_kit "$r"
-write_map "$r" "[{\"name\": \"bash\", \"when\": [\"**/test-*.sh\"], \"format\": \"tap\", \"run\": \"bash $TMP/fake-run.sh $t3 {out} 1 0\"}]"
-mkdir -p "$r/scripts"; echo x >"$r/scripts/old.sh"; commit_all "$r" base
-printf 'tap_check $? "new case fails"\n' >"$r/scripts/test-a.sh"; printf 'echo b\n' >"$r/scripts/test-b.sh"
-commit_all "$r" red
-run_red "$r"
-test "$code" -eq 0; tap_check $? "225: in tap a script with a # file: line and only a skip is not rejected as not run (exit 0)"
 
 # a renamed test is a test the run runs (the file is named by its new path)
 for prof in full small; do
@@ -348,55 +307,24 @@ run_red "$r"
 says 'a.spec.ts'; tap_check $? "225: a *.spec.* file of the diff is a test file"
 says '__tests__/b.js'; tap_check $? "225: a __tests__/ file of the diff is a test file"
 
-# a `tap` entry applies the same rule through its `# file:` line (ADR-002 D6): a test file of the diff with no line is rejected
-t="$TMP/tapfile"; mkdir -p "$t"
-printf '# file: scripts/test-a.sh\nnot ok 1 - new case fails\n1..1\n' >"$t/report.tap"; : >"$t/output.txt"
-tapfile_repo() { # tapfile_repo <name> <report dir>
-  local r="$TMP/w/$1"; new_repo "$r"; install_kit "$r"
-  write_map "$r" "[{\"name\": \"bash\", \"when\": [\"**/test-*.sh\"], \"format\": \"tap\", \"run\": \"bash $TMP/fake-run.sh $2 {out} 1 0\"}]"
-  mkdir -p "$r/scripts"; echo x >"$r/scripts/old.sh"; commit_all "$r" base
-  printf 'tap_check $? "new case fails"\n' >"$r/scripts/test-a.sh"
-}
-tapfile_repo tf-missing "$t"; printf 'echo b\n' >"$TMP/w/tf-missing/scripts/test-b.sh"; commit_all "$TMP/w/tf-missing" red
-run_red "$TMP/w/tf-missing"
-test "$code" -eq 2; tap_check $? "225: a tap report with no # file: line for a test file of the diff makes red.sh exit 2"
-says 'test-b.sh'; tap_check $? "225: red.sh names the test file that has no # file: line"
-says '# file:'; tap_check $? "225: the message for a tap entry speaks of the # file: line"
-says 'AMR'; tap_check $? "225: the message for a tap entry says that an entry with --diff-filter=AM has to use AMR"
-t2="$TMP/tapfile2"; mkdir -p "$t2"; : >"$t2/output.txt"
-printf '# file: scripts/test-a.sh\nnot ok 1 - new case fails\n# file: scripts/test-b.sh\nok 2 - b passes\n1..2\n' >"$t2/report.tap"
-tapfile_repo tf-all "$t2"; printf 'tap_ok "b passes"\n' >"$TMP/w/tf-all/scripts/test-b.sh"; commit_all "$TMP/w/tf-all" red
-run_red "$TMP/w/tf-all"
-test "$code" -eq 0; tap_check $? "225: a tap report with a # file: line for every test file of the diff is a valid red (exit 0)"
-tapfile_repo tf-code "$t"; printf 'echo b\n' >"$TMP/w/tf-code/scripts/helper.sh"; commit_all "$TMP/w/tf-code" red
-run_red "$TMP/w/tf-code"
-test "$code" -eq 0; tap_check $? "225: in a tap entry a script that is not a test file needs no # file: line (exit 0)"
-
-# what red.sh gives the run: TAP_OUT and TAP_FORMAT, for every entry
-envfmt=(); envout=()
-for fmt in junit tap; do
-  r="$TMP/w/env-$fmt"; new_repo "$r"; install_kit "$r"
-  write_map "$r" "[{\"name\": \"e\", \"when\": [\"**\"], \"format\": \"$fmt\", \"run\": \"printf '%s|%s' \\\"\${TAP_FORMAT-unset}\\\" \\\"\${TAP_OUT-unset}\\\" >$TMP/env-$fmt.txt; true {out}\"}]"
-  echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
-  run_red "$r"
-  [ "$(cut -d'|' -f1 "$TMP/env-$fmt.txt" 2>/dev/null)" = "$fmt" ]; envfmt[${#envfmt[@]}]=$?
-  grep -q '|.*report\.' "$TMP/env-$fmt.txt" 2>/dev/null; envout[${#envout[@]}]=$?
-done
-tap_check "${envfmt[0]}" "225: red.sh exports TAP_FORMAT=junit to an entry with format junit"
-tap_check "${envfmt[1]}" "225: red.sh exports TAP_FORMAT=tap to an entry with format tap"
-tap_check "${envout[0]}" "225: red.sh exports TAP_OUT (the path of {out}) to an entry with format junit"
-tap_check "${envout[1]}" "225: red.sh exports TAP_OUT (the path of {out}) to an entry with format tap"
+# what red.sh gives the run: TAP_OUT and TAP_FORMAT (junit, the only format left)
+r="$TMP/w/env-junit"; new_repo "$r"; install_kit "$r"
+write_map "$r" "[{\"name\": \"e\", \"when\": [\"**\"], \"format\": \"junit\", \"run\": \"printf '%s|%s' \\\"\${TAP_FORMAT-unset}\\\" \\\"\${TAP_OUT-unset}\\\" >$TMP/env-junit.txt; true {out}\"}]"
+echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
+run_red "$r"
+[ "$(cut -d'|' -f1 "$TMP/env-junit.txt" 2>/dev/null)" = junit ]; tap_check $? "225: red.sh exports TAP_FORMAT=junit to an entry with format junit"
+grep -q '|.*report\.' "$TMP/env-junit.txt" 2>/dev/null; tap_check $? "225: red.sh exports TAP_OUT (the path of {out}) to an entry with format junit"
 
 # the second marker, in JUnit (the kit's bash entry is JUnit now)
-jmarker() { # jmarker <name> <second marker: pass|failure|skipped>
+jmarker() { # jmarker <name> <second marker: pass|failure|skipped> [<id prefix, e.g. "182: ">]
   local r="$TMP/w/$1" t="$TMP/m-$1"
   new_repo "$r"; install_kit "$r"; mkdir -p "$t" "$r/scripts"
   local child=""
   case $2 in failure) child='<failure message="x"/>' ;; skipped) child='<skipped message="x"/>' ;; esac
-  printf '<testsuites><testsuite name="scripts/new.sh" file="scripts/new.sh" tests="2" failures="1"><testcase name="runner prints its marker" file="scripts/new.sh"><failure message="x"/></testcase><testcase name="second marker: the nested test reached the step under test" file="scripts/new.sh">%s</testcase></testsuite></testsuites>\n' "$child" >"$t/report.xml"
+  printf '<testsuites><testsuite name="scripts/new.sh" file="scripts/new.sh" tests="2" failures="1"><testcase name="runner prints its marker" file="scripts/new.sh"><failure message="x"/></testcase><testcase name="%ssecond marker: the nested test reached the step under test" file="scripts/new.sh">%s</testcase></testsuite></testsuites>\n' "${3:-}" "$child" >"$t/report.xml"
   write_map "$r" "[{\"name\": \"sh\", \"when\": [\"**/*.sh\"], \"format\": \"junit\", \"run\": \"bash $TMP/fake-run.sh $t {out} 1 0\"}]"
   printf 'x\n' >"$r/scripts/old.sh"; commit_all "$r" base
-  printf '# runner prints its marker\ntap_ok "runner prints its marker"\ntap_ok "second marker: the nested test reached the step under test"\n' >"$r/scripts/new.sh"; commit_all "$r" red
+  printf '# runner prints its marker\ntap_ok "runner prints its marker"\ntap_ok "%ssecond marker: the nested test reached the step under test"\n' "${3:-}" >"$r/scripts/new.sh"; commit_all "$r" red
   run_red "$r"
 }
 jmarker jm-failure failure
@@ -407,20 +335,24 @@ test "$code" -eq 2; tap_check $? "225: JUnit: a red where the case of the second
 says 'second marker'; tap_check $? "225: JUnit: the rejection of a skipped second marker names the second marker"
 jmarker jm-pass pass
 test "$code" -eq 0; tap_check $? "225: JUnit: a red where the case of the second marker passes is accepted (exit 0)"
+jmarker jm-failure-numbered failure "182: "
+test "$code" -eq 2; tap_check $? "211: JUnit: a red where the case \"<N>: second marker: …\" (id with the issue number first) failed is rejected (exit 2)"
+jmarker jm-skipped-numbered skipped "182: "
+test "$code" -eq 2; tap_check $? "211: JUnit: a red where the case \"<N>: second marker: …\" was skipped is rejected (exit 2)"
 
 # ---------------------------------------------------------------- several stacks, the choice of stack
 r="$TMP/w/two-stacks"; new_repo "$r"; install_kit "$r"
-mkdir -p "$TMP/py" "$TMP/tp"; cp "$CORPUS/pytest-assert/"{report.xml,output.txt} "$TMP/py/"; cp "$CORPUS/tap-new-script/"{report.tap,output.txt} "$TMP/tp/"
+mkdir -p "$TMP/py" "$TMP/tp"; cp "$CORPUS/pytest-assert/"{report.xml,output.txt} "$TMP/py/"; cp "$CORPUS/bash-new-script/"{report.xml,output.txt} "$TMP/tp/"
 python3 - "$r/docs/agents-map.json" "$TMP/fake-run.sh" "$TMP/py" "$TMP/tp" <<'EOF'
 import json, sys
 out, fake, py, tp = sys.argv[1:5]
 json.dump({"red": [
     {"name": "py", "when": ["**/*.py"], "format": "junit", "run": f"bash {fake} {py} {{out}} 1 0"},
-    {"name": "sh", "when": ["**/*.sh"], "format": "tap", "run": f"bash {fake} {tp} {{out}} 1 0"}]}, open(out, "w"))
+    {"name": "sh", "when": ["**/*.sh"], "format": "junit", "run": f"bash {fake} {tp} {{out}} 1 0"}]}, open(out, "w"))
 EOF
 mkdir -p "$r/scripts"
 printf 'x\n' >"$r/test_old.py"; printf 'x\n' >"$r/scripts/test-calc.sh"; commit_all "$r" base
-cp -R "$CORPUS/pytest-assert/red/." "$r/"; mkdir -p "$r/scripts"; cp -R "$CORPUS/tap-new-script/red/." "$r/"
+cp -R "$CORPUS/pytest-assert/red/." "$r/"; mkdir -p "$r/scripts"; cp -R "$CORPUS/bash-new-script/red/." "$r/"
 commit_all "$r" red
 run_red "$r"
 b=$(cat "$(sed -n 's/^Block for .*: //p' "$TMP/out")" 2>/dev/null)
@@ -499,26 +431,16 @@ r="$TMP/w/symlink"; case_repo "$r" "echo '$GOOD_XML' > $TMP/target.xml; ln -s $T
 run_red "$r"
 test "$code" -eq 2 && grep -q "not a regular file" "$TMP/out"; tap_check $? "a report that is a symbolic link is rejected"
 
-# D2: stdout of the run is not the evidence: lines that look like TAP on stdout inject no case
+# D2: stdout of the run is not the evidence: a failing testcase printed on stdout injects no case
 r="$TMP/w/stdout"; new_repo "$r"; install_kit "$r"
 python3 - "$r/docs/agents-map.json" <<'EOF'
 import json, sys
-json.dump({"red": [{"name": "t", "when": ["**"], "format": "tap", "run": "printf 'ok 1 - injected\\nnot ok 2 - injected\\n1..2\\n'; printf 'TAP version 14\\n1..1\\nok 1 - fine\\n' > {out}; exit 1"}]}, open(sys.argv[1], "w"))
+run = "printf '<testsuite tests=\"1\"><testcase name=\"injected\" file=\"a\"><failure/></testcase></testsuite>\\n'; printf '<testsuite tests=\"1\"><testcase name=\"fine\" file=\"a\"/></testsuite>\\n' > {out}; exit 1"
+json.dump({"red": [{"name": "t", "when": ["**"], "format": "junit", "run": run}]}, open(sys.argv[1], "w"))
 EOF
 echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
 run_red "$r"
 test "$code" -eq 2 && grep -q "no failure" "$TMP/out"; tap_check $? "stdout of the run is not parsed: only {out} counts"
-
-# D6: for format tap, TAP_OUT is the file red.sh created, so a helper that reads it writes there and not to stdout
-r="$TMP/w/tapout"; new_repo "$r"; install_kit "$r"; rm -f "$TMP/tapout.flag"
-python3 - "$r/docs/agents-map.json" "$TMP/tapout.flag" <<'EOF'
-import json, sys
-run = 'test "$TAP_OUT" = {out} && echo yes > ' + sys.argv[2] + "; printf 'TAP version 14\\n# file: a\\nnot ok 1 - x\\n1..1\\n' > {out}; exit 1"
-json.dump({"red": [{"name": "t", "when": ["**"], "format": "tap", "run": run}]}, open(sys.argv[1], "w"))
-EOF
-echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
-run_red "$r"
-test -f "$TMP/tapout.flag"; tap_check $? "format tap: TAP_OUT is exported with the path of {out}"
 
 # D2: pipefail keeps the failing exit code of a pipeline
 r="$TMP/w/pipefail"; case_repo "$r" "{ echo '$GOOD_XML' > {out}; exit 1; } | cat"
@@ -534,7 +456,7 @@ EOF
 r="$TMP/w/pr"; new_repo "$r"; mkdir -p "$r/docs"
 printf 'def test_old():\n    assert True\n' >"$r/test_old.py"; commit_all "$r" base
 printf 'def test_new():\n    assert False\n' >"$r/test_new.py"
-printf '{"red":[{"name":"pr","when":["**"],"format":"tap","run":"touch %s/pwned; echo {out}"}]}\n' "$TMP" >"$r/docs/agents-map.json"
+printf '{"red":[{"name":"pr","when":["**"],"format":"junit","run":"touch %s/pwned; echo {out}"}]}\n' "$TMP" >"$r/docs/agents-map.json"
 commit_all "$r" red
 (cd "$r" && "$trusted/.claude/skills/implement-issue/red.sh") >"$TMP/out" 2>&1; code=$?
 [ "$code" -eq 0 ] || show

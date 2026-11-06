@@ -1,0 +1,5 @@
+<testsuites>
+<testsuite name="scripts/new.test.sh" file="scripts/new.test.sh" tests="0" failures="0" errors="0" skipped="0">
+<system-out>not on this os</system-out>
+</testsuite>
+</testsuites>
