@@ -1,0 +1,6 @@
+<testsuites>
+<testsuite name="scripts/new.test.sh" file="scripts/new.test.sh" tests="2" failures="0" errors="1" skipped="0">
+<testcase name="adds numbers" classname="scripts/new.test.sh" file="scripts/new.test.sh"></testcase>
+<testcase name="script error: did not finish" classname="scripts/new.test.sh" file="scripts/new.test.sh"><error message="unexpected error (status 1) at line 6 of scripts/new.test.sh: python3 -c 'raise SystemExit(1)': it is not an assertion, so a crash cannot be told from a failed case (a program that is expected to fail goes through tap_run)"/></testcase>
+</testsuite>
+</testsuites>

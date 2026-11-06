@@ -1,0 +1,4 @@
+expect=1
+format=junit
+exit=0
+source=real: scripts/agents/tap.sh run under TAP_OUT in JUnit, the way the kit's bash entry runs it (converted from TAP in #227)

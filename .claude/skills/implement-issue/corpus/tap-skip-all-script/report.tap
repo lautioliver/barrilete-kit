@@ -1,3 +1,0 @@
-# file: scripts/new.test.sh
-# skip: not on this os
-1..0 # SKIP not on this os

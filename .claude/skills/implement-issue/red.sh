@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # TDD: validates that the red tests, committed BEFORE implementing, fail for the right reason: an
 # assertion of a test that the red commit adds or changes (ADR-002, docs/decisions/kit/).
-# The evidence is a structured report (JUnit XML or TAP) that this script asks the runner to write to a
+# The evidence is a structured report (JUnit XML) that this script asks the runner to write to a
 # path of its own. There is no text fallback: without a report, the red is rejected.
 #
 # Usage: red.sh [<stack>]

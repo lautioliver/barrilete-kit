@@ -1,0 +1,5 @@
+<testsuites>
+<testsuite name="scripts/new.test.sh" file="scripts/new.test.sh" tests="1" failures="1" errors="0" skipped="0">
+<testcase name="ids with # hash and \ backslash" classname="scripts/new.test.sh" file="scripts/new.test.sh"><failure message=""/></testcase>
+</testsuite>
+</testsuites>

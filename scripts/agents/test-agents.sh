@@ -205,13 +205,13 @@ rechaza() {
 copia
 poner_red "[$OK]"
 [ -z "$(errores_red)" ]; tap_check $? "check-docs acepta una entrada red válida (pytest, junit, timeout)"
-poner_red '[{"name":"b","when":["**/test-*.sh"],"run":"TAP_OUT={out} bash t.sh","format":"tap"}]'
+poner_red '[{"name":"b","when":["**/test-*.sh"],"run":"TAP_OUT={out} bash t.sh","format":"junit"}]'
 [ -z "$(errores_red)" ]; tap_check $? "check-docs acepta una entrada red válida sin timeout (es opcional)"
 poner_red DEL
 [ -z "$(errores_red)" ]; tap_check $? "check-docs acepta un mapa sin sección red (se lee como vacía)"
 
 rechaza '{"name":"sinout","when":["**/*.py"],"run":"pytest","format":"junit"}' "red 'sinout'" '{out}'; tap_check $? "check-docs rechaza una entrada red sin {out} en run"
-rechaza '{"name":"fmt","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"xml"}' "red 'fmt'" 'junit' 'tap'; tap_check $? "check-docs rechaza un format que no es junit ni tap"
+rechaza '{"name":"fmt","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"xml"}' "red 'fmt'" 'junit'; tap_check $? "check-docs rechaza un format que no es junit ni tap"
 rechaza '{"name":"nofmt","when":["**/*.py"],"run":"pytest --junitxml={out}"}' "red 'nofmt'" 'format'; tap_check $? "check-docs rechaza una entrada red sin format"
 rechaza '{"name":"nowhen","run":"pytest --junitxml={out}","format":"junit"}' "red 'nowhen'" 'when'; tap_check $? "check-docs rechaza una entrada red sin when"
 rechaza '{"name":"vacio","when":[],"run":"pytest --junitxml={out}","format":"junit"}' "red 'vacio'" 'when'; tap_check $? "check-docs rechaza un when vacío"
@@ -223,23 +223,14 @@ rechaza '{"name":"rep","when":["**/*.py"],"run":"pytest --junitxml={out}","forma
 rechaza '{"when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red\[0\]" 'name'; tap_check $? "check-docs rechaza una entrada red sin name"
 rechaza '"pytest"' "red\[0\]" 'object'; tap_check $? "check-docs rechaza una entrada red que no es un objeto"
 
-# El aviso de 1.x por format "tap" (ADR-002 D8, #226): una línea con el texto exacto, solo para una entrada tap del mapa; no es un error.
-aviso_tap() { printf 'warning: red stack '"'"'%s'"'"' uses format "tap", which 2.0.0 removes; switch it to "junit" (docs/guides/red-per-runner.md)' "$1"; }
-poner_red '[{"name":"nodo","when":["**/*.test.js"],"run":"node --test > {out}","format":"tap"},{"name":"b","when":["**/test-*.sh"],"run":"TAP_OUT={out} bash t.sh","format":"tap"}]'
+# 2.0.0 sacó format "tap" (ADR-002 D8, #227): una entrada tap del mapa es un error con el texto de red.sh, no un aviso.
+rechaza '{"name":"nodo","when":["**/*.test.js"],"run":"node --test > {out}","format":"tap"}' "red stack 'nodo'" 'format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)'; tap_check $? "227: check-docs rechaza una entrada red con format tap con el texto de ADR-002 D8"
+poner_red '[{"name":"nodo","when":["**/*.test.js"],"run":"node --test > {out}","format":"tap"}]'
 salida=$(check)
-grep -qxF "$(aviso_tap nodo)" <<<"$salida"; tap_check $? "check-docs avisa con el texto exacto de una entrada red con format tap"
-grep -qxF "$(aviso_tap b)" <<<"$salida"; tap_check $? "check-docs avisa de cada entrada tap, no solo de la primera"
-[ -z "$(errores_red)" ]; tap_check $? "check-docs no cuenta el aviso de tap como un error del mapa"
-# (en un proyecto recién inicializado check-docs sale con 1 por los TODO del mapa: como en `check`, 0 y 1 valen)
-c=0; solo_stdout=$(trap - ERR; cd "$TMP/r" && python3 scripts/agents/check-docs.py 2>/dev/null) || c=$?
-[ "$c" -le 1 ]; tap_check $? "check-docs sin stderr sale con 0 o 1, no con un crash"
-[[ "$solo_stdout" != *'uses format "tap"'* ]]; tap_check $? "check-docs avisa de tap por stderr, no por stdout"
-poner_red "[$OK]"
-salida=$(check)
-[[ "$salida" != *'uses format "tap"'* ]]; tap_check $? "check-docs no avisa de una entrada red con format junit"
+grep -qxF -- "- docs/agents-map.json: red stack 'nodo': format \"tap\" was removed in 2.0.0; use \"junit\" (docs/guides/red-per-runner.md)" <<<"$salida"; tap_check $? "227: el error de check-docs por tap es el literal de red.sh, sin repetir el nombre"
+[[ "$salida" != *'which 2.0.0 removes'* ]]; tap_check $? "227: check-docs ya no imprime el aviso de 1.x por format tap"
 copia
-salida=$(check)
-[[ "$salida" != *'uses format "tap"'* ]]; tap_check $? "check-docs no avisa de la entrada bash del kit"
+[ -z "$(errores_red)" ]; tap_check $? "check-docs acepta la entrada bash del kit (junit)"
 
 # red.sh solo acepta names con [A-Za-z0-9._-]+ (van en el camino de {out}) y una sección red no vacía: check-docs falla antes.
 rechaza '{"name":"unit tests","when":["**/*.py"],"run":"pytest --junitxml={out}","format":"junit"}' "red 'unit tests'" 'name'; tap_check $? "check-docs rechaza un name con espacios (red.sh lo rechaza)"

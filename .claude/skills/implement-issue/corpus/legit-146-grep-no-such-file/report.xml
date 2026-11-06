@@ -1,0 +1,5 @@
+<testsuites>
+<testsuite name="scripts/x.test.sh" file="scripts/x.test.sh" tests="1" failures="1" errors="0" skipped="0">
+<testcase name="the log says finished" classname="scripts/x.test.sh" file="scripts/x.test.sh"><failure message=""/></testcase>
+</testsuite>
+</testsuites>

@@ -1,0 +1,5 @@
+expect=0
+format=junit
+exit=1
+source=real: scripts/agents/tap.sh run under TAP_OUT in JUnit, the way the kit's bash entry runs it (converted from TAP in #227)
+note=the id is the literal first argument of the helper; the loop variable goes in the description (<system-out>), which is not compared, and the repeated id is one testcase

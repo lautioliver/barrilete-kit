@@ -1,4 +1,0 @@
-TAP version 14
-# file: scripts/new.test.sh
-ok 1 - creates the branch # SKIP not on this os
-1..1
