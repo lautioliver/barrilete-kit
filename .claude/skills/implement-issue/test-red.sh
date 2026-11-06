@@ -158,6 +158,11 @@ cp -R "$CORPUS/pytest-assert/base/." "$r/"; commit_all "$r" base; cp -R "$CORPUS
 run_red "$r"
 test "$code" -eq 2; tap_check $? "227: a map with a tap stack is rejected even when that stack does not match the commit"
 grep -qxF "$(tap_removed old)" "$TMP/out"; tap_check $? "227: the rejection of a tap stack that does not match names it with the literal line"
+r="$TMP/w/tap-removed-badname"; new_repo "$r"; install_kit "$r"
+write_map "$r" '[{"name":"py","when":["**"],"format":"junit","run":"true {out}"},{"name":"py","when":["**"],"format":"tap","run":"true {out}"}]'
+echo a >"$r/a"; commit_all "$r" base; echo b >"$r/a"; commit_all "$r" red
+run_red "$r"
+grep -qxF "$(tap_removed py)" "$TMP/out"; tap_check $? "227: a tap stack is rejected with the literal line before the checks of its name"
 
 bad_map() { # bad_map <json of the red section> <text expected>: 0 if red.sh rejects it with that text
   local r="$TMP/w/badmap"; new_repo "$r"; install_kit "$r"; write_map "$r" "$1"

@@ -227,6 +227,7 @@ rechaza '"pytest"' "red\[0\]" 'object'; tap_check $? "check-docs rechaza una ent
 rechaza '{"name":"nodo","when":["**/*.test.js"],"run":"node --test > {out}","format":"tap"}' "red 'nodo'" 'format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)'; tap_check $? "227: check-docs rechaza una entrada red con format tap con el texto de ADR-002 D8"
 poner_red '[{"name":"nodo","when":["**/*.test.js"],"run":"node --test > {out}","format":"tap"}]'
 salida=$(check)
+grep -qxF -- "- docs/agents-map.json: red stack 'nodo': format \"tap\" was removed in 2.0.0; use \"junit\" (docs/guides/red-per-runner.md)" <<<"$salida"; tap_check $? "227: el error de check-docs por tap es el literal de red.sh, sin repetir el nombre"
 [[ "$salida" != *'which 2.0.0 removes'* ]]; tap_check $? "227: check-docs ya no imprime el aviso de 1.x por format tap"
 copia
 [ -z "$(errores_red)" ]; tap_check $? "check-docs acepta la entrada bash del kit (junit)"
