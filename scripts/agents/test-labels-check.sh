@@ -270,15 +270,21 @@ const cases = {
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
 };
-  // #147: bodies of 65,000 characters with each kind of line break (no Closes, so the body is read for Refs too).
+// #147: bodies of 65,000 characters with each kind of line break. They end with "Refs #1" and "no tests: ..." after the hostile run, on
+// their own lines, so the verdict has to be a pass: a body that is read too fast because the Refs line was skipped fails the case.
 const BIG = 65000;
+const TAIL = sep => sep + 'Refs #1' + sep + 'no tests: only docs';
 const raw = {
-  cr: 'x' + '\r'.repeat(BIG),
-  ls: 'x' + '\u2028'.repeat(BIG),
-  ps: 'x' + '\u2029'.repeat(BIG),
-  crlf: 'x' + '\r\n'.repeat(BIG / 2),
-  mixed: 'x' + '\r\u2028\u2029\n \t'.repeat(BIG / 6),
-  spaces: 'x' + ' '.repeat(BIG),
+  cr: ['x' + '\r'.repeat(BIG) + TAIL('\r'), null],
+  ls: ['x' + '\u2028'.repeat(BIG) + TAIL('\u2028'), null],
+  ps: ['x' + '\u2029'.repeat(BIG) + TAIL('\u2029'), null],
+  crlf: ['x' + '\r\n'.repeat(BIG / 2) + TAIL('\r\n'), null],
+  mixed: ['x' + '\r\u2028\u2029\n \t'.repeat(BIG / 6) + TAIL('\n'), null],
+  spaces: ['x' + ' '.repeat(BIG) + TAIL('\n'), null],
+  // The next line of a "no tests:" (issue #147): a long word, many references, a long link.
+  longword: ['Closes #1\nno tests:\nCloses #2 ' + 'a'.repeat(BIG), null],
+  manyrefs: ['Closes #1\nno tests:\nRefs ' + '#1, '.repeat(BIG / 4), /Red before implementing/],
+  longlink: ['Closes #1\nno tests:\nCloses https://x.y/' + 'a'.repeat(BIG), /Red before implementing/],
 };
 const N = 10000;
 const perf = {
@@ -305,15 +311,18 @@ const perf = {
     for (let k = 0; k < 3 && !(ms < 200); k++) {
       const r = require('child_process').spawnSync(process.execPath, [process.argv[1], process.argv[2], 'rawinner', name], { timeout: 3000, encoding: 'utf8' });
       if (r.status !== 0) { console.log(r.error ? 'timeout (over 3 s)' : 'the child failed: ' + r.stderr); ms = Infinity; continue; }
-      ms = Math.min(ms, parseFloat(r.stdout));
+      const v = JSON.parse(r.stdout);
+      if (!v.good) { console.log('wrong verdict: ' + JSON.stringify(v.failed)); ms = Infinity; break; }
+      ms = Math.min(ms, v.ms);
     }
     if (!(ms < 200)) console.log('took ' + (ms === Infinity ? 'over 3 s or failed' : Math.round(ms) + ' ms'));
     process.exit(ms < 200 ? 0 : 3);
   }
   if (mode === 'rawinner') {
     const t0 = performance.now();
-    await run(raw[name]);
-    console.log(performance.now() - t0);
+    const failed = await run(raw[name][0]);
+    const ms = performance.now() - t0, re = raw[name][1];
+    console.log(JSON.stringify({ ms, failed, good: re === null ? failed === null : failed !== null && re.test(failed) }));
     process.exit(0);
   }
   // perf: the title, the hostile text, and nothing else; it has to end quickly, with any verdict.
@@ -405,6 +414,9 @@ lc_raw ps; tap_check $? "body-performance-65000-ps"
 lc_raw crlf; tap_check $? "body-performance-65000-crlf"
 lc_raw mixed; tap_check $? "body-performance-65000-mixed"
 lc_raw spaces; tap_check $? "body-performance-65000-spaces"
+lc_raw longword; tap_check $? "body-performance-65000-longword"
+lc_raw manyrefs; tap_check $? "body-performance-65000-manyrefs"
+lc_raw longlink; tap_check $? "body-performance-65000-longlink"
 lc_case no-tests-empty-then-closes-other-repo-fails; tap_check $? "no-tests-empty-then-closes-other-repo-fails"
 lc_case no-tests-empty-then-table-row-fails; tap_check $? "no-tests-empty-then-table-row-fails"
 lc_case no-tests-empty-then-issue-number-reason-passes; tap_check $? "no-tests-empty-then-issue-number-reason-passes"
