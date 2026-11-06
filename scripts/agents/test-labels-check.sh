@@ -37,7 +37,7 @@ const run = async (body, { labels = ['type:task'], ref = 'claude/1-x', files = [
   return out.failed;
 };
 const BL = { labels: ['type:task', 'business-logic'], ref: 'feat/1-x' };
-const BLOCK = (title = 'Red before implementing') => `<details><summary>${title}</summary>\n\nred commit: 0123abc4\n\nstack: bash\nformat: tap\nfailing cases:\n- scripts/a/test-x.sh::some-id\n\n</details>\n`;
+const BLOCK = (title = 'Red before implementing') => `<details><summary>${title}</summary>\n\nred commit: 0123abc4\n\nstack: bash\nformat: junit\nfailing cases:\n- scripts/a/test-x.sh::some-id\n\n</details>\n`;
 const base = 'Closes #1\n' + BLOCK();
 const cases = [
   // [name, body, options, regex the failure must match (null: it must pass)]
@@ -181,7 +181,7 @@ const run = async (body, { apiError = false } = {}) => {
   return out.failed;
 };
 const T = 'Closes #1\n<details><summary>Red before implementing</summary>\n\n';
-const G = (n = 'bash', f = 'tap', c = '- scripts/a/test-x.sh::some-id') => `stack: ${n}\nformat: ${f}\nfailing cases:\n${c}\n\n`;
+const G = (n = 'bash', f = 'junit', c = '- scripts/a/test-x.sh::some-id') => `stack: ${n}\nformat: ${f}\nfailing cases:\n${c}\n\n`;
 const R = 'red commit: 0123abc4\n\n';
 const E = '</details>\n';
 const cases = {
@@ -192,15 +192,21 @@ const cases = {
   'title-only-fails': ['Closes #1\n<details><summary>Red before implementing</summary>x</details>\n', /red commit:/],
   'missing-format-fails': [T + R + 'stack: bash\nfailing cases:\n- a::b\n\n' + E, /format:/],
   'missing-red-commit-fails': [T + G() + E, /red commit:/],
-  'no-case-fails': [T + R + 'stack: bash\nformat: tap\nfailing cases:\n\n' + E, /failing case|case/i],
+  'no-case-fails': [T + R + 'stack: bash\nformat: junit\nfailing cases:\n\n' + E, /failing case|case/i],
   'bad-sha-fails': [T + 'red commit: <sha>\n\n' + G() + E, /red commit:/],
   'two-red-commits-fails': [T + R + R + G() + E, /red commit:/],
   'bad-format-fails': [T + R + G('bash', 'text') + E, /format:/],
-  'empty-stack-fails': [T + R + 'stack:\nformat: tap\nfailing cases:\n- a::b\n\n' + E, /stack:/],
+  // 2.0.0 removed format tap (ADR-002 D8/D9, #228): the block says it with the line of red.sh, and junit is the only format.
+  'format-tap-fails': [T + R + G('bash', 'tap') + E, /group 1: format "tap" was removed in 2\.0\.0; use "junit" \(run red\.sh again\)/],
+  'format-tap-uppercase-fails': [T + R + G('bash', 'TAP') + E, /group 1: format "tap" was removed in 2\.0\.0/],
+  'format-tap-in-second-group-fails': [T + R + G('pytest', 'junit') + G('bash', 'tap') + E, /group 2: format "tap" was removed in 2\.0\.0/],
+  'format-junit-passes': [T + R + G('bash', 'junit') + E, null],
+  'bad-format-says-junit-only': [T + R + G('bash', 'text') + E, /group 1: "format:" is missing or is not junit\.$/m],
+  'empty-stack-fails': [T + R + 'stack:\nformat: junit\nfailing cases:\n- a::b\n\n' + E, /stack:/],
   'second-group-incomplete-fails': [T + R + G() + 'stack: pytest\nformat: junit\nfailing cases:\n\n' + E, /case/i],
-  'case-without-separator-fails': [T + R + G('bash', 'tap', '- just a name') + E, /case/i],
+  'case-without-separator-fails': [T + R + G('bash', 'junit', '- just a name') + E, /case/i],
   'block-in-comment-fails': ['Closes #1\n<!-- ' + T.split('\n').slice(1).join('\n') + R + G() + E + ' -->\n<details><summary>Red before implementing</summary>x</details>', /red commit:/],
-  'lines-after-details-do-not-count': [T + R + 'stack: bash\n' + E + 'format: tap\nfailing cases:\n- a::b\n', /format:|case/i],
+  'lines-after-details-do-not-count': [T + R + 'stack: bash\n' + E + 'format: junit\nfailing cases:\n- a::b\n', /format:|case/i],
   'no-tests-still-passes': ['Closes #1\nno tests: only docs', null],
   'title-with-no-tests-reason-fails': ['Closes #1\n<details><summary>Red before implementing</summary>x</details>\nno tests: only docs', /red commit:/],
   'valid-block-with-no-tests-passes': [T + R + G() + E + 'no tests: the concurrency part cannot be tested here', null],
@@ -241,7 +247,7 @@ const cases = {
   // Un fence de 4 backticks no lo cierra una línea de 3: lo que sigue sigue citado.
   'four-backtick-fence-is-not-closed-by-three': [T + R + G() + E + '````\n```\n<details><summary>Red for the pytest stack</summary>\nred commit: cafe1234\n</details>\n````\n', null],
   // Regresiones de la 3.ª review (punto 3): pasaban en main y fallaban con el parser por substrings.
-  'details-in-a-case-name-does-not-break-the-block': [T + R + G('bash', 'tap', '- ui.sh::renders <details> toggle') + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: 0123abc4\n\n' + G('pytest', 'junit') + E, null],
+  'details-in-a-case-name-does-not-break-the-block': [T + R + G('bash', 'junit', '- ui.sh::renders <details> toggle') + E + '<details><summary>Red for the pytest stack</summary>\n\nred commit: 0123abc4\n\n' + G('pytest', 'junit') + E, null],
   'fence-opened-and-closed-on-one-line-is-not-a-fence': ['Closes #1\n```npm test``` first\n' + T.split('\n').slice(1).join('\n') + R + G() + E, null],
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
@@ -249,11 +255,11 @@ const cases = {
 const N = 10000;
 const perf = {
   spaces: R.replace('0123abc4', ' '.repeat(N) + '0123abc4') + G(' '.repeat(N)) ,
-  colons: G('bash', 'tap', '- ' + '::'.repeat(N)),
+  colons: G('bash', 'junit', '- ' + '::'.repeat(N)),
   lines: R + '- a::b\n'.repeat(N),
   groups: R + G().repeat(N / 10),
   hex: 'red commit: ' + 'a'.repeat(N) + '\n' + G(),
-  stars: R + G('*'.repeat(N), 'tap', '- ' + '*'.repeat(N) + '::' + '_'.repeat(N)),
+  stars: R + G('*'.repeat(N), 'junit', '- ' + '*'.repeat(N) + '::' + '_'.repeat(N)),
 };
 (async () => {
   const [mode, name] = [process.argv[3], process.argv[4]];
@@ -286,6 +292,11 @@ lc_case no-case-fails; tap_check $? "structured-block-without-case-fails"
 lc_case bad-sha-fails; tap_check $? "structured-block-bad-sha-fails"
 lc_case two-red-commits-fails; tap_check $? "structured-block-two-red-commits-fail"
 lc_case bad-format-fails; tap_check $? "structured-block-bad-format-fails"
+lc_case format-tap-fails; tap_check $? "228: format tap fails with the line of red.sh"
+lc_case format-tap-uppercase-fails; tap_check $? "228: format TAP in capitals fails too"
+lc_case format-tap-in-second-group-fails; tap_check $? "228: format tap in a second group fails and names it"
+lc_case format-junit-passes; tap_check $? "228: format junit passes"
+lc_case bad-format-says-junit-only; tap_check $? "228: an unknown format says junit is the only one"
 lc_case empty-stack-fails; tap_check $? "structured-block-empty-stack-fails"
 lc_case second-group-incomplete-fails; tap_check $? "structured-block-incomplete-second-group-fails"
 lc_case case-without-separator-fails; tap_check $? "structured-block-case-without-separator-fails"
