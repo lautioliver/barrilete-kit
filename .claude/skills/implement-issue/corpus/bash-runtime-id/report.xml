@@ -1,0 +1,6 @@
+<testsuites>
+<testsuite name="scripts/i18n.test.sh" file="scripts/i18n.test.sh" tests="1" failures="1" errors="0" skipped="0">
+<testcase name="lang-installs" classname="scripts/i18n.test.sh" file="scripts/i18n.test.sh"><failure message="installs es"/><system-out>installs es
+installs fr</system-out></testcase>
+</testsuite>
+</testsuites>

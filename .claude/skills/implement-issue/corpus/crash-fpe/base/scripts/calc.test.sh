@@ -3,5 +3,5 @@
 . "$(dirname "$0")/agents/tap.sh"
 tap_begin "$0"
 tap_ok "adds numbers"
-false; tap_check $? "old broken"
+[ 1 -eq 2 ]; tap_check $? "old broken"
 tap_done

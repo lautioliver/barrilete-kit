@@ -1,3 +1,0 @@
-# file: scripts/new.test.sh
-not ok 1 - creates the branch
-1..1
