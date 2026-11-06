@@ -141,17 +141,19 @@ jobs:
             };
             // A reason is real if a letter or a digit is left once the wrappers (quotes, backticks, * and _) and the <placeholders> are gone.
             const motivoReal = t => /[\p{L}\p{N}]/u.test(t.replace(/[`"'*_]/g, '').replace(/<[^<>]*>/g, ''));
-            // The line after "no tests:" / "ADR unchanged:" is not its reason when it is the next thing of the body (issue #147): a heading, a
-            // table row, a task-list item, a trailer (Signed-off-by:), a bare link, or a reference (Closes/Fixes/Resolves/Refs/Related to/
-            // Depends on/Blocked by/Part of, with "#n", "owner/repo#n" or a link) with nothing but references after it. A reference followed
-            // by words ("refs #12 already covers it") is a reason. One simple regex per line: linear.
-            const REF = /^[\s>*_`-]*(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?|related to|depends on|blocked by|part of):?\s+(?:[\w.\/-]*#\d+|https?:\/\/\S+)/i;
-            const OTRA = [/^\s*#{1,6}(?:\s|$)/, /^\s*\|/, /^\s*[-*+]\s*\[[ xX]\]/, /^\s*(?:signed-off-by|co-authored-by):/i, /^\s*[<(]?https?:\/\/\S*\s*$/i];
+            // The line after "no tests:" / "ADR unchanged:" is not its reason when it is the next thing of the body (issue #147): a heading
+            // (any line that starts with "#" and not with "#n"), a table row, a task-list item, a trailer (Signed-off-by:), a bare link, or a
+            // line of only references: "#7", "#2, #3", "owner/repo#2", or Closes/Fixes/Resolves/Refs/Related to/Depends on/Blocked by/Part of
+            // (after a "-", "+", "*", ">" or "1." marker) with references after it. A reference followed by words ("refs #12 already covers
+            // it", "#12 already covers it") is a reason. A task-list item or a table row is never one, with or without words. One simple
+            // regex per line and per word: linear.
+            const REF = /^[\s>*_`+-]*(?:\d+[.)]\s+)?(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?|related to|depends on|blocked by|part of):?\s+(?:[\w.\/-]*#\d+|https?:\/\/\S+)/i;
+            const OTRA = [/^\s*#(?!\d)/, /^\s*\|/, /^\s*[-*+]\s*\[[ xX]\]/, /^\s*(?:signed-off-by|co-authored-by):/i, /^\s*[<(]?https?:\/\/\S*\s*$/i];
+            const soloRefs = ws => ws.every(w => w === '' || /^[\w.\/-]*#\d+[.*_`]*$/.test(w) || /^https?:\/\/\S*$/i.test(w) || /^[*_`.]*$/.test(w));
             const otraCosa = sig => {
               if (OTRA.some(r => r.test(sig))) return true;
               const m = REF.exec(sig);
-              // Only references after the first one: each word is "#n", "owner/repo#n" or a link (anchored regexes, one per word).
-              return m !== null && sig.slice(m[0].length).split(/[\s,;]+/).every(w => w === '' || /^[\w.\/-]*#\d+[.*_`]*$/.test(w) || /^https?:\/\/\S*$/i.test(w) || /^[*_`.]*$/.test(w));
+              return soloRefs((m ? sig.slice(m[0].length) : sig).split(/[\s,;]+/)) && (m !== null || /#\d/.test(sig));
             };
             // Looks for `marcador` line by line. ok: some line has a real reason (on its line or, if `enSiguiente` says so, on the next one).
             // placeholder: a marker was found whose reason was only <…>.
@@ -228,8 +230,8 @@ jobs:
               const tocaAdr = archivos.some(f => f.filename.startsWith('docs/decisions/'));
               // The body without the <!-- … --> comments, which GitHub does not show (an exception written inside one does not count).
               const cuerpo = sinComentarios(normal(pr.body || ''));
-              // The reason on the same line (or, after a bold `**ADR unchanged:**`, on the next one, if it is not a heading):
-              // a blank line followed by the next heading is not a reason. A reason that is only <…> is not one either.
+              // The reason on the same line (or, after a bold `**ADR unchanged:**`, on the next one, if `otraCosa` says it is not the next thing
+              // of the body: a heading, a table row, a list item, a trailer, a link or only references): a blank line followed by the next heading is not a reason. A reason that is only <…> is not one either.
               const adr = hayMotivo(cuerpo, /ADR (?:unchanged|sin cambios):([^\n]*)$/i,
                 (resto, sig) => /^[\s`"'*_]*$/.test(resto) && /[`"'*_]/.test(resto) && !otraCosa(sig));
               if (!tocaAdr && !adr.ok) errors.push(adr.placeholder

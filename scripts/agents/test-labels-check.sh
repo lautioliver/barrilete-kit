@@ -279,17 +279,18 @@ const cases = {
   // Si la API falla al listar los commits, el job lo dice en la lista de errores (no un stack trace).
   'list-commits-api-error-is-reported': [T + R + G() + E, /^PR out of convention:\n- [^\n]*commits of this PR[^\n]*boom 502/, { apiError: true }],
 };
-// #147: bodies of 65,000 characters with each kind of line break. They end with "Refs #1" and "no tests: ..." after the hostile run, on
-// their own lines, so the verdict has to be a pass: a body that is read too fast because the Refs line was skipped fails the case.
+// #147: bodies of 65,000 characters with each kind of line break, and nothing that closes or references an issue: `refiere` has to read
+// the whole body, so a body that is not normalized takes seconds, and the verdict is the "neither closes nor references" error.
+// (With a "Refs #1" at the end the match comes early and the body does not need to be normalized: that is not the regression.)
 const BIG = 65000;
-const TAIL = sep => sep + 'Refs #1' + sep + 'no tests: only docs';
+const SIN = /neither closes nor references/;
 const raw = {
-  cr: ['x' + '\r'.repeat(BIG) + TAIL('\r'), null],
-  ls: ['x' + '\u2028'.repeat(BIG) + TAIL('\u2028'), null],
-  ps: ['x' + '\u2029'.repeat(BIG) + TAIL('\u2029'), null],
-  crlf: ['x' + '\r\n'.repeat(BIG / 2) + TAIL('\r\n'), null],
-  mixed: ['x' + '\r\u2028\u2029\n \t'.repeat(BIG / 6) + TAIL('\n'), null],
-  spaces: ['x' + ' '.repeat(BIG) + TAIL('\n'), null],
+  cr: ['x' + '\r'.repeat(BIG), SIN],
+  ls: ['x' + '\u2028'.repeat(BIG), SIN],
+  ps: ['x' + '\u2029'.repeat(BIG), SIN],
+  crlf: ['x' + '\r\n'.repeat(BIG / 2), SIN],
+  mixed: ['x' + '\r\u2028\u2029\n \t'.repeat(BIG / 6), SIN],
+  spaces: ['x' + ' '.repeat(BIG), SIN],
   // The next line of a "no tests:" (issue #147): a long word, many references, a long link.
   longword: ['Closes #1\nno tests:\nCloses #2 ' + 'a'.repeat(BIG), null],
   manyrefs: ['Closes #1\nno tests:\nRefs ' + '#1, '.repeat(BIG / 4), /Red before implementing/],
