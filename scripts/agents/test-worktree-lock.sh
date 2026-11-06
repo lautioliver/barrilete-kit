@@ -210,24 +210,44 @@ if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "orquest
 # queda libre justo mientras se trabaja.
 export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=implementer-267
 tap_run out 0 "$LOCK" claim "$TMP/wt"
-export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=intruso
+# El subagente comparte el pid con el orquestador: al terminar suelta con su nombre, y el siguiente agente de la sesión
+# (la ronda de arreglos del reviewer, un relanzamiento) puede tomarlo. Sin soltar, el pid sigue vivo y daría held.
+tap_run out 0 "$LOCK" release "$TMP/wt"
+export WORKTREE_LOCK_AGENT=orquestador
 tap_run out 0 "$LOCK" claim "$TMP/wt"
-grep -q '^held: implementer-267' <<<"$out"; tap_check $? "subagente con el candado: otro agente no puede tomar su worktree"
+grep -qx claimed <<<"$out"; tap_check $? "subagente que suelta el candado: el siguiente agente de la sesión lo toma"
 rm -f "$GDIR/agent-lock"
 if [ "$CHICO" = 1 ]; then
   tap_skip "implementer: toma el candado al empezar" "$SIN"
   tap_skip "implementer-light: toma el candado al empezar" "$SIN"
   tap_skip "orchestrate: dice que el subagente toma el candado" "$SIN"
   tap_skip "contrato: el subagente toma el candado con su nombre" "$SIN"
+  tap_skip "implementer: suelta el candado al terminar" "$SIN"
+  tap_skip "implementer-light: suelta el candado al terminar" "$SIN"
+  tap_skip "orchestrate: suelta en nombre del subagente si no lo soltó" "$SIN"
+  tap_skip "contrato: el release lleva WORKTREE_LOCK_AGENT con el nombre" "$SIN"
+  tap_skip "prepare.sh: la ayuda del release lleva WORKTREE_LOCK_AGENT con el nombre" "$SIN"
+  tap_skip "implementer: ante held devuelve solo question" "$SIN"
 else
   mencion .claude/agents/implementer.md "worktree-lock.sh claim" "worktree-lock.sh claim"; tap_check $? "implementer: toma el candado al empezar"
   mencion .claude/agents/implementer-light.md "worktree-lock.sh claim" "worktree-lock.sh claim"; tap_check $? "implementer-light: toma el candado al empezar"
   mencion .claude/skills/orchestrate/SKILL.md "worktree-lock.sh claim" "worktree-lock.sh claim"; tap_check $? "orchestrate: dice que el subagente toma el candado"
   mencion docs/agents/subagent-contract.md "worktree-lock.sh claim" "worktree-lock.sh claim"; tap_check $? "contrato: el subagente toma el candado con su nombre"
+  mencion .claude/agents/implementer.md "worktree-lock.sh release" "worktree-lock.sh release"; tap_check $? "implementer: suelta el candado al terminar"
+  mencion .claude/agents/implementer-light.md "worktree-lock.sh release" "worktree-lock.sh release"; tap_check $? "implementer-light: suelta el candado al terminar"
+  mencion .claude/skills/orchestrate/SKILL.md "on its behalf" "en su nombre"; tap_check $? "orchestrate: suelta en nombre del subagente si no lo soltó"
+  mencion docs/agents/subagent-contract.md "WORKTREE_LOCK_AGENT=<name> scripts/agents/worktree-lock.sh release" "WORKTREE_LOCK_AGENT=<nombre> scripts/agents/worktree-lock.sh release"; tap_check $? "contrato: el release lleva WORKTREE_LOCK_AGENT con el nombre"
+  mencion .claude/skills/implement-issue/prepare.sh "WORKTREE_LOCK_AGENT=<name> worktree-lock.sh release" "WORKTREE_LOCK_AGENT=<nombre> worktree-lock.sh release"; tap_check $? "prepare.sh: la ayuda del release lleva WORKTREE_LOCK_AGENT con el nombre"
+  mencion .claude/agents/implementer.md 'return `question` (' 'devolvé `question` ('; tap_check $? "implementer: ante held devuelve solo question"
 fi
 if [ -f "$RAIZ/.claude/i18n/agents/implementer.es.md" ]; then grep -qF -- "worktree-lock.sh claim" "$RAIZ/.claude/i18n/agents/implementer.es.md"; tap_check $? "implementer (es): toma el candado al empezar"; else tap_skip "implementer (es): toma el candado al empezar" "no existe .claude/i18n/agents/implementer.es.md en este proyecto"; fi
 if [ -f "$RAIZ/.claude/i18n/agents/implementer-light.es.md" ]; then grep -qF -- "worktree-lock.sh claim" "$RAIZ/.claude/i18n/agents/implementer-light.es.md"; tap_check $? "implementer-light (es): toma el candado al empezar"; else tap_skip "implementer-light (es): toma el candado al empezar" "no existe .claude/i18n/agents/implementer-light.es.md en este proyecto"; fi
 if [ -f "$RAIZ/.claude/skills/orchestrate/SKILL.es.md" ]; then grep -qF -- "worktree-lock.sh claim" "$RAIZ/.claude/skills/orchestrate/SKILL.es.md"; tap_check $? "orchestrate (es): dice que el subagente toma el candado"; else tap_skip "orchestrate (es): dice que el subagente toma el candado" "no existe .claude/skills/orchestrate/SKILL.es.md en este proyecto"; fi
 if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "worktree-lock.sh claim" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): el subagente toma el candado con su nombre"; else tap_skip "contrato (es): el subagente toma el candado con su nombre" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/i18n/agents/implementer.es.md" ]; then grep -qF -- "worktree-lock.sh release" "$RAIZ/.claude/i18n/agents/implementer.es.md"; tap_check $? "implementer (es): suelta el candado al terminar"; else tap_skip "implementer (es): suelta el candado al terminar" "no existe .claude/i18n/agents/implementer.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/i18n/agents/implementer-light.es.md" ]; then grep -qF -- "worktree-lock.sh release" "$RAIZ/.claude/i18n/agents/implementer-light.es.md"; tap_check $? "implementer-light (es): suelta el candado al terminar"; else tap_skip "implementer-light (es): suelta el candado al terminar" "no existe .claude/i18n/agents/implementer-light.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/skills/orchestrate/SKILL.es.md" ]; then grep -qF -- "en su nombre" "$RAIZ/.claude/skills/orchestrate/SKILL.es.md"; tap_check $? "orchestrate (es): suelta en nombre del subagente si no lo soltó"; else tap_skip "orchestrate (es): suelta en nombre del subagente si no lo soltó" "no existe .claude/skills/orchestrate/SKILL.es.md en este proyecto"; fi
+if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "WORKTREE_LOCK_AGENT=<nombre> scripts/agents/worktree-lock.sh release" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): el release lleva WORKTREE_LOCK_AGENT con el nombre"; else tap_skip "contrato (es): el release lleva WORKTREE_LOCK_AGENT con el nombre" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/i18n/agents/implementer.es.md" ]; then grep -qF -- 'devolvé `question` (' "$RAIZ/.claude/i18n/agents/implementer.es.md"; tap_check $? "implementer (es): ante held devuelve solo question"; else tap_skip "implementer (es): ante held devuelve solo question" "no existe .claude/i18n/agents/implementer.es.md en este proyecto"; fi
 
 tap_done
