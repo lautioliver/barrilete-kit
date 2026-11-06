@@ -5,7 +5,7 @@ Called by .claude/skills/implement-issue/red.sh, which is a thin wrapper. It:
   1. reads the `red` section of docs/agents-map.json (a list of stacks, D2);
   2. runs every stack whose `when` matches a file of the red commit (HEAD against its first
      parent), with a path of its own for the report ({out}), a timeout and its own process group (D5);
-  3. parses the report (JUnit XML or TAP) without executing anything it reads (D3);
+  3. parses the report (JUnit XML) without executing anything it reads (D3);
   4. requires that every failed case is a case the red commit adds or changes (D4).
 
 Fail closed: anything that is not clearly a valid red exits with 2.
@@ -52,6 +52,10 @@ def glob_to_regex(glob):
 
 class Reject(Exception):
     """A reason to exit with 2. The message says what to do."""
+
+
+class Removed(Reject):
+    """A Reject whose message is a literal of an ADR: it is printed as is, without the `red.sh:` prefix."""
 
 
 # --------------------------------------------------------------------------- reports
@@ -190,66 +194,8 @@ def parse_junit(path):
     return rep
 
 
-TAP_CASE = re.compile(r"^(not )?ok(?=\s|$)(?:\s+(\d+))?\s*(?:-\s*)?(.*)$")
-TAP_DIRECTIVE = re.compile(r"\s#\s*(TODO|SKIP)\w*\b", re.I)
-
-
-# The warning of the 1.x that removes "tap" in 2.0.0 (ADR-002 D8). check-docs.py and update.py print the same literal.
-TAP_WARNING = ('warning: red stack \'{name}\' uses format "tap", which 2.0.0 removes; '
-               'switch it to "junit" (docs/guides/red-per-runner.md)')
-
-
-def parse_tap(path):
-    data = read_report(path)
-    if not data.strip():
-        raise Reject("the report is empty")
-    rep = Report()
-    plan, plan_at, cur_file, first_case_at, last_case_at = None, None, None, None, None
-    for i, line in enumerate(data.decode("utf-8").splitlines()):
-        if not line.strip() or line[0] in " \t":
-            continue  # blank lines and indented diagnostics (YAML blocks, subtests) are not cases
-        if re.match(r"^Bail out!", line, re.I):
-            rep.errors.append(f"line {i + 1}: {line.strip()}")
-            continue
-        m = re.match(r"^1\.\.(\d+)\s*(#.*)?$", line)
-        if m:
-            if plan is not None:
-                rep.aborted.append("the TAP has more than one plan")
-            plan, plan_at = int(m.group(1)), i
-            continue
-        m = re.match(r"^#\s*file:\s*(.+?)\s*$", line)
-        if m:
-            cur_file = m.group(1)
-            rep.suite_files.append(cur_file)  # a script that ran leaves its `# file:` line, as a testsuite leaves its `file` (D6)
-            continue
-        m = TAP_CASE.match(line)
-        if not m:
-            continue  # TAP version, comments and unknown lines are ignored
-        first_case_at = i if first_case_at is None else first_case_at
-        last_case_at = i
-        rest = m.group(3)
-        directive = TAP_DIRECTIVE.search(rest)
-        # The id is the text of the case line without its directive, with the TAP 14 escapes (\# and \\) undone.
-        # What tap.sh varies at run time goes in "# desc:" lines, which are comments and are not compared (D4).
-        ident = re.sub(r"\\(.)", r"\1", (rest[:directive.start()] if directive else rest).strip())
-        failed = bool(m.group(1))
-        if directive:
-            kind = directive.group(1).upper()
-            if kind == "SKIP" or (kind == "TODO" and failed):
-                status = "skipped"
-            else:
-                status = "pass"
-        else:
-            status = "failure" if failed else "pass"
-        rep.cases.append(Case(cur_file, "", ident, status))
-    if plan is None:
-        rep.aborted.append("the TAP has no plan (1..N)")
-    else:
-        if first_case_at is not None and first_case_at < plan_at < last_case_at:
-            rep.aborted.append("the plan of the TAP is in the middle of the cases")
-        if plan != len(rep.cases):
-            rep.aborted.append(f"the plan says {plan} cases and the TAP has {len(rep.cases)}")
-    return rep
+# 2.0.0 removed format "tap" (ADR-002 D8): an entry with it is rejected with this literal of the ADR.
+TAP_REMOVED = 'red stack \'{name}\': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)'
 
 
 # --------------------------------------------------------------------------- the diff of the red commit
@@ -629,7 +575,7 @@ def rust_defines(diff, path, added, name):
 
 def defines(diff, path, added, name, ext_kind):
     """Does an added line of `path` define the test `name` (a whole identifier, never in a comment)?"""
-    if ext_kind == "tap" or path.endswith(".sh"):
+    if path.endswith(".sh"):
         # The case line of tap.sh: the id is the literal first argument of tap_ok, tap_fail or tap_check (after
         # the status). A line that only mentions the id (an echo, a variable) does not define the case.
         spellings = {name, name.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")}
@@ -654,7 +600,7 @@ def defines(diff, path, added, name, ext_kind):
     raise Unmapped(f'I do not know how a test is defined in "{path}"')
 
 
-def check_cases(diff, report, fmt):
+def check_cases(diff, report):
     """D4 over the failed cases. Returns (reasons to reject, [(file, name)] for the PR block)."""
     problems, listed = [], []
     for c in report.failed():
@@ -662,21 +608,13 @@ def check_cases(diff, report, fmt):
         try:
             if not c.name:
                 raise Unmapped("the case has no name")
-            if fmt == "tap":
-                if not c.file:
-                    raise Unmapped("a `not ok` has no `# file: <script>` line before it")
-                f = normalize_path(diff, c.file)
-                if f is None:
-                    raise Unmapped(f'the `# file:` path "{c.file}" is not a file of the repository')
-                kind, files, scope, ident, ext = "tap", [f], f, c.name, "tap"
-            else:
-                kind, files, scope = case_files(diff, c)
-                ext = files[0][files[0].rfind("."):] if "." in files[0] else ""
-                ident = base_name(kind, ext, c.name)
+            kind, files, scope = case_files(diff, c)
+            ext = files[0][files[0].rfind("."):] if "." in files[0] else ""
+            ident = base_name(kind, ext, c.name)
             # Ambiguous names: the same name in more than one describe or class of the scope.
-            # (Not in TAP: the id is a literal of the helper, and a loop repeats it on purpose.)
+            # (Not for the bash helper: the id is a literal of tap.sh, and a loop repeats it on purpose.)
             peers = []
-            for o in ([] if fmt == "tap" or files[0].endswith(".sh") else report.cases):
+            for o in ([] if files[0].endswith(".sh") else report.cases):
                 if o is c:
                     continue
                 try:
@@ -700,7 +638,7 @@ def check_cases(diff, report, fmt):
                 if f not in diff.status:
                     continue
                 whole_file = diff.is_new(f) and len(files) == 1 and kind != "go"  # in a file the diff adds, every case qualifies
-                if whole_file or defines(diff, f, diff.added(f), ident, "tap" if fmt == "tap" else ext):
+                if whole_file or defines(diff, f, diff.added(f), ident, ext):
                     ok = True
                     break
             if not ok:
@@ -780,7 +718,6 @@ SECOND_MARKER = re.compile(r"(?:\d+: )?second marker:")
 
 def judge(entry, rc, timed_out, report_error, report, diff):
     """(exit code, [messages], [(file, name)]) for one stack."""
-    fmt = entry["format"]
     if timed_out:
         return 2, [f'the run passed its timeout ({entry["timeout"]} s) and was killed'], []
     if rc in (126, 127):
@@ -819,10 +756,8 @@ def judge(entry, rc, timed_out, report_error, report, diff):
         return 2, [f'the case of the second marker failed or was skipped (skip/TODO): "{n}". It has to pass in the red '
                    "(it proves the nested test reached the step under test); a failure there may be a crash, not an assertion"
                    for n in bad], []
-    problems, listed = check_cases(diff, report, fmt)
-    where = ("has no `# file:` line in the TAP (if your entry reads the diff with --diff-filter=AM, use AMR: "
-             "a renamed test is run under its new path)") if fmt == "tap" else "is not in the report"
-    problems += [f"the test file {f} of the red commit {where}: it did not run or did not finish "
+    problems, listed = check_cases(diff, report)
+    problems += [f"the test file {f} of the red commit is not in the report: it did not run or did not finish "
                  "(a test of the red diff that did not run makes the red fail)" for f in missing_test_files(diff, entry, report)]
     if problems:
         return 2, problems, []
@@ -830,10 +765,10 @@ def judge(entry, rc, timed_out, report_error, report, diff):
 
 
 def run_stack(entry, out_dir, cwd):
-    out = os.path.join(out_dir, "report." + ("xml" if entry["format"] == "junit" else "tap"))
+    out = os.path.join(out_dir, "report.xml")
     run = entry["run"].replace("{out}", out)
     env = dict(os.environ)
-    # tap.sh writes the report there (and not to stdout) when it sees it, in the format of the entry (ADR-002 D6)
+    # tap.sh writes the report there (and not to stdout) when it sees it, in JUnit (ADR-002 D6)
     env["TAP_OUT"] = out
     env["TAP_FORMAT"] = entry["format"]
     proc = subprocess.Popen(["bash", "-o", "pipefail", "-c", run], cwd=cwd, stdin=subprocess.DEVNULL,
@@ -872,7 +807,7 @@ def load_stacks(map_path):
         raise Reject(
             f"{map_path} has no `red` section: there is no evidence to validate the red (ADR-002, D1/D2). Declare, per stack:\n"
             '  "red": [{"name": "tests", "when": ["**/*test*"], "run": "<command that writes the report to {out}>", '
-            '"format": "junit" | "tap", "timeout": 600}]\n'
+            '"format": "junit", "timeout": 600}]\n'
             "pytest: pytest --junitxml={out} -o junit_family=xunit1 | vitest: vitest run --reporter=junit --outputFile={out} | "
             "jest: jest-junit with addFileAttribute and titleTemplate | go: gotestsum --junitfile {out} | "
             "cargo: nextest (junit) or cargo2junit | bash: tap.sh. There is no text fallback.")
@@ -887,8 +822,10 @@ def load_stacks(map_path):
             raise Reject("each `red` entry needs a unique `name` made of letters, digits, `.`, `_` and `-` "
                          "(it is part of the path of {out})")
         seen.add(name)
-        if e.get("format") not in ("junit", "tap"):
-            raise Reject(f'red "{name}": `format` has to be "junit" or "tap"')
+        if e.get("format") == "tap":
+            raise Removed(TAP_REMOVED.format(name=name))
+        if e.get("format") != "junit":
+            raise Reject(f'red "{name}": `format` has to be "junit"')
         if not isinstance(e.get("run"), str) or "{out}" not in e["run"]:
             raise Reject(f'red "{name}": `run` has to be a string that contains {{out}}')
         w = e.get("when")
@@ -949,14 +886,11 @@ def main(argv):
     for entry in chosen:
         out_dir = tempfile.mkdtemp(prefix=entry["name"][:20] + "-", dir=tmp)
         print(f'== red: stack "{entry["name"]}" ({entry["format"]}, timeout {entry["timeout"]} s)', flush=True)
-        if entry["format"] == "tap":
-            # 1.x only (ADR-002 D8): one line on stderr, no change to the exit code. 2.0.0 turns it into an error.
-            print(TAP_WARNING.format(name=entry["name"]), file=sys.stderr, flush=True)
         rc, timed_out, out = run_stack(entry, out_dir, root)
         report, report_error = None, None
         if not timed_out:
             try:
-                report = parse_junit(out) if entry["format"] == "junit" else parse_tap(out)
+                report = parse_junit(out)
             except Reject as e:
                 report_error = str(e)
         code, msgs, listed = judge(entry, rc, timed_out, report_error, report, diff)
@@ -985,6 +919,9 @@ def main(argv):
 if __name__ == "__main__":
     try:
         sys.exit(main(sys.argv))
+    except Removed as e:
+        print(e, file=sys.stderr)  # a literal of ADR-002 D8, without the prefix
+        sys.exit(2)
     except Reject as e:
         print(f"red.sh: {e}", file=sys.stderr)
         sys.exit(2)
