@@ -9,6 +9,11 @@
 # fija su nombre en WORKTREE_LOCK_AGENT. Sin nombre: el de BK_TASK_DIR, o "agent".
 # Entorno: WORKTREE_LOCK_PID (pid del dueño; por defecto el claude más cercano entre los ancestros, si no el
 #          ancestro más cercano que no sea un shell, si no $PPID), WORKTREE_LOCK_AGENT.
+# Ojo: sin claude entre los ancestros, el dueño es el primer ancestro que no es un shell. Si ese proceso es un wrapper
+# efímero (que muere al terminar el comando), el candado queda stale apenas muere: abre en vez de cerrar y el worktree
+# queda libre. Con otro agente que no sea claude, fijá WORKTREE_LOCK_PID al pid del agente que dura toda la sesión.
+# release no toma el mutex a propósito: solo borra un candado que ya es suyo y vivo, y nadie más puede reemplazarlo
+# (claim solo reemplaza uno stale), así que no hay carrera que cerrar.
 set -uo pipefail
 if [ $# -ne 2 ] || { [ "$1" != claim ] && [ "$1" != status ] && [ "$1" != release ]; }; then
   echo "Usage: $0 claim|status|release <worktree>" >&2; exit 64
