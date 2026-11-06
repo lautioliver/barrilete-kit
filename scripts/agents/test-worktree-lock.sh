@@ -205,4 +205,29 @@ if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "WORKTRE
 if [ -f "$RAIZ/.claude/skills/orchestrate/SKILL.es.md" ]; then grep -qF -- "worktree-lock.sh release" "$RAIZ/.claude/skills/orchestrate/SKILL.es.md"; tap_check $? "orchestrate (es): suelta el candado antes de lanzar al subagente"; else tap_skip "orchestrate (es): suelta el candado antes de lanzar al subagente" "no existe SKILL.es.md de orchestrate en este proyecto"; fi
 if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "orquestador suelta" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): el orquestador suelta el candado de prepare.sh"; else tap_skip "contrato (es): el orquestador suelta el candado de prepare.sh" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
 
+# 8. El candado tiene que cubrir el trabajo del subagente (#267, 2.ª review del PR #268): el orquestador lo suelta antes
+# de lanzar, así que el subagente lo toma con su propio nombre al empezar (worktree-lock.sh claim). Sin eso, el worktree
+# queda libre justo mientras se trabaja.
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=implementer-267
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=intruso
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -q '^held: implementer-267' <<<"$out"; tap_check $? "subagente con el candado: otro agente no puede tomar su worktree"
+rm -f "$GDIR/agent-lock"
+if [ "$CHICO" = 1 ]; then
+  tap_skip "implementer: toma el candado al empezar" "$SIN"
+  tap_skip "implementer-light: toma el candado al empezar" "$SIN"
+  tap_skip "orchestrate: dice que el subagente toma el candado" "$SIN"
+  tap_skip "contrato: el subagente toma el candado con su nombre" "$SIN"
+else
+  mencion .claude/agents/implementer.md "worktree-lock.sh claim" "worktree-lock.sh claim"; tap_check $? "implementer: toma el candado al empezar"
+  mencion .claude/agents/implementer-light.md "worktree-lock.sh claim" "worktree-lock.sh claim"; tap_check $? "implementer-light: toma el candado al empezar"
+  mencion .claude/skills/orchestrate/SKILL.md "worktree-lock.sh claim" "worktree-lock.sh claim"; tap_check $? "orchestrate: dice que el subagente toma el candado"
+  mencion docs/agents/subagent-contract.md "worktree-lock.sh claim" "worktree-lock.sh claim"; tap_check $? "contrato: el subagente toma el candado con su nombre"
+fi
+if [ -f "$RAIZ/.claude/i18n/agents/implementer.es.md" ]; then grep -qF -- "worktree-lock.sh claim" "$RAIZ/.claude/i18n/agents/implementer.es.md"; tap_check $? "implementer (es): toma el candado al empezar"; else tap_skip "implementer (es): toma el candado al empezar" "no existe .claude/i18n/agents/implementer.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/i18n/agents/implementer-light.es.md" ]; then grep -qF -- "worktree-lock.sh claim" "$RAIZ/.claude/i18n/agents/implementer-light.es.md"; tap_check $? "implementer-light (es): toma el candado al empezar"; else tap_skip "implementer-light (es): toma el candado al empezar" "no existe .claude/i18n/agents/implementer-light.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/skills/orchestrate/SKILL.es.md" ]; then grep -qF -- "worktree-lock.sh claim" "$RAIZ/.claude/skills/orchestrate/SKILL.es.md"; tap_check $? "orchestrate (es): dice que el subagente toma el candado"; else tap_skip "orchestrate (es): dice que el subagente toma el candado" "no existe .claude/skills/orchestrate/SKILL.es.md en este proyecto"; fi
+if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "worktree-lock.sh claim" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): el subagente toma el candado con su nombre"; else tap_skip "contrato (es): el subagente toma el candado con su nombre" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
+
 tap_done
