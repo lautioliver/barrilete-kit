@@ -33,6 +33,8 @@ regla propuesta proposed "[implementer]" '"*"' "Regla propuesta que no entra."
 regla solo-otro accepted "[implementer]" "[otro-proyecto]" "Regla de otro proyecto."
 regla solo-mio accepted "[implementer]" "[mi-proyecto]" "Regla de mi proyecto."
 regla con-check accepted "[implementer]" '"*"' "Regla con check." $'check: pr-metadata\nfail_message: "El PR miente: corregilo o escalá."\n' block
+regla vieja-con-check deprecated "[implementer]" '"*"' "Regla retirada con check." $'check: viejo-check\nfail_message: "retirada"\n' block
+regla otro-con-check accepted "[implementer]" "[otro-proyecto]" "Regla de otro proyecto con check." $'check: otro-check\nfail_message: "de otro"\n' block
 git -C "$TMP/rules" add -A && git -C "$TMP/rules" commit -qm v1
 SHA1=$(git -C "$TMP/rules" rev-parse HEAD)
 regla impl-uno accepted "[implementer]" '"*"' "Regla uno v2 del implementer."
@@ -159,5 +161,28 @@ tap_run out 3 "$SYNC" --root "$TMP/m" --url "$TMP/rules"
 grep -q 'rota' <<<"$out"; tap_check $? "regla mal formada: falla y nombra la regla"
 diff -r "$TMP/m-antes" "$TMP/m" >/dev/null; tap_check $? "regla mal formada: no escribe ningún archivo"
 git -C "$TMP/rules" checkout -q main
+
+# 13. El manifiesto de checks (#287, ADR-006 D8): .barrilete/checks.json lo escribe sync-rules y lo lee verify.py.
+# Lista el check de cada regla accepted que aplica al proyecto, con su regla y su fail_message; nada más.
+leer() { [ -f "$1" ] && cat "$1"; }  # el contenido, o nada si el archivo no existe (un caso falla, no un crash)
+CHECKS_UNO=$(printf '%s\n' '{' '  "checks": [' '    {' '      "id": "pr-metadata",' '      "rule": "con-check",' '      "fail_message": "El PR miente: corregilo o escalá."' '    }' '  ]' '}')
+proyecto "$TMP/c" "$SHA1"
+tap_run out 0 "$SYNC" --root "$TMP/c" --url "$TMP/rules"
+[ "$(leer "$TMP/c/.barrilete/checks.json")" = "$CHECKS_UNO" ]; tap_check $? "manifiesto: lista el check de la regla accepted con su regla y su fail_message, y ningún otro (ni retirada ni de otro proyecto)"
+git init -q -b main "$TMP/rules0"
+printf -- '- id: pr-metadata\n  description: x\n' >"$TMP/rules0/classes.yml"
+regla0() { mkdir -p "$TMP/rules0/rules"; printf -- '---\nid: sin\nstatus: accepted\norigin: observed\napplies_to: [implementer]\nscope: "*"\nclasses: []\nseverity: fix\naccepted: 2026-11-01\n---\nRegla sin check.\n' >"$TMP/rules0/rules/sin.md"; }
+regla0
+git -C "$TMP/rules0" add -A && git -C "$TMP/rules0" commit -qm v0; SHA0=$(git -C "$TMP/rules0" rev-parse HEAD)
+proyecto "$TMP/c0" "$SHA0"
+tap_run out 0 "$SYNC" --root "$TMP/c0" --url "$TMP/rules0"
+[ "$(leer "$TMP/c0/.barrilete/checks.json")" = "$(printf '%s\n' '{' '  "checks": []' '}')" ]; tap_check $? "manifiesto: sin reglas con check, la lista queda vacía"
+printf '{"checks": []}\n' >"$TMP/c/.barrilete/checks.json"
+tap_run out 3 "$SYNC" --root "$TMP/c" --url "$TMP/rules" --check
+grep -q 'checks.json' <<<"$out"; tap_check $? "manifiesto: --check nombra checks.json si no es lo que da el lock"
+tap_run out 0 "$SYNC" --root "$TMP/c" --url "$TMP/rules"
+[ "$(leer "$TMP/c/.barrilete/checks.json")" = "$CHECKS_UNO" ]; tap_check $? "manifiesto: sin --check se regenera y pisa la edición a mano"
+tap_run out 0 "$SYNC" --root "$TMP/c" --url "$TMP/rules" --check
+[ "$TAP_RC" = 0 ]; tap_check $? "manifiesto: con el manifiesto al día --check sale 0"
 
 tap_done

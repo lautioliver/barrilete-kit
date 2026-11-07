@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+# STUB (rojo de #287): todavía no verifica nada.
+import sys
+sys.exit(0)
