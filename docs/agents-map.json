@@ -177,6 +177,15 @@
       "run": "bash .claude/skills/implement-issue/test-prepare.sh"
     },
     {
+      "name": "sync-rules",
+      "when": [
+        "scripts/agents/sync-rules",
+        "scripts/agents/test-sync-rules.sh",
+        ".barrilete/rules.lock"
+      ],
+      "run": "bash scripts/agents/test-sync-rules.sh"
+    },
+    {
       "name": "worktree-lock",
       "when": [
         "scripts/agents/worktree-lock.sh",
