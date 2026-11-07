@@ -40,7 +40,7 @@ barrilete-rules es la fuente de verdad de las políticas reutilizables de Barril
    - `rules/<id>.md`: una regla por archivo;
    - `classes.yml`: la lista de clases (D4).
 
-   No guarda checks: una regla solo declara `check: <id>` y su `fail_message`, y el check se implementa en el kit (D8). `classes.yml` tiene una sola fuente, `barrilete-rules`: la copia del kit, `docs/agents/classes.yml`, la genera `sync-rules` desde la fase 2 (D7, D11), y hasta entonces sigue provisoria. Nunca guarda desvíos (D5). Una regla se acepta mergeando el PR que la agrega o la pasa a `accepted`, así que siempre la revisa una persona, como hoy en `/improve-skills`.
+   No guarda checks: una regla solo declara `check: <id>` y su `fail_message`, y el check se implementa en el kit (D8). `classes.yml` tiene una sola fuente, `barrilete-rules`: la copia del kit, docs/agents/classes.yml, la genera `sync-rules` desde la fase 2 (D7, D11), y hasta entonces sigue provisoria. Nunca guarda desvíos (D5). Una regla se acepta mergeando el PR que la agrega o la pasa a `accepted`, así que siempre la revisa una persona, como hoy en `/improve-skills`.
 
 3. **D3. Una regla** es un archivo `rules/<id>.md`. Arriba lleva un frontmatter con los datos y abajo, en el cuerpo, la regla en una línea, el porqué y la evidencia.
 
