@@ -8,9 +8,9 @@ When `roles.yml` says `bk` for an `implementer` (kit/ADR-004; `reviewer` and `im
 
 - **This contract does not apply to it.** `bk run` starts a normal `claude "/implement-issue <n>"` session in the worktree: it does not use `.claude/agents/<role>.md`, never reads this file and does not return the output block. It follows `implement-issue` and `AGENTS.md` with their own rules: its retro with the `retro.sh` of `origin/<base>`, and it never merges or publishes.
 - **It asks in its window, at the moment** (the opposite of "you do not talk to the person"). The person answers from the orchestrator's chat with `! bk say <agent> "…"`. The orchestrator never answers for them.
-- **One worktree:** `bk run` creates it (it runs `prepare.sh`), so the orchestrator does not.
+- **One worktree:** `bk run` creates it (it runs `prepare.sh`), so the orchestrator does not. `bk run` runs `prepare.sh` with the name `<n>-<role>` (`WORKTREE_LOCK_AGENT`) and `bk run` releases the worktree lock (`agent-lock`, `scripts/agents/worktree-lock.sh`) before it launches the agent: the lock would otherwise stay with whoever called `bk`, not with the agent. **Its first step is to take it with `scripts/agents/worktree-lock.sh claim <worktree>`.** Its owner is its own `claude` and its name comes from `BK_TASK_DIR` (it needs no `WORKTREE_LOCK_AGENT`). If it says `held: …`, another live agent is in that worktree: stop and ask in your window, do not share it or delete the lock. While the agent lives, a review session or `/orchestrate` that runs a named `prepare.sh` there gets `held: <n>-<role>`.
 - The orchestrator follows it through its task (`bk tasks --json`: state, result and PR; kit/ADR-005) and does not open its diffs or retros.
-- **It closes its task with `bk done`**, with the same vocabulary of results as the output block below: `pr <n>`, `blockers`, `dropped "<reason>"`, `escalate "<reason>"`. `question` closes nothing: it asks in its window.
+- **It closes its task with `bk done`**, with the same vocabulary of results as the output block below: `pr <n>`, `blockers`, `dropped "<reason>"`, `escalate "<reason>"`. `question` closes nothing: it asks in its window. `bk done` releases it (the worktree lock); if the agent dies, its pid is dead and the lock is stale, so the next claim replaces it.
 
 ## Rules
 
