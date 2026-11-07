@@ -63,4 +63,59 @@ s=$(cd "$TMP/p" && python3 -c 'import sys; sys.path.insert(0, "scripts/agents");
 print("\n".join(archivos_cambiados(["--base", "trunk"])))' 2>&1)
 grep -qx "carpeta nueva/sub/a.txt" <<<"$s" && ! grep -q '/$' <<<"$s"; tap_check $? "archivos_cambiados lista los archivos de una carpeta nueva sin trackear"
 
+# Un archivo que el cambio borra no llega a {files} (#274): no se puede verificar, y shellcheck falla con
+# "does not exist". Una regla con {files} que solo tocó archivos borrados no corre (sin archivos, shellcheck sale con 3);
+# una sin {files} sigue corriendo.
+# shellcheck disable=SC2164  # si cd falla, la trampa ERR de tap.sh corta la corrida
+cd "$TMP/p"
+# El bloque anterior deja un renombre y archivos sin trackear: se descartan para que no entren a trunk.
+git reset -q --hard
+git clean -qfd
+git switch -q trunk
+cat >docs/agents-map.json <<'JSON'
+{"docs": [], "sensitive": [], "verify": [
+  {"name": "con-files", "when": ["**/*.sh"], "run": "for f in {files}; do [ -e \"$f\" ] || echo \"FALTA\"\"-$f\"; done; echo \"VISTOS:[\"{files}\"]\""},
+  {"name": "sin-files", "when": ["**/*.sh"], "run": "echo SIN-FILES"},
+  {"name": "siempre-files", "always": true, "when": ["**/*.sh"], "run": "echo \"SIEMPRE:[\"{files}\"]\""},
+  {"name": "siempre-sin-when", "always": true, "run": "echo \"SSW:[\"{files}\"]\""},
+  {"name": "pendiente", "always": true, "run": "TODO: los tests de {files}"}
+]}
+JSON
+echo 'echo v' >viejo.sh
+echo 'echo q' >queda.sh
+echo 'echo s' >solo.sh
+git add -A
+git commit -qm sh
+git push -q origin trunk 2>/dev/null
+git switch -q -c claude/3-borra
+git rm -q viejo.sh
+echo 'echo q2' >queda.sh
+git commit -qam borra
+tap_run s 0 python3 scripts/agents/verify.py
+tap_no_traceback "$s"
+[[ $s == *"VISTOS:[queda.sh]"* ]]; tap_check $? "verify: {files} no lleva el archivo borrado" "$s"
+[[ $s != *FALTA-* ]]; tap_check $? "verify: la regla con {files} no recibe un archivo que no existe" "$s"
+[[ $s == *"SSW:[queda.sh]"* ]]; tap_check $? "verify: una regla always sin when recibe en {files} solo los que existen" "$s"
+git switch -q trunk
+git switch -q -c claude/4-solo-borra
+git rm -q solo.sh
+git commit -qm solo
+tap_run s 0 python3 scripts/agents/verify.py --list
+tap_no_traceback "$s"
+[[ $s != *"- con-files"* ]]; tap_check $? "verify: una regla con {files} que solo tocó borrados no corre" "$s"
+[[ $s == *"- sin-files"* ]]; tap_check $? "verify: una regla sin {files} corre aunque el archivo esté borrado"
+[[ $s == *"con-files (only deleted files matched: solo.sh)"* ]]; tap_check $? "verify: avisa qué regla no corre porque solo tocó borrados" "$s"
+[[ $s != *"- siempre-files"* ]]; tap_check $? "verify: una regla always con {files} que solo tocó borrados tampoco corre" "$s"
+[[ $s == *"Skipped: siempre-sin-when (only deleted files matched: solo.sh)"* ]]; tap_check $? "verify: una regla always sin when con {files} que solo tocó borrados no corre" "$s"
+[[ $s == *"- pendiente (always)"* ]]; tap_check $? "verify: una regla TODO con {files} no se saltea: sigue saliendo como no configurada" "$s"
+# Con --pr los archivos son los del PR, que pueden no estar en este checkout: no se filtran (un gh falso los da).
+mkdir -p "$TMP/bin"
+printf '#!/bin/sh\nprintf "%%s\\n" nuevo-del-pr.sh\n' >"$TMP/bin/gh"
+chmod +x "$TMP/bin/gh"
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 scripts/agents/verify.py --list --pr 7
+tap_no_traceback "$s"
+[[ $s == *"- con-files (1 file(s): nuevo-del-pr.sh)"* ]]; tap_check $? "verify: con --pr no saca los archivos que no están en el checkout local" "$s"
+# shellcheck disable=SC2164  # si cd falla, la trampa ERR de tap.sh corta la corrida
+cd "$RAIZ"
+
 tap_done
