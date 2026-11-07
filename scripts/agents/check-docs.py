@@ -674,6 +674,10 @@ if os.path.exists(CLASES_YML):
             if actual and re.fullmatch(r"  description:.*", linea):
                 actual[2] = True  # one mistake, one error: a bad description is reported as such, not also as a missing one
             errores.append(f"{CLASES_YML}:{n}: unexpected line (expected `- id: <kebab-case>` and `  description: <text>`, unquoted).")
+            if linea.startswith("- id:"):
+                # A broken id opens its own entry (no id): its description is not a second error, nor another class's.
+                cerrar()
+                actual = [None, n, False]
     cerrar()
     if ids_leidos:
         ids_clases = ids_leidos
