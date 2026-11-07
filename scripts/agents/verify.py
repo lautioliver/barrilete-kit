@@ -57,8 +57,10 @@ def main():
     existen = list(cambiados) if "--pr" in args else [a for a in cambiados if os.path.lexists(a)]
     plan, salteadas = [], []
     for r in reglas:
-        # In the ones that always run (no "when"), {files} are all the changed files that exist.
-        candidatos = existen if "{files}" in r["run"] else cambiados
+        # In the ones that always run (no "when"), {files} are all the changed files that exist. A "TODO" rule
+        # runs nothing: it is not filtered, so it is still reported as not configured and never skipped.
+        filtra = "{files}" in r["run"] and not r["run"].startswith("TODO")
+        candidatos = existen if filtra else cambiados
         presentes = set(candidatos)
         tocados = [a for a in candidatos if coincide(a, r["when"])] if r.get("when") else list(candidatos)
         borrados = [a for a in cambiados if a not in presentes and (not r.get("when") or coincide(a, r["when"]))]
