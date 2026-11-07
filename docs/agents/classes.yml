@@ -1,5 +1,5 @@
 # Provisional (ADR-006 D4). The finding classes of review-pr: stable ids, one line each.
-# The ids come from the classes that `bk learn` guesses today. In phase 1 this file moves to barrilete-rules.
+# The ids come from the classes that `bk learn` guesses today. Its source moves to barrilete-rules; from phase 2 sync-rules generates this copy (ADR-006 D2).
 # `other` is reserved: it is not listed here, review-pr uses it when no class fits.
 - id: pr-metadata
   description: the PR body, title, number or red block says something that is not true of this PR
