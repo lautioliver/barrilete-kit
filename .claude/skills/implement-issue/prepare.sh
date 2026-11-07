@@ -25,6 +25,7 @@ changed; if there is more than one, it fails and lists them) and prints the issu
               - If the branch is already in another worktree, it fails without assigning.
               - Takes a lock (agent-lock, in the worktree's git directory; scripts/agents/worktree-lock.sh):
                 if another live agent holds the worktree, it fails without assigning and says who.
+                If it fails after taking a new lock, it releases it on exit.
                 Subagents of one process set WORKTREE_LOCK_AGENT; release with WORKTREE_LOCK_AGENT=<name> worktree-lock.sh release <worktree>.
               - With the PR merged, delete it with: git worktree remove <path>
 
@@ -203,17 +204,29 @@ elif [ -e "$WT" ]; then
 fi
 # #267: a worktree has one live owner. Claiming it is how this agent says "mine"; if another live agent
 # already holds it, stop: it is not shared (scripts/agents/worktree-lock.sh). A new worktree is claimed after creating it.
+# If prepare.sh fails after taking a new lock, it releases it on exit: an agent that did not start does not keep
+# the worktree. A lock that was already this agent's before (renewed) is kept.
+CANDADO_SH="$(dirname "${BASH_SOURCE[0]}")/../../../scripts/agents/worktree-lock.sh"
+soltar_si_falla() {
+  local rc=$?
+  [ "$rc" -ne 0 ] && [ -n "$CANDADO_NUEVO" ] && "$CANDADO_SH" release "$WT" >/dev/null 2>&1
+  exit "$rc"
+}
 tomar_candado() {
-  local r
-  r=$("$(dirname "${BASH_SOURCE[0]}")/../../../scripts/agents/worktree-lock.sh" claim "$WT") \
+  local r previo
+  previo=$("$CANDADO_SH" status "$WT") \
+    || error "could not read the lock of the worktree $WT (scripts/agents/worktree-lock.sh failed)."
+  r=$("$CANDADO_SH" claim "$WT") \
     || error "could not take the lock of the worktree $WT (scripts/agents/worktree-lock.sh failed)."
   case "$r" in
-    claimed) CANDADO=1 ;;
+    claimed)
+      CANDADO=1
+      case "$previo" in free|stale) CANDADO_NUEVO=1; trap soltar_si_falla EXIT ;; esac ;;
     held:*) error "the worktree $WT is in use. ${r#held: }" ;;
     *) error "unexpected answer taking the lock of the worktree $WT: $r" ;;
   esac
 }
-CANDADO=""
+CANDADO=""; CANDADO_NUEVO=""
 [ -d "$WT" ] && tomar_candado
 traer
 if [ -n "$en_uso" ]; then
