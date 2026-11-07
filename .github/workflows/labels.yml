@@ -153,7 +153,7 @@ jobs:
               return { ok: false, placeholder };
             };
             // The structured red block of red.sh (ADR-002 D7/D9): the title, `red commit:` once (a hex sha) and, per group, `stack:`, `format:`
-            // (junit or tap) and under `failing cases:` at least one `- <file>::<name>`. Linear time like the helpers above: the lines are read
+            // (junit: 2.0.0 removed tap, ADR-002 D8/D9) and under `failing cases:` at least one `- <file>::<name>`. Linear time like the helpers above: the lines are read
             // with string methods (no regex over the body), and the only regexes run on one trimmed line with a single quantifier.
             const TITULO_ROJO = /<summary>(?:Red before implementing|Rojo antes de implementar)<\/summary>/i;
             const leerBloqueRojo = t => {
@@ -165,7 +165,8 @@ jobs:
               const cerrar = () => {
                 if (!grupo) return;
                 if (!grupo.nombre) errs.add(`group ${n}: "stack:" has no name.`);
-                if (grupo.formato !== 'junit' && grupo.formato !== 'tap') errs.add(`group ${n}: "format:" is missing or is not junit or tap.`);
+                if (grupo.formato === 'tap') errs.add(`group ${n}: format "tap" was removed in 2.0.0; switch the red entry of docs/agents-map.json to "junit" (docs/guides/red-per-runner.md), run red.sh again and paste the new block.`);
+                else if (grupo.formato !== 'junit') errs.add(`group ${n}: "format:" is missing or is not junit.`);
                 if (!grupo.cabecera) errs.add(`group ${n}: the "failing cases:" line is missing.`);
                 else if (grupo.casos === 0) errs.add(`group ${n}: "failing cases:" needs at least one line "- <file>::<name>".`);
               };
