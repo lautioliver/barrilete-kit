@@ -76,7 +76,9 @@ cat >docs/agents-map.json <<'JSON'
 {"docs": [], "sensitive": [], "verify": [
   {"name": "con-files", "when": ["**/*.sh"], "run": "for f in {files}; do [ -e \"$f\" ] || echo \"FALTA\"\"-$f\"; done; echo \"VISTOS:[\"{files}\"]\""},
   {"name": "sin-files", "when": ["**/*.sh"], "run": "echo SIN-FILES"},
-  {"name": "siempre-files", "always": true, "when": ["**/*.sh"], "run": "echo \"SIEMPRE:[\"{files}\"]\""}
+  {"name": "siempre-files", "always": true, "when": ["**/*.sh"], "run": "echo \"SIEMPRE:[\"{files}\"]\""},
+  {"name": "siempre-sin-when", "always": true, "run": "echo \"SSW:[\"{files}\"]\""},
+  {"name": "pendiente", "always": true, "run": "TODO: los tests de {files}"}
 ]}
 JSON
 echo 'echo v' >viejo.sh
@@ -93,6 +95,7 @@ tap_run s 0 python3 scripts/agents/verify.py
 tap_no_traceback "$s"
 [[ $s == *"VISTOS:[queda.sh]"* ]]; tap_check $? "verify: {files} no lleva el archivo borrado" "$s"
 [[ $s != *FALTA-* ]]; tap_check $? "verify: la regla con {files} no recibe un archivo que no existe" "$s"
+[[ $s == *"SSW:[queda.sh]"* ]]; tap_check $? "verify: una regla always sin when recibe en {files} solo los que existen" "$s"
 git switch -q trunk
 git switch -q -c claude/4-solo-borra
 git rm -q solo.sh
@@ -103,6 +106,8 @@ tap_no_traceback "$s"
 [[ $s == *"- sin-files"* ]]; tap_check $? "verify: una regla sin {files} corre aunque el archivo esté borrado"
 [[ $s == *"con-files (only deleted files matched: solo.sh)"* ]]; tap_check $? "verify: avisa qué regla no corre porque solo tocó borrados" "$s"
 [[ $s != *"- siempre-files"* ]]; tap_check $? "verify: una regla always con {files} que solo tocó borrados tampoco corre" "$s"
+[[ $s == *"Skipped: siempre-sin-when (only deleted files matched: solo.sh)"* ]]; tap_check $? "verify: una regla always sin when con {files} que solo tocó borrados no corre" "$s"
+[[ $s == *"- pendiente (always)"* ]]; tap_check $? "verify: una regla TODO con {files} no se saltea: sigue saliendo como no configurada" "$s"
 # Con --pr los archivos son los del PR, que pueden no estar en este checkout: no se filtran (un gh falso los da).
 mkdir -p "$TMP/bin"
 printf '#!/bin/sh\nprintf "%%s\\n" nuevo-del-pr.sh\n' >"$TMP/bin/gh"
