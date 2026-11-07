@@ -8,9 +8,9 @@ Cuando `roles.yml` dice `bk` para un `implementer` (kit/ADR-004; `reviewer` e `i
 
 - **Este contrato no le aplica.** `bk run` arranca una sesión común de `claude "/implement-issue <n>"` en el worktree: no usa `.claude/agents/<rol>.md`, nunca lee este archivo y no devuelve el bloque de salida. Sigue `implement-issue` y `AGENTS.md` con sus propias reglas: su retro con el `retro.sh` de `origin/<base>`, y no mergea ni publica nunca.
 - **Pregunta en su ventana, en el momento** (lo contrario de "no hablás con la persona"). La persona contesta desde el chat del orquestador con `! bk say <agente> "…"`. El orquestador nunca contesta por ella.
-- **Un worktree:** lo crea `bk run` (corre `prepare.sh`), no el orquestador.
+- **Un worktree:** lo crea `bk run` (corre `prepare.sh`), no el orquestador. `bk run` corre `prepare.sh` con el nombre `<n>-<rol>` (`WORKTREE_LOCK_AGENT`) y `bk run` suelta el candado del worktree (`agent-lock`, `scripts/agents/worktree-lock.sh`) antes de lanzar al agente: si no, el candado quedaría de quien llamó a `bk`, no del agente. **Su primer paso es tomarlo con `scripts/agents/worktree-lock.sh claim <worktree>`.** Su dueño es su propio `claude` y su nombre sale de `BK_TASK_DIR` (no necesita `WORKTREE_LOCK_AGENT`). Si dice `held: …`, otro agente vivo está en ese worktree: frená y preguntá en tu ventana, no lo compartas ni borres el candado. Mientras el agente vive, una sesión de review u `/orchestrate` que corra un `prepare.sh` con nombre ahí recibe `held: <n>-<rol>`.
 - El orquestador lo sigue por su tarea (`bk tasks --json`: estado, resultado y PR; kit/ADR-005) y no abre sus diffs ni sus retros.
-- **Cierra su tarea con `bk done`**, con el mismo vocabulario de resultados que el bloque de salida de abajo: `pr <n>`, `blockers`, `dropped "<motivo>"`, `escalate "<motivo>"`. `question` no cierra nada: pregunta en su ventana.
+- **Cierra su tarea con `bk done`**, con el mismo vocabulario de resultados que el bloque de salida de abajo: `pr <n>`, `blockers`, `dropped "<motivo>"`, `escalate "<motivo>"`. `question` no cierra nada: pregunta en su ventana. `bk done` lo suelta (el candado del worktree); si el agente muere, su pid está muerto y el candado queda stale: el próximo claim lo reemplaza.
 
 ## Reglas
 
