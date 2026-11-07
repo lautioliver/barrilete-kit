@@ -47,7 +47,8 @@ def checks_de_reglas():
         sys.exit(2)
 
     try:
-        datos = json.load(open(ruta, encoding="utf-8"))
+        with open(ruta, encoding="utf-8") as fh:
+            datos = json.load(fh)
     except (OSError, ValueError) as e:
         roto(f"it cannot be read ({e}).")
     lista = datos.get("checks") if isinstance(datos, dict) else None
@@ -104,11 +105,18 @@ def main():
             plan.append((r["name"], motivo, cmd))
 
     # The checks of the rules always run: they look at the branch and the PR, not at the files.
+    # Two rules can share a check: it runs once and the message of each rule is shown. They look at the branch's PR, not at
+    # the one --pr names, so with --pr they are skipped (and said).
     mensajes = {}
-    for c in de_reglas:
-        nombre = f"check:{c['id']}"
-        mensajes[nombre] = (c["rule"], c["fail_message"])
-        plan.append((nombre, f"rule {c['rule']}", shlex.join([f"scripts/agents/checks/{c['id']}", "--base", base])))
+    if "--pr" in args and de_reglas:
+        print("Skipped: rule checks (they look at the PR of this checkout's branch, not at the one --pr names)\n")
+    else:
+        for c in de_reglas:
+            nombre = f"check:{c['id']}"
+            if nombre not in mensajes:
+                mensajes[nombre] = []
+                plan.append((nombre, f"rule {c['rule']}", shlex.join([f"scripts/agents/checks/{c['id']}", "--base", base])))
+            mensajes[nombre].append((c["rule"], c["fail_message"]))
 
     print(f"Changes against {base}: {len(cambiados)} file(s). Checks: {len(plan)}.\n")
     for nombre, borrados in salteadas:
@@ -127,23 +135,26 @@ def main():
             continue
         print(f"▶ {nombre} ({motivo})\n  $ {cmd}", flush=True)
         t0 = time.time()
-        ok = subprocess.run(cmd, shell=True).returncode == 0
-        resultados.append((nombre, "ok" if ok else "FAILED", time.time() - t0))
+        rc = subprocess.run(cmd, shell=True).returncode
+        # A rule check exits with 4 when it could not verify (no PR yet, gh down): that is not ok, and it is not a failure.
+        estado = "ok" if rc == 0 else "not verified" if rc == 4 and nombre in mensajes else "FAILED"
+        resultados.append((nombre, estado, time.time() - t0))
         print(flush=True)
 
     print("Result:")
     for nombre, resultado, seg in resultados:
         print(f"  {resultado:15} {nombre}" + (f" ({seg:.0f}s)" if seg else ""))
-    sin_config = [n for n, e, _ in resultados if e == "not configured"]
+    sin_config = [n for n, e, _ in resultados if e in ("not configured", "not verified")]
     if any(e == "FAILED" for _, e, _ in resultados):
-        for nombre, (regla, mensaje) in mensajes.items():
-            if ("FAILED" == next((e for n, e, _ in resultados if n == nombre), None)):
-                print(f"\n{nombre} (rule {regla}): {mensaje}")
+        for nombre, reglas_del_check in mensajes.items():
+            if "FAILED" == next((e for n, e, _ in resultados if n == nombre), None):
+                for regla, mensaje in reglas_del_check:
+                    print(f"\n{nombre} (rule {regla}): {mensaje}")
         print("\nSome checks fail: fix them before opening the PR. Do not disable them.")
         sys.exit(1)
     if sin_config:
-        print(f"\nEverything configured passed, but {', '.join(sin_config)} was not verified: the command is missing in "
-              "docs/agents-map.json. Do not say the change is verified.")
+        print(f"\nEverything that ran passed, but {', '.join(sin_config)} was not verified (a command missing in "
+              "docs/agents-map.json, or a rule check that could not read the PR yet). Do not say the change is verified.")
         return
     print("\nAll verified.")
 
