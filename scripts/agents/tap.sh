@@ -21,7 +21,7 @@
 # and the case fails if any of them fails; each failing description is written under it.
 #
 # The cases are held until tap_done (or a bail out) and written then, in the order of their first call.
-# Where this header says "Bail out!", "the plan" or "the numbering", it speaks of the TAP stream (TAP_FORMAT=tap, or no TAP_OUT):
+# Where this header says "Bail out!", "the plan" or "the numbering", it speaks of the TAP stream (without TAP_OUT, on stdout):
 # in JUnit a bail out is an error testcase in the closed testsuite, and there is no plan or numbering.
 #
 # What it writes (ADR-002 D6, #225). With TAP_OUT, JUnit XML: when the script ends (tap_done, tap_skip_all or a bail out) it
@@ -30,15 +30,13 @@
 # testcase with an <error> child, so a crash is never a failed case. It does not write the root: several scripts append
 # to the same file and the `run` of the entry wraps the testsuites in <testsuites>...</testsuites> at the end. An id that
 # repeats is ONE testcase: a failure if any turn failed (a crash ends the script, and its error testcase counts for D3 anyway).
-# TAP_FORMAT=tap (1.x, until 2.0.0, D8) writes the TAP stream instead; unset or "junit" is JUnit; any other value
-# writes no report and exits with 2 (fails closed). Without TAP_OUT the helper prints TAP on stdout, for people.
+# TAP_FORMAT (ADR-002 D6, D8: 2.0.0 writes only JUnit): unset or "junit" is JUnit; any other value, tap included, writes
+# no report and exits with 2 (fails closed). Without TAP_OUT the helper prints TAP on stdout, for people, and writes no file.
 #
 # Where the report goes. Under red.sh, TAP_OUT is the file it created ({out}): the helper opens it once,
 # on fd 8 (a path that cannot be opened is a bail out with exit 2), and unsets the variable, so the test does not see the path and what it prints on stdout
 # cannot inject cases. Without TAP_OUT (a person running the test, the docs CI) the TAP goes to
-# stdout. In TAP, several scripts can write the same file: the numbering continues and the plan is rewritten
-# at the end so the stream keeps a single 1..N (in JUnit each script appends its own testsuite). Each failing case is also printed on
-# stderr as "FAIL - <id>", so a CI log shows it.
+# stdout. Each failing case is also printed on stderr as "FAIL - <id>", so a CI log shows it.
 #
 # Unexpected errors (ADR-002 D6: a crash is never a failed assertion). The helper turns on errtrace
 # (set -E) and pipefail, so the ERR trap runs in functions, command and process substitutions, subshells
@@ -104,23 +102,20 @@ _TAP_DONE=0
 _TAP_BAILED=0
 _TAP_AT_EXIT=""
 _TAP_PATH=""
-_TAP_FMT=tap        # junit when there is a TAP_OUT and no TAP_FORMAT=tap
+_TAP_FMT=tap        # junit when there is a TAP_OUT (the only format of the report); tap is the stdout of a person
 _TAP_FILE=""        # the path of the script, from tap_begin
 _TAP_ERR_NAME="script error: did not finish"   # the name of the error testcase (JUnit): it says the script did not finish
 _TAP_BAILFILE=""    # where a subshell leaves the reason of a bail out for the main shell (it cannot exit the script)
 TAP_RC=0
 
 if [ -n "${TAP_OUT:-}" ]; then
+  case ${TAP_FORMAT:-junit} in
+    junit) ;;
+    *) echo "Bail out! TAP_FORMAT=${TAP_FORMAT} is not junit: 2.0.0 writes only JUnit, the helper writes no report" >&2; exit 2 ;;
+  esac
   _TAP_PATH=$TAP_OUT
   { exec 8>>"$_TAP_PATH"; } 2>/dev/null || { echo "Bail out! cannot open TAP_OUT ($_TAP_PATH)" >&2; exit 2; }
-  case ${TAP_FORMAT:-junit} in
-    junit|tap) _TAP_FMT=${TAP_FORMAT:-junit} ;;
-    *) echo "Bail out! TAP_FORMAT=${TAP_FORMAT} is not junit or tap: the helper writes no report" >&2; exit 2 ;;
-  esac
-  if [ "$_TAP_FMT" = tap ]; then
-    _TAP_BASE=$(grep -c -E '^(not )?ok ' "$_TAP_PATH" 2>/dev/null || true)
-    _TAP_BASE=${_TAP_BASE:-0}
-  fi
+  _TAP_FMT=junit
 else
   exec 8>&1
 fi
@@ -131,16 +126,6 @@ _tap_line() { printf '%s\n' "$1" >&8; }
 # Usage: _tap_flat <text>: the text in one line.
 _tap_flat() { local t=$1; t=${t//$'\r'/ }; printf '%s' "${t//$'\n'/ }"; }
 
-# Removes the plans that earlier scripts left in a shared file: a bailed stream has none.
-_tap_strip_plans() {
-  [ -n "$_TAP_PATH" ] || return 0
-  local tmp
-  tmp=$(mktemp "${TMPDIR:-/tmp}/tap-XXXXXX") || return 0
-  grep -v -E '^1\.\.' "$_TAP_PATH" >"$tmp" 2>/dev/null
-  cat "$tmp" >"$_TAP_PATH"
-  rm -f "$tmp"
-}
-
 _tap_bail() {
   [ "$_TAP_BAILED" -eq 0 ] || return 0
   _TAP_BAILED=1
@@ -148,7 +133,6 @@ _tap_bail() {
     _tap_junit_suite "$(_tap_flat "$1")"
   else
     _tap_flush
-    _tap_strip_plans
     _tap_line "Bail out! $(_tap_flat "$1")"
   fi
   [ -z "$_TAP_PATH" ] || echo "Bail out! $(_tap_flat "$1")" >&2
@@ -280,7 +264,7 @@ _tap_junit_suite() {
 
 tap_at_exit() { _TAP_AT_EXIT=$1; }
 
-# Usage: _tap_flush: writes the held cases (numbered after the ones already in the file) and forgets them.
+# Usage: _tap_flush: writes the held cases (numbered after the ones already written to stdout) and forgets them.
 _tap_flush() {
   local i n=0 esc d
   for ((i = 0; i < ${#_TAP_IDS[@]}; i++)); do
@@ -425,24 +409,11 @@ tap_no_traceback() {
   return 0
 }
 
-# Usage: _tap_plan [skip reason]: leaves one plan, at the end of the stream, with every case of the file.
+# Usage: _tap_plan [skip reason]: writes the plan at the end of the TAP stream on stdout, with every case of the script.
 _tap_plan() {
-  local plan
-  if [ -n "$_TAP_PATH" ]; then
-    local total tmp
-    total=$(grep -c -E '^(not )?ok ' "$_TAP_PATH" 2>/dev/null || true)
-    total=${total:-0}
-    plan="1..$total"
-    [ "$total" -ne 0 ] || [ -z "${1:-}" ] || plan="$plan # SKIP $(_tap_flat "$1")"
-    tmp=$(mktemp "${TMPDIR:-/tmp}/tap-XXXXXX")
-    { grep -v -E '^1\.\.' "$_TAP_PATH"; printf '%s\n' "$plan"; } >"$tmp" 2>/dev/null
-    cat "$tmp" >"$_TAP_PATH"
-    rm -f "$tmp"
-  else
-    plan="1..$_TAP_BASE"
-    [ "$_TAP_BASE" -ne 0 ] || [ -z "${1:-}" ] || plan="$plan # SKIP $(_tap_flat "$1")"
-    _tap_line "$plan"
-  fi
+  local plan="1..$_TAP_BASE"
+  [ "$_TAP_BASE" -ne 0 ] || [ -z "${1:-}" ] || plan="$plan # SKIP $(_tap_flat "$1")"
+  _tap_line "$plan"
 }
 
 tap_done() {
