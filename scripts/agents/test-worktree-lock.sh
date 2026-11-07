@@ -254,10 +254,14 @@ if [ -f "$RAIZ/.claude/i18n/agents/implementer.es.md" ]; then grep -qF -- "devol
 # candado con su nombre, lo suelta antes de lanzar, y el implementer (mismo pid, otro nombre) lo toma y lo suelta al terminar.
 export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=sesion-review
 tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx claimed <<<"$out"; tap_check $? "sesión de review: toma el candado con su nombre (claimed)"
 tap_run out 0 "$LOCK" release "$TMP/wt"
+grep -qx released <<<"$out"; tap_check $? "sesión de review: lo suelta antes de lanzar al implementer (released)"
 export WORKTREE_LOCK_AGENT=implementer-268
 tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx claimed <<<"$out"; tap_check $? "sesión de review: el implementer (mismo pid, otro nombre) toma el candado (claimed)"
 tap_run out 0 "$LOCK" release "$TMP/wt"
+grep -qx released <<<"$out"; tap_check $? "sesión de review: el implementer lo suelta al terminar (released)"
 export WORKTREE_LOCK_AGENT=sesion-review
 tap_run out 0 "$LOCK" claim "$TMP/wt"
 grep -qx claimed <<<"$out"; tap_check $? "sesión de review: tras soltar el implementer, la sesión toma el candado de nuevo"
@@ -267,17 +271,43 @@ rm -f "$GDIR/agent-lock"
 if [ "$CHICO" = 1 ]; then
   tap_skip "review-pr: la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh" "$SIN"
   tap_skip "review-pr: la sesión suelta el candado antes de lanzar al implementer" "$SIN"
+  tap_skip "review-pr: la sesión suelta antes de lanzar al implementer, no después" "$SIN"
   tap_skip "contrato: la sesión de revisión suelta el candado como el orquestador" "$SIN"
   tap_skip "reviewer: el implementer del arreglo lleva su WORKTREE_LOCK_AGENT" "$SIN"
 else
-  mencion .claude/skills/review-pr/SKILL.md "WORKTREE_LOCK_AGENT" "WORKTREE_LOCK_AGENT"; tap_check $? "review-pr: la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh"
+  mencion .claude/skills/review-pr/SKILL.md "WORKTREE_LOCK_AGENT=<your name> .claude/skills/implement-issue/prepare.sh" "WORKTREE_LOCK_AGENT=<tu nombre> .claude/skills/implement-issue/prepare.sh"; tap_check $? "review-pr: la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh"
+  mencion .claude/skills/review-pr/SKILL.md "before launching the \`implementer\`" "antes de lanzar al \`implementer\`"; tap_check $? "review-pr: la sesión suelta antes de lanzar al implementer, no después"
   mencion .claude/skills/review-pr/SKILL.md "worktree-lock.sh release" "worktree-lock.sh release"; tap_check $? "review-pr: la sesión suelta el candado antes de lanzar al implementer"
   mencion docs/agents/subagent-contract.md "review session releases" "sesión de revisión suelta"; tap_check $? "contrato: la sesión de revisión suelta el candado como el orquestador"
   mencion .claude/agents/reviewer.md "WORKTREE_LOCK_AGENT" "WORKTREE_LOCK_AGENT"; tap_check $? "reviewer: el implementer del arreglo lleva su WORKTREE_LOCK_AGENT"
 fi
-if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "WORKTREE_LOCK_AGENT" "$RAIZ/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "review-pr (es): la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh"; else tap_skip "review-pr (es): la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh" "no existe .claude/skills/review-pr/SKILL.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "WORKTREE_LOCK_AGENT=<tu nombre> .claude/skills/implement-issue/prepare.sh" "$RAIZ/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "review-pr (es): la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh"; else tap_skip "review-pr (es): la sesión fija WORKTREE_LOCK_AGENT al correr prepare.sh" "no existe .claude/skills/review-pr/SKILL.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "antes de lanzar al \`implementer\`" "$RAIZ/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "review-pr (es): la sesión suelta antes de lanzar al implementer, no después"; else tap_skip "review-pr (es): la sesión suelta antes de lanzar al implementer, no después" "no existe .claude/skills/review-pr/SKILL.es.md en este proyecto"; fi
 if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "worktree-lock.sh release" "$RAIZ/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "review-pr (es): la sesión suelta el candado antes de lanzar al implementer"; else tap_skip "review-pr (es): la sesión suelta el candado antes de lanzar al implementer" "no existe .claude/skills/review-pr/SKILL.es.md en este proyecto"; fi
 if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "sesión de revisión suelta" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): la sesión de revisión suelta el candado como el orquestador"; else tap_skip "contrato (es): la sesión de revisión suelta el candado como el orquestador" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
 if [ -f "$RAIZ/.claude/i18n/agents/reviewer.es.md" ]; then grep -qF -- "WORKTREE_LOCK_AGENT" "$RAIZ/.claude/i18n/agents/reviewer.es.md"; tap_check $? "reviewer (es): el implementer del arreglo lleva su WORKTREE_LOCK_AGENT"; else tap_skip "reviewer (es): el implementer del arreglo lleva su WORKTREE_LOCK_AGENT" "no existe .claude/i18n/agents/reviewer.es.md en este proyecto"; fi
+
+# 10. La hora de inicio del dueño no depende de la zona horaria de quien mira: dos agentes con TZ distinto ven el mismo
+# candado vivo (ps -o lstart sale en la hora local), no uno stale que se reemplaza.
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-tz
+export TZ=UTC
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx claimed <<<"$out"; tap_check $? "zona horaria: el candado se toma con TZ=UTC (claimed)"
+export TZ=Asia/Tokyo
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q '^held: agente-tz' <<<"$out"; tap_check $? "zona horaria: con otro TZ el candado vivo sigue held, no stale"
+unset TZ
+rm -f "$GDIR/agent-lock"
+
+# 11. El mutex de claim: con uno vivo, claim no pasa de largo (espera y sale con 64); con uno cuyo dueño murió, lo retira.
+printf 'pid=%s\n' "$VIVO" >"$GDIR/agent-lock.mutex"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-mutex
+tap_run out 64 "$LOCK" claim "$TMP/wt"
+[ ! -f "$GDIR/agent-lock" ]; tap_check $? "mutex vivo: claim no toma el candado mientras otro claim está adentro"
+rm -f "$GDIR/agent-lock.mutex"
+printf 'pid=%s\n' "$MUERTO" >"$GDIR/agent-lock.mutex"
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx claimed <<<"$out"; tap_check $? "mutex muerto: claim retira el mutex de un dueño muerto y toma el candado (claimed)"
+rm -f "$GDIR/agent-lock" "$GDIR/agent-lock.mutex"
 
 tap_done
