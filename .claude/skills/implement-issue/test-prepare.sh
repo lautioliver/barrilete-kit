@@ -25,7 +25,7 @@ case "$*" in
   api\ repos/o/r/issues/*/parent*) exit 1 ;;
   api\ repos/o/r/issues/*/comments*) ;;
   api\ repos/o/r/issues/*) cat "$GH_ISSUES/${2##*/}.json" ;;
-  "issue edit"*) ;;
+  "issue edit"*) if [ -n "${GH_EDIT_FALLA:-}" ]; then echo "gh falso: issue edit falla" >&2; exit 3; fi ;;
   "pr list"*) r=$(sed -E 's/.*--head ([^ ]+).*/\1/' <<<"$*"); [ -f "$GH_ISSUES/pr-${r//\//_}" ] && cat "$GH_ISSUES/pr-${r//\//_}" ;;
   *) echo "gh falso: $*" >&2; exit 1 ;;
 esac
@@ -341,5 +341,18 @@ grep -q "in use.*agente-ajeno" <<<"$s"; tap_check $? "el mensaje dice que el wor
 lk=$(cat "$GD/agent-lock")
 grep -qx "agent=agente-ajeno" <<<"$lk"; tap_check $? "el candado del dueño vivo no se pisa"
 unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
+
+# Si prepare.sh falla después de tomar el candado (acá, al asignar), lo suelta: el worktree no queda tomado
+# por un agente que no arrancó. Un candado que ya era suyo antes de correrlo (lo renovó) no se suelta.
+issue 71 "Falla al asignar"
+export WORKTREE_LOCK_PID=$DUENIO WORKTREE_LOCK_AGENT=agente-falla GH_EDIT_FALLA=1
+tap_run out 3 "$PREPARAR" 71 --worktree
+GD71=$(git -C "$WT/71" rev-parse --absolute-git-dir 2>/dev/null)
+es -n "$GD71"; tap_check $? "falla al asignar: el worktree quedó creado"
+es ! -e "$GD71/agent-lock"; tap_check $? "falla después de tomar el candado: prepare.sh lo suelta"
+printf 'pid=%s\nstart=%s\nagent=agente-falla\nsince=2026-01-01T00:00:00Z\n' "$DUENIO" "$(TZ=UTC LC_ALL=C ps -o lstart= -p "$DUENIO" | sed 's/^ *//; s/ *$//')" >"$GD71/agent-lock"
+tap_run out 3 "$PREPARAR" 71 --worktree
+es -f "$GD71/agent-lock"; tap_check $? "falla con un candado que ya era suyo: no lo suelta"
+unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT GH_EDIT_FALLA
 
 tap_done
