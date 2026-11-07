@@ -310,4 +310,54 @@ tap_run out 0 "$LOCK" claim "$TMP/wt"
 grep -qx claimed <<<"$out"; tap_check $? "mutex muerto: claim retira el mutex de un dueño muerto y toma el candado (claimed)"
 rm -f "$GDIR/agent-lock" "$GDIR/agent-lock.mutex"
 
+# 12. Un agente de bk (#276): `bk run` corre prepare.sh con el nombre <n>-<rol> y suelta el candado antes de lanzar; el agente
+# lo toma al empezar con el nombre de su BK_TASK_DIR y `bk done` lo suelta. Una sesión de review no entra mientras vive.
+CALLER=$$
+unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
+export WORKTREE_LOCK_PID=$CALLER WORKTREE_LOCK_AGENT=276-implementer
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx claimed <<<"$out"; tap_check $? "bk run: prepare.sh toma el candado con el nombre <n>-<rol>"
+tap_run out 0 "$LOCK" release "$TMP/wt"
+grep -qx released <<<"$out"; tap_check $? "bk run: suelta el candado con el mismo nombre antes de lanzar (released)"
+mkdir -p "$TMP/tasks/276-implementer"
+unset WORKTREE_LOCK_AGENT
+export WORKTREE_LOCK_PID=$VIVO BK_TASK_DIR="$TMP/tasks/276-implementer"
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx claimed <<<"$out"; tap_check $? "agente de bk: toma el candado sin WORKTREE_LOCK_AGENT (claimed)"
+leer; grep -qx 'agent=276-implementer' <<<"$LK"; tap_check $? "agente de bk: el nombre del candado sale de BK_TASK_DIR"
+unset BK_TASK_DIR
+export WORKTREE_LOCK_PID=$CALLER WORKTREE_LOCK_AGENT=sesion-review
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -q '^held: 276-implementer' <<<"$out"; tap_check $? "agente de bk vivo: la sesión de review con prepare.sh con nombre recibe held"
+export WORKTREE_LOCK_PID=$VIVO BK_TASK_DIR="$TMP/tasks/276-implementer"
+unset WORKTREE_LOCK_AGENT
+tap_run out 0 "$LOCK" release "$TMP/wt"
+grep -qx released <<<"$out"; tap_check $? "bk done: el agente suelta el candado (released)"
+unset BK_TASK_DIR
+export WORKTREE_LOCK_PID=$CALLER WORKTREE_LOCK_AGENT=sesion-review
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx claimed <<<"$out"; tap_check $? "tras bk done: la sesión de review toma el candado (claimed)"
+rm -f "$GDIR/agent-lock"
+unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
+
+# Docs del agente de bk (#276).
+if [ "$CHICO" = 1 ]; then
+  tap_skip "contrato: bk run suelta el candado antes de lanzar al agente de bk" "$SIN"
+  tap_skip "contrato: el agente de bk toma el candado como primer paso" "$SIN"
+  tap_skip "contrato: bk done suelta el candado" "$SIN"
+  tap_skip "orchestrate: bk run suelta el candado" "$SIN"
+  tap_skip "review-pr: un worktree creado por bk run lo tiene el agente de bk" "$SIN"
+else
+  mencion docs/agents/subagent-contract.md "\`bk run\` releases the worktree lock" "\`bk run\` suelta el candado del worktree"; tap_check $? "contrato: bk run suelta el candado antes de lanzar al agente de bk"
+  mencion docs/agents/subagent-contract.md "your first step is to take it with \`scripts/agents/worktree-lock.sh claim" "tu primer paso es tomarlo con \`scripts/agents/worktree-lock.sh claim"; tap_check $? "contrato: el agente de bk toma el candado como primer paso"
+  mencion docs/agents/subagent-contract.md "\`bk done\` releases it" "\`bk done\` lo suelta"; tap_check $? "contrato: bk done suelta el candado"
+  mencion .claude/skills/orchestrate/SKILL.md "\`bk run\` releases the lock" "\`bk run\` suelta el candado"; tap_check $? "orchestrate: bk run suelta el candado"
+  mencion .claude/skills/review-pr/SKILL.md "created by \`bk run\`" "creado por \`bk run\`"; tap_check $? "review-pr: un worktree creado por bk run lo tiene el agente de bk"
+fi
+mencion .claude/skills/implement-issue/SKILL.md "scripts/agents/worktree-lock.sh claim" "scripts/agents/worktree-lock.sh claim"; tap_check $? "implement-issue: el agente de bk toma el candado al empezar"
+if [ -f "$RAIZ/docs/agents/subagent-contract.es.md" ]; then grep -qF -- "tu primer paso es tomarlo con \`scripts/agents/worktree-lock.sh claim" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): el agente de bk toma el candado como primer paso"; else tap_skip "contrato (es): el agente de bk toma el candado como primer paso" "no existe docs/agents/subagent-contract.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/skills/orchestrate/SKILL.es.md" ]; then grep -qF -- "\`bk run\` suelta el candado" "$RAIZ/.claude/skills/orchestrate/SKILL.es.md"; tap_check $? "orchestrate (es): bk run suelta el candado"; else tap_skip "orchestrate (es): bk run suelta el candado" "no existe .claude/skills/orchestrate/SKILL.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "creado por \`bk run\`" "$RAIZ/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "review-pr (es): un worktree creado por bk run lo tiene el agente de bk"; else tap_skip "review-pr (es): un worktree creado por bk run lo tiene el agente de bk" "no existe .claude/skills/review-pr/SKILL.es.md en este proyecto"; fi
+if [ -f "$RAIZ/.claude/skills/implement-issue/SKILL.es.md" ]; then grep -qF -- "scripts/agents/worktree-lock.sh claim" "$RAIZ/.claude/skills/implement-issue/SKILL.es.md"; tap_check $? "implement-issue (es): el agente de bk toma el candado al empezar"; else tap_skip "implement-issue (es): el agente de bk toma el candado al empezar" "no existe .claude/skills/implement-issue/SKILL.es.md en este proyecto"; fi
+
 tap_done
