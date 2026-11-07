@@ -85,6 +85,13 @@ MUT = {
  "inline-link": lambda: skills(lambda t: t + "\nSee [docs](../../../README.md) for file:line: x\n"),
  "pr-tag": lambda: skills(lambda t: t + "\n[typo] PR: x\n"),
  "path-tag": lambda: skills(lambda t: t + "\n[typo] docs/x.md:12: x\n"),
+ "es-format-tag": lambda: skills(lambda t: t + "\n`[typo] archivo:línea: x`\n"),
+ "yml-ref-tag": lambda: skills(lambda t: t + "\nLas clases están en docs/agents/classes.yml, por ejemplo [typo].\n"),
+ "upper-checkbox": lambda: skills(lambda t: t + "\n- [X] file:line: hecho\n"),
+ "yaml11-ids": lambda: edit(YML, lambda t: t + "".join(f"- id: {w}\n  description: x\n" for w in ("y", "n", "yes", "no", "true", "false", "on", "off", "null"))),
+ "dup-desc": lambda: edit(YML, lambda t: re.sub(r"(- id: stale-docs\n  description: [^\n]*\n)", r"\1  description: again\n", t)),
+ "dir-yml": lambda: (os.remove(YML), os.mkdir(YML), edit("AGENTS.md", lambda t: t + "\n[roto](no-existe-269.md)\n")),
+ "noperm-yml": lambda: (os.chmod(YML, 0), edit("AGENTS.md", lambda t: t + "\n[roto](no-existe-269.md)\n")),
 }
 MUT[name]()
 '
@@ -159,6 +166,10 @@ fi
 # Hay errores nuevos: check-docs salió con 1 y tiene una línea de error (las "- " bajo "Docs with N problem(s):") que el repo tal cual no
 # tenía. Un aviso ("Warning: ...") no es un error: en un proyecto nuevo, que ya sale con 1 por los TODO del mapa, un error de clase
 # pasado a aviso no se notaría si se contaran las líneas nuevas de cualquier clase.
+# Cuántas líneas de error nuevas (las "- " que el repo tal cual no tenía) dejó la última mutación.
+# Deja el número en $nuevos.
+n_errores_nuevos() { nuevos=$(awk 'NR==FNR {a[$0]; next} /^- / && !($0 in a) {n++} END {print n+0}' "$TMP/base.out" - <<<"$out"); }
+
 con_errores_nuevos() {
   local nuevos
   nuevos=$(awk 'NR==FNR {a[$0]; next} /^- / && !($0 in a)' "$TMP/base.out" - <<<"$out" 2>/dev/null)
@@ -281,7 +292,7 @@ mutar comments-yml
 con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un classes.yml de solo comentarios"
 grep -q 'classes.yml:.*lists no classes' <<<"$out"; tap_check $? "check-docs: dice que classes.yml no lista ninguna clase si solo tiene comentarios"
 [[ $out != *"is not in docs/agents/classes.yml"* ]]; tap_check $? "check-docs: un classes.yml de solo comentarios no hace culpable a la skill de cada clase"
-mutar bad-utf8 sin-resumen
+mutar bad-utf8
 [[ $out != *"is not in docs/agents/classes.yml"* ]]; tap_check $? "check-docs: un classes.yml que no es UTF-8 no hace culpable a la skill de cada clase"
 
 # Un enlace en línea [t](u) en una línea de hallazgo no se toma por una clase; la ubicación puede ser PR o ruta:línea.
@@ -295,14 +306,55 @@ mutar path-tag
 con_errores_nuevos; tap_check $? "check-docs: sale con 1 con un [id] desconocido en una línea de hallazgo con ruta:línea"
 grep -q 'the class \[typo\]' <<<"$out"; tap_check $? "check-docs: valida un [id] en una línea de hallazgo con ruta:línea"
 
+# #269: las alternativas de la línea de hallazgo (archivo:línea y la ruta de classes.yml) y la casilla [X], cada una con su caso.
+mutar es-format-tag
+grep -q 'the class \[typo\]' <<<"$out"; tap_check $? "check-docs: valida un [id] en una línea de hallazgo con archivo:línea"
+mutar yml-ref-tag
+grep -q 'the class \[typo\]' <<<"$out"; tap_check $? "check-docs: valida un [id] en una línea que nombra docs/agents/classes.yml"
+mutar upper-checkbox
+[[ $out != *"the class ["* ]]; tap_check $? "check-docs: una casilla [X] en mayúscula en una línea de hallazgo no se toma por una clase"
+# Un classes.yml que no es UTF-8 da un solo error: no además "lists no classes".
+mutar bad-utf8
+[[ $out != *"lists no classes"* ]]; tap_check $? "check-docs: un classes.yml que no es UTF-8 no da además el error de que no lista clases"
+
+# Un id que un parser YAML 1.1 lee como booleano o null no es un id: un error por cada uno.
+mutar yaml11-ids
+n_errores_nuevos
+[ "$nuevos" -eq 9 ]; tap_check $? "check-docs: rechaza cada id que YAML 1.1 lee como booleano o null (y, n, yes, no, true, false, on, off, null)" "errores nuevos: $nuevos"
+grep -q 'classes.yml:[0-9]*:.*YAML 1.1' <<<"$out"; tap_check $? "check-docs: dice que el id es un booleano o null en YAML 1.1"
+# Un error, un mensaje: un id entre comillas de una clase que usa la skill, y una segunda descripción bajo el mismo id.
+mutar quoted-id
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un id entre comillas de una clase que usa la skill da un solo error" "errores nuevos: $nuevos"
+mutar dup-desc
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: una segunda descripción bajo el mismo id da un solo error" "errores nuevos: $nuevos"
+grep -q 'classes.yml:[0-9]*:.*second description' <<<"$out"; tap_check $? "check-docs: dice que la clase tiene una segunda descripción"
+
 # Una skill que remite a un classes.yml que falta da un solo error por skill (el de rutas rotas), no dos.
 mutar drop-file
-skills_en_copia=("$RAIZ"/.claude/skills/review-pr/SKILL*.md)
+skills_en_copia=("$TMP/r"/.claude/skills/review-pr/SKILL*.md)
 n=0
 while IFS= read -r linea; do
   case $linea in *review-pr/SKILL*classes.yml*) n=$((n + 1)) ;; esac
 done <<<"$out"
 [ "$n" -eq "${#skills_en_copia[@]}" ]; tap_check $? "check-docs: un classes.yml que falta da un solo error por skill, no uno repetido"
+
+# Un classes.yml que no se puede leer por otra causa (es un directorio, no tiene permiso) da su propio error, sin traceback,
+# y check-docs sigue reportando lo demás (un enlace roto en AGENTS.md).
+mutar dir-yml sin-resumen
+[[ $out != *"Traceback"* ]]; tap_check $? "check-docs: un classes.yml que es un directorio no da un traceback"
+grep -q 'classes.yml: cannot be read' <<<"$out"; tap_check $? "check-docs: dice que classes.yml no se puede leer si es un directorio"
+grep -q 'no-existe-269.md' <<<"$out"; tap_check $? "check-docs: con classes.yml como directorio sigue reportando los demás errores"
+rmdir "$TMP/r/docs/agents/classes.yml"
+case $EUID in
+  0) tap_skip "check-docs: un classes.yml sin permiso de lectura no da un traceback" "root lee cualquier archivo"
+     tap_skip "check-docs: dice que classes.yml no se puede leer si no tiene permiso" "root lee cualquier archivo" ;;
+  *) mutar noperm-yml sin-resumen
+     [[ $out != *"Traceback"* ]]; tap_check $? "check-docs: un classes.yml sin permiso de lectura no da un traceback"
+     grep -q 'classes.yml: cannot be read' <<<"$out"; tap_check $? "check-docs: dice que classes.yml no se puede leer si no tiene permiso"
+     chmod 644 "$TMP/r/docs/agents/classes.yml" ;;
+esac
 
 # con_errores_nuevos cuenta solo líneas de error (las "- " bajo "Docs with N problem(s):"): un aviso nuevo no es un error. En un proyecto
 # instalado el repo tal cual ya sale con 1 por los TODO del mapa, así que sin esto un error de clase pasado a aviso no se notaría.
