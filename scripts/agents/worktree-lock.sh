@@ -22,7 +22,8 @@ cmd=$1; wt=$2
 gdir=$(git -C "$wt" rev-parse --absolute-git-dir 2>/dev/null) || { echo "$0: $wt is not a git worktree" >&2; exit 64; }
 lock="$gdir/agent-lock"
 
-inicio() { LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null | sed 's/^ *//; s/ *$//'; }
+# TZ=UTC: ps -o lstart sale en la hora local, y dos agentes con otro TZ verían un candado vivo como stale.
+inicio() { TZ=UTC LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null | sed 's/^ *//; s/ *$//'; }
 
 # Pid del agente que corre esto: el claude más cercano entre los ancestros (prepare.sh lo corre un shell hijo suyo);
 # sin claude (otro agente: node, codex…), el ancestro más cercano que no es un shell; al final, $PPID.
