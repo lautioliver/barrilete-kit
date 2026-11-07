@@ -48,6 +48,8 @@ mkdir -p "$P"
 (
   cd "$P" && git init -q -b main
   echo 0.1.0 >VERSION
+  # El CHANGELOG real trae secciones con versiones de verdad (2.0.0): un proyecto de la prueba las vería como nuevas.
+  printf '# Changelog\n' >CHANGELOG.md
   for f in viejo viejo2 borrado cambiado; do echo "$f v0.1" >".claude/skills/debug/$f.md"; done
   echo "echo modo" >.claude/skills/debug/modo.sh && chmod 644 .claude/skills/debug/modo.sh
   echo "Hello v0.1" >.claude/skills/debug/lang.md && echo "Hola v0.1" >.claude/skills/debug/lang.es.md
