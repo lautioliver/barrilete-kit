@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2154,SC2319,SC2016  # out lo asigna tap_run; el $? de una aserción es el de la aserción; los backticks de las reglas son texto
+# Tests de scripts/agents/sync-rules (#286, ADR-006 D7): genera las reglas por rol, AGENTS.md y classes.yml desde
+# barrilete-rules en el SHA de .barrilete/rules.lock. Usa repos git locales: no toca la red.
+# Salida: 0 ok; 3 hay un problema (regla inválida, check ausente, clone que falla, --check distinto); 64 uso inválido.
+# El 1 y el 2 quedan para un crash (un traceback de Python sale con 1): tap_run los toma como crash, no como un caso fallido.
+# Uso: bash scripts/agents/test-sync-rules.sh
+set -uo pipefail
+RAIZ=$(cd "$(dirname "$0")/../.." && pwd)
+SYNC="$RAIZ/scripts/agents/sync-rules"
+TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-sync-rules-XXXXXX")" && pwd -P)
+# shellcheck source=/dev/null
+. "$RAIZ/scripts/agents/tap.sh"
+tap_begin "$0"
+tap_at_exit "rm -rf \"\$TMP\""
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+out=""
+
+regla() { # regla <id> <status> <applies_to> <scope> <texto> [extra del frontmatter]
+  mkdir -p "$TMP/rules/rules"
+  printf -- '---\nid: %s\nstatus: %s\norigin: observed\napplies_to: %s\nscope: %s\nclasses: []\nseverity: %s\naccepted: 2026-11-01\n%s---\n%s\n\n## Por qué\nPorque sí.\n' \
+    "$1" "$2" "$3" "$4" "${7:-fix}" "${6:+$6
+}" "$5" >"$TMP/rules/rules/$1.md"
+}
+# El repo de reglas, con dos versiones: v1 y v2 (cambia el texto de impl-uno).
+git init -q -b main "$TMP/rules"
+printf -- '- id: pr-metadata\n  description: el cuerpo del PR miente\n- id: stale-docs\n  description: docs viejas\n' >"$TMP/rules/classes.yml"
+regla impl-uno accepted "[implementer]" '"*"' "Regla uno v1 del implementer."
+regla rev-uno accepted "[reviewer]" '"*"' "Regla del reviewer."
+regla todos accepted '"*"' '"*"' "Regla general para todos."
+regla vieja deprecated "[implementer]" '"*"' "Regla retirada que no entra."
+regla propuesta proposed "[implementer]" '"*"' "Regla propuesta que no entra."
+regla solo-otro accepted "[implementer]" "[otro-proyecto]" "Regla de otro proyecto."
+regla solo-mio accepted "[implementer]" "[mi-proyecto]" "Regla de mi proyecto."
+regla con-check accepted "[implementer]" '"*"' "Regla con check." $'check: pr-metadata\nfail_message: "El PR miente: corregilo o escalá."\n' block
+git -C "$TMP/rules" add -A && git -C "$TMP/rules" commit -qm v1
+SHA1=$(git -C "$TMP/rules" rev-parse HEAD)
+regla impl-uno accepted "[implementer]" '"*"' "Regla uno v2 del implementer."
+git -C "$TMP/rules" add -A && git -C "$TMP/rules" commit -qm v2
+SHA2=$(git -C "$TMP/rules" rev-parse HEAD)
+
+proyecto() { # proyecto <dir> <sha>: un proyecto con agentes en en y es, AGENTS en en y es y un check
+  local p=$1
+  rm -rf "$p"; mkdir -p "$p/.barrilete" "$p/.claude/agents" "$p/.claude/i18n/agents" "$p/docs/agents" "$p/scripts/agents/checks"
+  printf 'repo=o/rules\nsha=%s\n' "$2" >"$p/.barrilete/rules.lock"
+  printf '{ "project": "mi-proyecto", "mode": "full" }\n' >"$p/.agent-kit.json"
+  for r in implementer reviewer; do
+    printf -- '---\nname: %s\n---\nTexto propio del %s.\n' "$r" "$r" >"$p/.claude/agents/$r.md"
+    printf -- '---\nname: %s\n---\nTexto propio (es) del %s.\n' "$r" "$r" >"$p/.claude/i18n/agents/$r.es.md"
+  done
+  printf '# AGENTS\n\nTexto propio de AGENTS.\n' >"$p/AGENTS.md"; printf '# AGENTS es\n\nTexto propio de AGENTS es.\n' >"$p/AGENTS.es.md"
+  printf '# vieja\n- id: vieja-clase\n' >"$p/docs/agents/classes.yml"
+  printf '#!/bin/sh\nexit 0\n' >"$p/scripts/agents/checks/pr-metadata"; chmod +x "$p/scripts/agents/checks/pr-metadata"
+}
+reglas() { # reglas <archivo>: las líneas `- ...` entre los marcadores ("" si no hay sección)
+  sed -n '/<!-- rules:begin/,/<!-- rules:end -->/p' "$1" | grep '^- ' || true
+}
+sync() { tap_run out "$1" "$SYNC" --root "$P" --url "$TMP/rules" "${@:2}"; }
+
+P="$TMP/p"; proyecto "$P" "$SHA1"
+
+# 1. Una corrida genera la sección de cada rol entre marcadores: exactamente sus reglas, `- <texto> (`<id>`)` por id.
+# Un archivo sin sección da una lista vacía, que no es la esperada: ningún caso pasa en vacío.
+sync 0
+IMPL_V1=$'- Regla con check. (`con-check`)\n- Regla uno v1 del implementer. (`impl-uno`)\n- Regla de mi proyecto. (`solo-mio`)'
+[ "$(reglas "$P/.claude/agents/implementer.md")" = "$IMPL_V1" ]; tap_check $? "implementer: recibe sus reglas, y solo las de su rol, accepted y de su proyecto"
+[ "$(reglas "$P/.claude/agents/reviewer.md")" = '- Regla del reviewer. (`rev-uno`)' ]; tap_check $? "reviewer: recibe solo su regla"
+[ "$(reglas "$P/.claude/i18n/agents/implementer.es.md")" = "$IMPL_V1" ]; tap_check $? "implementer (es): recibe las mismas reglas, sin traducir"
+grep -q 'Texto propio del implementer.' "$P/.claude/agents/implementer.md"; tap_check $? "implementer: lo que está fuera de los marcadores se conserva"
+
+# 3. Las generales (applies_to *) van a AGENTS.md y AGENTS.es.md, no a los agentes.
+[ "$(reglas "$P/AGENTS.md")" = '- Regla general para todos. (`todos`)' ]; tap_check $? "AGENTS.md: recibe solo las reglas generales"
+[ "$(reglas "$P/AGENTS.es.md")" = '- Regla general para todos. (`todos`)' ]; tap_check $? "AGENTS.es.md: recibe solo las reglas generales"
+grep -q 'Texto propio de AGENTS.' "$P/AGENTS.md"; tap_check $? "AGENTS.md: lo propio se conserva"
+
+# 4. Las dos versiones: el agente recibe exactamente la del SHA del lock (condición 1 de D11).
+[ "$(reglas "$P/.claude/agents/implementer.md")" = "$IMPL_V1" ]; tap_check $? "SHA del lock: con el lock en v1 no llega el texto de v2, aunque main ya lo tenga"
+printf 'repo=o/rules\nsha=%s\n' "$SHA2" >"$P/.barrilete/rules.lock"
+sync 0
+IMPL_V2=${IMPL_V1//v1/v2}
+[ "$(reglas "$P/.claude/agents/implementer.md")" = "$IMPL_V2" ]; tap_check $? "SHA del lock: al subir el lock a v2 el agente recibe exactamente v2 (la sección se reemplaza)"
+n=$(grep -c '<!-- rules:begin' "$P/.claude/agents/implementer.md" || true); [ "$n" = 1 ]; tap_check $? "regenerar: queda un solo marcador de inicio"
+grep -q "$SHA2" "$P/.claude/agents/implementer.md"; tap_check $? "el marcador dice el SHA con el que se generó"
+
+# 5. classes.yml: la copia del kit sale de la de barrilete-rules.
+grep -q 'id: stale-docs' "$P/docs/agents/classes.yml"; tap_check $? "classes.yml: la copia del kit trae las clases de barrilete-rules"
+n=$(grep -c 'vieja-clase' "$P/docs/agents/classes.yml" || true); [ "$n" = 0 ]; tap_check $? "classes.yml: reemplaza la copia provisional"
+grep -qi 'generated' "$P/docs/agents/classes.yml"; tap_check $? "classes.yml: avisa que está generada"
+
+# 6. Idempotencia y --check (para el CI de la parte 3).
+cp -R "$P" "$TMP/antes"
+sync 0
+diff -r "$TMP/antes" "$P" >/dev/null; tap_check $? "una segunda corrida no cambia nada"
+sync 0 --check
+[ "$TAP_RC" = 0 ]; tap_check $? "--check: lo generado coincide con el lock (sale 0)"
+printf 'a mano\n' >>"$P/AGENTS.md"
+sed -i.bak 's/Regla general para todos\./Regla EDITADA a mano./' "$P/AGENTS.md"; rm -f "$P/AGENTS.md.bak"
+sync 3 --check
+grep -q 'AGENTS.md' <<<"$out"; tap_check $? "--check: una sección editada a mano falla y nombra el archivo"
+sync 0
+[ "$(reglas "$P/AGENTS.md")" = '- Regla general para todos. (`todos`)' ]; tap_check $? "sin --check: regenera la sección y pisa la edición a mano"
+grep -q 'a mano' "$P/AGENTS.md"; tap_check $? "sin --check: el texto propio fuera de los marcadores sobrevive"
+
+# 7. Un check de una regla accepted tiene que existir en scripts/agents/checks/ del kit.
+rm "$P/scripts/agents/checks/pr-metadata"
+sync 3
+grep -q 'pr-metadata' <<<"$out"; tap_check $? "check ausente: falla y nombra el check"
+grep -q 'con-check' <<<"$out"; tap_check $? "check ausente: nombra la regla"
+printf '#!/bin/sh\nexit 0\n' >"$P/scripts/agents/checks/pr-metadata"
+sync 0
+[ "$TAP_RC" = 0 ]; tap_check $? "check presente: sale 0"
+
+# 8. Reglas propias del proyecto (.barrilete/rules/).
+mkdir -p "$P/.barrilete/rules"
+printf -- '---\nid: propia\nstatus: accepted\norigin: human\napplies_to: [implementer]\nscope: "*"\nclasses: []\nseverity: suggestion\naccepted: 2026-11-07\n---\nRegla propia del proyecto.\n' >"$P/.barrilete/rules/propia.md"
+sync 0
+[ "$(reglas "$P/.claude/agents/implementer.md")" = "$(printf '%s\n%s\n%s\n%s' '- Regla con check. (`con-check`)' '- Regla uno v2 del implementer. (`impl-uno`)' '- Regla propia del proyecto. (`propia`)' '- Regla de mi proyecto. (`solo-mio`)')" ]; tap_check $? "reglas propias: se suman a las del rol, en orden por id"
+sed 's/^id: propia/id: impl-uno/' "$P/.barrilete/rules/propia.md" >"$P/.barrilete/rules/impl-uno.md"; rm "$P/.barrilete/rules/propia.md"
+sync 3
+grep -q 'impl-uno' <<<"$out"; tap_check $? "reglas propias: un id que choca con el de barrilete-rules falla y lo nombra"
+rm -rf "$P/.barrilete/rules"
+
+# 9. Sin .claude/agents (perfil chico) no falla: solo llegan las generales a AGENTS.md.
+proyecto "$TMP/chico" "$SHA1"; rm -rf "$TMP/chico/.claude" "$TMP/chico/docs/agents" "$TMP/chico/AGENTS.es.md"
+tap_run out 0 "$SYNC" --root "$TMP/chico" --url "$TMP/rules"
+[ "$(reglas "$TMP/chico/AGENTS.md")" = '- Regla general para todos. (`todos`)' ]; tap_check $? "sin .claude/agents: sale bien y AGENTS.md recibe las generales"
+
+# 10. El lock lo declara el repo; sin --url se arma https://github.com/<repo>.git (acá desviado a una carpeta local).
+proyecto "$TMP/p2" "$SHA1"; mkdir -p "$TMP/gh/o"; cp -R "$TMP/rules" "$TMP/gh/o/rules.git"
+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.$TMP/gh/.insteadOf" GIT_CONFIG_VALUE_0="https://github.com/" tap_run out 0 "$SYNC" --root "$TMP/p2"
+[ "$(reglas "$TMP/p2/.claude/agents/implementer.md")" = "$IMPL_V1" ]; tap_check $? "sin --url: clona https://github.com/<repo>.git del lock"
+
+# 11. Errores claros, sin traceback.
+proyecto "$TMP/e" "$SHA1"; rm "$TMP/e/.barrilete/rules.lock"
+tap_run out 3 "$SYNC" --root "$TMP/e" --url "$TMP/rules"
+grep -q 'rules.lock' <<<"$out"; tap_check $? "sin rules.lock: falla y lo nombra"
+tap_no_traceback "$out"
+printf 'repo=o/rules\nsha=nope\n' >"$TMP/e/.barrilete/rules.lock"
+tap_run out 3 "$SYNC" --root "$TMP/e" --url "$TMP/rules"
+grep -q 'sha' <<<"$out"; tap_check $? "sha que no es un SHA: falla y dice sha"
+printf 'repo=o/rules\nsha=%s\n' "0000000000000000000000000000000000000000" >"$TMP/e/.barrilete/rules.lock"
+tap_run out 3 "$SYNC" --root "$TMP/e" --url "$TMP/rules"
+grep -q '0000000' <<<"$out"; tap_check $? "SHA que no existe en el repo: falla y lo nombra"
+tap_no_traceback "$out"
+printf 'repo=o/rules\nsha=%s\n' "$SHA1" >"$TMP/e/.barrilete/rules.lock"
+tap_run out 3 "$SYNC" --root "$TMP/e" --url "$TMP/no-existe"
+grep -qi 'clone\|clonar' <<<"$out"; tap_check $? "clone que falla: falla y dice que no pudo clonar"
+tap_no_traceback "$out"
+tap_run out 64 "$SYNC" --root "$TMP/e" --nope
+grep -qi 'usage\|uso' <<<"$out"; tap_check $? "opción desconocida: sale 64 con el uso"
+
+# 12. Una regla mal formada frena la corrida y no deja los archivos a medias.
+git -C "$TMP/rules" checkout -q -b mala "$SHA1"
+printf -- '---\nid: rota\nstatus: aceptada\n---\nx\n' >"$TMP/rules/rules/rota.md"
+git -C "$TMP/rules" add -A && git -C "$TMP/rules" commit -qm rota; SHAM=$(git -C "$TMP/rules" rev-parse HEAD)
+proyecto "$TMP/m" "$SHAM"
+cp -R "$TMP/m" "$TMP/m-antes"
+tap_run out 3 "$SYNC" --root "$TMP/m" --url "$TMP/rules"
+grep -q 'rota' <<<"$out"; tap_check $? "regla mal formada: falla y nombra la regla"
+diff -r "$TMP/m-antes" "$TMP/m" >/dev/null; tap_check $? "regla mal formada: no escribe ningún archivo"
+git -C "$TMP/rules" checkout -q main
+
+tap_done
