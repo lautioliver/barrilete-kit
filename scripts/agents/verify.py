@@ -6,7 +6,9 @@ Checks are configured in the "verify" section of docs/agents-map.json:
   {"name": "migrations", "when": ["db/schema/**"], "run": "…"}
 A check runs if it is "always" or if any changed file matches "when".
 In "run" you can use {base} (the base branch reference, e.g. origin/main)
-and {files} (the matching changed files, quoted).
+and {files} (the matching changed files that still exist, quoted: a deleted file
+cannot be verified, and a rule with {files} whose only matches were deleted does not run, "always" or not;
+verify.py says which ones it skipped). With --pr the files are not filtered: this checkout may not have them.
 A "run" that starts with "TODO" is reported as not configured and is not executed.
 
 Usage:
@@ -50,16 +52,32 @@ def main():
     cambiados = archivos_cambiados(args)  # exits with a clear message if the base does not exist
     base = referencia_base(args, rama)
 
-    plan = []
+    # A file the change deletes cannot be verified (#274): {files} gets only the changed files that exist. With --pr
+    # the files are the PR's, which this checkout may not have, so they are not filtered.
+    existen = list(cambiados) if "--pr" in args else [a for a in cambiados if os.path.lexists(a)]
+    plan, salteadas = [], []
     for r in reglas:
-        # In the ones that always run (no "when"), {files} are all the changed files.
-        tocados = [a for a in cambiados if coincide(a, r["when"])] if r.get("when") else list(cambiados)
+        # In the ones that always run (no "when"), {files} are all the changed files that exist. A "TODO" rule
+        # runs nothing: it is not filtered, so it is still reported as not configured and never skipped.
+        filtra = "{files}" in r["run"] and not r["run"].startswith("TODO")
+        candidatos = existen if filtra else cambiados
+        presentes = set(candidatos)
+        tocados = [a for a in candidatos if coincide(a, r["when"])] if r.get("when") else list(candidatos)
+        borrados = [a for a in cambiados if a not in presentes and (not r.get("when") or coincide(a, r["when"]))]
+        if not tocados and borrados:
+            # Only deleted files matched: there is nothing to run {files} on (shellcheck with no files exits with 3).
+            salteadas.append((r["name"], borrados))
+            continue
         if r.get("always") or tocados:
             motivo = "always" if r.get("always") and not r.get("when") else f"{len(tocados)} file(s): {', '.join(tocados[:3])}"
             cmd = r["run"].replace("{base}", base).replace("{files}", " ".join(shlex.quote(a) for a in tocados))
             plan.append((r["name"], motivo, cmd))
 
     print(f"Changes against {base}: {len(cambiados)} file(s). Checks: {len(plan)}.\n")
+    for nombre, borrados in salteadas:
+        print(f"Skipped: {nombre} (only deleted files matched: {', '.join(borrados[:3])})")
+    if salteadas:
+        print()
     if "--list" in args:
         for nombre, motivo, cmd in plan:
             print(f"- {nombre} ({motivo})\n    {cmd}")
