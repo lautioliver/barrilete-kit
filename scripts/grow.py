@@ -24,11 +24,23 @@ PLANTILLA = os.environ.get("AGENT_KIT_TEMPLATE", "https://github.com/lautioliver
 NO_TRAER = {"README.md", "README.es.md", "README.en.md", "LICENSE", ".agent-kit.json", "scripts/grow.py", ".github/team.json"}  # the full README explains the template, not the project; the team belongs to the project
 PENDIENTES = ".agent-kit/pending"
 MAPA = "docs/agents-map.json"
-# RED_AGREGADA and RED_GUIA (and `con_red`, in update.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
+# RED_AGREGADA, RED_GUIA and ERROR_TAP (and `con_red`, in update.py and install.py; `entradas_tap`, in grow.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
 RED_AGREGADA = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
                 "files a commit adds or changes. red.sh needs the section and rejects a map without it.")
 RED_GUIA = ("To configure your stack's entry, see docs/guides/red-per-runner.md (in the kit, "
             "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
+# The 2.0.0 error for a `tap` entry (ADR-002 D8): a literal, the same text as red.sh and update.py print.
+ERROR_TAP = ('red stack \'{name}\': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)')
+
+
+def entradas_tap(texto):
+    """Names of the entries of the `red` section with format "tap"; [] if the map is not a JSON object or has none."""
+    try:
+        mapa = json.loads(texto)
+    except ValueError:
+        return []
+    rojo = mapa.get("red") if isinstance(mapa, dict) else None
+    return [e.get("name") for e in rojo if isinstance(e, dict) and e.get("format") == "tap"] if isinstance(rojo, list) else []
 
 
 def completar_mapa(texto, kit):
@@ -213,6 +225,14 @@ def main():
     print("  2. Review the diff, commit and open a PR.")
     print("  3. After the merge, run the Labels workflow to create the new labels.")
     print("  4. The blocking and epic skills need GitHub sub-issues and dependencies enabled.")
+    sys.stdout.flush()
+    try:
+        with open(MAPA, encoding="utf-8") as f:
+            taps = entradas_tap(f.read())
+    except (OSError, UnicodeDecodeError):
+        taps = []
+    for nombre in taps:  # the end of the summary (ADR-002 D8); on stderr, like update.py and red.sh
+        print(ERROR_TAP.format(name=nombre), file=sys.stderr)
 
 
 if __name__ == "__main__":

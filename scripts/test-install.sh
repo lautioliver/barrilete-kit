@@ -504,6 +504,18 @@ n=$(python3 "$TMP/map-view.py" names 2>&1)
 tap_check $? "install no toca la sección red que el repo ya tenía"
 cd "$TMP" || exit 1
 
+# #229: un repo con un mapa que ya tiene una entrada tap recibe el error de 2.0.0 (texto de red.sh), y el mapa queda como estaba.
+U16R="$TMP/usuario-mapa-tap"
+(repo_con_mapa "$U16R" '{"red": [{"name": "node", "when": ["**/*.test.js"], "run": "node --test > {out}", "format": "tap"}, {"name": "pytest", "when": ["**/test_*.py"], "run": "pytest --junitxml={out}", "format": "junit"}]}') >/dev/null 2>&1
+cd "$U16R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+n=$(python3 "$TMP/map-view.py" names 2>&1)
+grep -qxF "$(printf 'red stack '"'"'node'"'"': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)')" <<<"$s"
+tap_check $? "229: install imprime el error de 2.0.0 por una entrada tap del mapa, con el texto exacto de red.sh"
+[[ "$s" != *"red stack 'pytest'"* ]]; tap_check $? "229: install no imprime el error por una entrada junit"
+[ "$n" = "node,pytest" ]; tap_check $? "229: install deja la sección red con tap como estaba"
+cd "$TMP" || exit 1
+
 U14R="$TMP/usuario-sin-mapa"
 (repo "$U14R") >/dev/null 2>&1
 cd "$U14R" || exit 1
