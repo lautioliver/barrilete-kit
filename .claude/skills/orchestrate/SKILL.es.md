@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Reparte los issues disponibles entre agentes que trabajan en paralelo (Haiku o Sonnet implementan según el riesgo, Opus revisa), cada uno lanzado como agente `bk` o como subagente según roles.yml, cada uno en su worktree, y junta todo en un solo mensaje con los PRs, las consultas y lo escalado. No mergea ni publica sin confirmación. Usar con "/orchestrate", "orquestá los issues disponibles", "repartí la cola entre agentes" o similar.
+description: Reparte los issues disponibles entre agentes que trabajan en paralelo (Haiku o Sonnet implementan según el riesgo, Sonnet revisa), cada uno lanzado como agente `bk` o como subagente según roles.yml, cada uno en su worktree, y junta todo en un solo mensaje con los PRs, las consultas y lo escalado. No mergea ni publica sin confirmación. Usar con "/orchestrate", "orquestá los issues disponibles", "repartí la cola entre agentes" o similar.
 ---
 
 # Orquestar

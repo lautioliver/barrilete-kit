@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Distributes the available issues among agents working in parallel (Haiku or Sonnet implement depending on risk, Opus reviews), each launched as a `bk` agent or a subagent according to roles.yml, each in its own worktree, and gathers everything in a single message with the PRs, the questions and what was escalated. It does not merge or publish without confirmation. Use with "/orchestrate", "orchestrate the available issues", "spread the queue among agents" or similar.
+description: Distributes the available issues among agents working in parallel (Haiku or Sonnet implement depending on risk, Sonnet reviews), each launched as a `bk` agent or a subagent according to roles.yml, each in its own worktree, and gathers everything in a single message with the PRs, the questions and what was escalated. It does not merge or publish without confirmation. Use with "/orchestrate", "orchestrate the available issues", "spread the queue among agents" or similar.
 ---
 
 # Orchestrate

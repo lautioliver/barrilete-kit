@@ -55,3 +55,7 @@ Origin: lautioliver/barrilete-kit#236. The issue records the decision as taken b
 ## Amendment 2026-11-04
 
 By ADR-005 D7 (lautioliver/barrilete-kit#250). **D3 changes:** the orchestrator follows a `bk` agent by reading its task (`task.json`, with `bk tasks --json`: state, result and PR number), no longer with `bk ls` or by looking the PR up by branch. With a `bk` that has no tasks, the method of D3 still applies. It still does not open its diffs or its retros. **D4 does not change:** the person answers with `bk say`, and the task being `waiting` is what tells the orchestrator there is a question to show. The accepted text above is not rewritten.
+
+## Amendment 2026-11-05
+
+By lautioliver/barrilete-kit#263, decided by @lautioliver in the chat. **D2's role table changes for `reviewer`: it goes from opus to sonnet**, for cost (reviews were ~26% of the agents' cost in the last 14 days). The reason it has to change in the repo: `roles.yml` decides the mode (`mode.py`), not the model, and under `/orchestrate` the reviewer always runs as a subagent whose model is set by `.claude/agents/reviewer.md`. The mode (`sub`) and the other roles do not change. The accepted table above is not rewritten.
