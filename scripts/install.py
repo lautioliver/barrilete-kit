@@ -42,11 +42,23 @@ PENDIENTES = ".agent-kit/pending"
 LABELS_GITHUB = {"bug", "documentation", "duplicate", "enhancement", "good first issue", "help wanted", "invalid",
                  "question", "wontfix"}
 MAPA = "docs/agents-map.json"
-# RED_AGREGADA and RED_GUIA (and `con_red`, in update.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
+# RED_AGREGADA, RED_GUIA and ERROR_TAP (and `con_red`, in update.py and install.py; `entradas_tap`, in grow.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
 RED_AGREGADA = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
                 "files a commit adds or changes. red.sh needs the section and rejects a map without it.")
 RED_GUIA = ("To configure your stack's entry, see docs/guides/red-per-runner.md (in the kit, "
             "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
+# The 2.0.0 error for a `tap` entry (ADR-002 D8): a literal, the same text as red.sh and update.py print.
+ERROR_TAP = ('red stack \'{name}\': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)')
+
+
+def entradas_tap(texto):
+    """Names of the entries of the `red` section with format "tap"; [] if the map is not a JSON object or has none."""
+    try:
+        mapa = json.loads(texto)
+    except ValueError:
+        return []
+    rojo = mapa.get("red") if isinstance(mapa, dict) else None
+    return [e.get("name") for e in rojo if isinstance(e, dict) and e.get("format") == "tap"] if isinstance(rojo, list) else []
 
 
 def con_red(texto, kit):
@@ -438,6 +450,13 @@ def resumen(plan, propios, ref, draft):
     print("\nNext steps:")
     for i, paso in enumerate(pasos, 1):
         print(f"  {i}. {paso}")
+    sys.stdout.flush()
+    try:
+        taps = entradas_tap(leer(MAPA)) if os.path.isfile(MAPA) else []
+    except (OSError, UnicodeDecodeError):
+        taps = []
+    for nombre in taps:  # the end of the summary (ADR-002 D8); on stderr, like update.py and red.sh
+        print(ERROR_TAP.format(name=nombre), file=sys.stderr)
 
 
 def main():
