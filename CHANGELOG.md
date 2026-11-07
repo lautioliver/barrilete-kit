@@ -16,7 +16,7 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 ### Corregido
 
-- `scripts/agents/verify.py`: `{files}` ya no lleva los archivos que el cambio borra (#274), así que `shellcheck` deja de fallar con `does not exist` en un PR que borra un `.sh`. Una regla con `{files}` cuyos archivos coincidentes fueron todos borrados no corre (no hay nada que verificar); una regla sin `{files}` sigue corriendo aunque solo se haya borrado un archivo.
+- `scripts/agents/verify.py`: `{files}` ya no lleva los archivos que el cambio borra (#274), así que `shellcheck` deja de fallar con `does not exist` en un PR que borra un `.sh`. Una regla con `{files}` cuyos archivos coincidentes fueron todos borrados no corre, aunque sea `always` (no hay nada que verificar), y `verify.py` lo dice (`Skipped: <regla> (only deleted files matched: …)`); una regla sin `{files}` sigue corriendo aunque solo se haya borrado un archivo. Con `--pr` no filtra (el checkout puede no tener los archivos del PR). Vale para toda regla con `{files}`: si una regla de tu proyecto vigila archivos borrados (por ejemplo, que no se borre una migración aplicada), que use `{base}` y `git diff --diff-filter=D` en vez de `{files}`.
 - `barrilete-pi` 0.1.1: sin `pi` en el PATH, `barrilete` no encontraba el pi que npm instala junto al paquete (pi declara `exports` sin `./package.json`), así que `npm i -g barrilete-pi` solo no alcanzaba.
 - `barrilete-pi` 0.1.1: pi cambió de nombre, de `@mariozechner/pi-coding-agent` (deprecado) a `@earendil-works/pi-coding-agent` (1.x). La peerDependency y el mensaje de instalación usan el nuevo, y `barrilete` encuentra el pi incluido con cualquiera de los dos. Probado con pi 0.73.1 y 1.4.0.
 
