@@ -54,6 +54,8 @@ Each finding with: its location (`file:line`), what is wrong, why it matters (wh
 
 Each **Blocking** and **To fix** finding starts with its class, an id from `docs/agents/classes.yml`, in this exact format: `[class] file:line: …` (for example `[stale-docs] file:line: …`), one class per finding: if it fits two, pick the main one and mention the other in the text. `bk learn` and the measurement of the rules (ADR-006) will read that tag. If no class fits, tag it `[other]` and say in the review which class would be missing. If the finding has no file (for example, the PR body), put `PR` in place of `file:line`: `[pr-metadata] PR: …`. Suggestions carry no class.
 
+If the review session has the findings fixed by launching an `implementer`, that one gets its own worktree (`prepare.sh <n> --worktree`) and never uses a worktree where another agent is working: `prepare.sh` refuses it (`agent-lock`, `docs/agents/subagent-contract.md`). The lock is taken by whoever runs `prepare.sh`, and your `implementer` shares your pid, so do what `orchestrate` does: run `prepare.sh` with a name (`WORKTREE_LOCK_AGENT=<your name> .claude/skills/implement-issue/prepare.sh <n> --worktree`), release it with that name (`WORKTREE_LOCK_AGENT=<your name> scripts/agents/worktree-lock.sh release <worktree>`) before launching the `implementer`, give it its own name in the prompt (`implementer-<n>`) and, if it returned without releasing, release it on its behalf. Without this, the `implementer` always gets `held`. Look at `bk ls` first: a live agent on the same PR is a reason to ask, not to share the branch.
+
 Do not pad the list: if there are no findings in a category, say so. A PR with no findings is a valid result.
 
 ## 5. Publish
