@@ -571,4 +571,49 @@ tap_run out 0 python3 -I "$TMP/tree-count.py" "$KIT/scripts/agents"
 case $out in *"walks=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "225: missing_test_files walks the tree a few times for 400 cases, not once per case"
 case $out in *"none=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "225: missing_test_files does not map a case when the diff has no test file for the entry"
 
+# missing_test_files stops mapping cases once every test file of the diff has been seen: the `file` of the testsuites
+# counts first, and the cases are mapped one by one only until the last wanted file shows up
+cat >"$TMP/map-count.py" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import red_report as rr
+
+calls = 0
+real = rr.case_files_uncached
+
+
+def counting(diff, case):
+    global calls
+    calls += 1
+    return real(diff, case)
+
+
+rr.case_files_uncached = counting
+
+
+def run(suite_files):
+    global calls
+    calls = 0
+    diff = rr.Diff.__new__(rr.Diff)
+    diff.root, diff.commit, diff.status, diff.old_path, diff._added = ".", "x", {"pkg/a/a_test.go": "A"}, {}, {}
+    diff._tree = {"go.mod", "pkg/a/a_test.go", "pkg/b/y_test.go"}
+    diff.read = lambda p: "module ex.com/m\n" if p == "go.mod" else None
+    report = rr.Report()
+    report.suite_files = list(suite_files)
+    for i in range(200):
+        report.cases.append(rr.Case(None, "ex.com/m/pkg/a", "TestA%d" % i, "pass"))
+        report.cases.append(rr.Case("b/y_test.go", "", "TestB%d" % i, "pass"))
+    missing = rr.missing_test_files(diff, {"when": ["**/*_test.go"]}, report)
+    return calls, missing
+
+
+calls, missing = run(["pkg/a/a_test.go"])
+print("suite=ok" if calls == 0 and missing == [] else "suite=%d missing=%s" % (calls, missing))
+calls, missing = run([])
+print("first=ok" if calls == 1 and missing == [] else "first=%d missing=%s" % (calls, missing))
+PY
+tap_run out 0 python3 -I "$TMP/map-count.py" "$KIT/scripts/agents"
+case $out in *"suite=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "264: missing_test_files maps no case when the testsuites already name every test file of the diff"
+case $out in *"first=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "264: missing_test_files stops mapping once every test file of the diff has been seen"
+
 tap_done

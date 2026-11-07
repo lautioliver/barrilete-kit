@@ -726,6 +726,15 @@ printf '%s\n' '#!/usr/bin/env bash' ". \"$ROOT/scripts/agents/tap.sh\"" 'tap_beg
 tap_run SECOND 0 env -u TAP_FORMAT TAP_OUT="$TMP/tap" bash "$TMP/t2.sh"
 xq 'len(suites) == 2 and "first script" in cases and "second script" in cases and suites[0].get("file") != suites[1].get("file")'; tap_check $? "225: JUnit: a second script appends its own testsuite to the same file"
 
+# a bail that arrives after tap_done (a >(…) that crashes while the suite is being written leaves its reason in the bail file)
+# does not write the suite a second time: the cases stay once, and the error goes in a testsuite of its own
+run_tap 'tap_ok "x"
+printf "late crash" >"$_TAP_BAILFILE"
+tap_done' junit
+xq 'sum(1 for c in root.iter("testcase") if c.get("name") == "x") == 1'; tap_check $? "264: JUnit: a bail after tap_done does not repeat the cases of the suite"
+xq 'any(c.find("error") is not None for c in root.iter("testcase"))'; tap_check $? "264: JUnit: a bail after tap_done still leaves an error testcase"
+rc_is 1; tap_check $? "264: JUnit: a bail after tap_done exits with 1"
+
 # the format: TAP_FORMAT. 2.0.0 writes only JUnit: junit is accepted, and any other value fails closed, tap included.
 run_tap 'tap_ok "x"
 tap_done' fmt=junit
@@ -741,6 +750,7 @@ tap_done' fmt=yaml
 empty "$TMP/tap"; tap_check $? "225: an unknown TAP_FORMAT writes no report"
 rc_is 2; tap_check $? "225: an unknown TAP_FORMAT exits with 2 (fails closed)"
 has_msg 'TAP_FORMAT'; tap_check $? "225: an unknown TAP_FORMAT is named on stderr"
+[ ! -e "$TMP/tap" ]; tap_check $? "264: an unknown TAP_FORMAT does not create TAP_OUT (the format is checked before the file is opened)"
 
 # TAP_FORMAT, like TAP_OUT, is not left in the environment of the test: a fixture it starts decides its own format
 run_tap 'echo "format=${TAP_FORMAT-unset} out=${TAP_OUT-unset}"
