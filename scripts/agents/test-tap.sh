@@ -624,6 +624,12 @@ rc_is 1; tap_check $? "225: JUnit: exits with 1 when a case fails"
 empty "$TMP/stdout"; tap_check $? "225: JUnit: writes nothing to stdout when it has an output file"
 has "FAIL - assigns the issue" "$TMP/stderr"; tap_check $? "225: JUnit: a failing case is reported on stderr as FAIL - id"
 nogrep '^ok \|^not ok \|^1\.\.\|^# file:' "$TMP/tap"; tap_check $? "225: JUnit: the file has no TAP lines"
+# what the test prints on stdout never reaches the report (ADR-002 D6: a line of the test cannot inject a case). With
+# "exec 1>&8" after the helper opens TAP_OUT, the echo below lands in the file and "injected" becomes a testcase.
+run_tap 'echo "<testcase name=\"injected\"/>"
+tap_ok "real case"
+tap_done' junit
+xq '"real case" in cases and "injected" not in cases'; tap_check $? "273: JUnit: what the test prints on stdout does not reach the file (no injected case)"
 
 run_tap 'tap_ok "a"
 tap_done' junit
@@ -729,7 +735,7 @@ tap_done' fmt=tap
 empty "$TMP/tap"; tap_check $? "273: TAP_FORMAT=tap writes no report"
 rc_is 2; tap_check $? "273: TAP_FORMAT=tap exits with 2 (fails closed)"
 has_msg 'TAP_FORMAT=tap'; tap_check $? "273: TAP_FORMAT=tap is named on stderr"
-empty "$TMP/stdout"; tap_check $? "273: TAP_FORMAT=tap writes nothing to stdout either"
+empty "$TMP/stdout"; tap_check $? "273: TAP_FORMAT=tap: stdout stays empty (the rejection is only on stderr)"
 run_tap 'tap_ok "x"
 tap_done' fmt=yaml
 empty "$TMP/tap"; tap_check $? "225: an unknown TAP_FORMAT writes no report"
