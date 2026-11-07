@@ -735,6 +735,22 @@ xq 'sum(1 for c in root.iter("testcase") if c.get("name") == "x") == 1'; tap_che
 xq 'any(c.find("error") is not None for c in root.iter("testcase"))'; tap_check $? "264: JUnit: a bail after tap_done still leaves an error testcase"
 rc_is 1; tap_check $? "264: JUnit: a bail after tap_done exits with 1"
 
+# the real route: a child that dies while the suite is being written leaves its reason and sends TERM to the script, as
+# _tap_crash does from a >(…). Here a sed shim does it once, from inside _tap_clean, so the TERM lands at a known point
+# (bash runs the TERM trap when the substitution returns): the script ends through the TERM and EXIT traps.
+SHIMS="$TMP/shims"; mkdir -p "$SHIMS"; rm -f "$TMP/fired"
+printf '#!/bin/sh\nif [ ! -e "%s" ]; then : >"%s"; printf "late crash" >"$TAP_TEST_BAIL"; kill -TERM "$TAP_TEST_MAIN"; fi\nexec "%s" "$@"\n' "$TMP/fired" "$TMP/fired" "$(command -v sed)" >"$SHIMS/sed"
+chmod +x "$SHIMS/sed"
+OLD_PATH=$PATH; PATH="$SHIMS:$PATH"
+run_tap 'tap_ok "x"
+export TAP_TEST_BAIL=$_TAP_BAILFILE TAP_TEST_MAIN=$$
+tap_done' junit
+PATH=$OLD_PATH
+[ -e "$TMP/fired" ]; tap_check $? "264: JUnit: the sed shim of the late crash ran (the TERM was sent while the suite was written)"
+xq 'sum(1 for c in root.iter("testcase") if c.get("name") == "x") == 1'; tap_check $? "264: JUnit: a crash that sends TERM while the suite is written leaves the cases once"
+xq 'any(c.find("error") is not None and c.find("error").get("message") == "late crash" for c in root.iter("testcase"))'; tap_check $? "264: JUnit: a crash that sends TERM while the suite is written leaves its error testcase"
+rc_is 1; tap_check $? "264: JUnit: a crash that sends TERM while the suite is written exits with 1"
+
 # the format: TAP_FORMAT. 2.0.0 writes only JUnit: junit is accepted, and any other value fails closed, tap included.
 run_tap 'tap_ok "x"
 tap_done' fmt=junit
