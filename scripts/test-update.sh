@@ -828,6 +828,7 @@ despues_map=$(<"$D/docs/agents-map.json")
 [ "$despues_map" = "$antes_map" ]; tap_check $? "[tap 2.0.0] una entrada tap propia (y una bash que el proyecto cambió) queda como estaba: no la convierte, borra ni reescribe"
 grep -qxF "$(ERROR_TAP node)" <<<"$err"; tap_check $? "[tap 2.0.0] una entrada tap propia imprime el error con el texto exacto de red.sh"
 grep -qxF "$(ERROR_TAP bash)" <<<"$err"; tap_check $? "[tap 2.0.0] una entrada bash que el proyecto cambió es propia e imprime el error"
+[[ "$s$err" != *'which 2.0.0 removes'* ]]; tap_check $? "[tap 2.0.0] update.py ya no imprime el aviso de 1.x (ni a stdout ni a stderr)"
 [[ "$s$err" != *"red stack 'py'"* ]]; tap_check $? "[tap 2.0.0] una entrada junit no imprime el error"
 [[ "$s" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] el error va a stderr, no a stdout"
 ultima=$(tail -n 1 <<<"$s")
