@@ -89,6 +89,7 @@ MUT = {
  "yml-ref-tag": lambda: skills(lambda t: t + "\nLas clases están en docs/agents/classes.yml, por ejemplo [typo].\n"),
  "upper-checkbox": lambda: skills(lambda t: t + "\n- [X] file:line: hecho\n"),
  "yaml11-ids": lambda: edit(YML, lambda t: t + "".join(f"- id: {w}\n  description: x\n" for w in ("y", "n", "yes", "no", "true", "false", "on", "off", "null"))),
+ "bad-id-desc": lambda: edit(YML, lambda t: t + "- id: \"Bad\"\n  description: z\n"),
  "dup-desc": lambda: edit(YML, lambda t: re.sub(r"(- id: stale-docs\n  description: [^\n]*\n)", r"\1  description: again\n", t)),
  "dir-yml": lambda: (os.remove(YML), os.mkdir(YML), edit("AGENTS.md", lambda t: t + "\n[roto](no-existe-269.md)\n")),
  "noperm-yml": lambda: (os.chmod(YML, 0), edit("AGENTS.md", lambda t: t + "\n[roto](no-existe-269.md)\n")),
@@ -326,6 +327,10 @@ grep -q 'classes.yml:[0-9]*:.*YAML 1.1' <<<"$out"; tap_check $? "check-docs: dic
 mutar quoted-id
 n_errores_nuevos
 [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un id entre comillas de una clase que usa la skill da un solo error" "errores nuevos: $nuevos"
+mutar bad-id-desc
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un id mal escrito y su descripción dan un solo error" "errores nuevos: $nuevos"
+[[ $out != *"second description"* ]]; tap_check $? "check-docs: la descripción de un id mal escrito no se toma como de la clase anterior"
 mutar dup-desc
 n_errores_nuevos
 [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: una segunda descripción bajo el mismo id da un solo error" "errores nuevos: $nuevos"
