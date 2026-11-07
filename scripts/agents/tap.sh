@@ -233,6 +233,8 @@ _tap_clean() {
 
 # Usage: _tap_junit_suite [<error message>] [<skip reason>]: appends the closed testsuite of this script to the file: its cases
 # (held until now), an error testcase if there is a message (a bail out), and the reason in its system-out for tap_skip_all.
+# It forgets the cases it wrote (like _tap_flush): a bail that arrives after tap_done (a >(…) that crashes while the suite
+# is written) leaves a second testsuite with only its error testcase, never the cases again (#264).
 _tap_junit_suite() {
   local err=${1:-} why=${2:-} i n=${#_TAP_IDS[@]} fails=0 skips=0 errs=0 f d id out=""
   _tap_xml "${_TAP_FILE:-$(_tap_rel "$0")}"; f=$_X
@@ -260,6 +262,7 @@ _tap_junit_suite() {
   out+="</testsuite>"
   out=$(printf '%s' "$out" | _tap_clean)
   _tap_line "$out"
+  _TAP_IDS=(); _TAP_VERDICTS=(); _TAP_DESCS=(); _TAP_REPS=(); _TAP_SKIPS=()
 }
 
 tap_at_exit() { _TAP_AT_EXIT=$1; }

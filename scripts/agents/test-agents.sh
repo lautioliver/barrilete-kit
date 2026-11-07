@@ -264,7 +264,6 @@ for idioma in en es; do
   if [ "$idioma" = en ]; then g="$RAIZ/docs/guides/red-per-runner.md"; else g="$RAIZ/docs/guides/red-per-runner.es.md"; fi
   [ -f "$g" ] || continue
   run=$(guia_entrada "$g" bash)
-  # shellcheck disable=SC2016  # el texto buscado es literal
   grep -qF '<testsuites>' <<<"$run"; tap_check $? "[<idioma>] la entrada bash de la guía envuelve los testsuites en <testsuites> (#225)" "[$idioma] la entrada bash de la guía envuelve los testsuites en <testsuites> (#225)"
   # shellcheck disable=SC2016
   grep -qF 'TAP_OUT=$tmp' <<<"$run"; tap_check $? "[<idioma>] la entrada bash de la guía le da a cada script un TAP_OUT temporal (#225)" "[$idioma] la entrada bash de la guía le da a cada script un TAP_OUT temporal (#225)"
