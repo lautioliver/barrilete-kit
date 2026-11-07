@@ -834,4 +834,25 @@ grep -qxF "$(ERROR_TAP bash)" <<<"$err"; tap_check $? "[tap 2.0.0] una entrada b
 ultima=$(tail -n 1 <<<"$s")
 [[ "$ultima" == *"Commit and open a PR"* ]]; tap_check $? "[tap 2.0.0] el error sale al final del resumen"
 
+# grow.py imprime el error de 2.0.0 por una entrada tap del mapa del proyecto, con el texto de update.py y de red.sh (#229):
+# el mapa queda como estaba y una entrada junit no lo imprime.
+D="$TMP/crece-con-tap"
+proyecto "$D" chico
+cd "$D" || exit 1
+python3 - <<'PY'
+import json
+m = json.load(open("docs/agents-map.json"))
+m["red"] = [{"name": "node", "when": ["**/*.test.js"], "format": "tap", "run": "node --test > {out}"},
+            {"name": "py", "when": ["**/test_*.py"], "format": "junit", "run": "pytest --junitxml={out}"}]
+json.dump(m, open("docs/agents-map.json", "w"), indent=2)
+PY
+git add -A
+git commit -qm "red con una entrada tap"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+grep -qxF "$(ERROR_TAP node)" <<<"$s"; tap_check $? "229: grow imprime el error de 2.0.0 por una entrada tap propia, con el texto exacto de red.sh"
+[[ "$s" != *"red stack 'py'"* ]]; tap_check $? "229: grow no imprime el error por una entrada junit"
+nombres=$(python3 "$TMP/map-view.py" names 2>&1)
+[ "$nombres" = "node,py" ]; tap_check $? "229: grow deja la sección red con tap como estaba"
+cd "$TMP" || exit 1
+
 tap_done
