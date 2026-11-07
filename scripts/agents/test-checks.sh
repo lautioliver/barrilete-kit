@@ -66,12 +66,15 @@ EOF
 
 # 1. pr-metadata: sin PR abierto para la rama avisa y no falla (verify.py corre antes de abrirlo).
 cd "$P" || exit 2
-GH_MODE=none PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+GH_MODE=none PATH="$TMP/bin:$PATH" tap_run out 4 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -qi 'not verified' <<<"$out"; tap_check $? "pr-metadata: sin PR abierto dice que no verificó"
+[ "$TAP_RC" = 4 ]; tap_check $? "pr-metadata: sin PR abierto sale con 4 (no verificó), distinto de 0 (verificó y está bien)"
 tap_no_traceback "$out"
-# 2. Un error de gh que no es "no hay PR" no se toma por un PR correcto: no verificó, y lo dice como falla (3).
-GH_MODE=roto PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
-grep -q 'Bad credentials' <<<"$out"; tap_check $? "pr-metadata: un error de gh falla y muestra lo que dijo gh"
+# 2. Un error de gh (sin red, sin login, otro texto de gh) no es un PR que no cumple: no verificó (4), con lo que dijo gh.
+# Salir con 3 mandaría al agente a arreglar un cuerpo que no tiene nada de malo.
+GH_MODE=roto PATH="$TMP/bin:$PATH" tap_run out 4 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'Bad credentials' <<<"$out"; tap_check $? "pr-metadata: un error de gh no verificó y muestra lo que dijo gh"
+[ "$TAP_RC" = 4 ]; tap_check $? "pr-metadata: un error de gh sale con 4 (no verificó), no con 3 (el cuerpo no cumple)"
 tap_no_traceback "$out"
 
 # 3. Un cuerpo que cumple pasa.
@@ -123,6 +126,14 @@ grep -q "${RED:0:3}.*not a hexadecimal sha" <<<"$out"; tap_check $? "red commit:
 pr 12 "$(printf '%s\n\n```\nred commit: deadbeef12\n9 commits\nCloses #99\n```\n' "$BIEN")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
 [ "$TAP_RC" = 0 ]; tap_check $? "bloque de código: lo que se cita ahí no se lee como afirmación del PR"
+
+# 7c. Un sha de solo dígitos no es una cantidad de commits; y lo que viene después del bloque rojo no son casos.
+pr 12 "$(cuerpo "1234567" 2 "" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+n=$(grep -c 'body says 1234567 commits' <<<"$out" || true); [ "$n" = 0 ]; tap_check $? "commits: el sha del red commit, aunque sean solo dígitos, no se lee como una cantidad de commits"
+pr 12 "$(printf '%s\n\n## Notes\n- see foo::bar\n' "$BIEN")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un - x::y después del bloque rojo no se toma por un caso fallido"
 
 # 8. Sin bloque rojo y con `no tests:` no hay nada que comparar del rojo.
 pr 12 "$(printf '## How to test it\nno tests: docs\n\n2 commits.\n\nCloses #7\n')"
@@ -212,5 +223,24 @@ grep -q 'regeneralo y, si no podés, escalá' <<<"$out"; tap_check $? "de punta 
 pr 12 "$BIEN"
 GH_MODE=pr PATH="$TMP/bin:$PATH" verify 0
 grep -q 'ok *check:pr-metadata' <<<"$out"; tap_check $? "de punta a punta: un PR que cumple pasa verify.py"
+
+# --- lo que verify.py dice cuando un check no pudo verificar, cuando dos reglas comparten check y con --pr ---
+GH_MODE=none PATH="$TMP/bin:$PATH" verify 0
+grep -q 'not verified *check:pr-metadata' <<<"$out"; tap_check $? "verify.py: un check que no pudo verificar sale como not verified, no como ok"
+n=$(grep -c 'All verified' <<<"$out" || true); [ "$n" = 0 ]; tap_check $? "verify.py: con un check sin verificar no dice All verified"
+grep -q 'was not verified' <<<"$out"; tap_check $? "verify.py: con un check sin verificar avisa que no se puede decir que el cambio está verificado"
+
+printf '{"checks": [{"id": "mal-check", "rule": "regla-a", "fail_message": "mensaje de a"}, {"id": "mal-check", "rule": "regla-b", "fail_message": "mensaje de b"}]}\n' >"$P/.barrilete/checks.json"
+rm -f "$TMP/mal-check.args"
+verify 1
+grep -q 'regla-a.*mensaje de a' <<<"$out"; tap_check $? "verify.py: dos reglas con el mismo check: se muestra el mensaje de la primera"
+grep -q 'regla-b.*mensaje de b' <<<"$out"; tap_check $? "verify.py: dos reglas con el mismo check: se muestra el mensaje de la segunda"
+n=$(grep -c 'args:' "$TMP/mal-check.args" || true); [ "$n" = 1 ]; tap_check $? "verify.py: dos reglas con el mismo check lo corren una sola vez"
+
+manifiesto mal-check
+rm -f "$TMP/mal-check.args"
+GH_MODE=pr PATH="$TMP/bin:$PATH" verify 0 --pr 7
+[ ! -e "$TMP/mal-check.args" ]; tap_check $? "verify.py --pr: no corre los checks de las reglas (miran el PR de la rama del checkout, no el pedido)"
+grep -q 'Skipped.*rule checks' <<<"$out"; tap_check $? "verify.py --pr: dice que salteó los checks de las reglas"
 
 tap_done
