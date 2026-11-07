@@ -61,9 +61,8 @@ RED_RUNS_DEL_KIT = [
     "echo \"Bail out! $t wrote no TAP\" >>{out}; done < <(git diff -z --name-only --diff-filter=AM HEAD^ HEAD -- "
     "':(glob)**/test-*.sh'); exit $rc",
 ]
-# The 1.x warning for a `tap` entry (ADR-002 D8). It is a literal: red.sh and check-docs.py print the same text.
-AVISO_TAP = ('warning: red stack \'{name}\' uses format "tap", which 2.0.0 removes; '
-             'switch it to "junit" (docs/guides/red-per-runner.md)')
+# The 2.0.0 error for a `tap` entry that is not the kit's (ADR-002 D8). It is a literal: red.sh prints the same text.
+ERROR_TAP = ('red stack \'{name}\': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)')
 
 
 def es_del_kit(entrada):
@@ -672,8 +671,8 @@ def main():
     print("  2. git add -A, then python3 scripts/agents/check-docs.py (it reads the git index), and review the diff.")
     print("  3. Commit and open a PR. If .github/labels.yml changed, run the Labels workflow after the merge.")
     sys.stdout.flush()
-    for nombre in taps:  # the end of the summary (ADR-002 D8); on stderr, like the one of red.sh
-        print(AVISO_TAP.format(name=nombre), file=sys.stderr)
+    for nombre in taps:  # the end of the summary (ADR-002 D8); on stderr, like the error of red.sh
+        print(ERROR_TAP.format(name=nombre), file=sys.stderr)
 
 
 if __name__ == "__main__":
