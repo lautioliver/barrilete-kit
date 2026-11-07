@@ -31,7 +31,7 @@ NO_TRAER = {"README.md", "README.es.md", "README.en.md", "LICENSE", ".agent-kit.
 PENDIENTES = ".agent-kit/pending"
 USO = "Usage: python3 scripts/update.py [--version vX.Y.Z] [--template <url or path>]"
 MAPA = "docs/agents-map.json"
-# RED_AGREGADA, RED_GUIA and ERROR_TAP (and `con_red`, in update.py and install.py; `entradas_tap`, in grow.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
+# RED_AGREGADA and RED_GUIA (and `con_red`, in update.py and install.py) are copies in update.py, grow.py and install.py: they run on their own, so change all three.
 RED_AGREGADA = ("docs/agents-map.json had no `red` section (ADR-002 D8): I added the kit's `bash` entry, which runs the test-*.sh "
                 "files a commit adds or changes. red.sh needs the section and rejects a map without it.")
 RED_GUIA = ("To configure your stack's entry, see docs/guides/red-per-runner.md (in the kit, "

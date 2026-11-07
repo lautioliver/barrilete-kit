@@ -817,7 +817,8 @@ err=$(<"$TMP/stderr.txt")
 [ "$(campo_red "$D" bash run)" = "$kit_run" ]; tap_check $? "[tap 2.0.0] la entrada bash del kit toma el run actual del kit"
 [ "$(campo_red "$D" bash when)" = '["tests/**/test-*.sh"]' ]; tap_check $? "[tap 2.0.0] reemplazar la entrada del kit conserva el when del proyecto"
 [ "$(campo_red "$D" bash timeout)" = 900 ]; tap_check $? "[tap 2.0.0] reemplazar la entrada del kit conserva el timeout del proyecto"
-[[ "$s$err" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error"
+[[ "$s" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error en stdout"
+[[ "$err" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error en stderr"
 
 D="$TMP/red-tap-propia"
 proyecto "$D" completo
@@ -830,31 +831,14 @@ despues_map=$(<"$D/docs/agents-map.json")
 [ "$despues_map" = "$antes_map" ]; tap_check $? "[tap 2.0.0] una entrada tap propia (y una bash que el proyecto cambió) queda como estaba: no la convierte, borra ni reescribe"
 grep -qxF "$(ERROR_TAP node)" <<<"$err"; tap_check $? "[tap 2.0.0] una entrada tap propia imprime el error con el texto exacto de red.sh"
 grep -qxF "$(ERROR_TAP bash)" <<<"$err"; tap_check $? "[tap 2.0.0] una entrada bash que el proyecto cambió es propia e imprime el error"
-[[ "$s$err" != *'which 2.0.0 removes'* ]]; tap_check $? "[tap 2.0.0] update.py ya no imprime el aviso de 1.x (ni a stdout ni a stderr)"
-[[ "$s$err" != *"red stack 'py'"* ]]; tap_check $? "[tap 2.0.0] una entrada junit no imprime el error"
+[[ "$s" != *'which 2.0.0 removes'* ]]; tap_check $? "[tap 2.0.0] update.py ya no imprime el aviso de 1.x en stdout"
+[[ "$err" != *'which 2.0.0 removes'* ]]; tap_check $? "[tap 2.0.0] update.py ya no imprime el aviso de 1.x en stderr"
+[[ "$s" != *"red stack 'py'"* ]]; tap_check $? "[tap 2.0.0] una entrada junit no imprime el error en stdout"
+[[ "$err" != *"red stack 'py'"* ]]; tap_check $? "[tap 2.0.0] una entrada junit no imprime el error en stderr"
 [[ "$s" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] el error va a stderr, no a stdout"
 ultima=$(tail -n 1 <<<"$s")
-[[ "$ultima" == *"Commit and open a PR"* ]]; tap_check $? "[tap 2.0.0] el error sale al final del resumen"
-
-# grow.py imprime el error de 2.0.0 por una entrada tap del mapa del proyecto, con el texto de update.py y de red.sh (#229):
-# el mapa queda como estaba y una entrada junit no lo imprime.
-D="$TMP/crece-con-tap"
-proyecto "$D" chico
-cd "$D" || exit 1
-python3 - <<'PY'
-import json
-m = json.load(open("docs/agents-map.json"))
-m["red"] = [{"name": "node", "when": ["**/*.test.js"], "format": "tap", "run": "node --test > {out}"},
-            {"name": "py", "when": ["**/test_*.py"], "format": "junit", "run": "pytest --junitxml={out}"}]
-json.dump(m, open("docs/agents-map.json", "w"), indent=2)
-PY
-git add -A
-git commit -qm "red con una entrada tap"
-tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
-grep -qxF "$(ERROR_TAP node)" <<<"$s"; tap_check $? "229: grow imprime el error de 2.0.0 por una entrada tap propia, con el texto exacto de red.sh"
-[[ "$s" != *"red stack 'py'"* ]]; tap_check $? "229: grow no imprime el error por una entrada junit"
-nombres=$(python3 "$TMP/map-view.py" names 2>&1)
-[ "$nombres" = "node,py" ]; tap_check $? "229: grow deja la sección red con tap como estaba"
-cd "$TMP" || exit 1
+[[ "$ultima" == *"Commit and open a PR"* ]]; tap_check $? "[tap 2.0.0] stdout termina con el último paso del resumen, sin el error"
+[ "$(tail -n 1 <<<"$err")" = "$(ERROR_TAP node)" ]; tap_check $? "[tap 2.0.0] el error de la última entrada tap propia es la última línea de stderr"
+[ "$(grep -c 'was removed in 2.0.0' <<<"$err")" = 2 ]; tap_check $? "[tap 2.0.0] stderr tiene un error por entrada tap propia, ni más ni menos"
 
 tap_done
