@@ -51,7 +51,8 @@ pr() { # pr <número> <cuerpo>: el PR que devuelve el gh falso
   python3 -c 'import json,sys; print(json.dumps({"number": int(sys.argv[1]), "body": sys.argv[2]}))' "$1" "$2" >"$GH_JSON"
 }
 cuerpo() { # cuerpo <red> <commits> <caso> <cierra>: un cuerpo de PR con su bloque rojo, ${2} commits y el caso fallido ${3}
-  printf '## What changes\nx\n\n## How to test it\n\n<details><summary>Red before implementing</summary>\n\nred commit: %s\n\nstack: bash\nformat: junit\nfailing cases:\n- %s\n</details>\n\n%s commits.\n\n%s\n' "$1" "$3" "$2" "$4"
+  printf '## What changes\nx\n\n## How to test it\n\n<details><summary>Red before implementing</summary>\n\nred commit: %s\n\nstack: bash\nformat: junit\nfailing cases:\n%s</details>\n\n%s commits.\n\n%s\n' "$1" "${3:+- $3
+}" "$2" "$4"
 }
 BIEN=$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso uno" "Closes #7")
 # verify.py sale con 1 si algo falla y tap_run toma 1 y 2 por un crash: rc.py lo corre, imprime todo y agrega `rc=<estado>`.
@@ -80,10 +81,10 @@ GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-
 grep -qi 'ok' <<<"$out"; tap_check $? "pr-metadata: un cuerpo que cumple lo dice"
 
 # 4. El `red commit:` tiene que ser un commit de la rama (no el de la base ni uno que no existe).
-pr 12 "$(cuerpo "${BASE_SHA:0:10}" 2 "scripts/agents/test-x.sh::caso uno" "Closes #7")"
+pr 12 "$(cuerpo "${BASE_SHA:0:10}" 2 "" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q "${BASE_SHA:0:10}" <<<"$out"; tap_check $? "red commit: el de la base falla y nombra el sha"
-pr 12 "$(cuerpo "deadbeef12" 2 "scripts/agents/test-x.sh::caso uno" "Closes #7")"
+pr 12 "$(cuerpo "deadbeef12" 2 "" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'deadbeef12' <<<"$out"; tap_check $? "red commit: un sha que no existe falla y lo nombra"
 
@@ -96,21 +97,32 @@ grep -q '2' <<<"$out"; tap_check $? "commits: nombra también los 2 reales"
 # 6. Cada caso del bloque rojo existe en el archivo de ese commit (los ids de tap son literales del fuente).
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso inventado" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
-grep -q 'caso inventado' <<<"$out"; tap_check $? "casos: un caso que no está en el archivo del red commit falla y se nombra"
+grep -q 'caso inventado.*name is not in' <<<"$out"; tap_check $? "casos: un caso que no está en el archivo del red commit falla y se nombra"
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/no-esta.sh::caso uno" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
-grep -q 'no-esta.sh' <<<"$out"; tap_check $? "casos: un archivo que no existe en el red commit falla y se nombra"
+grep -q 'no-esta.sh does not exist' <<<"$out"; tap_check $? "casos: un archivo que no existe en el red commit falla y se nombra"
 
 # 7. El número del issue: el del `Closes`/`Refs` es el de la rama, y no es el del PR mismo.
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso uno" "Closes #8")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
-grep -q '#8' <<<"$out"; tap_check $? "issue: un Closes que no es el de la rama falla y nombra el número"
-pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso uno" "Closes #12")"
+grep -q 'branch is for issue #7 and the body says #8' <<<"$out"; tap_check $? "issue: un Closes que no es el de la rama falla y nombra el número"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso uno" "$(printf 'Closes #7\nCloses #12')")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
-grep -q '#12' <<<"$out"; tap_check $? "issue: un Closes con el número del PR mismo falla"
+grep -q 'number of this PR itself' <<<"$out"; tap_check $? "issue: un Closes con el número del PR mismo falla"
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso uno" "Refs #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
 [ "$TAP_RC" = 0 ]; tap_check $? "issue: un Refs con el número de la rama pasa"
+
+# 7b. Un sha que no es hexadecimal no llega a git, y lo que está en un bloque de código no es una afirmación del PR.
+pr 12 "$(cuerpo "--upload-pack=x" 2 "" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'upload-pack.*not a hexadecimal sha' <<<"$out"; tap_check $? "red commit: un valor que no es un sha falla y se nombra"
+pr 12 "$(cuerpo "${RED:0:3}" 2 "" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "${RED:0:3}.*not a hexadecimal sha" <<<"$out"; tap_check $? "red commit: un prefijo de menos de 7 caracteres no se acepta como sha"
+pr 12 "$(printf '%s\n\n```\nred commit: deadbeef12\n9 commits\nCloses #99\n```\n' "$BIEN")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "bloque de código: lo que se cita ahí no se lee como afirmación del PR"
 
 # 8. Sin bloque rojo y con `no tests:` no hay nada que comparar del rojo.
 pr 12 "$(printf '## How to test it\nno tests: docs\n\n2 commits.\n\nCloses #7\n')"
@@ -164,6 +176,18 @@ grep -q 'no-existe' <<<"$out"; tap_check $? "verify.py: un check del manifiesto 
 printf 'esto no es json\n' >"$P/.barrilete/checks.json"
 verify 2
 grep -q 'checks.json' <<<"$out"; tap_check $? "verify.py: un manifiesto roto nombra el archivo"
+
+printf '#!/bin/sh\necho corrio >> "%s/fuera.args"\nexit 0\n' "$TMP" >"$P/scripts/agents/fuera"; chmod +x "$P/scripts/agents/fuera"
+printf '{"nada": 1}\n' >"$P/.barrilete/checks.json"
+verify 2
+grep -q 'no "checks" list' <<<"$out"; tap_check $? "verify.py: un manifiesto sin lista checks sale con 2 y lo dice"
+printf '{"checks": [{"id": "ok-check"}]}\n' >"$P/.barrilete/checks.json"
+verify 2
+grep -q 'needs "id", "rule" and "fail_message"' <<<"$out"; tap_check $? "verify.py: una entrada sin rule o sin fail_message sale con 2 y lo dice"
+manifiesto "../fuera"
+verify 2
+grep -q 'fuera' <<<"$out"; tap_check $? "verify.py: un id de check que no es un slug (../) se rechaza y se nombra"
+[ ! -e "$TMP/fuera.args" ]; tap_check $? "verify.py: un id con ../ no corre nada fuera de scripts/agents/checks"
 
 rm "$P/.barrilete/checks.json"
 verify 0

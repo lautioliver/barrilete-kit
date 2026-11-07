@@ -185,4 +185,15 @@ tap_run out 0 "$SYNC" --root "$TMP/c" --url "$TMP/rules"
 tap_run out 0 "$SYNC" --root "$TMP/c" --url "$TMP/rules" --check
 [ "$TAP_RC" = 0 ]; tap_check $? "manifiesto: con el manifiesto al día --check sale 0"
 
+# Una regla accepted con check y sin fail_message frena la corrida y no deja nada a medias (el agente no sabría qué hacer).
+git init -q -b main "$TMP/rules1"
+printf -- '- id: pr-metadata\n  description: x\n' >"$TMP/rules1/classes.yml"
+mkdir -p "$TMP/rules1/rules"
+printf -- '---\nid: sin-mensaje\nstatus: accepted\norigin: observed\napplies_to: [implementer]\nscope: "*"\nclasses: []\nseverity: block\naccepted: 2026-11-01\ncheck: pr-metadata\n---\nRegla con check y sin mensaje.\n' >"$TMP/rules1/rules/sin-mensaje.md"
+git -C "$TMP/rules1" add -A && git -C "$TMP/rules1" commit -qm r1; SHA1B=$(git -C "$TMP/rules1" rev-parse HEAD)
+proyecto "$TMP/c1" "$SHA1B"
+tap_run out 3 "$SYNC" --root "$TMP/c1" --url "$TMP/rules1"
+grep -q 'sin-mensaje' <<<"$out"; tap_check $? "manifiesto: una regla con check y sin fail_message falla y nombra la regla"
+grep -q 'fail_message' <<<"$out"; tap_check $? "manifiesto: una regla con check y sin fail_message dice que falta fail_message"
+
 tap_done

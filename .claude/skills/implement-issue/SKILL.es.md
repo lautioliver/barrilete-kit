@@ -69,7 +69,7 @@ Seguí la skill `update-docs` (modo 1): `agents_map.py` te dice qué docs revisa
 
 ## 7. Verificar
 
-Con todo commiteado, `python3 scripts/agents/verify.py` corre lo que corresponde a lo que cambió y explica en su salida qué hacer con cada resultado. Nunca desactives una verificación ni la saques del mapa para que pase. Lo que quede **sin configurar** no está verificado: decilo en el PR, con el resumen en "Cómo probarlo".
+Con todo commiteado, `python3 scripts/agents/verify.py` corre lo que corresponde a lo que cambió y explica en su salida qué hacer con cada resultado. También corre los checks de las reglas (`pr-metadata` compara el cuerpo del PR con la rama, así que necesita el PR abierto: antes avisa que no verificó; correlo de nuevo con el PR abierto). Si falla un check de una regla, seguí su mensaje. Nunca desactives una verificación ni la saques del mapa para que pase. Lo que quede **sin configurar** no está verificado: decilo en el PR, con el resumen en "Cómo probarlo".
 
 ## 8. Abrir el PR
 
