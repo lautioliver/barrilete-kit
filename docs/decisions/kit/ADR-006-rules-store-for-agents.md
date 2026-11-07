@@ -4,7 +4,7 @@
 
 Accepted (2026-11-05). @lautioliver approved it by merging lautioliver/barrilete-kit#257 on 2026-11-05, D1 to D12 as they are in d89240a. The open questions stay open: they are decided in the issue of the phase that needs them.
 
-Amended (2026-11-07): the principle at the start of Decision, D2, D7, D8 and D11 (checks are implemented in the kit, the two success conditions, and the `pr-metadata` check in phase 2), approved by @lautioliver in the PR #<PR>. Decided by @lautioliver in the chat of the barrilete-kit-46 session on 2026-11-07; origin: lautioliver/barrilete-kit#280.
+Amended (2026-11-07): the principle at the start of Decision, D2, D7, D8 and D11 (checks are implemented in the kit, the two success conditions, and the `pr-metadata` check in phase 2), approved by @lautioliver in the PR #281. Decided by @lautioliver in the chat of the barrilete-kit-46 session on 2026-11-07; origin: lautioliver/barrilete-kit#280.
 
 Origin: lautioliver/barrilete-kit#256 and a proposal from the person on 2026-11-04 ("store of general rules for agents").
 
