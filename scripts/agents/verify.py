@@ -6,7 +6,8 @@ Checks are configured in the "verify" section of docs/agents-map.json:
   {"name": "migrations", "when": ["db/schema/**"], "run": "…"}
 A check runs if it is "always" or if any changed file matches "when".
 In "run" you can use {base} (the base branch reference, e.g. origin/main)
-and {files} (the matching changed files, quoted).
+and {files} (the matching changed files that still exist, quoted: a deleted file
+cannot be verified, and a rule with {files} whose only matches were deleted does not run).
 A "run" that starts with "TODO" is reported as not configured and is not executed.
 
 Usage:
@@ -54,6 +55,10 @@ def main():
     for r in reglas:
         # In the ones that always run (no "when"), {files} are all the changed files.
         tocados = [a for a in cambiados if coincide(a, r["when"])] if r.get("when") else list(cambiados)
+        if "{files}" in r["run"]:
+            # A file the change deletes cannot be verified (#274): {files} gets only the ones that exist, and a
+            # rule that only touched deleted files has nothing to run on (shellcheck with no files exits with 3).
+            tocados = [a for a in tocados if os.path.lexists(a)]
         if r.get("always") or tocados:
             motivo = "always" if r.get("always") and not r.get("when") else f"{len(tocados)} file(s): {', '.join(tocados[:3])}"
             cmd = r["run"].replace("{base}", base).replace("{files}", " ".join(shlex.quote(a) for a in tocados))
