@@ -17,6 +17,8 @@ If you were not given a number ("take the next one"), run `.claude/skills/projec
 
 For several issues in parallel, `--worktree` (how to work there: `prepare.sh --help`). To read an issue without taking it, `--review`. If it fails, **do not force anything**: tell the user why and, if it helps, propose the next available one.
 
+If `BK_TASK_DIR` exists (`bk run` launched you, ADR-005), `bk run` already ran `prepare.sh` for you and released the worktree lock before launching you, so **your first step is to take it**: `cd <worktree> && scripts/agents/worktree-lock.sh claim <worktree>`. Its owner is your own `claude` and its name comes from `BK_TASK_DIR`: it needs no `WORKTREE_LOCK_AGENT`. If it says `held: …`, another live agent is in that worktree: stop and ask in your window, do not share it or delete the lock. `bk done` releases it at the end (see "Close the task").
+
 ## 2. Understand before touching
 
 - Read what the issue links: ADRs, audits, docs, files.
