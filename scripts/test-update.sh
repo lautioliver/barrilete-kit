@@ -841,4 +841,17 @@ ultima=$(tail -n 1 <<<"$s")
 [ "$(tail -n 1 <<<"$err")" = "$(ERROR_TAP node)" ]; tap_check $? "[tap 2.0.0] el error de la última entrada tap propia es la última línea de stderr"
 [ "$(grep -c 'was removed in 2.0.0' <<<"$err")" = 2 ]; tap_check $? "[tap 2.0.0] stderr tiene un error por entrada tap propia, ni más ni menos"
 
+# El orden de los dos streams juntos (2>&1, como lo ve la persona en la terminal): las líneas del error de 2.0.0 son las últimas,
+# después del último paso del resumen. Sin el flush de stdout antes de escribir en stderr, el error se adelanta cuando stdout es un pipe.
+D="$TMP/red-tap-orden"
+proyecto "$D" completo
+poner_mapa_red "$D" "[{\"name\":\"bash\",\"when\":[\"**/test-*.sh\"],\"format\":\"tap\",\"run\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$RUN_KIT_1_1; echo mio")},{\"name\":\"node\",\"when\":[\"**/*.test.js\"],\"format\":\"tap\",\"run\":\"node --test --test-reporter=tap > {out}\"}]"
+cd "$D" || exit 1
+tap_run s 0 python3 scripts/update.py --template "$P"
+cd "$TMP" || exit 1
+ultimas=$(tail -n 2 <<<"$s")
+[ "$ultimas" = "$(ERROR_TAP bash)"$'\n'"$(ERROR_TAP node)" ]; tap_check $? "[tap 2.0.0] con stdout y stderr juntos, las líneas del error son las últimas"
+paso=$(tail -n 3 <<<"$s" | head -n 1)
+[[ "$paso" == *"3. Commit and open a PR"* ]]; tap_check $? "[tap 2.0.0] con stdout y stderr juntos, el error va después de '3. Commit and open a PR'"
+
 tap_done
