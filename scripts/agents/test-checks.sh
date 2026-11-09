@@ -211,7 +211,8 @@ printf -- '- id: pr-metadata\n  description: x\n' >"$TMP/reglas/classes.yml"
 mkdir -p "$TMP/reglas/rules"
 printf -- '---\nid: numeros-ok\nstatus: accepted\norigin: observed\napplies_to: [implementer]\nscope: "*"\nclasses: [pr-metadata]\nseverity: fix\naccepted: 2026-11-01\ncheck: pr-metadata\nfail_message: "El cuerpo del PR no coincide con la rama: regeneralo y, si no podés, escalá."\n---\nRegenerá los números del PR.\n' >"$TMP/reglas/rules/numeros-ok.md"
 git -C "$TMP/reglas" add -A && git -C "$TMP/reglas" commit -qm r; SHAR=$(git -C "$TMP/reglas" rev-parse HEAD)
-printf 'repo=o/reglas\nsha=%s\nproject=mi-proyecto\n' "$SHAR" >"$P/.barrilete/rules.lock"
+printf 'repo=o/reglas\nsha=%s\n' "$SHAR" >"$P/.barrilete/rules.lock"
+printf '{ "project": "mi-proyecto", "mode": "full" }\n' >"$P/.agent-kit.json"
 cd "$P" || exit 2
 tap_run out 0 python3 scripts/agents/sync-rules --url "$TMP/reglas"
 cd "$TMP" || exit 2
