@@ -255,11 +255,15 @@ pr 12 "$(printf '%s\n\n(9 commits sobre origin/main)\n' "$BIEN")"
 chequear 3
 grep -q 'body says 9 commits' <<<"$out"; tap_check $? "commits: '(9 commits sobre origin/main)' sigue contando como afirmación del PR"
 # 8b. Las formas de cerrar un issue que GitHub entiende.
-for cierre in "Closes: #7" "Closes lautioliver/barrilete-kit#7" "Closes https://github.com/lautioliver/barrilete-kit/issues/7"; do
-  pr 12 "$(cuerpo "$RED" 2 "$CASO" "$cierre")"
-  chequear 0
-  [ "$TAP_RC" = 0 ]; tap_check $? "issue: '$cierre' se reconoce como el issue de la rama"
-done
+pr 12 "$(cuerpo "$RED" 2 "$CASO" "Closes: #7")"
+chequear 0
+[ "$TAP_RC" = 0 ]; tap_check $? "issue: 'Closes: #7' (con dos puntos) se reconoce como el issue de la rama"
+pr 12 "$(cuerpo "$RED" 2 "$CASO" "Closes lautioliver/barrilete-kit#7")"
+chequear 0
+[ "$TAP_RC" = 0 ]; tap_check $? "issue: 'Closes owner/repo#7' se reconoce como el issue de la rama"
+pr 12 "$(cuerpo "$RED" 2 "$CASO" "Closes https://github.com/lautioliver/barrilete-kit/issues/7")"
+chequear 0
+[ "$TAP_RC" = 0 ]; tap_check $? "issue: 'Closes <url del issue>' se reconoce como el issue de la rama"
 # 8c. Un caso escrito entre backticks es el mismo caso.
 pr 12 "$(cuerpo "$RED" 2 "\`$CASO\`" "Closes #7")"
 chequear 0
