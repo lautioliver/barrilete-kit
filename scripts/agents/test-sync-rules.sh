@@ -33,6 +33,8 @@ regla propuesta proposed "[implementer]" '"*"' "Regla propuesta que no entra."
 regla solo-otro accepted "[implementer]" "[otro-proyecto]" "Regla de otro proyecto."
 regla solo-mio accepted "[implementer]" "[mi-proyecto]" "Regla de mi proyecto."
 regla con-check accepted "[implementer]" '"*"' "Regla con check." $'check: pr-metadata\nfail_message: "El PR miente: corregilo o escalá."\n' block
+regla vieja-con-check deprecated "[implementer]" '"*"' "Regla retirada con check." $'check: viejo-check\nfail_message: "retirada"\n' block
+regla otro-con-check accepted "[implementer]" "[otro-proyecto]" "Regla de otro proyecto con check." $'check: otro-check\nfail_message: "de otro"\n' block
 git -C "$TMP/rules" add -A && git -C "$TMP/rules" commit -qm v1
 SHA1=$(git -C "$TMP/rules" rev-parse HEAD)
 regla impl-uno accepted "[implementer]" '"*"' "Regla uno v2 del implementer."
@@ -51,6 +53,7 @@ proyecto() { # proyecto <dir> <sha>: un proyecto con agentes en en y es, AGENTS 
   printf '# AGENTS\n\nTexto propio de AGENTS.\n' >"$p/AGENTS.md"; printf '# AGENTS es\n\nTexto propio de AGENTS es.\n' >"$p/AGENTS.es.md"
   printf '# vieja\n- id: vieja-clase\n' >"$p/docs/agents/classes.yml"
   printf '#!/bin/sh\nexit 0\n' >"$p/scripts/agents/checks/pr-metadata"; chmod +x "$p/scripts/agents/checks/pr-metadata"
+  printf '#!/usr/bin/env python3\n' >"$p/scripts/agents/verify.py"  # sin verify.py (el perfil chico) los checks no corren
 }
 reglas() { # reglas <archivo>: las líneas `- ...` entre los marcadores ("" si no hay sección)
   sed -n '/<!-- rules:begin/,/<!-- rules:end -->/p' "$1" | grep '^- ' || true
@@ -160,7 +163,51 @@ grep -q 'rota' <<<"$out"; tap_check $? "regla mal formada: falla y nombra la reg
 diff -r "$TMP/m-antes" "$TMP/m" >/dev/null; tap_check $? "regla mal formada: no escribe ningún archivo"
 git -C "$TMP/rules" checkout -q main
 
-# 13. El proyecto sale de .agent-kit.json y de ningún otro lado: un `project=` en rules.lock es un error que lo dice.
+# 13. El manifiesto de checks (#287, ADR-006 D8): .barrilete/checks.json lo escribe sync-rules y lo lee verify.py.
+# Lista el check de cada regla accepted que aplica al proyecto, con su regla y su fail_message; nada más.
+leer() { [ -f "$1" ] && cat "$1"; }  # el contenido, o nada si el archivo no existe (un caso falla, no un crash)
+CHECKS_UNO=$(printf '%s\n' '{' '  "checks": [' '    {' '      "id": "pr-metadata",' '      "rule": "con-check",' '      "fail_message": "El PR miente: corregilo o escalá."' '    }' '  ]' '}')
+proyecto "$TMP/c" "$SHA1"
+tap_run out 0 "$SYNC" --root "$TMP/c" --url "$TMP/rules"
+[ "$(leer "$TMP/c/.barrilete/checks.json")" = "$CHECKS_UNO" ]; tap_check $? "manifiesto: lista el check de la regla accepted con su regla y su fail_message, y ningún otro (ni retirada ni de otro proyecto)"
+git init -q -b main "$TMP/rules0"
+printf -- '- id: pr-metadata\n  description: x\n' >"$TMP/rules0/classes.yml"
+regla0() { mkdir -p "$TMP/rules0/rules"; printf -- '---\nid: sin\nstatus: accepted\norigin: observed\napplies_to: [implementer]\nscope: "*"\nclasses: []\nseverity: fix\naccepted: 2026-11-01\n---\nRegla sin check.\n' >"$TMP/rules0/rules/sin.md"; }
+regla0
+git -C "$TMP/rules0" add -A && git -C "$TMP/rules0" commit -qm v0; SHA0=$(git -C "$TMP/rules0" rev-parse HEAD)
+proyecto "$TMP/c0" "$SHA0"
+tap_run out 0 "$SYNC" --root "$TMP/c0" --url "$TMP/rules0"
+[ "$(leer "$TMP/c0/.barrilete/checks.json")" = "$(printf '%s\n' '{' '  "checks": []' '}')" ]; tap_check $? "manifiesto: sin reglas con check, la lista queda vacía"
+printf '{"checks": []}\n' >"$TMP/c/.barrilete/checks.json"
+tap_run out 3 "$SYNC" --root "$TMP/c" --url "$TMP/rules" --check
+grep -q 'checks.json' <<<"$out"; tap_check $? "manifiesto: --check nombra checks.json si no es lo que da el lock"
+tap_run out 0 "$SYNC" --root "$TMP/c" --url "$TMP/rules"
+[ "$(leer "$TMP/c/.barrilete/checks.json")" = "$CHECKS_UNO" ]; tap_check $? "manifiesto: sin --check se regenera y pisa la edición a mano"
+tap_run out 0 "$SYNC" --root "$TMP/c" --url "$TMP/rules" --check
+[ "$TAP_RC" = 0 ]; tap_check $? "manifiesto: con el manifiesto al día --check sale 0"
+
+# Una regla accepted con check y sin fail_message frena la corrida y no deja nada a medias (el agente no sabría qué hacer).
+git init -q -b main "$TMP/rules1"
+printf -- '- id: pr-metadata\n  description: x\n' >"$TMP/rules1/classes.yml"
+mkdir -p "$TMP/rules1/rules"
+printf -- '---\nid: sin-mensaje\nstatus: accepted\norigin: observed\napplies_to: [implementer]\nscope: "*"\nclasses: []\nseverity: block\naccepted: 2026-11-01\ncheck: pr-metadata\n---\nRegla con check y sin mensaje.\n' >"$TMP/rules1/rules/sin-mensaje.md"
+git -C "$TMP/rules1" add -A && git -C "$TMP/rules1" commit -qm r1; SHA1B=$(git -C "$TMP/rules1" rev-parse HEAD)
+proyecto "$TMP/c1" "$SHA1B"
+tap_run out 3 "$SYNC" --root "$TMP/c1" --url "$TMP/rules1"
+grep -q 'sin-mensaje' <<<"$out"; tap_check $? "manifiesto: una regla con check y sin fail_message falla y nombra la regla"
+grep -q 'fail_message' <<<"$out"; tap_check $? "manifiesto: una regla con check y sin fail_message dice que falta fail_message"
+
+# 14. Los checks solo importan donde corre verify.py: el perfil chico no lo trae (ni los scripts de checks) y la regla con check
+# no debe frenar sync-rules ahí. Con verify.py, un check que falta sigue frenando.
+proyecto "$TMP/v1" "$SHA1"; rm "$TMP/v1/scripts/agents/checks/pr-metadata"
+tap_run out 3 "$SYNC" --root "$TMP/v1" --url "$TMP/rules"
+grep -q 'pr-metadata' <<<"$out"; tap_check $? "checks: con verify.py, un check que falta frena sync-rules y se nombra"
+proyecto "$TMP/v2" "$SHA1"; rm "$TMP/v2/scripts/agents/checks/pr-metadata" "$TMP/v2/scripts/agents/verify.py"
+tap_run out 0 "$SYNC" --root "$TMP/v2" --url "$TMP/rules"
+[ "$TAP_RC" = 0 ]; tap_check $? "checks: sin verify.py (perfil chico) la regla con check no frena sync-rules"
+[ "$(leer "$TMP/v2/.barrilete/checks.json")" = "$(printf '%s\n' '{' '  "checks": []' '}')" ]; tap_check $? "checks: sin verify.py el manifiesto no lista ningún check"
+
+# 15. El proyecto sale de .agent-kit.json y de ningún otro lado: un `project=` en rules.lock es un error que lo dice.
 proyecto "$TMP/q" "$SHA1"
 printf 'project=otro-proyecto\n' >>"$TMP/q/.barrilete/rules.lock"
 tap_run out 3 "$SYNC" --root "$TMP/q" --url "$TMP/rules"

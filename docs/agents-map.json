@@ -177,11 +177,21 @@
       "run": "bash .claude/skills/implement-issue/test-prepare.sh"
     },
     {
+      "name": "rule-checks",
+      "when": [
+        "scripts/agents/verify.py",
+        "scripts/agents/checks/**",
+        "scripts/agents/test-checks.sh"
+      ],
+      "run": "bash scripts/agents/test-checks.sh"
+    },
+    {
       "name": "sync-rules",
       "when": [
         "scripts/agents/sync-rules",
         "scripts/agents/test-sync-rules.sh",
-        ".barrilete/rules.lock"
+        ".barrilete/rules.lock",
+        "?.barrilete/checks.json"
       ],
       "run": "bash scripts/agents/test-sync-rules.sh"
     },

@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""pr-metadata: the numbers in the PR body are the ones of the branch (ADR-006 D8; rule numeros-del-pr-desde-la-ultima-corrida).
+
+Usage: scripts/agents/checks/pr-metadata --base <ref>      (verify.py runs it with the base it resolved)
+
+Reads the open PR of the current branch (`gh pr view --json number,body`) and compares what its body says with git:
+  - every `red commit: <sha>` is a commit of <ref>..HEAD (not the base's, not one that does not exist);
+  - every failing case of the red block (`- <file>::<name>`) is in that file at the red commit (the ids of the tests are
+    literals of the source: a case that is not there was not written by the red commit);
+  - the `N commits` the body says is the number of commits of <ref>..HEAD;
+  - `Closes`/`Refs #n` names the issue of the branch (`<type>/<n>-<description>`) and never the number of the PR itself.
+Code blocks (``` and ~~~) are not read: what is quoted there is not a claim of the PR.
+With no open PR for the branch it says it did not verify and exits with 4 (verify.py runs before the PR is opened).
+A case is looked up by substring (each part of its name has to be in the file at the red commit): it proves the case is not
+invented, not that the red commit defines it; `red.sh` and the reviewer check that.
+Exit status: 0 verified and it matches; 3 the body does not match (each problem is printed); 4 it could not verify (no open PR,
+or gh failed: no network, no login, another wording): verify.py reports it as "not verified" and never as ok; 64 invalid usage.
+(1 and 2 are left for a crash, a Python traceback, so that a test can tell it from an expected failure.)
+"""
+import json
+import re
+import subprocess
+import sys
+
+USAGE = "Usage: scripts/agents/checks/pr-metadata --base <ref>"
+HEX = re.compile(r"^[0-9a-fA-F]{7,64}$")
+# "N commits" counts when it is the PR's own total: at the start of a line (or a bullet), after "(" or ":", or after "has"/"tiene"
+# and the like; "cherry-pick de 2 commits de #280" talks about other commits, and a "red commit: <sha>" line is not a count.
+COMMITS = re.compile(r"(?:^|[(:]|\b(?:has|have|tiene|tienen|son|are|con|with))\s*(?:[-*]\s+)?(?<![\w#.])(\d+)\s+commits?\b(?!\s+(?:de|of|from)\b)", re.I)
+_REF = r"(?:([\w.-]+/[\w.-]+)#|https?://github\.com/([\w.-]+/[\w.-]+)/issues/|#)(\d+)"
+ISSUE_LIST = re.compile(r"\b(?:closes|fixes|resolves|refs)\b:?\s+((?:" + _REF + r")(?:\s*(?:,|&|and|y)\s*(?:" + _REF + r"))*)", re.I)
+ISSUE_REF = re.compile(_REF)
+CASE_BULLET = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
+BRANCH_ISSUE = re.compile(r"^[a-z]+/(\d+)-")
+
+
+def run(*cmd):
+    r = subprocess.run(list(cmd), capture_output=True, text=True)
+    return r.returncode, r.stdout, r.stderr
+
+
+def outside_code(body):
+    """The lines of the body that are not inside a ``` or ~~~ block (one pass)."""
+    lines, fence = [], None
+    for line in body.splitlines():
+        t = line.strip()
+        if fence:
+            if t.startswith(fence):
+                fence = None
+            continue
+        if t.startswith("```") or t.startswith("~~~"):
+            fence = t[:3]
+            continue
+        lines.append(line)
+    return lines
+
+
+def main(argv):
+    args = argv[1:]
+    if len(args) != 2 or args[0] != "--base" or not args[1] or args[1].startswith("-"):
+        print(USAGE, file=sys.stderr)
+        return 64
+    base = args[1]
+    try:
+        rc, out, err = run("gh", "pr", "view", "--json", "number,body,url")
+    except OSError as e:
+        print(f"pr-metadata: gh cannot run ({e}): the PR was not read, so the body was not verified.")
+        return 4
+    if rc != 0:
+        if "no pull requests found" in err:
+            print("pr-metadata: no open PR for this branch: not verified (run verify.py again once the PR is open).")
+            return 4
+        print(f"pr-metadata: not verified: gh could not read the PR ({err.strip() or 'gh failed'}). "
+              "This says nothing about the body; run verify.py again with gh working.")
+        return 4
+    try:
+        pr = json.loads(out)
+        number, body = int(pr["number"]), str(pr.get("body") or "")
+        m_repo = re.match(r"https?://github\.com/([\w.-]+/[\w.-]+)/pull/", str(pr.get("url") or ""))
+        repo = m_repo.group(1).lower() if m_repo else None
+    except (ValueError, KeyError, TypeError):
+        print("pr-metadata: not verified: gh did not return the number and the body of the PR.")
+        return 4
+
+    rc, branch_commits, err = run("git", "rev-list", f"{base}..HEAD")
+    if rc != 0:
+        print(f"pr-metadata: git could not list {base}..HEAD: {err.strip()}")
+        return 3
+    commits = branch_commits.split()
+    rc, name, _ = run("git", "rev-parse", "--abbrev-ref", "HEAD")
+    m = BRANCH_ISSUE.match(name.strip())
+    branch_issue = int(m.group(1)) if m else None
+
+    problems, lines = [], outside_code(body)
+    red = None
+    in_cases = False
+    n_red = n_cases = 0
+    for line in lines:
+        t = line.strip().strip("`")
+        if red and in_cases and not CASE_BULLET.match(t):
+            red = None  # the list of cases ended (a blank line or other text): a later `- x::y` is not a failing case
+        if t.lower().startswith("</details>") or t.startswith("#"):
+            red = None  # the red block ended: a later `- x::y` is not a failing case
+        elif t.lower().startswith("red commit:"):
+            in_cases = False
+            token = t[len("red commit:"):].strip().strip("`").split()[:1]
+            red = None
+            if not token or token[0].lower() == "none":
+                continue
+            sha = token[0]
+            n_red += 1
+            if not HEX.match(sha):
+                problems.append(f"red commit: {sha!r} is not a hexadecimal sha of 7 to 64 characters")
+                continue
+            if not any(c.startswith(sha.lower()) for c in commits):
+                problems.append(f"red commit {sha} is not a commit of this branch ({base}..HEAD has {len(commits)}): "
+                                "it is the base's, from another branch or it does not exist")
+                continue
+            red = sha
+        elif CASE_BULLET.match(t) and "::" in t and red:
+            in_cases = True
+            case = CASE_BULLET.sub("", t, count=1).strip().strip("`").strip()
+            path, _, cname = case.partition("::")
+            n_cases += 1
+            rc, src, _ = run("git", "show", f"{red}:{path}") if path.strip() else (1, "", "")
+            if not path.strip():
+                problems.append(f"failing case {case!r}: it has no file path before ::")
+            elif rc != 0:
+                problems.append(f"failing case {case!r}: {path} does not exist at the red commit {red}")
+            elif not all(part and part in src for part in re.split(r"::| > ", cname)):
+                problems.append(f"failing case {case!r}: the name is not in {path} at the red commit {red}")
+
+    for line in lines:
+        if line.strip().strip("`").lower().startswith("red commit:"):
+            continue
+        for g in COMMITS.finditer(line):
+            said = int(g.group(1))
+            if said != len(commits):
+                problems.append(f"the body says {said} commits and the branch has {len(commits)} ({base}..HEAD)")
+
+    refs = []
+    for line in lines:
+        for lst in ISSUE_LIST.finditer(line):
+            for r1, r2, n in ISSUE_REF.findall(lst.group(1)):
+                other = (r1 or r2).lower()
+                if not other or other == repo:  # a reference to another repository is not an issue of this one
+                    refs.append(int(n))
+    if number in refs and number != branch_issue:
+        problems.append(f"the body closes or refers to #{number}, the number of this PR itself, not an issue")
+    if branch_issue is not None and branch_issue not in refs:
+        said = ", ".join(f"#{n}" for n in refs) or "no issue"
+        problems.append(f"the branch is for issue #{branch_issue} and the body says {said} (it needs Closes #{branch_issue} or Refs #{branch_issue})")
+
+    if branch_issue is None:
+        print("pr-metadata: note: the branch name has no <type>/<n>- issue number, so the issue was not checked")
+    if problems:
+        for p in problems:
+            print(f"pr-metadata: {p}")
+        return 3
+    print(f"pr-metadata: ok (PR #{number}: {len(commits)} commit(s), {n_red} red commit(s), {n_cases} case(s), "
+          f"issue {', '.join('#' + str(n) for n in refs) or 'none'})")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

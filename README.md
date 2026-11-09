@@ -266,7 +266,7 @@ With no members, issues stay unassigned. The team is changed with `/add-member` 
 | 🤖 | Subagents by model | `.claude/agents/` (implementer, light implementer, reviewer) + `docs/agents/subagent-contract.md` |
 | ✅ | Docs and scripts tested in CI | `.github/workflows/docs.yml` + `scripts/agents/check-docs.py`: broken links, paths and ADRs, map paths that no longer exist, what `AGENTS.md` says is ignored and isn't; shellcheck and the `test-*.sh` (they report in TAP through `scripts/agents/tap.sh`, ADR-002 D6), isolated from git config. In a repo with `.agent-kit.json` it only checks the kit's `.md` files, `docs/`, `AGENTS.md` and `llms.txt` (if the kit was installed in an existing repo, without `docs/`: those are the project's), and shellcheck and the tests only the kit's scripts (`check-docs.py --list <glob>`) |
 | 🔒 | Secrets out of the repo | `.gitignore`: `.env*` (except `.env.example`) and what the agent scripts generate |
-| 🧪 | Pre-PR verification | `scripts/agents/verify.py`: based on what changed, runs lint, typecheck, affected tests, migration drift… |
+| 🧪 | Pre-PR verification | `scripts/agents/verify.py`: based on what changed, runs lint, typecheck, affected tests, migration drift… and the checks of the rules (ADR-006) |
 | 👥 | Team | `.github/team.json` + `scripts/agents/team.py`: who receives issues, by area |
 | 🎨 | Brand | `.github/brand/`: Barrilete, the template's identity (init removes it) |
 
