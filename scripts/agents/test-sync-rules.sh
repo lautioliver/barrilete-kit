@@ -53,6 +53,7 @@ proyecto() { # proyecto <dir> <sha>: un proyecto con agentes en en y es, AGENTS 
   printf '# AGENTS\n\nTexto propio de AGENTS.\n' >"$p/AGENTS.md"; printf '# AGENTS es\n\nTexto propio de AGENTS es.\n' >"$p/AGENTS.es.md"
   printf '# vieja\n- id: vieja-clase\n' >"$p/docs/agents/classes.yml"
   printf '#!/bin/sh\nexit 0\n' >"$p/scripts/agents/checks/pr-metadata"; chmod +x "$p/scripts/agents/checks/pr-metadata"
+  printf '#!/usr/bin/env python3\n' >"$p/scripts/agents/verify.py"  # sin verify.py (el perfil chico) los checks no corren
 }
 reglas() { # reglas <archivo>: las líneas `- ...` entre los marcadores ("" si no hay sección)
   sed -n '/<!-- rules:begin/,/<!-- rules:end -->/p' "$1" | grep '^- ' || true
@@ -195,5 +196,15 @@ proyecto "$TMP/c1" "$SHA1B"
 tap_run out 3 "$SYNC" --root "$TMP/c1" --url "$TMP/rules1"
 grep -q 'sin-mensaje' <<<"$out"; tap_check $? "manifiesto: una regla con check y sin fail_message falla y nombra la regla"
 grep -q 'fail_message' <<<"$out"; tap_check $? "manifiesto: una regla con check y sin fail_message dice que falta fail_message"
+
+# 14. Los checks solo importan donde corre verify.py: el perfil chico no lo trae (ni los scripts de checks) y la regla con check
+# no debe frenar sync-rules ahí. Con verify.py, un check que falta sigue frenando.
+proyecto "$TMP/v1" "$SHA1"; rm "$TMP/v1/scripts/agents/checks/pr-metadata"
+tap_run out 3 "$SYNC" --root "$TMP/v1" --url "$TMP/rules"
+grep -q 'pr-metadata' <<<"$out"; tap_check $? "checks: con verify.py, un check que falta frena sync-rules y se nombra"
+proyecto "$TMP/v2" "$SHA1"; rm "$TMP/v2/scripts/agents/checks/pr-metadata" "$TMP/v2/scripts/agents/verify.py"
+tap_run out 0 "$SYNC" --root "$TMP/v2" --url "$TMP/rules"
+[ "$TAP_RC" = 0 ]; tap_check $? "checks: sin verify.py (perfil chico) la regla con check no frena sync-rules"
+[ "$(leer "$TMP/v2/.barrilete/checks.json")" = "$(printf '%s\n' '{' '  "checks": []' '}')" ]; tap_check $? "checks: sin verify.py el manifiesto no lista ningún check"
 
 tap_done

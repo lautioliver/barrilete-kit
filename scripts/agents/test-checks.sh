@@ -243,4 +243,36 @@ GH_MODE=pr PATH="$TMP/bin:$PATH" verify 0 --pr 7
 [ ! -e "$TMP/mal-check.args" ]; tap_check $? "verify.py --pr: no corre los checks de las reglas (miran el PR de la rama del checkout, no el pedido)"
 grep -q 'Skipped.*rule checks' <<<"$out"; tap_check $? "verify.py --pr: dice que salteó los checks de las reglas"
 
+# 8. Falsos rechazos y falsos verdes que encontró el review (#294): cada caso falla si se borra lo que chequea.
+cd "$P" || exit 1
+CASO="scripts/agents/test-x.sh::caso uno"
+chequear() { GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out "$1" python3 scripts/agents/checks/pr-metadata --base origin/main; }
+# 8a. Un "N commits" que habla de otra cosa (un cherry-pick) no es la cantidad de commits del PR.
+pr 12 "$(printf '%s\n\nCherry-pick de 9 commits de #280.\n' "$BIEN")"
+chequear 0
+[ "$TAP_RC" = 0 ]; tap_check $? "commits: 'cherry-pick de 9 commits de #280' no se lee como la cantidad de commits del PR"
+pr 12 "$(printf '%s\n\n(9 commits sobre origin/main)\n' "$BIEN")"
+chequear 3
+grep -q 'body says 9 commits' <<<"$out"; tap_check $? "commits: '(9 commits sobre origin/main)' sigue contando como afirmación del PR"
+# 8b. Las formas de cerrar un issue que GitHub entiende.
+for cierre in "Closes: #7" "Closes lautioliver/barrilete-kit#7" "Closes https://github.com/lautioliver/barrilete-kit/issues/7"; do
+  pr 12 "$(cuerpo "$RED" 2 "$CASO" "$cierre")"
+  chequear 0
+  [ "$TAP_RC" = 0 ]; tap_check $? "issue: '$cierre' se reconoce como el issue de la rama"
+done
+# 8c. Un caso escrito entre backticks es el mismo caso.
+pr 12 "$(cuerpo "$RED" 2 "\`$CASO\`" "Closes #7")"
+chequear 0
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un caso entre backticks se busca sin los backticks"
+# 8d. El bloque rojo termina con la lista de casos: lo que sigue después de una línea en blanco no son casos.
+pr 12 "$(printf '## How to test it\n\nred commit: %s\n\nfailing cases:\n- %s\n\nNotas:\n- ver foo::bar\n\n2 commits.\n\nCloses #7\n' "$RED" "$CASO")"
+chequear 0
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: una lista con '::' después de la lista de casos y una línea en blanco no son casos"
+# 8e. Una rama sin <tipo>/<n>-: el issue no se chequea y se dice siempre, también cuando el cuerpo falla por otra cosa.
+git -C "$P" switch -q -c sin-numero
+pr 12 "$(cuerpo "$RED" 3 "$CASO" "Closes #7")"
+chequear 3
+grep -q 'issue was not checked' <<<"$out"; tap_check $? "issue: en una rama sin número se avisa que no se chequeó el issue aunque el cuerpo falle"
+git -C "$P" switch -q claude/7-algo
+
 tap_done
