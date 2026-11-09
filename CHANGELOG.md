@@ -6,6 +6,10 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **El proyecto de las reglas sale de `.agent-kit.json`, no de `rules.lock`** (#297, aprobado por la persona en el chat; deshace el `project=` que agregó #289 sin aprobación). El kit lleva su propio `.agent-kit.json` con `{"project": "barrilete-kit", "template": true}`; `sync-rules` rechaza (exit 3) un `project=` en `.barrilete/rules.lock` y manda a `.agent-kit.json`, y `check-docs.py` trata un manifiesto con `template: true` como la plantilla (revisa todo, igual que sin manifiesto). `init-template.sh` lo reemplaza al inicializar un proyecto. Lo generado por `sync-rules --check` no cambia. Qué hacer: nada en un proyecto instalado; si un `rules.lock` tenía `project=`, sacalo y poné `project` en `.agent-kit.json`.
+
 ### Corregido
 
 - `scripts/agents/check-docs.py`, al validar `docs/agents/classes.yml` (#269, pendientes de #262): un `classes.yml` que no se puede leer (un directorio, sin permiso) da su propio error en vez de un traceback, y el resto del check sigue; un id que YAML 1.1 lee como booleano o null (`y`, `n`, `yes`, `no`, `true`, `false`, `on`, `off`, `null`) es un error; un error da un mensaje: un id mal escrito (entre comillas, `- ID:`, con un comentario o con dos espacios) da un solo error y, si se puede leer, cuenta igual como clase (no culpa a la skill) y no le pasa su descripción a la clase anterior, y una segunda descripción bajo el mismo id se dice como tal. `scripts/agents/test-classes.sh` suma un caso para cada regla del check que no tenía uno. Qué hacer: nada, salvo que tu `classes.yml` use uno de esos ids.

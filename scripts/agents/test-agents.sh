@@ -127,6 +127,9 @@ salida=$(check); grep -q "^- README.md:.*broken link" <<<"$salida"; tap_check $?
 rm "$TMP/r/.agent-kit.json"; git -C "$TMP/r" add -A  # sin manifiesto, el kit es lo que git rastrea
 salida=$(check); grep -q "ajeno/README.md.*broken link" <<<"$salida"; tap_check $? "sin .agent-kit.json (la plantilla), se revisa todo"
 lista=$(listar '*.sh'); grep -qx "ajeno/malo.sh" <<<"$lista"; tap_check $? "sin .agent-kit.json, --list devuelve todos los archivos del repo"
+# El kit lleva un .agent-kit.json con su proyecto (para sync-rules): "template": true lo deja tratarse como la plantilla.
+printf '{"project": "x", "template": true}\n' >"$TMP/r/.agent-kit.json"
+salida=$(check); grep -q "ajeno/README.md.*broken link" <<<"$salida"; tap_check $? "297: con un .agent-kit.json de la plantilla (template: true), se revisa todo"
 
 # 6. El modo chico no deja los subagentes (solo en la plantilla: el init borra profiles/).
 if [ -f "$RAIZ/profiles/small/DELETE" ]; then
