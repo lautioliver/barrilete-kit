@@ -191,7 +191,7 @@
         "scripts/agents/sync-rules",
         "scripts/agents/test-sync-rules.sh",
         ".barrilete/rules.lock",
-        ".barrilete/checks.json"
+        "?.barrilete/checks.json"
       ],
       "run": "bash scripts/agents/test-sync-rules.sh"
     },

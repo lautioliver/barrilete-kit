@@ -20,3 +20,5 @@ scripts/agents/test-agents.sh
 scripts/agents/test-classes.sh
 .claude/skills/orchestrate
 scripts/agents/test-labels-check.sh
+scripts/agents/test-checks.sh
+scripts/agents/checks
