@@ -48,7 +48,7 @@ EOF
 chmod +x "$TMP/bin/gh"
 export GH_JSON="$TMP/pr.json"
 pr() { # pr <número> <cuerpo>: el PR que devuelve el gh falso
-  python3 -c 'import json,sys; print(json.dumps({"number": int(sys.argv[1]), "body": sys.argv[2]}))' "$1" "$2" >"$GH_JSON"
+  python3 -c 'import json,sys; print(json.dumps({"number": int(sys.argv[1]), "body": sys.argv[2], "url": "https://github.com/lautioliver/barrilete-kit/pull/" + sys.argv[1]}))' "$1" "$2" >"$GH_JSON"
 }
 cuerpo() { # cuerpo <red> <commits> <caso> <cierra>: un cuerpo de PR con su bloque rojo, ${2} commits y el caso fallido ${3}
   printf '## What changes\nx\n\n## How to test it\n\n<details><summary>Red before implementing</summary>\n\nred commit: %s\n\nstack: bash\nformat: junit\nfailing cases:\n%s</details>\n\n%s commits.\n\n%s\n' "$1" "${3:+- $3
@@ -242,6 +242,8 @@ rm -f "$TMP/mal-check.args"
 GH_MODE=pr PATH="$TMP/bin:$PATH" verify 0 --pr 7
 [ ! -e "$TMP/mal-check.args" ]; tap_check $? "verify.py --pr: no corre los checks de las reglas (miran el PR de la rama del checkout, no el pedido)"
 grep -q 'Skipped.*rule checks' <<<"$out"; tap_check $? "verify.py --pr: dice que salteó los checks de las reglas"
+grep -q 'All verified' <<<"$out"; [ $? -eq 1 ]; tap_check $? "verify.py --pr: con los checks de las reglas salteados no dice All verified"
+grep -q 'not verified' <<<"$out"; tap_check $? "verify.py --pr: con los checks de las reglas salteados los da por no verificados"
 
 # 8. Falsos rechazos y falsos verdes que encontró el review (#294): cada caso falla si se borra lo que chequea.
 cd "$P" || exit 1
@@ -278,5 +280,24 @@ pr 12 "$(cuerpo "$RED" 3 "$CASO" "Closes #7")"
 chequear 3
 grep -q 'issue was not checked' <<<"$out"; tap_check $? "issue: en una rama sin número se avisa que no se chequeó el issue aunque el cuerpo falle"
 git -C "$P" switch -q claude/7-algo
+
+# 9. Tercera vuelta del review (#294).
+# 9a. Varios issues tras un keyword; y una referencia a otro repo no es el issue de la rama.
+pr 12 "$(cuerpo "$RED" 2 "$CASO" "Closes #12, #7")"
+chequear 0
+[ "$TAP_RC" = 0 ]; tap_check $? "issue: 'Closes #12, #7' reconoce el segundo issue de la lista"
+pr 12 "$(cuerpo "$RED" 2 "$CASO" "Refs otro/repo#7")"
+chequear 3
+grep -q 'needs Closes #7' <<<"$out"; tap_check $? "issue: 'Refs otro/repo#7' (otro repo) no cuenta como el issue de la rama"
+# 9b. Los casos también se escriben con * y con 1. y un path vacío no vale.
+pr 12 "$(cuerpo "$RED" 2 "" "Closes #7" | sed 's|^failing cases:$|failing cases:\n* scripts/agents/test-x.sh::no existe\n|')"
+chequear 3
+grep -q 'no existe' <<<"$out"; tap_check $? "casos: un caso con * se lee y, si no está en el archivo, falla"
+pr 12 "$(cuerpo "$RED" 2 "" "Closes #7" | sed 's|^failing cases:$|failing cases:\n1. scripts/agents/test-x.sh::no existe\n|')"
+chequear 3
+grep -q 'no existe' <<<"$out"; tap_check $? "casos: un caso con 1. se lee y, si no está en el archivo, falla"
+pr 12 "$(cuerpo "$RED" 2 "::caso uno" "Closes #7")"
+chequear 3
+grep -q 'no file path' <<<"$out"; tap_check $? "casos: un caso con el path vacío falla y dice que no tiene path"
 
 tap_done
