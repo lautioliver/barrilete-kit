@@ -48,6 +48,8 @@ mkdir -p "$P"
 (
   cd "$P" && git init -q -b main
   echo 0.1.0 >VERSION
+  # El CHANGELOG real trae secciones con versiones de verdad (2.0.0): un proyecto de la prueba las vería como nuevas.
+  printf '# Changelog\n' >CHANGELOG.md
   for f in viejo viejo2 borrado cambiado; do echo "$f v0.1" >".claude/skills/debug/$f.md"; done
   echo "echo modo" >.claude/skills/debug/modo.sh && chmod 644 .claude/skills/debug/modo.sh
   echo "Hello v0.1" >.claude/skills/debug/lang.md && echo "Hola v0.1" >.claude/skills/debug/lang.es.md
@@ -815,7 +817,8 @@ err=$(<"$TMP/stderr.txt")
 [ "$(campo_red "$D" bash run)" = "$kit_run" ]; tap_check $? "[tap 2.0.0] la entrada bash del kit toma el run actual del kit"
 [ "$(campo_red "$D" bash when)" = '["tests/**/test-*.sh"]' ]; tap_check $? "[tap 2.0.0] reemplazar la entrada del kit conserva el when del proyecto"
 [ "$(campo_red "$D" bash timeout)" = 900 ]; tap_check $? "[tap 2.0.0] reemplazar la entrada del kit conserva el timeout del proyecto"
-[[ "$s$err" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error"
+[[ "$s" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error en stdout"
+[[ "$err" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error en stderr"
 
 D="$TMP/red-tap-propia"
 proyecto "$D" completo
@@ -828,10 +831,27 @@ despues_map=$(<"$D/docs/agents-map.json")
 [ "$despues_map" = "$antes_map" ]; tap_check $? "[tap 2.0.0] una entrada tap propia (y una bash que el proyecto cambió) queda como estaba: no la convierte, borra ni reescribe"
 grep -qxF "$(ERROR_TAP node)" <<<"$err"; tap_check $? "[tap 2.0.0] una entrada tap propia imprime el error con el texto exacto de red.sh"
 grep -qxF "$(ERROR_TAP bash)" <<<"$err"; tap_check $? "[tap 2.0.0] una entrada bash que el proyecto cambió es propia e imprime el error"
-[[ "$s$err" != *'which 2.0.0 removes'* ]]; tap_check $? "[tap 2.0.0] update.py ya no imprime el aviso de 1.x (ni a stdout ni a stderr)"
-[[ "$s$err" != *"red stack 'py'"* ]]; tap_check $? "[tap 2.0.0] una entrada junit no imprime el error"
+[[ "$s" != *'which 2.0.0 removes'* ]]; tap_check $? "[tap 2.0.0] update.py ya no imprime el aviso de 1.x en stdout"
+[[ "$err" != *'which 2.0.0 removes'* ]]; tap_check $? "[tap 2.0.0] update.py ya no imprime el aviso de 1.x en stderr"
+[[ "$s" != *"red stack 'py'"* ]]; tap_check $? "[tap 2.0.0] una entrada junit no imprime el error en stdout"
+[[ "$err" != *"red stack 'py'"* ]]; tap_check $? "[tap 2.0.0] una entrada junit no imprime el error en stderr"
 [[ "$s" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] el error va a stderr, no a stdout"
 ultima=$(tail -n 1 <<<"$s")
-[[ "$ultima" == *"Commit and open a PR"* ]]; tap_check $? "[tap 2.0.0] el error sale al final del resumen"
+[[ "$ultima" == *"Commit and open a PR"* ]]; tap_check $? "[tap 2.0.0] stdout termina con el último paso del resumen, sin el error"
+[ "$(tail -n 1 <<<"$err")" = "$(ERROR_TAP node)" ]; tap_check $? "[tap 2.0.0] el error de la última entrada tap propia es la última línea de stderr"
+[ "$(grep -c 'was removed in 2.0.0' <<<"$err")" = 2 ]; tap_check $? "[tap 2.0.0] stderr tiene un error por entrada tap propia, ni más ni menos"
+
+# El orden de los dos streams juntos (2>&1, como lo ve la persona en la terminal): las líneas del error de 2.0.0 son las últimas,
+# después del último paso del resumen. Sin el flush de stdout antes de escribir en stderr, el error se adelanta cuando stdout es un pipe.
+D="$TMP/red-tap-orden"
+proyecto "$D" completo
+poner_mapa_red "$D" "[{\"name\":\"bash\",\"when\":[\"**/test-*.sh\"],\"format\":\"tap\",\"run\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$RUN_KIT_1_1; echo mio")},{\"name\":\"node\",\"when\":[\"**/*.test.js\"],\"format\":\"tap\",\"run\":\"node --test --test-reporter=tap > {out}\"}]"
+cd "$D" || exit 1
+tap_run s 0 python3 scripts/update.py --template "$P"
+cd "$TMP" || exit 1
+ultimas=$(tail -n 2 <<<"$s")
+[ "$ultimas" = "$(ERROR_TAP bash)"$'\n'"$(ERROR_TAP node)" ]; tap_check $? "[tap 2.0.0] con stdout y stderr juntos, las líneas del error son las últimas"
+paso=$(tail -n 3 <<<"$s" | head -n 1)
+[[ "$paso" == *"3. Commit and open a PR"* ]]; tap_check $? "[tap 2.0.0] con stdout y stderr juntos, el error va después de '3. Commit and open a PR'"
 
 tap_done

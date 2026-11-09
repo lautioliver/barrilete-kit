@@ -3,7 +3,7 @@
 
 Usage: scripts/agents/sync-rules [--root DIR] [--url GIT_URL] [--check]
 
-Reads <root>/.barrilete/rules.lock (`repo=<owner>/<name>`, `sha=<40 hex>`, optional `project=<slug>`), clones the repo
+Reads <root>/.barrilete/rules.lock (`repo=<owner>/<name>`, `sha=<40 hex>`), clones the repo
 into a temporary directory at that exact SHA (default URL: https://github.com/<repo>.git) and writes, between the markers
 `<!-- rules:begin ... -->` and `<!-- rules:end -->`:
   - the `accepted` rules of each role in .claude/agents/<role>.md (and .claude/i18n/agents/<role>.es.md);
@@ -13,7 +13,7 @@ checks (`id`, `rule`, `fail_message`) of the applied rules, which scripts/agents
 It adds the project's own rules (.barrilete/rules/*.md) and checks that each `check: <id>` of an applied rule exists in
 scripts/agents/checks/<id> (it copies no checks: they live in the kit; without scripts/agents/verify.py, the small profile, nothing runs them
 and it neither checks nor lists them). A rule applies when its `scope` is "*" or lists the
-project (`project` of rules.lock, else of .agent-kit.json). The text of the rule is copied as it is, without translating.
+project (the `project` of .agent-kit.json; the kit has its own, with `template: true`). The text of the rule is copied as it is, without translating.
 Everything is validated before anything is written: a bad rule leaves no file half written.
 
   --check   writes nothing: it exits with 3 and names the files whose generated part is not what the lock gives.
@@ -111,14 +111,12 @@ def read_lock(root):
         fail(f"rules.lock: repo {lock.get('repo')!r} is not <owner>/<name>")
     if not SHA.match(lock.get("sha", "")):
         fail(f"rules.lock: sha {lock.get('sha')!r} is not a full SHA (40 hexadecimal characters)")
-    if "project" in lock and not SLUG.match(lock["project"]):
-        fail(f"rules.lock: project {lock['project']!r} is not a slug")
+    if "project" in lock:
+        fail("rules.lock: `project=` is not accepted: the project is the `project` of .agent-kit.json")
     return lock
 
 
 def project_of(root, lock):
-    if "project" in lock:
-        return lock["project"]
     path = os.path.join(root, ".agent-kit.json")
     if not os.path.isfile(path):
         return None

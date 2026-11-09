@@ -208,7 +208,7 @@ Viven en `.claude/skills/`.
 | 📚 | `update-docs` | Qué docs quedaron viejos por un cambio (según el mapa) y corregirlos en el mismo PR. |
 | 👀 | `/review-pr <n>` | Revisión con foco en lo propio del proyecto: reglas de negocio, ADRs, autonomía, docs, tests y rutas sensibles. No aprueba. |
 | 📊 | `/project-status` | Resumen generado en el momento (versión, trabajo, épicas, PRs, deuda, decisiones, migraciones) y "¿qué puedo hacer ahora?". |
-| 🎛️ | `/orchestrate` | Reparte hasta 3 issues disponibles entre agentes en paralelo, cada uno lanzado como subagente o como agente `bk` en su ventana de tmux según `roles.yml` (kit/ADR-004; Haiku o Sonnet según `routing.py`, Opus revisa), cada uno en su worktree, y junta PRs, consultas y escalados en un solo mensaje. No mergea ni publica sin confirmación. |
+| 🎛️ | `/orchestrate` | Reparte hasta 3 issues disponibles entre agentes en paralelo, cada uno lanzado como subagente o como agente `bk` en su ventana de tmux según `roles.yml` (kit/ADR-004; Haiku o Sonnet según `routing.py`, Sonnet revisa), cada uno en su worktree, y junta PRs, consultas y escalados en un solo mensaje. No mergea ni publica sin confirmación. |
 | 🔁 | `/improve-skills` | Junta las retros y las señales objetivas (fallas de CI en ramas de agentes, reverts) y propone ajustes a las skills en un PR. Nunca afloja controles. |
 | 🌿 | `git-workflow` | Ramas, commits y PRs. |
 | 👥 | `/add-member`, `/remove-member` | Agregar, editar, pausar o quitar integrantes del equipo que recibe los issues. |
@@ -221,7 +221,7 @@ En `.claude/agents/`, cada rol con su modelo:
 |---|---|---|---|
 | 🛠️ | `implementer` | Sonnet | `implement-issue` en el worktree que le pasan: lógica de negocio, bugs, features y lo que escala el liviano. |
 | 🪶 | `implementer-light` | Haiku | Issues chicos sin rutas sensibles ni lógica de negocio. Si se encuentra con algo de eso, frena y escala. |
-| 👀 | `reviewer` | Opus | `review-pr` desde otro contexto, en un worktree propio. No publica: devuelve los hallazgos. |
+| 👀 | `reviewer` | Sonnet | `review-pr` desde otro contexto, en un worktree propio. No publica: devuelve los hallazgos. |
 
 Los lanza `/orchestrate` desde la sesión principal. Comparten las reglas y el formato de salida de `docs/agents/subagent-contract.md`, y cada uno trabaja en su propio worktree (`prepare.sh <n> --worktree`). Con `bk`, `roles.yml` puede lanzar como agente `bk` solo al `implementer` (`bk run`); `reviewer` e `implementer-light` corren siempre como subagentes. Un agente `bk` es una sesión común de `/implement-issue` que le pregunta a la persona en el momento, fuera de ese contrato. `check-docs.py` valida que cada uno tenga modelo, herramientas y el contrato.
 
