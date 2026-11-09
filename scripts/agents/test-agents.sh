@@ -530,12 +530,16 @@ git -C "$m" commit -qm base
 git -C "$m" switch -q -c claude/188-agents
 tipo_sensible() { # tipo_sensible <ruta>: los tipos sensibles con que agents_map.py marca un cambio en <ruta>
   mkdir -p "$m/$(dirname "$1")"; printf 'x\n' >"$m/$1"
-  git -C "$m" add -A; git -C "$m" commit -qm "cambio en $1"
-  local o; o=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>/dev/null)
+  git -C "$m" add -A; git -C "$m" commit -qm "cambio en $1" || { echo "commit-failed"; return; }
+  local o; o=$(cd "$m" && python3 scripts/agents/agents_map.py --base main --json 2>&1)
+  # "-" = agents_map.py corrió y no marcó nada; un JSON ilegible o sin "sensitive" imprime otra cosa y rompe el caso.
   printf '%s' "$o" | python3 -c '
 import json, sys
-d = json.load(sys.stdin)
-print(" ".join(sorted(s["type"] for s in d["sensitive"] if sys.argv[1] in s["files"])))
+try:
+    d = json.load(sys.stdin)
+    print(" ".join(sorted(s["type"] for s in d["sensitive"] if sys.argv[1] in s["files"])) or "-")
+except Exception as e:
+    print("ilegible:", e)
 ' "$1"
   git -C "$m" reset -q --hard HEAD^
 }
@@ -544,6 +548,7 @@ print(" ".join(sorted(s["type"] for s in d["sensitive"] if sys.argv[1] in s["fil
 [ "$(tipo_sensible docs/agents/subagent-contract.md)" = agents ]; tap_check $? "agents: un cambio en docs/agents/subagent-contract.md se marca como sensible (agents)"
 [ "$(tipo_sensible docs/agents/subagent-contract.es.md)" = agents ]; tap_check $? "agents: un cambio en docs/agents/subagent-contract.es.md se marca como sensible (agents)"
 [ "$(tipo_sensible .claude/i18n/agents/implementer.es.md)" = agents ]; tap_check $? "agents: un cambio en .claude/i18n/agents/ se marca como sensible (agents)"
-[ -z "$(tipo_sensible docs/agents/lessons.md)" ]; tap_check $? "agents: un cambio en docs/agents/lessons.md no se marca como sensible (el contrato sí, las lecciones no)"
+[ "$(tipo_sensible .claude/settings.json)" = infra ]; tap_check $? "agents: control, el helper ve un archivo sensible que ya estaba en el mapa (infra)"
+[ "$(tipo_sensible docs/agents/lessons.md)" = - ]; tap_check $? "agents: un cambio en docs/agents/lessons.md no se marca como sensible (el contrato sí, las lecciones no)"
 
 tap_done
