@@ -4,6 +4,12 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 **Publicar una versión** (lo hace una persona): un PR que sube `VERSION` y agrega su sección acá; después del merge, `git tag vX.Y.Z` sobre ese commit y `git push origin vX.Y.Z`. Así `VERSION` en `main` coincide con el último tag.
 
+## [Sin publicar]
+
+### Cambiado
+
+- **El proyecto de las reglas sale de `.agent-kit.json`, no de `rules.lock`** (#297, aprobado por la persona en el chat; deshace el `project=` que agregó #289 sin aprobación). El kit lleva su propio `.agent-kit.json` con `{"project": "barrilete-kit", "template": true}`; `sync-rules` rechaza (exit 3) un `project=` en `.barrilete/rules.lock` y manda a `.agent-kit.json`, y `check-docs.py` trata un manifiesto con `template: true` como la plantilla (revisa todo, igual que sin manifiesto). `init-template.sh` lo reemplaza al inicializar un proyecto. Lo generado por `sync-rules --check` no cambia. Qué hacer: nada en un proyecto instalado; si un `rules.lock` tenía `project=`, sacalo y poné `project` en `.agent-kit.json`.
+
 ## [2.0.0] - 2026-11-07
 
 **Ruptura.** El formato del rojo es JUnit y nada más: `format: "tap"` sale de la sección `red`, del parser de `red.sh`, del check de CI y de `TAP_OUT`. La versión pasa directo de 1.1.0 a 2.0.0, sin una 1.x intermedia (decidido por @lautioliver, #229). Qué hacer al actualizar:

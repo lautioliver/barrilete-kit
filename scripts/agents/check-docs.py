@@ -61,12 +61,15 @@ errores = []
 
 
 def archivos_del_kit():
-    """Kit paths according to .agent-kit.json, or None if it does not exist (the template: everything is kit)."""
+    """Kit paths according to .agent-kit.json, or None if it does not exist or says `template: true` (the template: everything is kit)."""
     if not os.path.exists(".agent-kit.json"):
         return None
     try:
         with open(".agent-kit.json", encoding="utf-8") as fh:
-            archivos = json.load(fh)["files"]
+            manifiesto = json.load(fh)
+        if isinstance(manifiesto, dict) and manifiesto.get("template") is True:
+            return None  # the template's own manifest (it only names its project): everything is kit
+        archivos = manifiesto["files"]
         if not isinstance(archivos, dict):
             raise ValueError("'files' must be a path → hash object")
     except (ValueError, KeyError, OSError) as e:
