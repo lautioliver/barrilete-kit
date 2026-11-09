@@ -27,7 +27,8 @@
 # What it writes (ADR-002 D6, #225). With TAP_OUT, JUnit XML: when the script ends (tap_done, tap_skip_all or a bail out) it
 # appends ONE closed <testsuite name= file= tests= failures= errors= skipped=> with a <testcase name=id file=> per case (a
 # <failure> child for a failed one, <skipped> for tap_skip, the description in its <system-out>), and a bail out adds a
-# testcase with an <error> child, so a crash is never a failed case. It does not write the root: several scripts append
+# testcase with an <error> child, so a crash is never a failed case (a bail out that arrives after tap_done, from a >(…)
+# that dies late, appends a second testsuite with only that error testcase, #264). It does not write the root: several scripts append
 # to the same file and the `run` of the entry wraps the testsuites in <testsuites>...</testsuites> at the end. An id that
 # repeats is ONE testcase: a failure if any turn failed (a crash ends the script, and its error testcase counts for D3 anyway).
 # TAP_FORMAT (ADR-002 D6, D8: 2.0.0 writes only JUnit): unset or "junit" is JUnit; any other value, tap included, writes
@@ -233,6 +234,8 @@ _tap_clean() {
 
 # Usage: _tap_junit_suite [<error message>] [<skip reason>]: appends the closed testsuite of this script to the file: its cases
 # (held until now), an error testcase if there is a message (a bail out), and the reason in its system-out for tap_skip_all.
+# It forgets the cases it wrote (like _tap_flush): a bail that arrives after tap_done (a >(…) that crashes while the suite
+# is written) leaves a second testsuite with only its error testcase, never the cases again (#264).
 _tap_junit_suite() {
   local err=${1:-} why=${2:-} i n=${#_TAP_IDS[@]} fails=0 skips=0 errs=0 f d id out=""
   _tap_xml "${_TAP_FILE:-$(_tap_rel "$0")}"; f=$_X
@@ -259,6 +262,8 @@ _tap_junit_suite() {
   if [ -n "$why" ]; then _tap_xml "$why"; out+="<system-out>$_X</system-out>"$'\n'; fi
   out+="</testsuite>"
   out=$(printf '%s' "$out" | _tap_clean)
+  # forgotten before the write: a TERM that lands between the two (bash runs its trap between commands) finds them empty
+  _TAP_IDS=(); _TAP_VERDICTS=(); _TAP_DESCS=(); _TAP_REPS=(); _TAP_SKIPS=()
   _tap_line "$out"
 }
 
