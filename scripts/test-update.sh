@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2319  # "<condition>; tap_check $?" is the pattern of the tests (tap.sh)
+# shellcheck disable=SC2016  # los fixtures y los textos esperados llevan backticks literales
 # Tests de update.py de punta a punta: dos versiones locales de la plantilla (v0.1.0 y v0.2.0),
 # un proyecto iniciado con la primera y cambios de los dos lados.
 # Uso: bash scripts/test-update.sh
