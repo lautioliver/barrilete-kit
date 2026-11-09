@@ -54,7 +54,7 @@ describe("translation of the kit's definitions", () => {
 		assert.equal(loadAgent(KIT, "implementer").model, "sonnet");
 		assert.equal(loadAgent(KIT, "implementer-light").model, "haiku");
 		const reviewer = loadAgent(KIT, "reviewer");
-		assert.equal(reviewer.model, "opus");
+		assert.equal(reviewer.model, "sonnet");
 		assert.ok(!reviewer.tools.includes("Edit"));
 		assert.match(reviewer.prompt, /subagent-contract\.md/);
 		assert.doesNotMatch(reviewer.prompt, /^name:/m);
@@ -65,7 +65,7 @@ describe("translation of the kit's definitions", () => {
 	test("the child loads only this package, with the role's model and tools", () => {
 		const args = childArgs(loadAgent(KIT, "reviewer"), "/p.md", "review #9", {});
 		assert.deepEqual(args.slice(0, 7), ["--mode", "json", "-p", "--no-session", "--no-extensions", "-e", PACKAGE_DIR]);
-		assert.equal(args[args.indexOf("--model") + 1], "opus");
+		assert.equal(args[args.indexOf("--model") + 1], "sonnet");
 		assert.equal(args[args.indexOf("--tools") + 1], "read,write,bash,grep,find,ls");
 		assert.deepEqual(args.slice(-3), ["--append-system-prompt", "/p.md", "Task: review #9"]);
 	});

@@ -11,6 +11,10 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 - `scripts/agents/tap.sh`: un bail que llega después de `tap_done` (un `>(…)` que muere mientras se escribe la suite) deja un segundo `<testsuite>` con solo ese testcase `error`, nunca los casos repetidos (#264).
 - `scripts/agents/red_report.py`: `missing_test_files` deja de asociar casos cuando ya vio todos los archivos de test del diff; quedan anotados, en el código y en `docs/guides/red-per-runner.md`, los límites de la decisión 3 del #255 (cargo2junit y los tests de integración, todo caso de un `.sh` leído como id de `tap.sh`, `when` que abarca archivos de otro runner).
 
+### Corregido
+
+- `scripts/agents/check-docs.py`, al validar `docs/agents/classes.yml` (#269, pendientes de #262): un `classes.yml` que no se puede leer (un directorio, sin permiso) da su propio error en vez de un traceback, y el resto del check sigue; un id que YAML 1.1 lee como booleano o null (`y`, `n`, `yes`, `no`, `true`, `false`, `on`, `off`, `null`) es un error; un error da un mensaje: un id mal escrito (entre comillas, `- ID:`, con un comentario o con dos espacios) da un solo error y, si se puede leer, cuenta igual como clase (no culpa a la skill) y no le pasa su descripción a la clase anterior, y una segunda descripción bajo el mismo id se dice como tal. `scripts/agents/test-classes.sh` suma un caso para cada regla del check que no tenía uno. Qué hacer: nada, salvo que tu `classes.yml` use uno de esos ids.
+
 ## [2.0.0] - 2026-11-07
 
 **Ruptura.** El formato del rojo es JUnit y nada más: `format: "tap"` sale de la sección `red`, del parser de `red.sh`, del check de CI y de `TAP_OUT`. La versión pasa directo de 1.1.0 a 2.0.0, sin una 1.x intermedia (decidido por @lautioliver, #229). Qué hacer al actualizar:
