@@ -1050,4 +1050,48 @@ tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
 tap_check $? "[grow ddd indice] con el índice modificado por el proyecto, grow avisa qué enlazar"
 cd "$TMP" || exit 1
 
+# Lo que marcó la revisión: una tabla de leyenda antes de la de contextos, una carpeta de la tabla que todavía no existe, y un
+# contexts.md que no se mueve porque ya hay otro en docs/reference/ (la tabla vieja no pasa al mapa).
+D="$TMP/ddd-crece-leyenda"
+proyecto "$D" chico
+cd "$D" || exit 1
+mkdir -p src/billing
+echo x >src/billing/a.txt
+cat >docs/contexts.md <<'MD'
+# Contexts — Demo
+
+| Column | Meaning |
+|---|---|
+| Context | the name |
+
+| Context | Responsibility | Own terms | Depends on | Code paths |
+|---|---|---|---|---|
+| Billing | charges | Invoice | none | `src/billing/`, `src/futuro/` |
+MD
+git add -A
+git commit -qm "tabla con leyenda"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+m=$(python3 "$TMP/ddd-view.py" contexts 2>&1)
+[ "$m" = '[{"depends_on": [], "name": "Billing", "paths": ["src/billing/**", "src/futuro/**"]}]' ]
+tap_check $? "[grow ddd leyenda] toma la tabla de cinco columnas aunque haya otra antes, y una carpeta con barra final queda como carpeta/**"
+cd "$TMP" || exit 1
+
+D="$TMP/ddd-crece-ocupado"
+proyecto "$D" chico
+cd "$D" || exit 1
+mkdir -p docs/reference
+printf '# Contexts propios\n' >docs/reference/contexts.md
+printf '# Contexts — Demo\n\n| Context | Responsibility | Own terms | Depends on | Code paths |\n|---|---|---|---|---|\n| Billing | charges | Invoice | none | `src/billing/` |\n' >docs/contexts.md
+git add -A
+git commit -qm "contexts en las dos rutas"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+es -f docs/contexts.md && grep -q "Contexts propios" docs/reference/contexts.md
+tap_check $? "[grow ddd ocupado] si docs/reference/contexts.md ya existe, no mueve ni pisa ninguno de los dos"
+m=$(python3 "$TMP/ddd-view.py" contexts 2>&1)
+[ "$m" = "[]" ]
+tap_check $? "[grow ddd ocupado] la tabla que no se movió no pasa al mapa"
+[[ "$s" == *"Not moved: docs/contexts.md"* ]]
+tap_check $? "[grow ddd ocupado] grow dice qué no movió"
+cd "$TMP" || exit 1
+
 tap_done

@@ -577,6 +577,15 @@ tap_check $? "[ddd glosario propio] install avisa que el repo ya tiene un glosar
 tap_check $? "[ddd glosario propio] el glosario del kit va a pending en vez de duplicar el del repo"
 cd "$TMP" || exit 1
 
+# Un glosario que es de otro (una dependencia vendida) no es el glosario del repo: el del kit se instala igual.
+U19R="$TMP/usuario-glosario-vendido"
+(repo "$U19R" && cd "$U19R" && mkdir -p node_modules/x vendor/y && printf '# Glossary de x\n' >node_modules/x/GLOSSARY.md && printf '# Glossary de y\n' >vendor/y/glossary.md && git add -f -A && git commit -qm vendido) >/dev/null 2>&1
+cd "$U19R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+es -f docs/reference/glossary.md
+tap_check $? "[ddd glosario vendido] un glossary.md de node_modules o vendor no cuenta como el glosario del repo"
+cd "$TMP" || exit 1
+
 # La línea del flujo (#181): con -- --flow-line el kit trae statusLine; entra si el proyecto no tiene uno propio.
 # Va al final: importa el install.py real, y la corrida anidada de test-tap.sh (#139) usa uno falso que corta antes.
 python3 - "$RAIZ/scripts" <<'PY'
