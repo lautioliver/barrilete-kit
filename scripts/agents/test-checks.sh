@@ -130,7 +130,7 @@ GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-
 # 7c. Un sha de solo dígitos no es una cantidad de commits; y lo que viene después del bloque rojo no son casos.
 pr 12 "$(cuerpo "1234567" 2 "" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
-n=$(grep -c 'body says 1234567 commits' <<<"$out" || true); [ "$n" = 0 ]; tap_check $? "commits: el sha del red commit, aunque sean solo dígitos, no se lee como una cantidad de commits"
+grep -q 'body says 1234567 commits' <<<"$out"; [ $? -eq 1 ]; tap_check $? "commits: el sha del red commit, aunque sean solo dígitos, no se lee como una cantidad de commits"
 pr 12 "$(printf '%s\n\n## Notes\n- see foo::bar\n' "$BIEN")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
 [ "$TAP_RC" = 0 ]; tap_check $? "casos: un - x::y después del bloque rojo no se toma por un caso fallido"
@@ -202,7 +202,7 @@ grep -q 'fuera' <<<"$out"; tap_check $? "verify.py: un id de check que no es un 
 
 rm "$P/.barrilete/checks.json"
 verify 0
-n=$(grep -c 'check:' <<<"$out" || true); [ "$n" = 0 ]; tap_check $? "verify.py: sin manifiesto no corre ningún check de reglas"
+grep -q 'check:' <<<"$out"; [ $? -eq 1 ]; tap_check $? "verify.py: sin manifiesto no corre ningún check de reglas"
 grep -q 'hola' <<<"$out"; tap_check $? "verify.py: sin manifiesto sigue corriendo los checks del mapa"
 
 # --- de punta a punta (condición de éxito 2 de D11): la regla con check llega por rules.lock, corre en verify.py y frena ---
@@ -227,7 +227,7 @@ grep -q 'ok *check:pr-metadata' <<<"$out"; tap_check $? "de punta a punta: un PR
 # --- lo que verify.py dice cuando un check no pudo verificar, cuando dos reglas comparten check y con --pr ---
 GH_MODE=none PATH="$TMP/bin:$PATH" verify 0
 grep -q 'not verified *check:pr-metadata' <<<"$out"; tap_check $? "verify.py: un check que no pudo verificar sale como not verified, no como ok"
-n=$(grep -c 'All verified' <<<"$out" || true); [ "$n" = 0 ]; tap_check $? "verify.py: con un check sin verificar no dice All verified"
+grep -q 'All verified' <<<"$out"; [ $? -eq 1 ]; tap_check $? "verify.py: con un check sin verificar no dice All verified"
 grep -q 'was not verified' <<<"$out"; tap_check $? "verify.py: con un check sin verificar avisa que no se puede decir que el cambio está verificado"
 
 printf '{"checks": [{"id": "mal-check", "rule": "regla-a", "fail_message": "mensaje de a"}, {"id": "mal-check", "rule": "regla-b", "fail_message": "mensaje de b"}]}\n' >"$P/.barrilete/checks.json"
@@ -235,7 +235,7 @@ rm -f "$TMP/mal-check.args"
 verify 1
 grep -q 'regla-a.*mensaje de a' <<<"$out"; tap_check $? "verify.py: dos reglas con el mismo check: se muestra el mensaje de la primera"
 grep -q 'regla-b.*mensaje de b' <<<"$out"; tap_check $? "verify.py: dos reglas con el mismo check: se muestra el mensaje de la segunda"
-n=$(grep -c 'args:' "$TMP/mal-check.args" || true); [ "$n" = 1 ]; tap_check $? "verify.py: dos reglas con el mismo check lo corren una sola vez"
+n=$(grep -c 'args:' "$TMP/mal-check.args"); [ "$n" = 1 ]; tap_check $? "verify.py: dos reglas con el mismo check lo corren una sola vez"
 
 manifiesto mal-check
 rm -f "$TMP/mal-check.args"
