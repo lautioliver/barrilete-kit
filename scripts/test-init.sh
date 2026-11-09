@@ -380,6 +380,16 @@ copiar "$p"
 (cd "$p" && ./scripts/init-template.sh Demo >/dev/null 2>&1 && git add -A && git commit -qm init)
 grep -q '"parity": false' "$p/docs/agents-map.json"; tap_check $? "[completo] el init deja parity apagado en el mapa del proyecto"
 ! grep -q 'CLAUDE.md' <(python3 -c "import json; print(json.load(open('$p/docs/agents-map.json'))['parity_ignore'])"); tap_check $? "[completo] el init saca CLAUDE.md del parity_ignore del proyecto (es ruido de la plantilla)"
+tipos=$(python3 -c "import json,sys; print(' '.join(s['type'] for s in json.load(open(sys.argv[1]))['sensitive']))" "$p/docs/agents-map.json"); [[ " $tipos " == *" agents "* ]]; tap_check $? "188: [completo] el mapa instalado trae la categoría sensitive agents" "188: [completo] el mapa instalado trae la categoría sensitive agents (tipos: $tipos)"
+cubre=$(python3 -c "
+import json, sys
+sys.path.insert(0, sys.argv[1] + '/scripts/agents')
+from agents_map import coincide
+g = [x for s in json.load(open(sys.argv[1] + '/docs/agents-map.json'))['sensitive'] if s['type'] == 'agents' for x in s['paths']]
+print(all(coincide(r, g) for r in ('.claude/skills/orchestrate/routing.py', '.claude/agents/implementer.md', 'docs/agents/subagent-contract.md')))
+" "$p"); [ "$cubre" = True ]; tap_check $? "188: [completo] la categoría agents del mapa instalado cubre orchestrate, los agentes y el contrato" "188: [completo] la categoría agents del mapa instalado cubre orchestrate, los agentes y el contrato (salida: $cubre)"
+c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
+! grep -q "agents-map.json: sensitive 'agents'" <<<"$s"; tap_check $? "188: [completo] check-docs del proyecto recién creado no rechaza las rutas de la categoría agents" "188: [completo] check-docs del proyecto recién creado no rechaza las rutas de la categoría agents"
 printf '# Guía\n' >"$p/docs/manual.es.md"
 c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 [ -f "$p/docs/manual.es.md" ] && ! grep -q 'manual' <<<"$s"; tap_check $? "[completo] un docs/manual.es.md propio no hace fallar el CI de docs del proyecto"

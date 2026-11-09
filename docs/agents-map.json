@@ -141,6 +141,15 @@
       "paths": [
         "TODO/public-api/**"
       ]
+    },
+    {
+      "type": "agents",
+      "paths": [
+        ".claude/skills/orchestrate/**",
+        ".claude/agents/**",
+        "?.claude/i18n/agents/**",
+        "docs/agents/subagent-contract*.md"
+      ]
     }
   ],
   "red": [
