@@ -27,7 +27,10 @@ HEX = re.compile(r"^[0-9a-fA-F]{7,64}$")
 # "N commits" counts when it is the PR's own total: at the start of a line (or a bullet), after "(" or ":", or after "has"/"tiene"
 # and the like; "cherry-pick de 2 commits de #280" talks about other commits, and a "red commit: <sha>" line is not a count.
 COMMITS = re.compile(r"(?:^|[(:]|\b(?:has|have|tiene|tienen|son|are|con|with))\s*(?:[-*]\s+)?(?<![\w#.])(\d+)\s+commits?\b(?!\s+(?:de|of|from)\b)", re.I)
-ISSUE_REF = re.compile(r"\b(?:closes|fixes|resolves|refs)\b:?\s+(?:[\w.-]+/[\w.-]+#|https?://github\.com/[\w.-]+/[\w.-]+/issues/|#)(\d+)\b", re.I)
+_REF = r"(?:([\w.-]+/[\w.-]+)#|https?://github\.com/([\w.-]+/[\w.-]+)/issues/|#)(\d+)"
+ISSUE_LIST = re.compile(r"\b(?:closes|fixes|resolves|refs)\b:?\s+((?:" + _REF + r")(?:\s*(?:,|&|and|y)\s*(?:" + _REF + r"))*)", re.I)
+ISSUE_REF = re.compile(_REF)
+CASE_BULLET = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
 BRANCH_ISSUE = re.compile(r"^[a-z]+/(\d+)-")
 
 
@@ -59,7 +62,7 @@ def main(argv):
         return 64
     base = args[1]
     try:
-        rc, out, err = run("gh", "pr", "view", "--json", "number,body")
+        rc, out, err = run("gh", "pr", "view", "--json", "number,body,url")
     except OSError as e:
         print(f"pr-metadata: gh cannot run ({e}): the PR was not read, so the body was not verified.")
         return 4
@@ -73,6 +76,8 @@ def main(argv):
     try:
         pr = json.loads(out)
         number, body = int(pr["number"]), str(pr.get("body") or "")
+        m_repo = re.match(r"https?://github\.com/([\w.-]+/[\w.-]+)/pull/", str(pr.get("url") or ""))
+        repo = m_repo.group(1).lower() if m_repo else None
     except (ValueError, KeyError, TypeError):
         print("pr-metadata: not verified: gh did not return the number and the body of the PR.")
         return 4
@@ -92,7 +97,7 @@ def main(argv):
     n_red = n_cases = 0
     for line in lines:
         t = line.strip().strip("`")
-        if red and in_cases and not t.startswith("- "):
+        if red and in_cases and not CASE_BULLET.match(t):
             red = None  # the list of cases ended (a blank line or other text): a later `- x::y` is not a failing case
         if t.lower().startswith("</details>") or t.startswith("#"):
             red = None  # the red block ended: a later `- x::y` is not a failing case
@@ -112,13 +117,15 @@ def main(argv):
                                 "it is the base's, from another branch or it does not exist")
                 continue
             red = sha
-        elif t.startswith("- ") and "::" in t and red:
+        elif CASE_BULLET.match(t) and "::" in t and red:
             in_cases = True
-            case = t[2:].strip().strip("`").strip()
+            case = CASE_BULLET.sub("", t, count=1).strip().strip("`").strip()
             path, _, cname = case.partition("::")
             n_cases += 1
-            rc, src, _ = run("git", "show", f"{red}:{path}")
-            if rc != 0:
+            rc, src, _ = run("git", "show", f"{red}:{path}") if path.strip() else (1, "", "")
+            if not path.strip():
+                problems.append(f"failing case {case!r}: it has no file path before ::")
+            elif rc != 0:
                 problems.append(f"failing case {case!r}: {path} does not exist at the red commit {red}")
             elif not all(part and part in src for part in re.split(r"::| > ", cname)):
                 problems.append(f"failing case {case!r}: the name is not in {path} at the red commit {red}")
@@ -131,7 +138,13 @@ def main(argv):
             if said != len(commits):
                 problems.append(f"the body says {said} commits and the branch has {len(commits)} ({base}..HEAD)")
 
-    refs = [int(n) for line in lines for n in ISSUE_REF.findall(line)]
+    refs = []
+    for line in lines:
+        for lst in ISSUE_LIST.finditer(line):
+            for r1, r2, n in ISSUE_REF.findall(lst.group(1)):
+                other = (r1 or r2).lower()
+                if not other or other == repo:  # a reference to another repository is not an issue of this one
+                    refs.append(int(n))
     if number in refs and number != branch_issue:
         problems.append(f"the body closes or refers to #{number}, the number of this PR itself, not an issue")
     if branch_issue is not None and branch_issue not in refs:

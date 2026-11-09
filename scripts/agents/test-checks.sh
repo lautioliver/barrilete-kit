@@ -283,9 +283,9 @@ git -C "$P" switch -q claude/7-algo
 
 # 9. Tercera vuelta del review (#294).
 # 9a. Varios issues tras un keyword; y una referencia a otro repo no es el issue de la rama.
-pr 12 "$(cuerpo "$RED" 2 "$CASO" "Closes #12, #7")"
+pr 12 "$(cuerpo "$RED" 2 "$CASO" "Closes #30, #7")"
 chequear 0
-[ "$TAP_RC" = 0 ]; tap_check $? "issue: 'Closes #12, #7' reconoce el segundo issue de la lista"
+[ "$TAP_RC" = 0 ]; tap_check $? "issue: 'Closes #30, #7' reconoce el segundo issue de la lista"
 pr 12 "$(cuerpo "$RED" 2 "$CASO" "Refs otro/repo#7")"
 chequear 3
 grep -q 'needs Closes #7' <<<"$out"; tap_check $? "issue: 'Refs otro/repo#7' (otro repo) no cuenta como el issue de la rama"

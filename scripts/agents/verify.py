@@ -108,7 +108,8 @@ def main():
     # Two rules can share a check: it runs once and the message of each rule is shown. They look at the branch's PR, not at
     # the one --pr names, so with --pr they are skipped (and said).
     mensajes = {}
-    if "--pr" in args and de_reglas:
+    saltados = "--pr" in args and bool(de_reglas)
+    if saltados:
         print("Skipped: rule checks (they look at the PR of this checkout's branch, not at the one --pr names)\n")
     else:
         for c in de_reglas:
@@ -141,6 +142,8 @@ def main():
         resultados.append((nombre, estado, time.time() - t0))
         print(flush=True)
 
+    if saltados:
+        resultados.append(("rule checks (skipped with --pr)", "not verified", 0))
     print("Result:")
     for nombre, resultado, seg in resultados:
         print(f"  {resultado:15} {nombre}" + (f" ({seg:.0f}s)" if seg else ""))
