@@ -288,6 +288,23 @@ for prof in full small; do
   says 'test-renamed.sh::renamed case'; tap_check $? "225: the failing case of a renamed test is listed" "map: $prof"
 done
 
+# a copied test is a test the run runs too: with diff.renames=copies git calls it `C`, and the entry has to read it like an `R` (#264)
+for prof in full small; do
+  map=$FULL_MAP; [ "$prof" = small ] && map=$SMALL_MAP
+  jrepo "j-copy-$prof" "$map"
+  git -C "$TMP/w/j-copy-$prof" config diff.renames copies
+  { shead; printf 'tap_ok "old case"\ntap_ok "another old case"\ntap_ok "a third old case"\ntap_done\n'; } >"$TMP/w/j-copy-$prof/scripts/test-old.sh"
+  commit_all "$TMP/w/j-copy-$prof" base
+  # git only sees a copy from a file that the commit also changes
+  { shead; printf 'tap_ok "old case"\ntap_ok "another old case"\ntap_ok "a third old case"\ntap_ok "a fourth old case"\ntap_done\n'; } >"$TMP/w/j-copy-$prof/scripts/test-old.sh"
+  { shead; printf 'tap_ok "old case"\ntap_ok "another old case"\ntap_ok "a third old case"\n[ 1 -eq 2 ]; tap_check $? "copied case"\ntap_done\n'; } >"$TMP/w/j-copy-$prof/scripts/test-copied.sh"
+  commit_all "$TMP/w/j-copy-$prof" red
+  git -C "$TMP/w/j-copy-$prof" diff --raw HEAD^ HEAD | grep -q ' C[0-9]*	'; tap_check $? "264: the fixture of the copied test is a copy for git (diff.renames=copies)" "map: $prof"
+  run_red "$TMP/w/j-copy-$prof"
+  test "$code" -eq 0; tap_check $? "264: a copied test is run by the shipped bash entry: the red is valid (exit 0)" "map: $prof"
+  says 'test-copied.sh::copied case'; tap_check $? "264: the failing case of a copied test is listed" "map: $prof"
+done
+
 # a test file by its name under another runner is a test file when the entry's `when` matches it
 r="$TMP/w/j-pytest"; new_repo "$r"; install_kit "$r"
 mkdir -p "$TMP/jp"; cp "$CORPUS/pytest-assert/"{report.xml,output.txt} "$TMP/jp/"

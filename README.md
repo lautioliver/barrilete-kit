@@ -204,7 +204,7 @@ They live in `.claude/skills/`.
 | 🐛 | `debug` | Symptom → evidence → root cause → fix → regression test. |
 | 🗄️ | `db-migration` | A plan with compatibility, backfill and rollback before touching the schema. |
 | 📚 | `update-docs` | Finds docs a change made stale (using the map) and fixes them in the same PR. |
-| 👀 | `/review-pr <n>` | A review focused on what's specific to the project: business rules, ADRs, autonomy, docs, tests and sensitive paths. Never approves. |
+| 👀 | `/review-pr <n>` | A review focused on what's specific to the project: business rules, ADRs, glossary and context crossings, autonomy, docs, tests and sensitive paths. Never approves. |
 | 📊 | `/project-status` | An on-the-spot summary (version, work, epics, PRs, debt, decisions, migrations) and "what can I work on now?". |
 | 🎛️ | `/orchestrate` | Splits up to 3 available issues among agents working in parallel, each launched as a subagent or as a `bk` agent in its own tmux window per `roles.yml` (kit/ADR-004; Haiku or Sonnet per `routing.py`, Sonnet reviews), each in its own worktree, and gathers PRs, questions and escalations in a single message. Never merges or posts without confirmation. |
 | 🔁 | `/improve-skills` | Gathers retros and objective signals (CI failures on agent branches, reverts) and proposes skill changes in a PR. Never loosens controls. |
