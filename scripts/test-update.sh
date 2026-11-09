@@ -48,6 +48,8 @@ mkdir -p "$P"
 (
   cd "$P" && git init -q -b main
   echo 0.1.0 >VERSION
+  # El CHANGELOG real trae secciones con versiones de verdad (2.0.0): un proyecto de la prueba las vería como nuevas.
+  printf '# Changelog\n' >CHANGELOG.md
   for f in viejo viejo2 borrado cambiado; do echo "$f v0.1" >".claude/skills/debug/$f.md"; done
   echo "echo modo" >.claude/skills/debug/modo.sh && chmod 644 .claude/skills/debug/modo.sh
   echo "Hello v0.1" >.claude/skills/debug/lang.md && echo "Hola v0.1" >.claude/skills/debug/lang.es.md
@@ -777,10 +779,10 @@ es -f ".agent-kit/pending/docs/agents-map.json"
 tap_check $? "grow con un mapa ilegible deja el mapa completo en pending"
 cd "$TMP" || exit 1
 
-# El aviso de 1.x por format "tap" (ADR-002 D8, #226): update.py reemplaza la entrada bash del kit por la de JUnit (solo su run
-# y su format: el when y el timeout del proyecto quedan), no convierte, borra ni reescribe otra entrada tap y la avisa al
-# final de su resumen. La entrada del kit no avisa.
-AVISO_TAP() { printf 'warning: red stack '"'"'%s'"'"' uses format "tap", which 2.0.0 removes; switch it to "junit" (docs/guides/red-per-runner.md)' "$1"; }
+# El error de 2.0.0 por format "tap" (ADR-002 D8, #226 y #233): update.py reemplaza la entrada bash del kit por la de JUnit (solo su run
+# y su format: el when y el timeout del proyecto quedan), no convierte, borra ni reescribe otra entrada tap y, al final de su
+# resumen, imprime en stderr el mismo texto que el error de red.sh. La entrada del kit no lo imprime.
+ERROR_TAP() { printf 'red stack '"'"'%s'"'"': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)' "$1"; }
 # Un run publicado por el kit en v1.1.0 (con los espacios cambiados: el kit normaliza los espacios al compararlo).
 # shellcheck disable=SC2016  # el run es un literal: no se expande nada
 RUN_KIT_1_1='rc=0;  while IFS= read -r -d '"''"' t; do TAP_OUT={out} bash "$t" </dev/null || rc=1; grep -qxF "# file: $t" {out} || echo "Bail out! $t wrote no TAP" >>{out}; done < <(git diff -z --name-only --diff-filter=AM HEAD^ HEAD -- '"':(glob)**/test-*.sh'"'); exit $rc'
@@ -811,11 +813,12 @@ proyecto "$D" completo
 poner_mapa_red "$D" "[{\"name\":\"bash\",\"when\":[\"tests/**/test-*.sh\"],\"format\":\"tap\",\"run\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$RUN_KIT_1_1"),\"timeout\":900}]"
 c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>"$TMP/stderr.txt") || c=$?; tap_status "$c" 0
 err=$(<"$TMP/stderr.txt")
-[ "$(campo_red "$D" bash format)" = '"junit"' ]; tap_check $? "[tap 1.x] la entrada bash del kit pasa a format junit"
-[ "$(campo_red "$D" bash run)" = "$kit_run" ]; tap_check $? "[tap 1.x] la entrada bash del kit toma el run actual del kit"
-[ "$(campo_red "$D" bash when)" = '["tests/**/test-*.sh"]' ]; tap_check $? "[tap 1.x] reemplazar la entrada del kit conserva el when del proyecto"
-[ "$(campo_red "$D" bash timeout)" = 900 ]; tap_check $? "[tap 1.x] reemplazar la entrada del kit conserva el timeout del proyecto"
-[[ "$s$err" != *'uses format "tap"'* ]]; tap_check $? "[tap 1.x] la entrada bash del kit no dispara el aviso"
+[ "$(campo_red "$D" bash format)" = '"junit"' ]; tap_check $? "[tap 2.0.0] la entrada bash del kit pasa a format junit"
+[ "$(campo_red "$D" bash run)" = "$kit_run" ]; tap_check $? "[tap 2.0.0] la entrada bash del kit toma el run actual del kit"
+[ "$(campo_red "$D" bash when)" = '["tests/**/test-*.sh"]' ]; tap_check $? "[tap 2.0.0] reemplazar la entrada del kit conserva el when del proyecto"
+[ "$(campo_red "$D" bash timeout)" = 900 ]; tap_check $? "[tap 2.0.0] reemplazar la entrada del kit conserva el timeout del proyecto"
+[[ "$s" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error en stdout"
+[[ "$err" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error en stderr"
 
 D="$TMP/red-tap-propia"
 proyecto "$D" completo
@@ -825,12 +828,30 @@ antes_map=$(<"$D/docs/agents-map.json")
 c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>"$TMP/stderr.txt") || c=$?; tap_status "$c" 0
 err=$(<"$TMP/stderr.txt")
 despues_map=$(<"$D/docs/agents-map.json")
-[ "$despues_map" = "$antes_map" ]; tap_check $? "[tap 1.x] una entrada tap propia (y una bash que el proyecto cambió) queda como estaba: no la convierte, borra ni reescribe"
-grep -qxF "$(AVISO_TAP node)" <<<"$err"; tap_check $? "[tap 1.x] una entrada tap propia avisa con el texto exacto"
-grep -qxF "$(AVISO_TAP bash)" <<<"$err"; tap_check $? "[tap 1.x] una entrada bash que el proyecto cambió es propia y avisa"
-[[ "$s$err" != *"red stack 'py'"* ]]; tap_check $? "[tap 1.x] una entrada junit no avisa"
-[[ "$s" != *'uses format "tap"'* ]]; tap_check $? "[tap 1.x] el aviso va a stderr, no a stdout"
+[ "$despues_map" = "$antes_map" ]; tap_check $? "[tap 2.0.0] una entrada tap propia (y una bash que el proyecto cambió) queda como estaba: no la convierte, borra ni reescribe"
+grep -qxF "$(ERROR_TAP node)" <<<"$err"; tap_check $? "[tap 2.0.0] una entrada tap propia imprime el error con el texto exacto de red.sh"
+grep -qxF "$(ERROR_TAP bash)" <<<"$err"; tap_check $? "[tap 2.0.0] una entrada bash que el proyecto cambió es propia e imprime el error"
+[[ "$s" != *'which 2.0.0 removes'* ]]; tap_check $? "[tap 2.0.0] update.py ya no imprime el aviso de 1.x en stdout"
+[[ "$err" != *'which 2.0.0 removes'* ]]; tap_check $? "[tap 2.0.0] update.py ya no imprime el aviso de 1.x en stderr"
+[[ "$s" != *"red stack 'py'"* ]]; tap_check $? "[tap 2.0.0] una entrada junit no imprime el error en stdout"
+[[ "$err" != *"red stack 'py'"* ]]; tap_check $? "[tap 2.0.0] una entrada junit no imprime el error en stderr"
+[[ "$s" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] el error va a stderr, no a stdout"
 ultima=$(tail -n 1 <<<"$s")
-[[ "$ultima" == *"Commit and open a PR"* ]]; tap_check $? "[tap 1.x] el aviso sale al final del resumen"
+[[ "$ultima" == *"Commit and open a PR"* ]]; tap_check $? "[tap 2.0.0] stdout termina con el último paso del resumen, sin el error"
+[ "$(tail -n 1 <<<"$err")" = "$(ERROR_TAP node)" ]; tap_check $? "[tap 2.0.0] el error de la última entrada tap propia es la última línea de stderr"
+[ "$(grep -c 'was removed in 2.0.0' <<<"$err")" = 2 ]; tap_check $? "[tap 2.0.0] stderr tiene un error por entrada tap propia, ni más ni menos"
+
+# El orden de los dos streams juntos (2>&1, como lo ve la persona en la terminal): las líneas del error de 2.0.0 son las últimas,
+# después del último paso del resumen. Sin el flush de stdout antes de escribir en stderr, el error se adelanta cuando stdout es un pipe.
+D="$TMP/red-tap-orden"
+proyecto "$D" completo
+poner_mapa_red "$D" "[{\"name\":\"bash\",\"when\":[\"**/test-*.sh\"],\"format\":\"tap\",\"run\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$RUN_KIT_1_1; echo mio")},{\"name\":\"node\",\"when\":[\"**/*.test.js\"],\"format\":\"tap\",\"run\":\"node --test --test-reporter=tap > {out}\"}]"
+cd "$D" || exit 1
+tap_run s 0 python3 scripts/update.py --template "$P"
+cd "$TMP" || exit 1
+ultimas=$(tail -n 2 <<<"$s")
+[ "$ultimas" = "$(ERROR_TAP bash)"$'\n'"$(ERROR_TAP node)" ]; tap_check $? "[tap 2.0.0] con stdout y stderr juntos, las líneas del error son las últimas"
+paso=$(tail -n 3 <<<"$s" | head -n 1)
+[[ "$paso" == *"3. Commit and open a PR"* ]]; tap_check $? "[tap 2.0.0] con stdout y stderr juntos, el error va después de '3. Commit and open a PR'"
 
 tap_done

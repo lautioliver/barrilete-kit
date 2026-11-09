@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+"""sync-rules: generates the rules of each role from barrilete-rules (ADR-006 D7, D9).
+
+Usage: scripts/agents/sync-rules [--root DIR] [--url GIT_URL] [--check]
+
+Reads <root>/.barrilete/rules.lock (`repo=<owner>/<name>`, `sha=<40 hex>`, optional `project=<slug>`), clones the repo
+into a temporary directory at that exact SHA (default URL: https://github.com/<repo>.git) and writes, between the markers
+`<!-- rules:begin ... -->` and `<!-- rules:end -->`:
+  - the `accepted` rules of each role in .claude/agents/<role>.md (and .claude/i18n/agents/<role>.es.md);
+  - the `applies_to: "*"` ones in AGENTS.md and AGENTS.es.md;
+and docs/agents/classes.yml, the copy of barrilete-rules' classes.yml (its only source).
+It adds the project's own rules (.barrilete/rules/*.md) and checks that each `check: <id>` of an applied rule exists in
+scripts/agents/checks/<id> (it copies no checks: they live in the kit). A rule applies when its `scope` is "*" or lists the
+project (`project` of rules.lock, else of .agent-kit.json). The text of the rule is copied as it is, without translating.
+Everything is validated before anything is written: a bad rule leaves no file half written.
+
+  --check   writes nothing: it exits with 3 and names the files whose generated part is not what the lock gives.
+Exit status: 0 ok; 3 a problem (bad lock or rule, missing check, git failure, --check differs); 64 invalid usage.
+(1 and 2 are left for a crash, a Python traceback, so that a test can tell it from an expected failure.)
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+REPO = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+SHA = re.compile(r"^[0-9a-f]{40}$")
+STATUS = {"proposed", "accepted", "deprecated"}
+BEGIN = "<!-- rules:begin"
+END = "<!-- rules:end -->"
+USAGE = "Usage: scripts/agents/sync-rules [--root DIR] [--url GIT_URL] [--check]"
+
+
+class Problem(Exception):
+    pass
+
+
+def fail(msg):
+    raise Problem(msg)
+
+
+def parse_value(raw):
+    raw = raw.strip()
+    if raw.startswith("[") and raw.endswith("]"):
+        return [parse_value(p) for p in raw[1:-1].split(",") if p.strip()]
+    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'":
+        return raw[1:-1]
+    return raw
+
+
+def parse_rule(path, rel):
+    """(fields, text of the rule) of a <id>.md rule file. Raises Problem naming the file."""
+    lines = open(path, encoding="utf-8").read().split("\n")
+    if lines[0].strip() != "---":
+        fail(f"{rel}: it does not start with the frontmatter (---)")
+    fields, body = {}, None
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            body = lines[i + 1:]
+            break
+        if not line.strip() or line.lstrip().startswith("#") or line[0] in " \t":
+            continue
+        m = re.match(r"^([A-Za-z_]+):\s*(.*)$", line)
+        if not m:
+            fail(f"{rel}: frontmatter line {i + 1} is not `key: value`")
+        fields[m.group(1)] = parse_value(re.sub(r"\s+#.*$", "", m.group(2)))
+    if body is None:
+        fail(f"{rel}: the frontmatter does not close (---)")
+    for k in ("id", "status", "applies_to", "scope"):
+        if k not in fields:
+            fail(f"{rel}: missing field {k}")
+    if not isinstance(fields["id"], str) or not SLUG.match(fields["id"]):
+        fail(f"{rel}: id {fields['id']!r} is not a slug")
+    if fields["id"] != os.path.basename(rel)[:-3]:
+        fail(f"{rel}: id {fields['id']!r} does not match the file name")
+    if fields["status"] not in STATUS:
+        fail(f"{rel}: status {fields['status']!r} is invalid (one of {sorted(STATUS)})")
+    for k in ("applies_to", "scope"):
+        vals = fields[k] if isinstance(fields[k], list) else [fields[k]]
+        if not vals or any(not isinstance(v, str) or not (v == "*" or SLUG.match(v)) for v in vals):
+            fail(f"{rel}: {k} has to be \"*\" or a list of slugs")
+        if "*" in vals and len(vals) > 1:
+            fail(f"{rel}: {k} mixes \"*\" with other values")
+        fields[k] = vals
+    if "check" in fields and (not isinstance(fields["check"], str) or not SLUG.match(fields["check"])):
+        fail(f"{rel}: check has to be the id (slug) of a check of the kit")
+    text = next((b.strip() for b in body if b.strip()), "")
+    if fields["status"] == "accepted" and not text:
+        fail(f"{rel}: an accepted rule needs its text (the first line after the frontmatter)")
+    if "<!--" in text:
+        fail(f"{rel}: the text of the rule has an HTML comment, which could break the markers")
+    return fields, text
+
+
+def read_lock(root):
+    path = os.path.join(root, ".barrilete", "rules.lock")
+    if not os.path.isfile(path):
+        fail(f"{path}: there is no rules.lock (it holds `repo=<owner>/<name>` and `sha=<40 hex>`)")
+    lock = {}
+    for raw in open(path, encoding="utf-8").read().split("\n"):
+        raw = raw.strip()
+        if raw and not raw.startswith("#") and "=" in raw:
+            k, v = raw.split("=", 1)
+            lock[k.strip()] = v.strip()
+    if not REPO.match(lock.get("repo", "")):
+        fail(f"rules.lock: repo {lock.get('repo')!r} is not <owner>/<name>")
+    if not SHA.match(lock.get("sha", "")):
+        fail(f"rules.lock: sha {lock.get('sha')!r} is not a full SHA (40 hexadecimal characters)")
+    if "project" in lock and not SLUG.match(lock["project"]):
+        fail(f"rules.lock: project {lock['project']!r} is not a slug")
+    return lock
+
+
+def project_of(root, lock):
+    if "project" in lock:
+        return lock["project"]
+    path = os.path.join(root, ".agent-kit.json")
+    if not os.path.isfile(path):
+        return None
+    try:
+        data = json.load(open(path, encoding="utf-8"))
+    except ValueError:
+        fail(f"{path}: it is not valid JSON")
+    project = data.get("project") if isinstance(data, dict) else None
+    return project if isinstance(project, str) else None
+
+
+def git(args):
+    return subprocess.run(["git", *args], capture_output=True, text=True, env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))
+
+
+def fetch(url, sha, dest):
+    r = git(["clone", "--quiet", "--no-checkout", "--", url, dest])
+    if r.returncode != 0:
+        detail = (r.stderr.strip().split("\n") or [""])[-1]
+        fail(f"could not clone {url}: {detail}")
+    r = git(["-c", "advice.detachedHead=false", "-C", dest, "checkout", "--quiet", sha])
+    if r.returncode != 0:
+        fail(f"{url} has no commit {sha} (rules.lock): update the lock")
+
+
+def load_rules(directory, label):
+    rules = {}
+    if os.path.isdir(directory):
+        for name in sorted(os.listdir(directory)):
+            full = os.path.join(directory, name)
+            if name.endswith(".md") and os.path.isfile(full):
+                fields, text = parse_rule(full, f"{label}/{name}")
+                rules[fields["id"]] = (fields, text)
+    return rules
+
+
+def section(repo, sha, rules):
+    out = [f"{BEGIN} {repo}@{sha} (generated by scripts/agents/sync-rules; do not edit: change the rule in barrilete-rules) -->",
+           "## Rules (barrilete-rules)", ""]
+    out += [f"- {text} (`{rid}`)" for rid, text in sorted(rules)]
+    out.append(END)
+    return "\n".join(out) + "\n"
+
+
+def with_section(text, new, rel):
+    b = text.find(BEGIN)
+    if b == -1:
+        if END in text:
+            fail(f"{rel}: has the end marker of the rules and not the start")
+        return text.rstrip("\n") + "\n\n" + new
+    e = text.find(END, b)
+    if e == -1:
+        fail(f"{rel}: has the start marker of the rules and not the end")
+    if BEGIN in text[e:]:
+        fail(f"{rel}: has more than one section of rules")
+    return text[:b] + new + text[e + len(END) + 1:]
+
+
+def read(path):
+    return open(path, encoding="utf-8").read() if os.path.isfile(path) else None
+
+
+def compute(root, lock, project, src):
+    """{relative path: new content} of every file that gets a generated part. Writes nothing."""
+    own = load_rules(os.path.join(root, ".barrilete", "rules"), ".barrilete/rules")
+    theirs = load_rules(os.path.join(src, "rules"), "rules")
+    for rid in sorted(set(own) & set(theirs)):
+        fail(f".barrilete/rules/{rid}.md: the id {rid} is also a rule of barrilete-rules; use another id")
+    applied = {rid: v for rid, v in {**theirs, **own}.items()
+               if v[0]["status"] == "accepted" and (v[0]["scope"] == ["*"] or (project and project in v[0]["scope"]))}
+    for rid, (fields, _text) in sorted(applied.items()):
+        chk = fields.get("check")
+        if chk and not os.path.isfile(os.path.join(root, "scripts", "agents", "checks", chk)):
+            fail(f"rule {rid}: its check {chk} is missing in scripts/agents/checks/{chk} (the checks live in the kit)")
+    repo, sha = lock["repo"], lock["sha"]
+    outputs = {}
+
+    def put(rel, rules):
+        current = read(os.path.join(root, rel))
+        if current is None or (not rules and BEGIN not in current):
+            return
+        outputs[rel] = with_section(current, section(repo, sha, rules), rel)
+
+    general = [(rid, v[1]) for rid, v in applied.items() if v[0]["applies_to"] == ["*"]]
+    put("AGENTS.md", general)
+    put("AGENTS.es.md", general)
+    agents_dir = os.path.join(root, ".claude", "agents")
+    roles = sorted(n[:-3] for n in os.listdir(agents_dir) if n.endswith(".md")) if os.path.isdir(agents_dir) else []
+    for role in roles:
+        mine = [(rid, v[1]) for rid, v in applied.items() if role in v[0]["applies_to"]]
+        put(f".claude/agents/{role}.md", mine)
+        put(f".claude/i18n/agents/{role}.es.md", mine)
+    if os.path.isdir(os.path.join(root, "docs", "agents")):
+        classes = read(os.path.join(src, "classes.yml"))
+        if classes is None:
+            fail(f"{repo}@{sha[:7]} has no classes.yml")
+        outputs["docs/agents/classes.yml"] = (
+            f"# Generated by scripts/agents/sync-rules from {repo}@{sha} (classes.yml, ADR-006 D2).\n"
+            "# Do not edit: change it in barrilete-rules.\n" + classes)
+    return outputs
+
+
+def main(argv):
+    root, url, check = ".", None, False
+    args = list(argv[1:])
+    while args:
+        a = args.pop(0)
+        if a == "--check":
+            check = True
+        elif a == "--root" and args:
+            root = args.pop(0)
+        elif a == "--url" and args:
+            url = args.pop(0)
+        else:
+            print(USAGE, file=sys.stderr)
+            return 64
+    root = os.path.abspath(root)
+    try:
+        if not os.path.isdir(root):
+            fail(f"{root} is not a directory")
+        lock = read_lock(root)
+        project = project_of(root, lock)
+        with tempfile.TemporaryDirectory(prefix="sync-rules-") as tmp:
+            src = os.path.join(tmp, "src")
+            fetch(url or f"https://github.com/{lock['repo']}.git", lock["sha"], src)
+            outputs = compute(root, lock, project, src)
+        changed = [rel for rel, new in sorted(outputs.items()) if read(os.path.join(root, rel)) != new]
+        if check:
+            for rel in changed:
+                print(f"sync-rules: {rel}: the generated part is not what rules.lock gives (run scripts/agents/sync-rules)")
+            return 3 if changed else 0
+        for rel in changed:
+            path = os.path.join(root, rel)
+            with open(path + ".sync-rules.tmp", "w", encoding="utf-8") as fh:
+                fh.write(outputs[rel])
+            os.replace(path + ".sync-rules.tmp", path)
+        state = f"{len(changed)} file(s) updated" if changed else "up to date"
+        print(f"sync-rules: {lock['repo']}@{lock['sha'][:7]}: {state}")
+        return 0
+    except Problem as e:
+        print(f"sync-rules: {e}", file=sys.stderr)
+        return 3
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
