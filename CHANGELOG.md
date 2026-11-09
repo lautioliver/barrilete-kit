@@ -4,7 +4,13 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 **Publicar una versión** (lo hace una persona): un PR que sube `VERSION` y agrega su sección acá; después del merge, `git tag vX.Y.Z` sobre ese commit y `git push origin vX.Y.Z`. Así `VERSION` en `main` coincide con el último tag.
 
-## [Sin publicar]
+## [2.0.0] - 2026-11-07
+
+**Ruptura.** El formato del rojo es JUnit y nada más: `format: "tap"` sale de la sección `red`, del parser de `red.sh`, del check de CI y de `TAP_OUT`. La versión pasa directo de 1.1.0 a 2.0.0, sin una 1.x intermedia (decidido por @lautioliver, #229). Qué hacer al actualizar:
+
+- Una entrada `tap` propia de `docs/agents-map.json` no se convierte sola: `update.py` imprime al final de su resumen, en stderr, `red stack '<name>': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)` y deja el mapa como estaba. La entrada `bash` que publicó el kit sí se reemplaza por la de JUnit (`update.py`).
+- Un PR abierto con `format: tap` en el bloque del rojo: pasá la entrada a JUnit, **volvé a correr `red.sh`** y reemplazá el bloque; el check de CI lo rechaza si no.
+- Un script propio que leía `TAP_OUT` como TAP: leé el XML JUnit o corré el test sin `TAP_OUT`.
 
 ### Cambiado
 
