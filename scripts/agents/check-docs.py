@@ -10,7 +10,7 @@ Checks:
   index in a project (no scripts/init-template.sh).
 - Required documents and paths of docs/agents-map.json that do not exist.
 - The `red` section of the map (ADR-002 D2): an array of stacks with name (unique), when (non-empty list of globs), run
-  (with {out}), format (junit or tap) and an optional timeout (positive integer); there is no `report` field.
+  (with {out}), format (junit) and an optional timeout (positive integer); there is no `report` field.
 - The `contexts` section of the map (ADR-003 D3): name unique, paths that match tracked files (unless optional, with ?), and
   depends_on with names of the section and no self-dependency.
 - The glossary and the map of contexts (ADR-003 D2, D5): docs/glossary.md and docs/contexts.md in --small, and
@@ -420,8 +420,12 @@ def validar_red(red):
         run = e.get("run")
         if not isinstance(run, str) or "{out}" not in run:
             errs.append(f"{pre} 'run' must be a command that contains {{out}}: red.sh replaces it with the path where the report is written")
-        if e.get("format") not in ("junit", "tap"):
-            errs.append(f"{pre} 'format' must be \"junit\" or \"tap\" (it is {e.get('format')!r})")
+        if e.get("format") == "tap":
+            # ADR-002 D8: 2.0.0 removed it. The text is the literal red.sh prints.
+            errs.append(f'docs/agents-map.json: red stack \'{nombre}\': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)'
+                        if isinstance(nombre, str) and nombre.strip() else f'{pre} format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)')
+        elif e.get("format") != "junit":
+            errs.append(f"{pre} 'format' must be \"junit\" (it is {e.get('format')!r})")
         if "timeout" in e:
             tm = e["timeout"]
             if isinstance(tm, bool) or not isinstance(tm, int) or tm <= 0:

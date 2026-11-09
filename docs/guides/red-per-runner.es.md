@@ -1,8 +1,10 @@
 # Comando del rojo por runner
 
-> Entradas listas para copiar en la sección `red` de `docs/agents-map.json` (ADR-002, D2 y D10). `red.sh` corre cada entrada cuyo `when` coincide con un archivo del commit del rojo y acepta solo un reporte estructurado: JUnit XML o TAP.
+> Entradas listas para copiar en la sección `red` de `docs/agents-map.json` (ADR-002, D2 y D10). `red.sh` corre cada entrada cuyo `when` coincide con un archivo del commit del rojo y acepta solo un reporte estructurado: JUnit XML.
 
-Cada entrada tiene `name`, `when` (globs de los archivos de test), `run` (con `{out}`: `red.sh` lo reemplaza por el camino donde hay que escribir el reporte), `format` (`junit` o `tap`) y un `timeout` opcional en segundos. No hay campo `report`. Cambiá los caminos, los globs de test y el timeout por los del proyecto. `check-docs.py` valida la sección. Las entradas son ejemplos: lo que importa son las opciones del reporter. Se probaron contra el corpus de regresión del repo del kit (`.claude/skills/implement-issue/corpus/` allá; no se instala en los proyectos), y go y cargo solo contra la salida documentada de sus herramientas.
+Cada entrada tiene `name`, `when` (globs de los archivos de test), `run` (con `{out}`: `red.sh` lo reemplaza por el camino donde hay que escribir el reporte), `format` (`junit`) y un `timeout` opcional en segundos. No hay campo `report`. Cambiá los caminos, los globs de test y el timeout por los del proyecto. `check-docs.py` valida la sección. Las entradas son ejemplos: lo que importa son las opciones del reporter. Se probaron contra el corpus de regresión del repo del kit (`.claude/skills/implement-issue/corpus/` allá; no se instala en los proyectos), y go y cargo solo contra la salida documentada de sus herramientas.
+
+**`format: "tap"` salió en 2.0.0** (ADR-002, D8). Un mapa con una entrada en `format: "tap"` se rechaza, aunque esa entrada no coincida con el commit: `red.sh` sale con 2 antes de correr nada y `check-docs.py` lo informa como error, los dos con `red stack '<name>': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)`. Pasá la entrada a una de JUnit de la lista de abajo. El check de CI del cuerpo del PR (`labels.yml`) también rechaza un bloque del rojo con `format: tap`: después de pasar la entrada, volvé a correr `red.sh` y pegá el bloque nuevo. `update.py` reemplaza solo la entrada `bash` del kit; nunca convierte, borra ni reescribe otra entrada `tap`: la conserva y te lo dice al final de su resumen.
 
 ## bash (JUnit desde `tap.sh`)
 

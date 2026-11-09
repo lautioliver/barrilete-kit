@@ -25,7 +25,7 @@ case "$*" in
   api\ repos/o/r/issues/*/parent*) exit 1 ;;
   api\ repos/o/r/issues/*/comments*) ;;
   api\ repos/o/r/issues/*) cat "$GH_ISSUES/${2##*/}.json" ;;
-  "issue edit"*) ;;
+  "issue edit"*) if [ -n "${GH_EDIT_FALLA:-}" ]; then echo "gh falso: issue edit falla" >&2; exit 3; fi ;;
   "pr list"*) r=$(sed -E 's/.*--head ([^ ]+).*/\1/' <<<"$*"); [ -f "$GH_ISSUES/pr-${r//\//_}" ] && cat "$GH_ISSUES/pr-${r//\//_}" ;;
   *) echo "gh falso: $*" >&2; exit 1 ;;
 esac
@@ -308,5 +308,51 @@ c=0; s=$(trap - ERR; "$PREPARAR" 66 --worktree 2>&1) || c=$?; tap_status "$c" 64
 grep -q "not a valid GitHub login" <<<"$s"; tap_check $? "BK_HUMAN inválido: dice que no es un login"
 ! git -C "$TMP/proj" show-ref -q --verify refs/heads/claude/66-persona-invalida; tap_check $? "BK_HUMAN inválido: no crea la rama"
 unset BK_HUMAN
+
+# #267: --worktree toma un candado en el directorio git del worktree (worktree-lock.sh) y retoma el de un dueño muerto.
+issue 70 "Con candado"
+sleep 300 &
+DUENIO=$!
+sleep 0 &
+MUERTO=$!
+wait "$MUERTO"
+tap_at_exit "kill $DUENIO 2>/dev/null; rm -rf \"\$TMP\""
+export WORKTREE_LOCK_PID=$DUENIO WORKTREE_LOCK_AGENT=agente-prepare
+tap_run out 0 "$PREPARAR" 70 --worktree
+GD=$(git -C "$WT/70" rev-parse --absolute-git-dir 2>/dev/null)
+es -f "$GD/agent-lock"; tap_check $? "--worktree escribe el candado del worktree"
+lk=""; if [ -f "$GD/agent-lock" ]; then lk=$(cat "$GD/agent-lock"); fi
+grep -qx "pid=$DUENIO" <<<"$lk"; tap_check $? "el candado guarda el pid del agente que lo tomó"
+grep -qx "agent=agente-prepare" <<<"$lk"; tap_check $? "el candado guarda el nombre del agente"
+n=$(git -C "$WT/70" status --porcelain | wc -l | tr -d ' ')
+es "$n" = 0; tap_check $? "el candado no ensucia el worktree"
+printf 'pid=%s\nstart=Thu Jan  1 00:00:00 1970\nagent=agente-viejo\nsince=2026-01-01T00:00:00Z\n' "$MUERTO" >"$GD/agent-lock"
+tap_run out 0 "$PREPARAR" 70 --worktree
+lk=""; if [ -f "$GD/agent-lock" ]; then lk=$(cat "$GD/agent-lock"); fi
+grep -qx "agent=agente-prepare" <<<"$lk"; tap_check $? "con un candado de un dueño muerto, retoma el worktree y lo reemplaza"
+unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
+
+# Otro agente vivo tiene el worktree: prepare.sh se niega, dice quién lo tiene y no pisa el candado.
+printf 'pid=%s\nstart=%s\nagent=agente-ajeno\nsince=2026-01-01T00:00:00Z\n' "$DUENIO" "$(TZ=UTC LC_ALL=C ps -o lstart= -p "$DUENIO" | sed 's/^ *//; s/ *$//')" >"$GD/agent-lock"
+export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-intruso
+c=0; s=$(trap - ERR; "$PREPARAR" 70 --worktree 2>&1) || c=$?; tap_status "$c" 1
+es "$c" -ne 0; tap_check $? "un worktree con dueño vivo ajeno: prepare.sh se niega"
+grep -q "in use.*agente-ajeno" <<<"$s"; tap_check $? "el mensaje dice que el worktree está en uso y por quién"
+lk=$(cat "$GD/agent-lock")
+grep -qx "agent=agente-ajeno" <<<"$lk"; tap_check $? "el candado del dueño vivo no se pisa"
+unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
+
+# Si prepare.sh falla después de tomar el candado (acá, al asignar), lo suelta: el worktree no queda tomado
+# por un agente que no arrancó. Un candado que ya era suyo antes de correrlo (lo renovó) no se suelta.
+issue 71 "Falla al asignar"
+export WORKTREE_LOCK_PID=$DUENIO WORKTREE_LOCK_AGENT=agente-falla GH_EDIT_FALLA=1
+tap_run out 3 "$PREPARAR" 71 --worktree
+GD71=$(git -C "$WT/71" rev-parse --absolute-git-dir 2>/dev/null)
+es -n "$GD71"; tap_check $? "falla al asignar: el worktree quedó creado"
+es ! -e "$GD71/agent-lock"; tap_check $? "falla después de tomar el candado: prepare.sh lo suelta"
+printf 'pid=%s\nstart=%s\nagent=agente-falla\nsince=2026-01-01T00:00:00Z\n' "$DUENIO" "$(TZ=UTC LC_ALL=C ps -o lstart= -p "$DUENIO" | sed 's/^ *//; s/ *$//')" >"$GD71/agent-lock"
+tap_run out 3 "$PREPARAR" 71 --worktree
+es -f "$GD71/agent-lock"; tap_check $? "falla con un candado que ya era suyo: no lo suelta"
+unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT GH_EDIT_FALLA
 
 tap_done

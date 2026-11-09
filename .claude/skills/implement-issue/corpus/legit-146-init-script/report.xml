@@ -1,0 +1,6 @@
+<testsuites>
+<testsuite name="scripts/init.test.sh" file="scripts/init.test.sh" tests="2" failures="1" errors="0" skipped="0">
+<testcase name="init exists" classname="scripts/init.test.sh" file="scripts/init.test.sh"></testcase>
+<testcase name="init replaces the placeholders" classname="scripts/init.test.sh" file="scripts/init.test.sh"><failure message=""/></testcase>
+</testsuite>
+</testsuites>
