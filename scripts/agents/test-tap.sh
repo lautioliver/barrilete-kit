@@ -751,6 +751,17 @@ xq 'sum(1 for c in root.iter("testcase") if c.get("name") == "x") == 1'; tap_che
 xq 'any(c.find("error") is not None and c.find("error").get("message") == "late crash" for c in root.iter("testcase"))'; tap_check $? "264: JUnit: a crash that sends TERM while the suite is written leaves its error testcase"
 rc_is 1; tap_check $? "264: JUnit: a crash that sends TERM while the suite is written exits with 1"
 
+# The shim above sends the TERM inside _tap_clean, before the cases are forgotten, so it does not see the order "forget the
+# cases, then write the suite". A DEBUG trap with functrace sends it on the first command after the write (_tap_line): if
+# the cases were forgotten after the write, the TERM trap would find them still held and write them a second time.
+run_tap 'tap_ok "x"
+set -T
+_late() { case $BASH_COMMAND in "_tap_line \"\$out\"") _f=1 ;; printf*) ;; *) [ "${_f:-0}" = 1 ] || return 0; trap - DEBUG; printf "late crash" >"$_TAP_BAILFILE"; kill -TERM $$ ;; esac; }
+trap _late DEBUG
+tap_done' junit
+xq 'sum(1 for c in root.iter("testcase") if c.get("name") == "x") == 1'; tap_check $? "264: JUnit: a TERM that lands right after the suite is written leaves the cases once"
+xq 'any(c.find("error") is not None and c.find("error").get("message") == "late crash" for c in root.iter("testcase"))'; tap_check $? "264: JUnit: a TERM that lands right after the suite is written leaves its error testcase"
+
 # the format: TAP_FORMAT. 2.0.0 writes only JUnit: junit is accepted, and any other value fails closed, tap included.
 run_tap 'tap_ok "x"
 tap_done' fmt=junit
