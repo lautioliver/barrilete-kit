@@ -1,0 +1,9 @@
+{
+  "checks": [
+    {
+      "id": "pr-metadata",
+      "rule": "numeros-del-pr-desde-la-ultima-corrida",
+      "fail_message": "El cuerpo del PR no coincide con la rama (red commit, casos, cantidad de commits o número del issue): regenerá esos números desde la última corrida con red.sh y git log, y corregí el cuerpo con gh pr edit. Si el check sigue fallando y creés que se equivoca, escalá y no cambies el check."
+    }
+  ]
+}

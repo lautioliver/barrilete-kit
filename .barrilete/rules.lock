@@ -1,3 +1,3 @@
 # ADR-006 D7: la versión de barrilete-rules que el kit consume. `scripts/agents/sync-rules` la lee.
 repo=lautioliver/barrilete-rules
-sha=460eabc2c17b5f317fd50bf47fe2d7c967a53c69
+sha=9abec4a99f6d1dfc7f1d879e9f20427db60500e0
