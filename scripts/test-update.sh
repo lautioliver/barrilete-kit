@@ -820,6 +820,19 @@ err=$(<"$TMP/stderr.txt")
 [[ "$s" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error en stdout"
 [[ "$err" != *'was removed in 2.0.0'* ]]; tap_check $? "[tap 2.0.0] la entrada bash del kit no imprime el error en stderr"
 
+# El run que publicó 2.0.0 (--diff-filter=AMR, ya en JUnit) es del kit: un proyecto que lo tiene recibe el run actual (#264, AMRC).
+RUN_KIT_2_0=$(cat <<'RUN'
+rc=0; tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT; while IFS= read -r -d '' t; do TAP_OUT=$tmp bash "$t" </dev/null || rc=1; done < <(git diff -z --name-only --diff-filter=AMR HEAD^ HEAD -- ':(glob)**/test-*.sh'); { echo '<testsuites>'; cat "$tmp"; echo '</testsuites>'; } >{out}; exit $rc
+RUN
+)
+D="$TMP/red-2-0-0-kit"
+proyecto "$D" completo
+poner_mapa_red "$D" "[{\"name\":\"bash\",\"when\":[\"tests/**/test-*.sh\"],\"format\":\"junit\",\"run\":$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$RUN_KIT_2_0"),\"timeout\":900}]"
+c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>"$TMP/stderr.txt") || c=$?; tap_status "$c" 0
+[[ "$(campo_red "$D" bash run)" == *'--diff-filter=AMRC '* ]]; tap_check $? "[2.0.0] la entrada bash que publicó 2.0.0 toma el run actual del kit (AMRC)"
+[ "$(campo_red "$D" bash when)" = '["tests/**/test-*.sh"]' ]; tap_check $? "[2.0.0] reemplazar la entrada de 2.0.0 conserva el when del proyecto"
+[ "$(campo_red "$D" bash timeout)" = 900 ]; tap_check $? "[2.0.0] reemplazar la entrada de 2.0.0 conserva el timeout del proyecto"
+
 D="$TMP/red-tap-propia"
 proyecto "$D" completo
 bash_tocado="$RUN_KIT_1_1; echo mio"
