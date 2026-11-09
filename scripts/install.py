@@ -62,7 +62,9 @@ def con_red(texto, kit):
         return None
     mio["red"] = del_kit["red"]
     return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
-# The glossary and the map of contexts (ADR-003 D2, D5, D3). ENLACES_*, `enlaza`, `avisos_enlaces` and `con_contextos` are copies in update.py, grow.py and install.py: they run on their own, so change all of them.
+
+
+# The glossary and the map of contexts (ADR-003 D2, D5, D3). `LINK`, `enlaza`, `avisos_enlaces` and `con_contextos` are copies in update.py, grow.py and install.py: they run on their own, so change all of them.
 CONTEXTS_AGREGADO = ("docs/agents-map.json had no `contexts` section (ADR-003 D3): I added it empty. Fill it in with the project's "
                      "bounded contexts (name, paths, depends_on: the _help of the map explains it); docs/reference/contexts.md is its prose.")
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
@@ -351,6 +353,7 @@ def padre_ocupado(ruta):
 AGREGADAS = {"red": False, "contexts": False}
 GLOSARIOS_DEL_KIT = ("docs/reference/glossary.md", "docs/glossary.md")
 GLOSARIOS_AJENOS = {}
+TERCEROS = {"node_modules", "vendor", "third_party", "site-packages", ".venv", "venv"}  # code that is not the repo's own: its glossaries are not the repo's
 
 
 def glosarios_ajenos(ruta):
@@ -358,7 +361,7 @@ def glosarios_ajenos(ruta):
     r = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
     return [f for f in r.stdout.splitlines()
             if re.fullmatch(r"(glossary|glosario)(\.[a-z]{2})?\.md", os.path.basename(f), re.I)
-            and f != ruta and not f.startswith(".agent-kit/")]
+            and f != ruta and not f.startswith(".agent-kit/") and not set(f.split("/")) & TERCEROS]
 
 
 def planear(nueva, labels_yml):
@@ -380,9 +383,9 @@ def planear(nueva, labels_yml):
             plan.append(("pending", ruta, kit, None))
         elif os.path.islink(ruta):  # never write through a link (CLAUDE.md -> AGENTS.md)
             plan.append(("pending", ruta, kit, None))
-        elif ruta in GLOSARIOS_DEL_KIT and not os.path.lexists(ruta) and glosarios_ajenos(ruta):
+        elif ruta in GLOSARIOS_DEL_KIT and not os.path.lexists(ruta) and (ajenos := glosarios_ajenos(ruta)):
             # The repo has its glossary in another path: the kit's is not put next to it, it goes to pending (ADR-003).
-            GLOSARIOS_AJENOS[ruta] = glosarios_ajenos(ruta)
+            GLOSARIOS_AJENOS[ruta] = ajenos
             plan.append(("pending", ruta, kit, None))
         elif not os.path.lexists(ruta) and not (es_workflow(ruta) and os.path.lexists(otra_extension(ruta))):
             plan.append(("add", ruta, kit, None))
@@ -397,11 +400,10 @@ def planear(nueva, labels_yml):
             # red.sh rejects it otherwise (ADR-002 D8).
             try:
                 mio, del_kit = leer(ruta), leer(kit)
-                texto = con_red(mio, del_kit)
-                AGREGADAS["red"] = texto is not None
-                con_ctx = con_contextos(mio if texto is None else texto, del_kit)  # also `contexts` (ADR-003 D3)
-                AGREGADAS["contexts"] = con_ctx is not None
-                texto = con_ctx if con_ctx is not None else texto
+                con_r = con_red(mio, del_kit)
+                con_ctx = con_contextos(mio if con_r is None else con_r, del_kit)  # also `contexts` (ADR-003 D3)
+                AGREGADAS["red"], AGREGADAS["contexts"] = con_r is not None, con_ctx is not None
+                texto = con_ctx if con_ctx is not None else con_r
             except (ValueError, UnicodeDecodeError):
                 texto = None
             plan.append(("pending", ruta, kit, None))

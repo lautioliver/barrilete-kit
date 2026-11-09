@@ -94,7 +94,7 @@ def con_red_actual(texto, kit):
     return (json.dumps(mio, ensure_ascii=False, indent=2) + "\n" if cambio else None), taps
 
 
-# The glossary and the map of contexts (ADR-003 D2, D5, D3). ENLACES_*, `enlaza`, `avisos_enlaces` and `con_contextos` are copies in update.py, grow.py and install.py: they run on their own, so change all of them.
+# The glossary and the map of contexts (ADR-003 D2, D5, D3). `LINK`, `enlaza`, `avisos_enlaces` and `con_contextos` are copies in update.py, grow.py and install.py: they run on their own, so change all of them.
 CONTEXTS_AGREGADO = ("docs/agents-map.json had no `contexts` section (ADR-003 D3): I added it empty. Fill it in with the project's "
                      "bounded contexts (name, paths, depends_on: the _help of the map explains it); docs/reference/contexts.md is its prose.")
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")

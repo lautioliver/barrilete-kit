@@ -86,8 +86,19 @@ def contextos_de_tabla(texto):
     """The `contexts` entries of the table of docs/contexts.md of the small profile (Context | Responsibility | Own terms |
     Depends on | Code paths): (list, None), or (None, why) if a row cannot be passed. The TODO template row is skipped, so an
     unfilled table gives an empty list. A path of a folder that exists becomes `folder/**`; the others stay as written."""
-    filas = [[c.strip() for c in l.strip().strip("|").split("|")] for l in texto.splitlines() if l.strip().startswith("|")]
-    filas = [f for f in filas[2:]] if len(filas) > 2 else []  # the header and its separator are not rows
+    # The table is the first block of `|` lines with 5 columns whose second line is the separator (there may be a legend table before it).
+    bloques, actual = [], []
+    for l in texto.splitlines() + [""]:
+        if l.strip().startswith("|"):
+            actual.append([c.strip() for c in l.strip().strip("|").split("|")])
+        elif actual:
+            bloques.append(actual)
+            actual = []
+    filas = []
+    for b in bloques:
+        if len(b) >= 2 and len(b[0]) == 5 and all(re.fullmatch(r":?-+:?", c) for c in b[1]):
+            filas = b[2:]
+            break
     contextos = []
     for f in filas:
         if len(f) < 5:
@@ -100,7 +111,8 @@ def contextos_de_tabla(texto):
         rutas = []
         for r in (x.strip().strip("`").strip() for x in f[4].split(",")):
             if r:
-                rutas.append(r.rstrip("/") + "/**" if not re.search(r"[*?\[]", r) and os.path.isdir(r.rstrip("/")) else r)
+                carpeta = not re.search(r"[*?\[]", r) and (r.endswith("/") or os.path.isdir(r))  # `src/a/`, or `src/a` that exists
+                rutas.append(r.rstrip("/") + "/**" if carpeta else r)
         if not nombre or not rutas:
             return None, f"the row of '{nombre or '?'}' has no name or no code paths"
         depende = [d for d in (x.strip().strip("`").strip() for x in f[3].split(",")) if d.lower() not in SIN_RUTA_DEPENDE]
@@ -226,6 +238,8 @@ def main():
                 sin_tocar.append(viejo)
             elif os.path.exists(nuevo):
                 sin_mover.append((viejo, nuevo))
+                if viejo == "docs/contexts.md":
+                    tabla = None  # the project has two; which one is right is its call: nothing goes to the map from the old one
             else:
                 os.makedirs(os.path.dirname(nuevo), exist_ok=True)
                 sh("git", "mv", viejo, nuevo)
@@ -313,7 +327,8 @@ def main():
     if tabla_movida:
         print(f"\nMoved: {', '.join(tabla_movida)}. The links to them in your docs have to point to docs/reference/ now.")
     for viejo, nuevo in sin_mover:
-        print(f"\nNot moved: {viejo}, because {nuevo} already exists. Merge them by hand and delete {viejo}.")
+        print(f"\nNot moved: {viejo}, because {nuevo} already exists. Merge them by hand and delete {viejo}"
+              + (f"; the `contexts` section of {MAPA} is not filled from it." if viejo == "docs/contexts.md" else "."))
     if pasados:
         print(f"\nContexts: {pasados} row(s) of the table went to the `contexts` section of {MAPA} (a code path that is a folder "
               "became folder/**). Check them with python3 scripts/agents/check-docs.py.")
