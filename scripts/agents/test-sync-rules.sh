@@ -160,4 +160,18 @@ grep -q 'rota' <<<"$out"; tap_check $? "regla mal formada: falla y nombra la reg
 diff -r "$TMP/m-antes" "$TMP/m" >/dev/null; tap_check $? "regla mal formada: no escribe ningún archivo"
 git -C "$TMP/rules" checkout -q main
 
+# 13. El proyecto sale de .agent-kit.json y de ningún otro lado: un `project=` en rules.lock es un error que lo dice.
+proyecto "$TMP/q" "$SHA1"
+printf 'project=otro-proyecto\n' >>"$TMP/q/.barrilete/rules.lock"
+tap_run out 3 "$SYNC" --root "$TMP/q" --url "$TMP/rules"
+grep -q 'agent-kit.json' <<<"$out"; tap_check $? "rules.lock con project=: falla y manda a .agent-kit.json"
+# el kit: su proyecto está en su .agent-kit.json (el kit se instala sin uno propio) y rules.lock no lo repite
+# (solo en la plantilla: el init borra init-template.sh y escribe el .agent-kit.json del proyecto)
+if [ -f "$RAIZ/scripts/init-template.sh" ]; then
+  K="$RAIZ/.agent-kit.json"
+  [ -f "$K" ] && grep -q '"project": "barrilete-kit"' "$K"; tap_check $? "el .agent-kit.json del kit dice project barrilete-kit"
+  [ -f "$K" ] && grep -q '"template": true' "$K"; tap_check $? "el .agent-kit.json del kit dice template true"
+fi
+[ "$(grep -c '^project=' "$RAIZ/.barrilete/rules.lock" || true)" = 0 ]; tap_check $? "el rules.lock del kit no lleva project="
+
 tap_done
