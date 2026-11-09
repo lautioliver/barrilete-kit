@@ -24,8 +24,10 @@ import sys
 
 USAGE = "Usage: scripts/agents/checks/pr-metadata --base <ref>"
 HEX = re.compile(r"^[0-9a-fA-F]{7,64}$")
-COMMITS = re.compile(r"(?<![\w#.])(\d+)\s+commits?\b", re.I)
-ISSUE_REF = re.compile(r"\b(?:closes|fixes|resolves|refs)\s+#(\d+)\b", re.I)
+# "N commits" counts when it is the PR's own total: at the start of a line (or a bullet), after "(" or ":", or after "has"/"tiene"
+# and the like; "cherry-pick de 2 commits de #280" talks about other commits, and a "red commit: <sha>" line is not a count.
+COMMITS = re.compile(r"(?:^|[(:]|\b(?:has|have|tiene|tienen|son|are|con|with))\s*(?:[-*]\s+)?(?<![\w#.])(\d+)\s+commits?\b(?!\s+(?:de|of|from)\b)", re.I)
+ISSUE_REF = re.compile(r"\b(?:closes|fixes|resolves|refs)\b:?\s+(?:[\w.-]+/[\w.-]+#|https?://github\.com/[\w.-]+/[\w.-]+/issues/|#)(\d+)\b", re.I)
 BRANCH_ISSUE = re.compile(r"^[a-z]+/(\d+)-")
 
 
@@ -86,12 +88,16 @@ def main(argv):
 
     problems, lines = [], outside_code(body)
     red = None
+    in_cases = False
     n_red = n_cases = 0
     for line in lines:
         t = line.strip().strip("`")
+        if red and in_cases and not t.startswith("- "):
+            red = None  # the list of cases ended (a blank line or other text): a later `- x::y` is not a failing case
         if t.lower().startswith("</details>") or t.startswith("#"):
             red = None  # the red block ended: a later `- x::y` is not a failing case
         elif t.lower().startswith("red commit:"):
+            in_cases = False
             token = t[len("red commit:"):].strip().strip("`").split()[:1]
             red = None
             if not token or token[0].lower() == "none":
@@ -107,7 +113,8 @@ def main(argv):
                 continue
             red = sha
         elif t.startswith("- ") and "::" in t and red:
-            case = t[2:].strip()
+            in_cases = True
+            case = t[2:].strip().strip("`").strip()
             path, _, cname = case.partition("::")
             n_cases += 1
             rc, src, _ = run("git", "show", f"{red}:{path}")
@@ -117,6 +124,8 @@ def main(argv):
                 problems.append(f"failing case {case!r}: the name is not in {path} at the red commit {red}")
 
     for line in lines:
+        if line.strip().strip("`").lower().startswith("red commit:"):
+            continue
         for g in COMMITS.finditer(line):
             said = int(g.group(1))
             if said != len(commits):
@@ -129,13 +138,14 @@ def main(argv):
         said = ", ".join(f"#{n}" for n in refs) or "no issue"
         problems.append(f"the branch is for issue #{branch_issue} and the body says {said} (it needs Closes #{branch_issue} or Refs #{branch_issue})")
 
+    if branch_issue is None:
+        print("pr-metadata: note: the branch name has no <type>/<n>- issue number, so the issue was not checked")
     if problems:
         for p in problems:
             print(f"pr-metadata: {p}")
         return 3
-    note = "" if branch_issue is not None else "; the branch name has no issue number, so the issue was not checked"
     print(f"pr-metadata: ok (PR #{number}: {len(commits)} commit(s), {n_red} red commit(s), {n_cases} case(s), "
-          f"issue {', '.join('#' + str(n) for n in refs) or 'none'}{note})")
+          f"issue {', '.join('#' + str(n) for n in refs) or 'none'})")
     return 0
 
 

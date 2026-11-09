@@ -11,7 +11,8 @@ into a temporary directory at that exact SHA (default URL: https://github.com/<r
 docs/agents/classes.yml, the copy of barrilete-rules' classes.yml (its only source), and .barrilete/checks.json, the manifest of the
 checks (`id`, `rule`, `fail_message`) of the applied rules, which scripts/agents/verify.py runs (ADR-006 D8).
 It adds the project's own rules (.barrilete/rules/*.md) and checks that each `check: <id>` of an applied rule exists in
-scripts/agents/checks/<id> (it copies no checks: they live in the kit). A rule applies when its `scope` is "*" or lists the
+scripts/agents/checks/<id> (it copies no checks: they live in the kit; without scripts/agents/verify.py, the small profile, nothing runs them
+and it neither checks nor lists them). A rule applies when its `scope` is "*" or lists the
 project (`project` of rules.lock, else of .agent-kit.json). The text of the rule is copied as it is, without translating.
 Everything is validated before anything is written: a bad rule leaves no file half written.
 
@@ -188,15 +189,18 @@ def compute(root, lock, project, src):
         fail(f".barrilete/rules/{rid}.md: the id {rid} is also a rule of barrilete-rules; use another id")
     applied = {rid: v for rid, v in {**theirs, **own}.items()
                if v[0]["status"] == "accepted" and (v[0]["scope"] == ["*"] or (project and project in v[0]["scope"]))}
+    # The checks only matter where verify.py runs them: the small profile has no verify.py (nor checks/), and there a rule with a
+    # check applies as text and its check is left out of the manifest.
+    runs_checks = os.path.isfile(os.path.join(root, "scripts", "agents", "verify.py"))
     for rid, (fields, _text) in sorted(applied.items()):
         chk = fields.get("check")
-        if chk and not os.path.isfile(os.path.join(root, "scripts", "agents", "checks", chk)):
+        if chk and runs_checks and not os.path.isfile(os.path.join(root, "scripts", "agents", "checks", chk)):
             fail(f"rule {rid}: its check {chk} is missing in scripts/agents/checks/{chk} (the checks live in the kit)")
     repo, sha = lock["repo"], lock["sha"]
     outputs = {}
     checks = []
     for rid, (fields, _text) in sorted(applied.items()):
-        if fields.get("check"):
+        if fields.get("check") and runs_checks:
             msg = fields.get("fail_message")
             if not isinstance(msg, str) or not msg.strip():
                 fail(f"rule {rid}: it has check {fields['check']} and no fail_message (what to do and when to escalate)")
