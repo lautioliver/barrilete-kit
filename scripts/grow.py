@@ -31,6 +31,45 @@ RED_GUIA = ("To configure your stack's entry, see docs/guides/red-per-runner.md 
             "https://github.com/lautioliver/barrilete-kit, if your project does not have the guides).")
 
 
+# The glossary and the map of contexts (ADR-003 D2, D5). LINK, `enlaza` and `avisos_enlaces` are copies in update.py, grow.py and install.py: they run on their own, so change all of them.
+LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+# docs/ of the small profile → where the full profile keeps them (D2).
+GLOSARIO_Y_CONTEXTOS = (("docs/glossary.md", "docs/reference/glossary.md"), ("docs/contexts.md", "docs/reference/contexts.md"))
+SIN_RUTA_DEPENDE = {"", "-", "—", "none", "n/a", "ninguno", "ninguna", "ningún"}
+
+
+def enlaza(indice, ruta):
+    """True if the index links ruta (any spelling: ./a.md, <a.md>, a.md#section; not in a code block or inline code)."""
+    try:
+        with open(indice, encoding="utf-8") as f:
+            texto = re.sub(r"```.*?```", "", f.read(), flags=re.S)
+    except (OSError, UnicodeDecodeError):
+        return True  # it cannot be read: there is nothing to say about it
+    for linea in texto.splitlines():
+        for d in LINK.findall(re.sub(r"`[^`]*`", "", linea)):
+            d = d.strip("<>")
+            local = d.split("#")[0]
+            if not re.match(r"^[a-z]+:", d) and local and os.path.normpath(os.path.join(os.path.dirname(indice), local)) == os.path.normpath(ruta):
+                return True
+    return False
+
+
+def avisos_enlaces(chico, existe=os.path.exists):
+    """What the docs indexes do not link of the glossary and the map of contexts: the text of a warning for each one that
+    exists (`existe`) and is not linked. As check-docs.py reads them: --small in docs/glossary.md and docs/contexts.md, from the READMEs;
+    full in docs/reference/, from the READMEs and the llms.txt."""
+    rutas = ["docs/glossary.md", "docs/contexts.md"] if chico else ["docs/reference/glossary.md", "docs/reference/contexts.md"]
+    indices = ["docs/README.md", "docs/README.es.md"] + ([] if chico else ["docs/llms.txt", "docs/llms.es.txt"])
+    avisos = []
+    for ruta in rutas:
+        for indice in indices:
+            if existe(ruta) and os.path.exists(indice) and not enlaza(indice, ruta):
+                titulo = "Glossary" if "glossary" in ruta else "Contexts"
+                avisos.append(f"{indice} does not link {ruta}: add a link to it, for example "
+                              f"[{titulo}]({os.path.relpath(ruta, os.path.dirname(indice))})")
+    return avisos
+
+
 def completar_mapa(texto, kit):
     """The full map with the project's sections on top: what the project had (its `red` above all) is kept and the
     sections it lacks come from the kit. ValueError if either is not a JSON object."""
@@ -41,6 +80,50 @@ def completar_mapa(texto, kit):
     if not isinstance(mio, dict) or not isinstance(completo, dict):
         raise ValueError("it is not a JSON object")
     return json.dumps({**completo, **mio}, ensure_ascii=False, indent=2) + "\n", "red" not in mio
+
+
+def contextos_de_tabla(texto):
+    """The `contexts` entries of the table of docs/contexts.md of the small profile (Context | Responsibility | Own terms |
+    Depends on | Code paths): (list, None), or (None, why) if a row cannot be passed. The TODO template row is skipped, so an
+    unfilled table gives an empty list. A path of a folder that exists becomes `folder/**`; the others stay as written."""
+    filas = [[c.strip() for c in l.strip().strip("|").split("|")] for l in texto.splitlines() if l.strip().startswith("|")]
+    filas = [f for f in filas[2:]] if len(filas) > 2 else []  # the header and its separator are not rows
+    contextos = []
+    for f in filas:
+        if len(f) < 5:
+            return None, f"a row of the table has {len(f)} columns, not 5"
+        nombre = f[0].strip("`")
+        if nombre.startswith("TODO"):
+            continue
+        if any(c.startswith("TODO") for c in f):
+            return None, f"the row of '{nombre}' still has a TODO"
+        rutas = []
+        for r in (x.strip().strip("`").strip() for x in f[4].split(",")):
+            if r:
+                rutas.append(r.rstrip("/") + "/**" if not re.search(r"[*?\[]", r) and os.path.isdir(r.rstrip("/")) else r)
+        if not nombre or not rutas:
+            return None, f"the row of '{nombre or '?'}' has no name or no code paths"
+        depende = [d for d in (x.strip().strip("`").strip() for x in f[3].split(",")) if d.lower() not in SIN_RUTA_DEPENDE]
+        contextos.append({"name": nombre, "paths": rutas, "depends_on": depende})
+    return contextos, None
+
+
+def pasar_contextos(contextos):
+    """Writes `contextos` as the `contexts` section of the map; None if it did, or why it could not (not a JSON object,
+    or it already has contexts of its own: those are not overwritten)."""
+    try:
+        with open(MAPA, encoding="utf-8") as f:
+            mapa = json.load(f)
+        if not isinstance(mapa, dict):
+            return "the map is not a JSON object"
+        if mapa.get("contexts"):
+            return "the map already has contexts of its own"
+        mapa["contexts"] = contextos
+        with open(MAPA, "w", encoding="utf-8") as f:
+            f.write(json.dumps(mapa, ensure_ascii=False, indent=2) + "\n")
+    except (ValueError, OSError) as e:
+        return f"the map cannot be read or written ({e})"
+    return None
 
 
 def salir(msg):
@@ -117,6 +200,7 @@ def main():
 
         agregados, reemplazados, pendientes, iguales, retenidos, errores = [], [], [], 0, [], []
         completados, red_agregada = [], False
+        sin_tocar, sin_mover = [], []
         registradas = kit.get("files", {})
 
         # The small mode architecture is project content: it is moved to where full mode expects it.
@@ -125,6 +209,29 @@ def main():
             os.makedirs("docs/development", exist_ok=True)
             sh("git", "mv", "docs/architecture.md", "docs/development/architecture.md")
             movido = "docs/architecture.md → docs/development/architecture.md"
+
+        # The glossary and the contexts of the small profile (ADR-003 D2). What the project did not touch goes away (the full
+        # profile brings its own, with more columns and sections); what it wrote moves to docs/reference/ (the full version of
+        # that file goes to pending like any file the project modified), unless something is already there.
+        tabla, ruta_tabla, tabla_movida = None, "docs/contexts.md", []
+        if os.path.isfile("docs/contexts.md"):
+            with open("docs/contexts.md", encoding="utf-8", errors="replace") as f:
+                tabla = f.read()
+        for viejo, nuevo in GLOSARIO_Y_CONTEXTOS:
+            if not os.path.isfile(viejo):
+                continue
+            if registradas.get(viejo) == huella(viejo):
+                os.remove(viejo)
+                registradas.pop(viejo)
+                sin_tocar.append(viejo)
+            elif os.path.exists(nuevo):
+                sin_mover.append((viejo, nuevo))
+            else:
+                os.makedirs(os.path.dirname(nuevo), exist_ok=True)
+                sh("git", "mv", viejo, nuevo)
+                tabla_movida.append(f"{viejo} → {nuevo}")
+                if viejo == "docs/contexts.md":
+                    ruta_tabla = nuevo
 
         for ruta in sorted(archivos(tmp)):
             if ruta in NO_TRAER:
@@ -168,6 +275,17 @@ def main():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    # The table of contexts of the small profile → the `contexts` section of the full map (ADR-003 D3).
+    aviso_tabla, pasados = None, 0
+    if tabla is not None:
+        contextos, porque = contextos_de_tabla(tabla)
+        if contextos:
+            porque = pasar_contextos(contextos)
+            pasados = 0 if porque else len(contextos)
+        if porque:
+            aviso_tabla = (f"the table of {ruta_tabla} was not passed to the `contexts` section of {MAPA} ({porque}): fill it in by hand "
+                           "(name, paths, depends_on: the _help of the map explains it).")
+
     # Registry: the files the template brought are recorded as "untouched" from now on.
     for ruta in agregados + reemplazados:
         registradas[ruta] = huella(ruta)
@@ -189,6 +307,23 @@ def main():
           f"{iguales} already equal, {len(pendientes)} pending.")
     if movido:
         print(f"Moved: {movido}")
+    for viejo, nuevo in GLOSARIO_Y_CONTEXTOS:
+        if viejo in sin_tocar:
+            print(f"\nRemoved: {viejo} (you had not changed it): the full profile has its own, {nuevo}.")
+    if tabla_movida:
+        print(f"\nMoved: {', '.join(tabla_movida)}. The links to them in your docs have to point to docs/reference/ now.")
+    for viejo, nuevo in sin_mover:
+        print(f"\nNot moved: {viejo}, because {nuevo} already exists. Merge them by hand and delete {viejo}.")
+    if pasados:
+        print(f"\nContexts: {pasados} row(s) of the table went to the `contexts` section of {MAPA} (a code path that is a folder "
+              "became folder/**). Check them with python3 scripts/agents/check-docs.py.")
+    if aviso_tabla:
+        print(f"\nWarning: {aviso_tabla}")
+    enlaces = avisos_enlaces(False)
+    if enlaces:
+        print("\nThe glossary and the map of contexts have to be linked from the docs index (ADR-003 D2, D5; check-docs.py warns about it):")
+        for e in enlaces:
+            print(f"Warning: {e}")
     if completados:
         print(f"\nCompleted: {', '.join(completados)} keeps your sections (your `red` among them) and gets the ones of the "
               "full map. Fill in its TODO paths.")

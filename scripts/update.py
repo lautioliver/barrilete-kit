@@ -94,6 +94,64 @@ def con_red_actual(texto, kit):
     return (json.dumps(mio, ensure_ascii=False, indent=2) + "\n" if cambio else None), taps
 
 
+# The glossary and the map of contexts (ADR-003 D2, D5, D3). ENLACES_*, `enlaza`, `avisos_enlaces` and `con_contextos` are copies in update.py, grow.py and install.py: they run on their own, so change all of them.
+CONTEXTS_AGREGADO = ("docs/agents-map.json had no `contexts` section (ADR-003 D3): I added it empty. Fill it in with the project's "
+                     "bounded contexts (name, paths, depends_on: the _help of the map explains it); docs/reference/contexts.md is its prose.")
+LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def con_contextos(texto, kit):
+    """The project's map with the kit's (empty) `contexts` section added; None if it already has one or there is nothing to add.
+    ValueError if the project's map is not a JSON object."""
+    try:
+        mio, del_kit = json.loads(texto), json.loads(kit)
+    except ValueError as e:
+        raise ValueError(f"it is not valid JSON ({e})")
+    if not isinstance(mio, dict):
+        raise ValueError("it is not a JSON object")
+    if "contexts" in mio or not isinstance(del_kit, dict) or "contexts" not in del_kit:
+        return None
+    mio["contexts"] = del_kit["contexts"]
+    return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
+
+
+def aviso_contextos(e):
+    return (f"{MAPA}: could not add its `contexts` section ({e}). A map without it is read as empty, so nothing breaks: "
+            'add `"contexts": []` by hand when you define the contexts.')
+
+
+def enlaza(indice, ruta):
+    """True if the index links ruta (any spelling: ./a.md, <a.md>, a.md#section; not in a code block or inline code)."""
+    try:
+        with open(indice, encoding="utf-8") as f:
+            texto = re.sub(r"```.*?```", "", f.read(), flags=re.S)
+    except (OSError, UnicodeDecodeError):
+        return True  # it cannot be read: there is nothing to say about it
+    for linea in texto.splitlines():
+        for d in LINK.findall(re.sub(r"`[^`]*`", "", linea)):
+            d = d.strip("<>")
+            local = d.split("#")[0]
+            if not re.match(r"^[a-z]+:", d) and local and os.path.normpath(os.path.join(os.path.dirname(indice), local)) == os.path.normpath(ruta):
+                return True
+    return False
+
+
+def avisos_enlaces(chico, existe=os.path.exists):
+    """What the docs indexes do not link of the glossary and the map of contexts: the text of a warning for each one that
+    exists (`existe`) and is not linked. As check-docs.py reads them: --small in docs/glossary.md and docs/contexts.md, from the READMEs;
+    full in docs/reference/, from the READMEs and the llms.txt."""
+    rutas = ["docs/glossary.md", "docs/contexts.md"] if chico else ["docs/reference/glossary.md", "docs/reference/contexts.md"]
+    indices = ["docs/README.md", "docs/README.es.md"] + ([] if chico else ["docs/llms.txt", "docs/llms.es.txt"])
+    avisos = []
+    for ruta in rutas:
+        for indice in indices:
+            if existe(ruta) and os.path.exists(indice) and not enlaza(indice, ruta):
+                titulo = "Glossary" if "glossary" in ruta else "Contexts"
+                avisos.append(f"{indice} does not link {ruta}: add a link to it, for example "
+                              f"[{titulo}]({os.path.relpath(ruta, os.path.dirname(indice))})")
+    return avisos
+
+
 def salir(msg):
     print(f"update.py: {msg}", file=sys.stderr)
     sys.exit(1)
@@ -445,6 +503,24 @@ def actualizar_red(kit):
     return texto is not None, taps
 
 
+def completar_contextos(kit):
+    """The project's map without a `contexts` section gets the kit's empty one (ADR-003 D3): (added, warning or None).
+    `kit` is the map of the initialized template (the small profile's has none: nothing is added). A map with a `contexts`
+    section, even a filled one, stays as it is."""
+    if not os.path.isfile(MAPA) or not os.path.isfile(kit):
+        return False, None
+    try:
+        with open(MAPA, encoding="utf-8") as f, open(kit, encoding="utf-8") as g:
+            texto = con_contextos(f.read(), g.read())
+    except (ValueError, OSError) as e:
+        return False, aviso_contextos(e)
+    if texto is None:
+        return False, None
+    with open(MAPA, "w", encoding="utf-8") as f:
+        f.write(texto)
+    return True, None
+
+
 def renombrar(raiz, renombres):
     """Applies the project's renames (a workflow installed as barrilete-<name>.yml) to an initialized template."""
     for viejo, nuevo in renombres.items():
@@ -587,6 +663,7 @@ def main():
         hechos, errores = aplicar(plan, nueva)
         red_agregada, aviso_red = completar_red(os.path.join(nueva, MAPA))
         _, taps = actualizar_red(os.path.join(nueva, MAPA))
+        ctx_agregado, aviso_ctx = completar_contextos(os.path.join(nueva, MAPA))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -643,6 +720,15 @@ def main():
         print(f"\nRed: {RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}")
     if aviso_red:
         print(f"\nWarning: {aviso_red}")
+    if ctx_agregado:
+        print(f"\nContexts: {CONTEXTS_AGREGADO}")
+    if aviso_ctx:
+        print(f"\nWarning: {aviso_ctx}")
+    enlaces = avisos_enlaces(kit.get("mode") == "small")
+    if enlaces:
+        print("\nThe glossary and the map of contexts have to be linked from the docs index (ADR-003 D2, D5; check-docs.py warns about it):")
+        for e in enlaces:
+            print(f"Warning: {e}")
     for titulo, accion in (("Merged (review the diff)", "fusionar"),
                            (f"With conflicts: I did not overwrite them, the merge with markers is in {PENDIENTES}/", "conflicto"),
                            ("Modified by you, with no origin version to merge: the new version is in "

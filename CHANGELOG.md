@@ -4,6 +4,16 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 **Publicar una versión** (lo hace una persona): un PR que sube `VERSION` y agrega su sección acá; después del merge, `git tag vX.Y.Z` sobre ese commit y `git push origin vX.Y.Z`. Así `VERSION` en `main` coincide con el último tag.
 
+## [Sin publicar]
+
+### Agregado
+
+- **El glosario y el mapa de contextos llegan a los proyectos que ya existen** (#219, ADR-003). Qué hacer al actualizar:
+  - `update.py` (completo): trae `docs/reference/glossary.md` y `docs/reference/contexts.md` y agrega la sección `contexts` vacía a tu `docs/agents-map.json` si no la tiene (conserva todo lo demás del mapa; si no es JSON válido, lo deja como está y avisa que la agregues a mano). Si tu `docs/README.md` o `docs/llms.txt` no los enlazan, el resumen dice qué enlace agregar (`check-docs.py` avisa lo mismo, no falla).
+  - `update.py` (`--small`): trae `docs/glossary.md` y `docs/contexts.md` y avisa si `docs/README.md` no los enlaza. El mapa chico sigue con solo `red`.
+  - `install.py`: igual que `update.py`. Si el repo ya tiene un glosario en otra ruta (`glossary.md`, `glosario.md`…), no pisa nada y el glosario del kit va a `.agent-kit/pending/` en vez de quedar al lado; el resumen nombra el tuyo.
+  - `grow.py` (de chico a completo): `docs/glossary.md` y `docs/contexts.md` pasan a `docs/reference/` si el proyecto escribió en ellos (si no los tocó, ocupan su lugar los del perfil completo; la versión completa de lo que movió queda en `.agent-kit/pending/`), y la columna de rutas de la tabla de contextos pasa a la sección `contexts` del mapa (una ruta que es una carpeta queda como `carpeta/**`). Si la tabla no se puede pasar (una fila sin rutas o con un `TODO`), no toca el mapa y avisa que se llena a mano. Los enlaces a las rutas viejas desde tus docs tienen que apuntar a `docs/reference/`.
+
 ## [2.0.0] - 2026-11-07
 
 **Ruptura.** El formato del rojo es JUnit y nada más: `format: "tap"` sale de la sección `red`, del parser de `red.sh`, del check de CI y de `TAP_OUT`. La versión pasa directo de 1.1.0 a 2.0.0, sin una 1.x intermedia (decidido por @lautioliver, #229). Qué hacer al actualizar:
