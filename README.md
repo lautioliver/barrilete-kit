@@ -312,7 +312,7 @@ The small mode keeps only the README in the chosen language (English by default;
 - Files it modified are **not overwritten**: the full version lands in `.agent-kit/pending/` for you to merge in.
 - A `docs/agents-map.json` it modified is **not** left in pending: it keeps its sections (its `red` among them) and gets the ones of the full map; if it had no `red`, it gets the kit's `bash` entry.
 - The small project's architecture moves to `docs/development/architecture.md`.
-- Its glossary and contexts table (`docs/glossary.md`, `docs/contexts.md`) move to `docs/reference/` if the project wrote in them (if not, the full profile's own take their place), and the code-paths column of the table passes to the `contexts` section of the map; if the table cannot be passed, grow.py says so and the table stays for you to fill in by hand (ADR-003 D2, D3).
+- Its glossary and contexts table (`glossary.md` and `contexts.md`, in `docs/`) move to `docs/reference/` if the project wrote in them (if not, the full profile's own take their place), and the code-paths column of the table passes to the `contexts` section of the map; if the table cannot be passed, grow.py says so and the table stays for you to fill in by hand (ADR-003 D2, D3).
 
 It doesn't commit: you review the diff and open a PR.
 

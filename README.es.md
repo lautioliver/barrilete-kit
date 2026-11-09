@@ -314,7 +314,7 @@ El modo chico deja solo el README en el idioma elegido (en inglés por defecto; 
 - Los que modificó **no se pisan**: la versión completa queda en `.agent-kit/pending/` para integrarla.
 - Un `docs/agents-map.json` que modificó **no** queda en pendientes: conserva sus secciones (su `red` entre ellas) y recibe las del mapa completo; si no tenía `red`, recibe la entrada `bash` del kit.
 - La arquitectura del proyecto chico pasa a `docs/development/architecture.md`.
-- Su glosario y su tabla de contextos (`docs/glossary.md`, `docs/contexts.md`) pasan a `docs/reference/` si el proyecto escribió en ellos (si no, ocupan su lugar los del perfil completo), y la columna de rutas de la tabla pasa a la sección `contexts` del mapa; si la tabla no se puede pasar, grow.py lo dice y la tabla queda para que la llenes a mano (ADR-003 D2, D3).
+- Su glosario y su tabla de contextos (`glossary.md` y `contexts.md`, en `docs/`) pasan a `docs/reference/` si el proyecto escribió en ellos (si no, ocupan su lugar los del perfil completo), y la columna de rutas de la tabla pasa a la sección `contexts` del mapa; si la tabla no se puede pasar, grow.py lo dice y la tabla queda para que la llenes a mano (ADR-003 D2, D3).
 
 No commitea: revisás el diff y abrís un PR.
 
