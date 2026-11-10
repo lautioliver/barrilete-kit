@@ -4,7 +4,7 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 **Publicar una versión** (lo hace una persona): un PR que sube `VERSION` y agrega su sección acá; después del merge, `git tag vX.Y.Z` sobre ese commit y `git push origin vX.Y.Z`. Así `VERSION` en `main` coincide con el último tag.
 
-## [Sin publicar]
+## [2.1.0] - 2026-11-10
 
 ### Cambiado
 
@@ -13,6 +13,7 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 - `scripts/agents/tap.sh`: un bail que llega después de `tap_done` (un `>(…)` que muere mientras se escribe la suite) deja un segundo `<testsuite>` con solo ese testcase `error`, nunca los casos repetidos (#264).
 - `scripts/agents/red_report.py`: `missing_test_files` deja de asociar casos cuando ya vio todos los archivos de test del diff; quedan anotados, en el código y en `docs/guides/red-per-runner.md`, los límites de la decisión 3 del #255 (cargo2junit y los tests de integración, todo caso de un `.sh` leído como id de `tap.sh`, `when` que abarca archivos de otro runner).
 - **El proyecto de las reglas sale de `.agent-kit.json`, no de `rules.lock`** (#297, aprobado por la persona en el chat; deshace el `project=` que agregó #289 sin aprobación). El kit lleva su propio `.agent-kit.json` con `{"project": "barrilete-kit", "template": true}`; `sync-rules` rechaza (exit 3) un `project=` en `.barrilete/rules.lock` y manda a `.agent-kit.json`, y `check-docs.py` trata un manifiesto con `template: true` como la plantilla (revisa todo, igual que sin manifiesto). `init-template.sh` lo reemplaza al inicializar un proyecto. Lo generado por `sync-rules --check` no cambia. Qué hacer: nada en un proyecto instalado; si un `rules.lock` tenía `project=`, sacalo y poné `project` en `.agent-kit.json`.
+- **El `reviewer` pasa de Opus a Sonnet** (#263, enmienda de ADR-004 D1, decidida por @lautioliver en el chat), por costo: las reviews eran ~26% del costo de los agentes. `.claude/agents/reviewer.md` y su hermano en español llevan `model: sonnet`, y la retro que pide el reviewer, `model: sonnet`. Bajo `/orchestrate` el modelo del reviewer lo fija ese archivo (`roles.yml` solo decide el modo). Qué hacer: nada; `update.py` trae el archivo nuevo. La línea "esta sesión tiene que correr en Opus" de `/orchestrate` es del orquestador y no cambia.
 
 ### Corregido
 
