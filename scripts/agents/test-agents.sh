@@ -37,7 +37,7 @@ sin_errores_agentes() { local o; o=$(errores_agentes); [ -z "$o" ]; }
 frontmatter() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1"; }
 
 # 1. Los tres roles existen con su modelo y herramientas acotadas.
-for par in implementer:sonnet implementer-light:haiku reviewer:opus; do
+for par in implementer:sonnet implementer-light:haiku; do
   rol=${par%%:*}; modelo=${par##*:}; f="$RAIZ/$AGENTES/$rol.md"
   fm=$(frontmatter "$f" 2>/dev/null)
   grep -qx "name: $rol" <<<"$fm"; tap_check $? "<rol>: existe con name: <rol>" "$rol: existe con name: $rol"
@@ -45,6 +45,12 @@ for par in implementer:sonnet implementer-light:haiku reviewer:opus; do
   grep -q "^tools: " <<<"$fm"; tap_check $? "<rol>: lista sus herramientas (tools:)" "$rol: lista sus herramientas (tools:)"
   grep -q "$CONTRATO" "$f" 2>/dev/null; tap_check $? "<rol>: remite al contrato de salida común" "$rol: remite al contrato de salida común"
 done
+# El reviewer corre en Sonnet (enmienda de ADR-004 D2, #263); sus otras comprobaciones son las del bucle.
+f="$RAIZ/$AGENTES/reviewer.md"; fm=$(frontmatter "$f" 2>/dev/null)
+grep -qx "name: reviewer" <<<"$fm"; tap_check $? "reviewer: existe con name: reviewer"
+grep -qx "model: sonnet" <<<"$fm"; tap_check $? "reviewer: model: sonnet"
+grep -q "^tools: " <<<"$fm"; tap_check $? "reviewer: lista sus herramientas (tools:)"
+grep -q "$CONTRATO" "$f" 2>/dev/null; tap_check $? "reviewer: remite al contrato de salida común"
 ! grep -q "Edit" <<<"$(frontmatter "$RAIZ/$AGENTES/reviewer.md" 2>/dev/null | grep '^tools:')"; tap_check $? "revisor: no puede editar código (Write solo para la revisión y la retro)"
 
 # 2. El contrato de salida está en un solo lugar, con todos los resultados.
@@ -121,6 +127,9 @@ salida=$(check); grep -q "^- README.md:.*broken link" <<<"$salida"; tap_check $?
 rm "$TMP/r/.agent-kit.json"; git -C "$TMP/r" add -A  # sin manifiesto, el kit es lo que git rastrea
 salida=$(check); grep -q "ajeno/README.md.*broken link" <<<"$salida"; tap_check $? "sin .agent-kit.json (la plantilla), se revisa todo"
 lista=$(listar '*.sh'); grep -qx "ajeno/malo.sh" <<<"$lista"; tap_check $? "sin .agent-kit.json, --list devuelve todos los archivos del repo"
+# El kit lleva un .agent-kit.json con su proyecto (para sync-rules): "template": true lo deja tratarse como la plantilla.
+printf '{"project": "x", "template": true}\n' >"$TMP/r/.agent-kit.json"
+salida=$(check); grep -q "ajeno/README.md.*broken link" <<<"$salida"; tap_check $? "297: con un .agent-kit.json de la plantilla (template: true), se revisa todo"
 
 # 6. El modo chico no deja los subagentes (solo en la plantilla: el init borra profiles/).
 if [ -f "$RAIZ/profiles/small/DELETE" ]; then
@@ -264,7 +273,6 @@ for idioma in en es; do
   if [ "$idioma" = en ]; then g="$RAIZ/docs/guides/red-per-runner.md"; else g="$RAIZ/docs/guides/red-per-runner.es.md"; fi
   [ -f "$g" ] || continue
   run=$(guia_entrada "$g" bash)
-  # shellcheck disable=SC2016  # el texto buscado es literal
   grep -qF '<testsuites>' <<<"$run"; tap_check $? "[<idioma>] la entrada bash de la guía envuelve los testsuites en <testsuites> (#225)" "[$idioma] la entrada bash de la guía envuelve los testsuites en <testsuites> (#225)"
   # shellcheck disable=SC2016
   grep -qF 'TAP_OUT=$tmp' <<<"$run"; tap_check $? "[<idioma>] la entrada bash de la guía le da a cada script un TAP_OUT temporal (#225)" "[$idioma] la entrada bash de la guía le da a cada script un TAP_OUT temporal (#225)"

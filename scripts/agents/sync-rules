@@ -3,15 +3,17 @@
 
 Usage: scripts/agents/sync-rules [--root DIR] [--url GIT_URL] [--check]
 
-Reads <root>/.barrilete/rules.lock (`repo=<owner>/<name>`, `sha=<40 hex>`, optional `project=<slug>`), clones the repo
+Reads <root>/.barrilete/rules.lock (`repo=<owner>/<name>`, `sha=<40 hex>`), clones the repo
 into a temporary directory at that exact SHA (default URL: https://github.com/<repo>.git) and writes, between the markers
 `<!-- rules:begin ... -->` and `<!-- rules:end -->`:
   - the `accepted` rules of each role in .claude/agents/<role>.md (and .claude/i18n/agents/<role>.es.md);
   - the `applies_to: "*"` ones in AGENTS.md and AGENTS.es.md;
-and docs/agents/classes.yml, the copy of barrilete-rules' classes.yml (its only source).
+docs/agents/classes.yml, the copy of barrilete-rules' classes.yml (its only source), and .barrilete/checks.json, the manifest of the
+checks (`id`, `rule`, `fail_message`) of the applied rules, which scripts/agents/verify.py runs (ADR-006 D8).
 It adds the project's own rules (.barrilete/rules/*.md) and checks that each `check: <id>` of an applied rule exists in
-scripts/agents/checks/<id> (it copies no checks: they live in the kit). A rule applies when its `scope` is "*" or lists the
-project (`project` of rules.lock, else of .agent-kit.json). The text of the rule is copied as it is, without translating.
+scripts/agents/checks/<id> (it copies no checks: they live in the kit; without scripts/agents/verify.py, the small profile, nothing runs them
+and it neither checks nor lists them). A rule applies when its `scope` is "*" or lists the
+project (the `project` of .agent-kit.json; the kit has its own, with `template: true`). The text of the rule is copied as it is, without translating.
 Everything is validated before anything is written: a bad rule leaves no file half written.
 
   --check   writes nothing: it exits with 3 and names the files whose generated part is not what the lock gives.
@@ -109,14 +111,12 @@ def read_lock(root):
         fail(f"rules.lock: repo {lock.get('repo')!r} is not <owner>/<name>")
     if not SHA.match(lock.get("sha", "")):
         fail(f"rules.lock: sha {lock.get('sha')!r} is not a full SHA (40 hexadecimal characters)")
-    if "project" in lock and not SLUG.match(lock["project"]):
-        fail(f"rules.lock: project {lock['project']!r} is not a slug")
+    if "project" in lock:
+        fail("rules.lock: `project=` is not accepted: the project is the `project` of .agent-kit.json")
     return lock
 
 
 def project_of(root, lock):
-    if "project" in lock:
-        return lock["project"]
     path = os.path.join(root, ".agent-kit.json")
     if not os.path.isfile(path):
         return None
@@ -187,12 +187,23 @@ def compute(root, lock, project, src):
         fail(f".barrilete/rules/{rid}.md: the id {rid} is also a rule of barrilete-rules; use another id")
     applied = {rid: v for rid, v in {**theirs, **own}.items()
                if v[0]["status"] == "accepted" and (v[0]["scope"] == ["*"] or (project and project in v[0]["scope"]))}
+    # The checks only matter where verify.py runs them: the small profile has no verify.py (nor checks/), and there a rule with a
+    # check applies as text and its check is left out of the manifest.
+    runs_checks = os.path.isfile(os.path.join(root, "scripts", "agents", "verify.py"))
     for rid, (fields, _text) in sorted(applied.items()):
         chk = fields.get("check")
-        if chk and not os.path.isfile(os.path.join(root, "scripts", "agents", "checks", chk)):
+        if chk and runs_checks and not os.path.isfile(os.path.join(root, "scripts", "agents", "checks", chk)):
             fail(f"rule {rid}: its check {chk} is missing in scripts/agents/checks/{chk} (the checks live in the kit)")
     repo, sha = lock["repo"], lock["sha"]
     outputs = {}
+    checks = []
+    for rid, (fields, _text) in sorted(applied.items()):
+        if fields.get("check") and runs_checks:
+            msg = fields.get("fail_message")
+            if not isinstance(msg, str) or not msg.strip():
+                fail(f"rule {rid}: it has check {fields['check']} and no fail_message (what to do and when to escalate)")
+            checks.append({"id": fields["check"], "rule": rid, "fail_message": msg})
+    outputs[".barrilete/checks.json"] = json.dumps({"checks": checks}, indent=2, ensure_ascii=False) + "\n"
 
     def put(rel, rules):
         current = read(os.path.join(root, rel))

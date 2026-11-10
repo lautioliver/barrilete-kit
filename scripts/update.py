@@ -53,13 +53,19 @@ def con_red(texto, kit):
     return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
 
 
-# `run` of the kit's `bash` entry in every version of the kit that was published (v1.0.0, v1.1.0): the way update.py
+# `run` of the kit's `bash` entry in every version of the kit that was published (v1.0.0, v1.1.0, v2.0.0): the way update.py
 # recognizes the entry as the kit's (ADR-002 D8). Whitespace is normalized before comparing. Add the new `run` here
 # whenever a release changes it.
 RED_RUNS_DEL_KIT = [
     "rc=0; while IFS= read -r -d '' t; do TAP_OUT={out} bash \"$t\" </dev/null || rc=1; grep -qxF \"# file: $t\" {out} || "
     "echo \"Bail out! $t wrote no TAP\" >>{out}; done < <(git diff -z --name-only --diff-filter=AM HEAD^ HEAD -- "
     "':(glob)**/test-*.sh'); exit $rc",
+    # v2.0.0 (junit; its `--diff-filter=AMR` became AMRC in #264):
+    (
+        'rc=0; tmp=$(mktemp); trap \'rm -f "$tmp"\' EXIT; while IFS= read -r -d \'\' t; do TAP_OUT=$tmp bash "$t"'
+        " </dev/null || rc=1; done < <(git diff -z --name-only --diff-filter=AMR HEAD^ HEAD -- ':(glob)**/tes"
+        't-*.sh\'); { echo \'<testsuites>\'; cat "$tmp"; echo \'</testsuites>\'; } >{out}; exit $rc'
+    ),
 ]
 # The 2.0.0 error for a `tap` entry that is not the kit's (ADR-002 D8). It is a literal: red.sh prints the same text.
 ERROR_TAP = ('red stack \'{name}\': format "tap" was removed in 2.0.0; use "junit" (docs/guides/red-per-runner.md)')

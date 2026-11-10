@@ -6,6 +6,8 @@ Accepted (2026-11-05). @lautioliver approved it by merging lautioliver/barrilete
 
 Amended (2026-11-07): the principle at the start of Decision, D2, D7, D8 and D11 (checks are implemented in the kit, the two success conditions, and the `pr-metadata` check in phase 2), approved by @lautioliver in the PR #281. Decided by @lautioliver in the chat of the barrilete-kit-46 session on 2026-11-07; origin: lautioliver/barrilete-kit#280.
 
+Amended (2026-11-09): D7, what a project inherits of `rules.lock` and the generated sections (`init`, `install`, `grow`, `update`). Decided by @lautioliver in the chat on 2026-11-09, pending their approval in this PR; origin: lautioliver/barrilete-kit#299 and #290.
+
 Origin: lautioliver/barrilete-kit#256 and a proposal from the person on 2026-11-04 ("store of general rules for agents").
 
 Decided by @lautioliver in the chat:
@@ -78,6 +80,8 @@ barrilete-rules is the source of truth of Barrilete's reusable policies. Its for
    - Updating the rules is a PR to the kit that changes the lock, so what comes in is visible.
    - CI and `verify.py` run without network.
    - A project can have its own rules in `.barrilete/rules/`, with the same format, and `sync-rules` adds them to the store's.
+   - **What a project inherits (`init`, `install`, `grow`):** the kit's `rules.lock` (same repo and SHA), and `sync-rules` runs with the project's name, so the rules with `scope: barrilete-kit` drop out and the new project passes `sync-rules --check` from day one.
+   - **`update.py`:** if the project's `rules.lock` is one the kit published, it replaces it with the new one and regenerates the sections; if the project changed it, it keeps it and says so at the end of the summary.
    - **Success condition 1:** a rule is changed in barrilete-rules, its PR is approved, `rules.lock` is updated, and the role's agent receives exactly that version.
 
 8. **D8. Checks run inside `verify.py`.** A check has three things:

@@ -55,3 +55,7 @@ Origen: lautioliver/barrilete-kit#236. El issue registra la decisión como tomad
 ## Enmienda 2026-11-04
 
 Por ADR-005 D7 (lautioliver/barrilete-kit#250). **D3 cambia:** el orquestador sigue a un agente `bk` leyendo su tarea (`task.json`, con `bk tasks --json`: estado, resultado y número de PR), ya no con `bk ls` ni buscando el PR por rama. Con un `bk` que no tiene tareas, sigue valiendo el método de D3. Sigue sin abrir sus diffs ni sus retros. **D4 no cambia:** la persona contesta con `bk say`, y que la tarea esté en `waiting` es lo que le indica al orquestador que hay una pregunta para mostrar. El texto aceptado de arriba no se reescribe.
+
+## Enmienda 2026-11-05
+
+Por lautioliver/barrilete-kit#263, decidido por @lautioliver en el chat. **La tabla de roles de D1 cambia para `reviewer`: pasa de opus a sonnet**, por costo (las reviews fueron ~26% del costo de los agentes en los últimos 14 días). Hace falta cambiarlo en el repo porque `roles.yml` decide el modo (`mode.py`), no el modelo, y bajo `/orchestrate` el reviewer siempre corre como subagente cuyo modelo fija `.claude/agents/reviewer.md`. El modo (`sub`) y los demás roles no cambian. La tabla aceptada de arriba no se reescribe.
