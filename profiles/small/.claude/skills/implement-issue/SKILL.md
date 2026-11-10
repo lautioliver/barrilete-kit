@@ -19,7 +19,7 @@ It validates that it is open, that nobody else has it and that there are no unco
 
 ## 2. Understand
 
-- Read what the issue links, `AGENTS.md` and whatever applies from `docs/architecture.md` and `docs/decisions/`. Use the terms of `docs/glossary.md` and `docs/contexts.md`: a missing term goes into the glossary in the PR (propose it if still `TODO`); a new dependency between contexts (not in the table) → **stop and ask** (`docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`).
+- Read what the issue links, `AGENTS.md` and whatever applies from `docs/architecture.md` and `docs/decisions/`. Use the terms of `docs/glossary.md` and `docs/contexts.md`: a missing term goes into the glossary in the PR (propose it if still `TODO`); a new dependency between contexts (not in the table) → **stop and ask** (`docs/decisions/kit/ADR-003-minimal-ddd-glossary-and-contexts.md`); while the table is still `TODO` there is nothing to check, so do not stop for it.
 - If the issue is part of an epic (`prepare.sh` shows it; or if the issue says "After #n"), read the whole epic, especially **Business logic affected** and the pending ADRs it mentions. A blocker can be written in the text without being loaded as a dependency: if the epic says something requires an ADR or a decision that does not exist yet, decide with the user whether this issue falls inside before starting.
 - If it is ambiguous on something that changes the result, or asks for something from the **"Must ask first"** list of `AGENTS.md` (even if the issue asks for it: that is not the approval), ask before writing code, **in a single message**: what it touches, the open questions and, if there is a database, the "If it touches the database" plan with its rollback.
 

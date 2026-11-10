@@ -372,6 +372,8 @@ def planear(nueva, labels_yml):
     plan = []
     for ruta in sorted(set(archivos(nueva)) - {".agent-kit.json"}):
         kit = os.path.join(nueva, ruta)
+        if ruta in GLOSARIOS_DEL_KIT and not os.path.lexists(ruta) and (ajenos := glosarios_ajenos(ruta)):
+            GLOSARIOS_AJENOS[ruta] = ajenos  # the repo has its glossary in another path: the kit's goes in anyway, next to it, and the summary warns (ADR-003)
         if ruta in NUNCA_TOCAR:
             plan.append(("skip", ruta, kit, None))
         elif padre_ocupado(ruta):
@@ -382,10 +384,6 @@ def planear(nueva, labels_yml):
             # The kit's sync deletes every label that is not in labels.yml: not against a file that is the project's.
             plan.append(("pending", ruta, kit, None))
         elif os.path.islink(ruta):  # never write through a link (CLAUDE.md -> AGENTS.md)
-            plan.append(("pending", ruta, kit, None))
-        elif ruta in GLOSARIOS_DEL_KIT and not os.path.lexists(ruta) and (ajenos := glosarios_ajenos(ruta)):
-            # The repo has its glossary in another path: the kit's is not put next to it, it goes to pending (ADR-003).
-            GLOSARIOS_AJENOS[ruta] = ajenos
             plan.append(("pending", ruta, kit, None))
         elif not os.path.lexists(ruta) and not (es_workflow(ruta) and os.path.lexists(otra_extension(ruta))):
             plan.append(("add", ruta, kit, None))
@@ -479,11 +477,14 @@ def resumen(plan, propios, ref, draft, chico=False):
             con_red(leer(MAPA), "{}")
         except (ValueError, UnicodeDecodeError) as e:
             print(f"  - {MAPA}: could not check its `red` section ({e}). red.sh needs it: add it by hand. {RED_GUIA}")
-            print(f"  - {aviso_contextos(e)}")
-    for ruta, otros in GLOSARIOS_AJENOS.items():
-        print(f"  - The repo already has a glossary ({', '.join(otros)}): I did not install the kit's glossary ({ruta}) next to it. "
-              f"Its version is in {PENDIENTES}/: move into yours the terms you want from it, or delete yours and keep the kit's.")
+            if not chico:  # --small has no `contexts` section (ADR-003 D3)
+                print(f"  - {aviso_contextos(e)}")
     agregados = {r for r, _ in de("add", "same")}
+    for ruta, otros in GLOSARIOS_AJENOS.items():
+        if ruta in agregados:
+            print(f"  - The repo already has a glossary ({', '.join(otros)}): {'I would install' if draft else 'I installed'} the kit's ({ruta}) next to it, "
+                  "because docs/reference/contexts.md and the docs index link it. Move into one of them the terms of the other, then delete the one you do not keep "
+                  "and fix the links that pointed to it.")
     for aviso in avisos_enlaces(chico, lambda r: os.path.exists(r) or r in agregados):
         print(f"  - Warning: {aviso}")
     for r, d in de("rename"):

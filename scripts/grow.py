@@ -38,6 +38,26 @@ GLOSARIO_Y_CONTEXTOS = (("docs/glossary.md", "docs/reference/glossary.md"), ("do
 SIN_RUTA_DEPENDE = {"", "-", "—", "none", "n/a", "ninguno", "ninguna", "ningún"}
 
 
+def glob_a_regex(glob):
+    """Copy of agents_map.py's (git-style glob: ** crosses directories, * does not; a leading ? is ignored): grow.py runs on its own."""
+    glob = glob[1:] if glob.startswith("?") else glob
+    r, i = "", 0
+    while i < len(glob):
+        if glob.startswith("**/", i):
+            r += "(?:.*/)?"
+            i += 3
+        elif glob.startswith("**", i):
+            r += ".*"
+            i += 2
+        elif glob[i] == "*":
+            r += "[^/]*"
+            i += 1
+        else:
+            r += re.escape(glob[i])
+            i += 1
+    return re.compile(r + "$")
+
+
 def enlaza(indice, ruta):
     """True if the index links ruta (any spelling: ./a.md, <a.md>, a.md#section; not in a code block or inline code)."""
     try:
@@ -82,10 +102,12 @@ def completar_mapa(texto, kit):
     return json.dumps({**completo, **mio}, ensure_ascii=False, indent=2) + "\n", "red" not in mio
 
 
-def contextos_de_tabla(texto):
+def contextos_de_tabla(texto, archivos=()):
     """The `contexts` entries of the table of docs/contexts.md of the small profile (Context | Responsibility | Own terms |
-    Depends on | Code paths): (list, None), or (None, why) if a row cannot be passed. The TODO template row is skipped, so an
-    unfilled table gives an empty list. A path of a folder that exists becomes `folder/**`; the others stay as written."""
+    Depends on | Code paths): (list, None, optional paths), or (None, why, []) if the table cannot be passed. The TODO template
+    row is skipped, so an unfilled table gives an empty list. The entries are what check-docs.py accepts (ADR-003 D3): a path
+    of a folder that exists becomes `folder/**`; a path that matches none of `archivos` (the tracked files) gets a ? (optional);
+    a name appears once, and `Depends on` lists only names of the table."""
     # The table is the first block of `|` lines with 5 columns whose second line is the separator (there may be a legend table before it).
     bloques, actual = [], []
     for l in texto.splitlines() + [""]:
@@ -94,30 +116,48 @@ def contextos_de_tabla(texto):
         elif actual:
             bloques.append(actual)
             actual = []
-    filas = []
-    for b in bloques:
-        if len(b) >= 2 and len(b[0]) == 5 and all(re.fullmatch(r":?-+:?", c) for c in b[1]):
-            filas = b[2:]
-            break
-    contextos = []
+    tablas = [b for b in bloques if len(b) >= 2 and all(re.fullmatch(r":?-+:?", c) for c in b[1])]
+    elegida = next((b for b in tablas if len(b[0]) == 5), None)
+    if elegida is None:
+        con_datos = [b for b in tablas if any(not f[0].strip("`").startswith("TODO") for f in b[2:])]
+        if con_datos:
+            return None, f"its table has {len(con_datos[0][0])} columns, not the 5 of the profile (Context | Responsibility | Own terms | Depends on | Code paths)", []
+        if not tablas:
+            return None, "it has no table of the profile (Context | Responsibility | Own terms | Depends on | Code paths)", []
+        return [], None, []
+    filas = elegida[2:]
+    contextos, opcionales, nombres = [], [], set()
     for f in filas:
         if len(f) < 5:
-            return None, f"a row of the table has {len(f)} columns, not 5"
+            return None, f"a row of the table has {len(f)} columns, not 5", []
         nombre = f[0].strip("`")
         if nombre.startswith("TODO"):
             continue
         if any(c.startswith("TODO") for c in f):
-            return None, f"the row of '{nombre}' still has a TODO"
+            return None, f"the row of '{nombre}' still has a TODO", []
+        if nombre in nombres:
+            return None, f"the name '{nombre}' appears more than once", []
+        nombres.add(nombre)
         rutas = []
         for r in (x.strip().strip("`").strip() for x in f[4].split(",")):
             if r:
                 carpeta = not re.search(r"[*?\[]", r) and (r.endswith("/") or os.path.isdir(r))  # `src/a/`, or `src/a` that exists
-                rutas.append(r.rstrip("/") + "/**" if carpeta else r)
+                g = r.rstrip("/") + "/**" if carpeta else r
+                if not g.startswith("?") and not any(glob_a_regex(g).match(a) for a in archivos):
+                    g = "?" + g  # it matches no file: check-docs.py would fail on it, so it goes as optional
+                    opcionales.append(g)
+                rutas.append(g)
         if not nombre or not rutas:
-            return None, f"the row of '{nombre or '?'}' has no name or no code paths"
+            return None, f"the row of '{nombre or '?'}' has no name or no code paths", []
         depende = [d for d in (x.strip().strip("`").strip() for x in f[3].split(",")) if d.lower() not in SIN_RUTA_DEPENDE]
         contextos.append({"name": nombre, "paths": rutas, "depends_on": depende})
-    return contextos, None
+    for c in contextos:
+        for d in c["depends_on"]:
+            if d == c["name"]:
+                return None, f"'{d}' depends on itself", []
+            if d not in nombres:
+                return None, f"'{c['name']}' depends on '{d}', which is not a context of the table", []
+    return contextos, None, opcionales
 
 
 def pasar_contextos(contextos):
@@ -225,7 +265,7 @@ def main():
         # The glossary and the contexts of the small profile (ADR-003 D2). What the project did not touch goes away (the full
         # profile brings its own, with more columns and sections); what it wrote moves to docs/reference/ (the full version of
         # that file goes to pending like any file the project modified), unless something is already there.
-        tabla, ruta_tabla, tabla_movida = None, "docs/contexts.md", []
+        tabla, ruta_tabla, tabla_movida, movidos = None, "docs/contexts.md", [], []
         if os.path.isfile("docs/contexts.md"):
             with open("docs/contexts.md", encoding="utf-8", errors="replace") as f:
                 tabla = f.read()
@@ -243,7 +283,9 @@ def main():
             else:
                 os.makedirs(os.path.dirname(nuevo), exist_ok=True)
                 sh("git", "mv", viejo, nuevo)
+                registradas.pop(viejo, None)  # the file is the project's now, at its new path
                 tabla_movida.append(f"{viejo} → {nuevo}")
+                movidos.append(viejo)
                 if viejo == "docs/contexts.md":
                     ruta_tabla = nuevo
 
@@ -289,10 +331,18 @@ def main():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-    # The table of contexts of the small profile → the `contexts` section of the full map (ADR-003 D3).
-    aviso_tabla, pasados = None, 0
+    # Registry: the files the template brought are recorded as "untouched" from now on.
+    for ruta in agregados + reemplazados:
+        registradas[ruta] = huella(ruta)
+    if movido:
+        registradas.pop("docs/architecture.md", None)
+
+    # The table of contexts of the small profile → the `contexts` section of the full map (ADR-003 D3). After the registry above:
+    # the map is registered as the kit's version, so with the contexts in it update.py sees a map the project changed and keeps it.
+    aviso_tabla, pasados, opcionales = None, 0, []
     if tabla is not None:
-        contextos, porque = contextos_de_tabla(tabla)
+        archivos_git = sh("git", "ls-files").splitlines()
+        contextos, porque, opcionales = contextos_de_tabla(tabla, archivos_git)
         if contextos:
             porque = pasar_contextos(contextos)
             pasados = 0 if porque else len(contextos)
@@ -300,11 +350,6 @@ def main():
             aviso_tabla = (f"the table of {ruta_tabla} was not passed to the `contexts` section of {MAPA} ({porque}): fill it in by hand "
                            "(name, paths, depends_on: the _help of the map explains it).")
 
-    # Registry: the files the template brought are recorded as "untouched" from now on.
-    for ruta in agregados + reemplazados:
-        registradas[ruta] = huella(ruta)
-    if movido:
-        registradas.pop("docs/architecture.md", None)
     kit.update({"mode": "full", "releases": releases, "files": dict(sorted(registradas.items()))})
     if kit.get("ref"):
         # Installed repo: the files now come from the commit grow cloned, so that is the origin. Keeping the
@@ -332,11 +377,20 @@ def main():
     if pasados:
         print(f"\nContexts: {pasados} row(s) of the table went to the `contexts` section of {MAPA} (a code path that is a folder "
               "became folder/**). Check them with python3 scripts/agents/check-docs.py.")
+    if opcionales:
+        print(f"\nOptional: {', '.join(opcionales)} match no file of the repo, so they went to `contexts` with a ? (optional). "
+              "Take the ? off when the path exists.")
     if aviso_tabla:
         print(f"\nWarning: {aviso_tabla}")
     enlaces = avisos_enlaces(False)
+    # An index the project changed can still link the small profile's files, which are not there anymore.
+    for viejo, nuevo in GLOSARIO_Y_CONTEXTOS:
+        if viejo in sin_tocar or viejo in movidos:
+            for indice in ("docs/README.md", "docs/README.es.md"):
+                if os.path.exists(indice) and enlaza(indice, viejo):
+                    enlaces.append(f"{indice} links {viejo}, which is not there anymore: point the link to {nuevo}")
     if enlaces:
-        print("\nThe glossary and the map of contexts have to be linked from the docs index (ADR-003 D2, D5; check-docs.py warns about it):")
+        print("\nThe glossary and the map of contexts have to be linked from the docs index (ADR-003 D2, D5):")
         for e in enlaces:
             print(f"Warning: {e}")
     if completados:

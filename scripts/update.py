@@ -516,8 +516,13 @@ def completar_contextos(kit):
     if not os.path.isfile(MAPA) or not os.path.isfile(kit):
         return False, None
     try:
-        with open(MAPA, encoding="utf-8") as f, open(kit, encoding="utf-8") as g:
-            texto = con_contextos(f.read(), g.read())
+        with open(kit, encoding="utf-8") as g:
+            del_kit = g.read()
+        propio = json.loads(del_kit)
+        if not isinstance(propio, dict) or "contexts" not in propio:
+            return False, None  # the small profile's map has no `contexts` (ADR-003 D3): nothing to add, and nothing to warn about
+        with open(MAPA, encoding="utf-8") as f:
+            texto = con_contextos(f.read(), del_kit)
     except (ValueError, OSError) as e:
         return False, aviso_contextos(e)
     if texto is None:
@@ -732,7 +737,7 @@ def main():
         print(f"\nWarning: {aviso_ctx}")
     enlaces = avisos_enlaces(kit.get("mode") == "small")
     if enlaces:
-        print("\nThe glossary and the map of contexts have to be linked from the docs index (ADR-003 D2, D5; check-docs.py warns about it):")
+        print("\nThe glossary and the map of contexts have to be linked from the docs index (ADR-003 D2, D5):")
         for e in enlaces:
             print(f"Warning: {e}")
     for titulo, accion in (("Merged (review the diff)", "fusionar"),
