@@ -66,7 +66,7 @@ Un hook (`scripts/agents/guardrails.py`, registrado en `.claude/settings.json`) 
 
 Un segundo hook (`scripts/agents/task_events.py`, registrado en `.claude/settings.json` y `.codex/hooks.json`) registra los eventos de la tarea de un agente `bk` (ADR-005): solo escribe si `bk` lanzó la sesión (`BK_TASK_DIR`), solo metadatos, y nunca frena nada. Un agente `bk` cierra su tarea con `bk done` (`pr <n>`, `blockers`, `dropped "<motivo>"`, `escalate "<motivo>"`).
 
-Las skills mejoran con el uso: `implement-issue` y `review-pr` terminan con una retro en la rama `agents/retros` (`retro.sh`) y `/improve-skills` propone ajustes **siempre en un PR**; nunca quita ni afloja estas reglas. Lo que no llega a skill queda en `docs/agents/lessons.md`: es lo único de las retros que leen los agentes. Un PR con `business-logic` tiene que enmendar el ADR de la regla o decir "ADR sin cambios: <motivo>" (lo controla el check de labels).
+Las skills mejoran con el uso: `implement-issue` y `review-pr` terminan con una retro en la rama `agents/retros` (`retro.sh`) y `/improve-skills` propone ajustes **siempre en un PR**; nunca quita ni afloja estas reglas. Lo que no llega a skill se propone como regla en `barrilete-rules` (ADR-006): una persona la acepta al mergear, `sync-rules` la inyecta en `AGENTS.md` y en `.claude/agents/`, y eso es lo único de las retros que leen los agentes. Un PR con `business-logic` tiene que enmendar el ADR de la regla o decir "ADR sin cambios: <motivo>" (lo controla el check de labels).
 
 **Subagentes** (`.claude/agents/`, los lanza `/orchestrate`, en pi con la herramienta `subagent` de `barrilete-pi`: `implementer` en Sonnet, `implementer-light` en Haiku, `reviewer` en Sonnet): las mismas reglas, más `docs/agents/subagent-contract.md`. Trabajan solo en su worktree, no pueden consultar a la persona (comentan en el issue y devuelven `question`), nunca publican reviews ni comentarios en PRs, y el liviano frena y devuelve `escalate` si el issue toca rutas sensibles o lógica de negocio (el orquestador lo relanza con Sonnet). Un `implementer` que `roles.yml` marca como `bk` se lanza en cambio como agente `bk` (kit/ADR-004; `reviewer` e `implementer-light` corren siempre como `sub`): una sesión común de `implement-issue`, fuera de este contrato, que sí le pregunta a la persona en su ventana.
 
@@ -104,7 +104,6 @@ Nada entra a las ramas troncales sin PR. La única rama que se escribe sin PR es
 - `docs/development/` — setup, arquitectura, visión, roadmap, horizonte, deploy, auditorías
 - `docs/guides/` — integraciones y guías de uso
 - `docs/decisions/` — ADRs
-- `docs/agents/lessons.md` — lo aprendido de las retros, revisado en un PR
 - `docs/agents/classes.yml` — las clases con que `review-pr` etiqueta los hallazgos (la genera `scripts/agents/sync-rules` desde barrilete-rules, ADR-006)
 - `docs/agents/subagent-contract.md` — reglas y salida común de los subagentes (`.claude/agents/`)
 

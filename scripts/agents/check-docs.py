@@ -26,7 +26,7 @@ Checks:
   a word YAML 1.1 reads as a boolean or null (y, n, yes, no, true, false, on, off, null), one description on each one, and
   `other` (reserved) not listed. One mistake, one error: a quoted id is reported once and still counts as a class. The classes ([id]) that review-pr names exist in it; if the
   file is missing, unreadable or empty, that is its own error and the skill is not blamed for each tag.
-- Skills (.claude/skills/*/SKILL.md) over 120 lines, and docs/agents/lessons.md over 40.
+- Skills (.claude/skills/*/SKILL.md) over 120 lines.
 - Subagents (.claude/agents/*.md) without name, description or tools, with a model that is not
   opus, sonnet or haiku, or that do not point to the common contract (docs/agents/subagent-contract.md).
 - Language siblings (ADR-001), only with "parity": true in the map: every X.md has its X.es.md (and the
@@ -743,13 +743,6 @@ if os.path.exists("AGENTS.md"):
             if r.returncode == 1:
                 errores.append(f"AGENTS.md:{n}: says `{patron}` is ignored, but {ejemplo} is not. "
                                "Add it to .gitignore or fix the sentence.")
-
-# Lessons from the retros: every agent reads them before starting, so they must be short.
-MAX_LECCIONES, LECCIONES = 40, "docs/agents/lessons.md"
-if os.path.exists(LECCIONES):
-    lineas = sum(1 for _ in open(LECCIONES, encoding="utf-8"))
-    if lineas > MAX_LECCIONES:
-        errores.append(f"{LECCIONES}: {lineas} lines (maximum {MAX_LECCIONES}). Remove the oldest lesson or the one that already moved to a skill.")
 
 # Subagents: the orchestrator picks the model by role, and all return the same output.
 CONTRATO, AGENTES, AGENTES_ES = "docs/agents/subagent-contract.md", ".claude/agents", ".claude/i18n/agents"

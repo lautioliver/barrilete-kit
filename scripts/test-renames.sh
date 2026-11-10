@@ -47,7 +47,6 @@ RENAMES='
 .github/marca/estados/trabajando.svg|.github/brand/states/working.svg
 .github/workflows/desbloquear.yml|.github/workflows/unblock.yml
 docs/agentes/contrato-subagentes.md|docs/agents/subagent-contract.md
-docs/agentes/lecciones.md|docs/agents/lessons.md
 docs/convencion-nombres-github.md|docs/github-naming-convention.md
 docs/mapa-agentes.json|docs/agents-map.json
 docs/probar-la-plantilla.md|docs/try-the-template.md

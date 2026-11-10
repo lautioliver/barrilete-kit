@@ -1,6 +1,6 @@
 # .github/workflows/docs.yml — <PROJECT>
 # Documentation is infrastructure for agents: it is tested too.
-# Validates links, mentioned paths, ADRs and required documents (scripts/agents/check-docs.py),
+# Validates that the generated rules match rules.lock (sync-rules --check), links, mentioned paths, ADRs and required documents (scripts/agents/check-docs.py),
 # runs shellcheck and the script tests, and on PRs warns which docs should be reviewed according to docs/agents-map.json
 # and which X.md / X.es.md pair changed on one side only.
 name: Docs
@@ -21,6 +21,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Generated rules match rules.lock
+        # ADR-006 D7: what sync-rules generates (rules in AGENTS.md and .claude/agents/, classes.yml, checks.json) is what
+        # rules.lock gives, so nobody edits a generated section by hand. Without a rules.lock the project consumes no rules.
+        # If it fails: run scripts/agents/sync-rules and commit the result (or fix the lock); the rule itself changes in barrilete-rules.
+        run: |
+          if [ -f .barrilete/rules.lock ]; then
+            python3 scripts/agents/sync-rules --check
+          else
+            echo "No .barrilete/rules.lock: nothing generated to check."
+          fi
       - name: Validate documentation
         run: python3 scripts/agents/check-docs.py
       - name: Agent script tests

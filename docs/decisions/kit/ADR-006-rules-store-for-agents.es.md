@@ -121,7 +121,7 @@ barrilete-rules es la fuente de verdad de las políticas reutilizables de Barril
 ## Preguntas abiertas
 
 - **¿Cuántas rondas sin efecto antes de decidir sobre una regla (D10)?** La propuesta es 20.
-- **¿El vault conserva una vista de solo lectura de las reglas, o solo los desvíos?**
+- **¿El vault conserva una vista de solo lectura de las reglas, o solo los desvíos?** Decidido en el chat (2026-11-10, #288): solo los desvíos, los patrones y la medición. El vault no guarda copia ni vista de las reglas: se leen en `barrilete-rules` y en lo que genera `sync-rules`.
 - **¿`bk learn` abre el PR de una propuesta solo, o lo abre la persona?** D6 dice "alguien"; la propuesta es que lo abra la persona desde `bk lessons`.
 
 ## Alternativas descartadas
