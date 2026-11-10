@@ -4,11 +4,16 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 **Publicar una versión** (lo hace una persona): un PR que sube `VERSION` y agrega su sección acá; después del merge, `git tag vX.Y.Z` sobre ese commit y `git push origin vX.Y.Z`. Así `VERSION` en `main` coincide con el último tag.
 
-## [2.1.0] - 2026-11-10
+## [Sin publicar]
 
 ### Cambiado
 
 - **El CI chequea las reglas generadas y `lessons.md` desaparece** (#288, ADR-006 D1, D2, D7, fase 2 parte 3). `docs.yml` corre `scripts/agents/sync-rules --check` si hay `.barrilete/rules.lock`: falla si una sección generada (reglas de `AGENTS.md` y de `.claude/agents/`, `classes.yml`, `checks.json`) no es lo que da el lock, por ejemplo si alguien la editó a mano; se arregla corriendo `scripts/agents/sync-rules` y commiteando. Una regla con `check` termina con "validated by `verify.py`: <check>" donde corre `verify.py` (no en el perfil chico). Se borran `docs/agents/lessons.md` (y `.es.md`), su lectura en `implement-issue`, su tope de 40 líneas en `check-docs.py` y sus referencias; `/improve-skills` propone lo que no llega a skill como regla en `barrilete-rules`. El ADR-006 anota que el vault guarda solo los desvíos. Qué hacer en un proyecto: nada si no usa `rules.lock`; si tenés un `docs/agents/lessons.md` propio, el kit ya no lo lee ni lo valida: pasá lo que sirva a una regla de `.barrilete/rules/`.
+
+## [2.1.0] - 2026-11-10
+
+### Cambiado
+
 - **`verify.py` corre los checks de las reglas y llega `pr-metadata`** (#287, ADR-006 D8, fase 2 parte 2). `sync-rules` escribe `.barrilete/checks.json` (id del check, regla y `fail_message` de cada regla accepted que aplica) y `verify.py` corre `scripts/agents/checks/<id> --base <ref>` de cada una; si falla, imprime la regla y su mensaje. `pr-metadata` compara el cuerpo del PR abierto con la rama: el `red commit:` es un commit de la rama, los casos del bloque rojo están en ese archivo, los `N commits` son los reales y el `Closes`/`Refs` es el issue de la rama y no el número del PR. Sin PR abierto, o si `gh` falla, sale con 4 (no verificó) y `verify.py` lo muestra como `not verified` y no dice "All verified"; si el cuerpo no coincide, sale con 3. Dos reglas con el mismo check lo corren una vez; con `--pr` se saltean. Un manifiesto ilegible sale con 2.
 - **El `run` de la entrada `bash` del rojo lee `--diff-filter=AMRC`** (#264, punto 3; la persona lo aprobó en un comentario del issue: ADR-002 D6 y la ruta sensible `docs/agents-map.json`, D7). Con `diff.renames=copies` en la config de git del proyecto, un test copiado es una `C`: `red_report` lo pide como agregado y el `run` con `AMR` no lo corría, así que `red.sh` salía con 2 ("did not run"). Ahora un test copiado corre bajo su ruta nueva, igual que uno renombrado. Cambia `docs/agents-map.json`, `profiles/small/docs/agents-map.json`, `docs/guides/red-per-runner.md` (y `.es.md`) y la frase de D6 en ADR-002 (en y es). Qué hacer: si copiaste la entrada `bash` a mano, cambiá `--diff-filter=AMR` por `--diff-filter=AMRC`; `update.py` la reemplaza sola si es la que publicó 2.0.0 (con `AMR`): solo su `run`, el `when` y el `timeout` del proyecto quedan.
 - `scripts/agents/tap.sh`: un bail que llega después de `tap_done` (un `>(…)` que muere mientras se escribe la suite) deja un segundo `<testsuite>` con solo ese testcase `error`, nunca los casos repetidos (#264).
