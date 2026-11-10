@@ -379,7 +379,8 @@ mkdir -p "$R/docs" "$R/scripts"
 git init -q -b main "$R"
 cp "$RAIZ/docs/agents-map.json" "$R/docs/agents-map.json"
 cp -R "$RAIZ/scripts/agents" "$R/scripts/"
-(cd "$R" && git add -A && git commit -qm base)
+git -C "$R" add -A; tap_check $? "mapa real: el repo de prueba se prepara (git add)"
+git -C "$R" commit -qm base; tap_check $? "mapa real: el repo de prueba se prepara (git commit)"
 ruteo_real() { (cd "$R" && python3 "$AQUI/routing.py" "$1" 2>&1); }
 issue 40 open "type:task" "Mover retro.sh en .claude/skills/orchestrate/SKILL.md."
 s=$(ruteo_real 40); es "$(head -1 <<<"$s")" = sonnet; tap_check $? "mapa real: un issue que nombra .claude/skills/orchestrate/ → sonnet"
@@ -387,7 +388,7 @@ issue 41 open "type:docs" "Aclarar el rol en .claude/agents/implementer.md."
 s=$(ruteo_real 41); es "$(head -1 <<<"$s")" = sonnet; tap_check $? "mapa real: un issue que nombra .claude/agents/ → sonnet"
 issue 42 open "type:docs" "Ajustar docs/agents/subagent-contract.md."
 s=$(ruteo_real 42); es "$(head -1 <<<"$s")" = sonnet; tap_check $? "mapa real: un issue que nombra docs/agents/subagent-contract.md → sonnet"
-grep -q "agents" <<<"$s"; tap_check $? "mapa real: el motivo nombra el tipo agents"
+[ "$(sed -n 2p <<<"$s")" = "reason: names sensitive paths: docs/agents/subagent-contract.md (agents)" ]; tap_check $? "mapa real: el motivo es exactamente la ruta y el tipo agents" "mapa real: el motivo es exactamente la ruta y el tipo agents (salida: $s)"
 issue 43 open "type:docs" "Corregir un link del README."
 s=$(ruteo_real 43); es "$(head -1 <<<"$s")" = haiku; tap_check $? "mapa real: un issue sin rutas sensibles sigue yendo a haiku"
 
