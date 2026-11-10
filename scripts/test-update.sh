@@ -900,6 +900,12 @@ if q == "contexts":
     print(json.dumps(m.get("contexts", "sin sección"), sort_keys=True))
 elif q == "propio":
     print(m.get("propio"))
+elif q == "registrado":
+    print(sorted(k for k in json.load(open(".agent-kit.json"))["files"] if k in ("docs/glossary.md", "docs/contexts.md")))
+elif q == "version":
+    k = json.load(open(".agent-kit.json"))
+    k["version"] = "0.1.0"
+    json.dump(k, open(".agent-kit.json", "w"), indent=2)
 PY
 # viejo_ddd <dir> <chico|completo>: un proyecto de la plantilla v0.1.0 anterior al glosario, commiteado.
 viejo_ddd() {
@@ -925,6 +931,8 @@ tap_check $? "[ddd completo] update conserva lo propio del mapa al agregar conte
 tap_check $? "[ddd completo] update avisa que docs/README.md no enlaza el glosario"
 [[ "$s" == *"(reference/glossary.md)"* ]]
 tap_check $? "[ddd completo] el aviso dice qué enlace agregar al índice"
+[[ "$s" != *"check-docs.py warns"* ]]
+tap_check $? "[ddd completo] el resumen no dice que check-docs.py avisa: en un repo instalado no mira los índices"
 [[ "$s" == *"docs/llms.txt does not link docs/reference/contexts.md"* ]]
 tap_check $? "[ddd completo] update avisa que docs/llms.txt no enlaza el mapa de contextos"
 printf '\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >>docs/README.md
@@ -995,6 +1003,12 @@ tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
 tap_check $? "[grow ddd] sin tocar, el glosario y los contextos chicos se van y queda lo de docs/reference/"
 es -f docs/reference/glossary.md && es -f docs/reference/contexts.md
 tap_check $? "[grow ddd] el proyecto completo trae docs/reference/glossary.md y contexts.md"
+grep -q '| Name in the code | Context |' docs/reference/glossary.md
+tap_check $? "[grow ddd] sin tocar, docs/reference/glossary.md es el del perfil completo y no el chico movido"
+[ ! -e .agent-kit/pending/docs/reference/glossary.md ] && [ ! -e .agent-kit/pending/docs/reference/contexts.md ]
+tap_check $? "[grow ddd] sin tocar, nada de lo chico va a pending"
+[[ "$s" != *"check-docs.py warns"* ]]
+tap_check $? "[grow ddd] el resumen no promete que check-docs.py avisa de los enlaces"
 m=$(python3 "$TMP/ddd-view.py" contexts 2>&1)
 [ "$m" = "[]" ]
 tap_check $? "[grow ddd] con la tabla sin llenar, contexts queda vacía"
@@ -1027,8 +1041,23 @@ tap_check $? "[grow ddd lleno] los archivos chicos del proyecto se mueven a docs
 grep -q "what is charged" docs/reference/glossary.md
 tap_check $? "[grow ddd lleno] el glosario del proyecto llega a docs/reference/ con su contenido"
 m=$(python3 "$TMP/ddd-view.py" contexts 2>&1)
-[ "$m" = '[{"depends_on": ["Accounts"], "name": "Billing", "paths": ["src/billing/**"]}, {"depends_on": [], "name": "Accounts", "paths": ["src/accounts/**", "src/shared/*.py"]}]' ]
-tap_check $? "[grow ddd lleno] la columna de rutas de la tabla pasa a la sección contexts del mapa"
+[ "$m" = '[{"depends_on": ["Accounts"], "name": "Billing", "paths": ["src/billing/**"]}, {"depends_on": [], "name": "Accounts", "paths": ["src/accounts/**", "?src/shared/*.py"]}]' ]
+tap_check $? "[grow ddd lleno] la columna de rutas pasa a contexts, y la ruta que no matchea ningún archivo queda opcional con ?"
+[[ "$s" == *"?src/shared/*.py"* ]]
+tap_check $? "[grow ddd lleno] el resumen dice qué ruta marcó como opcional"
+m=$(python3 "$TMP/ddd-view.py" registrado 2>&1)
+[ "$m" = "[]" ]
+tap_check $? "[grow ddd lleno] lo que grow movió o borró sale del registro de .agent-kit.json"
+git add -A
+git commit -qm "tras grow"
+rm -rf .agent-kit/pending
+python3 "$TMP/ddd-view.py" version >/dev/null
+git add -A
+git commit -qm "version vieja"
+tap_run s 0 python3 scripts/update.py --template "$P"
+m=$(python3 "$TMP/ddd-view.py" contexts 2>&1)
+[[ "$m" == *'"name": "Billing"'* ]]
+tap_check $? "[grow ddd lleno] un update después de grow no pierde los contextos que grow pasó al mapa"
 cd "$TMP" || exit 1
 
 D="$TMP/ddd-crece-roto"
@@ -1086,8 +1115,8 @@ git add -A
 git commit -qm "tabla con leyenda"
 tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
 m=$(python3 "$TMP/ddd-view.py" contexts 2>&1)
-[ "$m" = '[{"depends_on": [], "name": "Billing", "paths": ["src/billing/**", "src/futuro/**"]}]' ]
-tap_check $? "[grow ddd leyenda] toma la tabla de cinco columnas aunque haya otra antes, y una carpeta con barra final queda como carpeta/**"
+[ "$m" = '[{"depends_on": [], "name": "Billing", "paths": ["src/billing/**", "?src/futuro/**"]}]' ]
+tap_check $? "[grow ddd leyenda con opcional] toma la tabla de cinco columnas aunque haya otra antes; la carpeta que existe queda carpeta/** y la que no, opcional con ?"
 cd "$TMP" || exit 1
 
 D="$TMP/ddd-crece-ocupado"
@@ -1106,6 +1135,88 @@ m=$(python3 "$TMP/ddd-view.py" contexts 2>&1)
 tap_check $? "[grow ddd ocupado] la tabla que no se movió no pasa al mapa"
 [[ "$s" == *"Not moved: docs/contexts.md"* ]]
 tap_check $? "[grow ddd ocupado] grow dice qué no movió"
+cd "$TMP" || exit 1
+
+# Una tabla que no se puede pasar tal cual no se pasa a medias: Depends on con algo que no es un contexto de la tabla, una tabla con otra
+# cantidad de columnas (solo una vacía o en TODO calla) y sin ninguna tabla.
+D="$TMP/ddd-crece-depende"
+proyecto "$D" chico
+cd "$D" || exit 1
+mkdir -p src/billing
+echo x >src/billing/a.txt
+printf '# Contexts — Demo\n\n| Context | Responsibility | Own terms | Depends on | Code paths |\n|---|---|---|---|---|\n| Billing | charges | Invoice | Accounts | `src/billing/` |\n' >docs/contexts.md
+git add -A
+git commit -qm "depende de algo que no está"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+m=$(python3 "$TMP/ddd-view.py" contexts 2>&1)
+[ "$m" = "[]" ]
+tap_check $? "[grow ddd depende] un Depends on que no es un contexto de la tabla deja contexts vacía"
+[[ "$s" == *"Accounts"*"by hand"* ]]
+tap_check $? "[grow ddd depende] grow avisa que va a mano y nombra el contexto que falta"
+cd "$TMP" || exit 1
+
+D="$TMP/ddd-crece-columnas"
+proyecto "$D" chico
+cd "$D" || exit 1
+printf '# Contexts — Demo\n\n| Context | Responsibility | Code paths |\n|---|---|---|\n| Billing | charges | `src/billing/` |\n' >docs/contexts.md
+git add -A
+git commit -qm "tabla de tres columnas"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+[[ "$s" == *'to the `contexts` section'*"by hand"* ]]
+tap_check $? "[grow ddd columnas] una tabla con otra cantidad de columnas no pasa en silencio: avisa que va a mano"
+cd "$TMP" || exit 1
+
+D="$TMP/ddd-crece-sin-tabla"
+proyecto "$D" chico
+cd "$D" || exit 1
+printf '# Contexts — Demo\n\nBilling cobra. Accounts maneja usuarios.\n' >docs/contexts.md
+git add -A
+git commit -qm "contextos en prosa"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+[[ "$s" == *'to the `contexts` section'*"by hand"* ]]
+tap_check $? "[grow ddd sin tabla] un contexts.md del proyecto sin ninguna tabla no pasa en silencio: avisa que va a mano"
+cd "$TMP" || exit 1
+
+# El índice que el proyecto modificó y todavía enlaza los archivos chicos que grow movió o borró: grow lo avisa.
+D="$TMP/ddd-crece-enlace-viejo"
+proyecto "$D" chico
+cd "$D" || exit 1
+printf '\nnota del proyecto\n' >>docs/README.md
+git add -A
+git commit -qm "índice propio con enlaces a lo chico"
+tap_run s 0 env AGENT_KIT_TEMPLATE="$P" python3 scripts/grow.py
+[[ "$s" == *"docs/README.md links docs/glossary.md"* ]]
+tap_check $? "[grow ddd enlace viejo] avisa que el índice modificado sigue enlazando docs/glossary.md, que grow quitó"
+cd "$TMP" || exit 1
+
+# Un proyecto que ya tiene los enlaces en sus índices no recibe el aviso de enlace.
+D="$TMP/ddd-completo-enlazado"
+viejo_ddd "$D" completo
+cd "$D" || exit 1
+python3 - <<'PY'
+import os
+for idx in ("docs/README.md", "docs/README.es.md", "docs/llms.txt", "docs/llms.es.txt"):
+    if os.path.exists(idx):
+        with open(idx, "a") as f:
+            f.write("\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n")
+PY
+git add -A
+git commit -qm "índices que ya enlazan"
+tap_run s 0 python3 scripts/update.py --template "$P"
+[[ "$s" != *"does not link"* ]]
+tap_check $? "[ddd completo enlazado] update no avisa de enlaces que los índices ya tienen"
+cd "$TMP" || exit 1
+
+# --small no tiene sección contexts (ADR-003 D3): con un mapa ilegible no se pide agregarla a mano.
+D="$TMP/ddd-chico-mapa-roto"
+viejo_ddd "$D" chico
+cd "$D" || exit 1
+printf 'esto no es json\n' >docs/agents-map.json
+git add -A
+git commit -qm "mapa chico roto"
+tap_run s 0 python3 scripts/update.py --template "$P"
+[[ "$s" != *'"contexts": []'* ]]
+tap_check $? "[ddd chico mapa roto] update --small con un mapa ilegible no pide agregar contexts"
 cd "$TMP" || exit 1
 
 tap_done
