@@ -255,4 +255,79 @@ for f in files:
 [ -z "$restos" ]; tap_check $? "lessons: ningún archivo (salvo historial y migración) nombra lessons.md" "lessons: ningún archivo nombra lessons.md (quedan: ${restos//$'\n'/ })"
 fi
 
+# 290: init, update e install y rules.lock. Un proyecto nuevo hereda repo y sha del lock del kit, pero sus secciones generadas se
+# regeneran con su `project` (no trae reglas de otro proyecto); update no toca el lock ni las secciones del proyecto y dice
+# qué fija el kit. Plantilla y repo de reglas son carpetas locales (url.insteadOf): no toca la red. Sin init, update e install
+# (un proyecto ya inicializado) no hay nada que probar.
+if [ -f "$RAIZ/scripts/init-template.sh" ] && [ -f "$RAIZ/scripts/update.py" ] && [ -f "$RAIZ/scripts/install.py" ]; then
+  R290="$TMP/r290"; GH290="$TMP/gh290/lautioliver"; T290="$TMP/t290"
+  regla290() { # regla290 <id> <scope> <texto> <applies_to>
+    mkdir -p "$R290/rules"
+    printf -- '---\nid: %s\nstatus: accepted\norigin: observed\napplies_to: %s\nscope: %s\nclasses: []\nseverity: fix\naccepted: 2026-11-01\n---\n%s\n\n## Por qué\nPorque sí.\n' "$1" "$4" "$2" "$3" >"$R290/rules/$1.md"
+  }
+  git init -q -b main "$R290"
+  printf -- '- id: pr-metadata\n  description: x\n' >"$R290/classes.yml"
+  regla290 general '"*"' "Regla general v1." "[implementer]"
+  regla290 solo-kit "[barrilete-kit]" "Regla solo del kit." "[implementer]"
+  regla290 solo-kit-agents "[barrilete-kit]" "Regla de AGENTS solo del kit." '"*"'
+  git -C "$R290" add -A && git -C "$R290" commit -qm A
+  SHA_A=$(git -C "$R290" rev-parse HEAD)
+  regla290 general '"*"' "Regla general v2." "[implementer]"
+  git -C "$R290" commit -qam B
+  SHA_B=$(git -C "$R290" rev-parse HEAD)
+  mkdir -p "$GH290" && git clone -q --bare "$R290" "$GH290/barrilete-rules.git"
+  export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.$TMP/gh290/.insteadOf" GIT_CONFIG_VALUE_0="https://github.com/"
+  printf '#!/usr/bin/env bash\ncd "$1" || exit 99\nshift\nexec "$@"\n' >"$TMP/in290.sh"
+  mkdir -p "$TMP/bin290" && printf '#!/usr/bin/env bash\n[ "$1 $2" = "label list" ] && { echo "[]"; exit 0; }\necho "gh: not logged in" >&2\nexit 1\n' >"$TMP/bin290/gh" && chmod +x "$TMP/bin290/gh"
+  # La plantilla: el árbol actual con dos versiones, cada una con su lock y sus secciones generadas (como las publica el kit).
+  mkdir -p "$T290"
+  (cd "$RAIZ" && git ls-files -z -co --exclude-standard | tar --null -T - -cf -) | (cd "$T290" && tar -xf -)
+  (
+    cd "$T290" && git init -q -b main && echo 0.1.0 >VERSION && printf '# Changelog\n' >CHANGELOG.md
+    printf 'repo=lautioliver/barrilete-rules\nsha=%s\n' "$SHA_A" >.barrilete/rules.lock
+    python3 scripts/agents/sync-rules && git add -A && git commit -qm v0.1.0 && git tag v0.1.0
+    printf 'repo=lautioliver/barrilete-rules\nsha=%s\n' "$SHA_B" >.barrilete/rules.lock
+    printf -- '# nuevo290\n\n<!-- rules:begin x -->\n<!-- rules:end -->\n' >.claude/agents/nuevo290.md  # a role the kit adds in 0.2.0
+    echo 0.2.0 >VERSION && python3 scripts/agents/sync-rules && git add -A && git commit -qm v0.2.0 && git tag v0.2.0
+  ) >"$TMP/build290.log" 2>&1; tap_check $? "290: la plantilla de prueba se arma con dos versiones y su lock" "$(tail -n 5 "$TMP/build290.log")"
+  seccion290() { sed -n '/<!-- rules:begin/,/<!-- rules:end -->/p' "$1" | grep -F -- "$2" || true; }
+
+  # init
+  P290="$TMP/p290"; git clone -q --branch v0.1.0 "$T290" "$P290" && rm -rf "$P290/.git"
+  tap_run out 0 bash "$TMP/in290.sh" "$P290" ./scripts/init-template.sh Demo main --no-flow-line
+  (cd "$P290" && git init -q -b main && git add -A && git commit -qm init); tap_check $? "290: el proyecto de prueba se prepara"
+  [ -n "$(seccion290 "$P290/.claude/agents/implementer.md" "Regla general v1.")" ]; tap_check $? "290 init: implementer.md recibe la regla general"
+  [ -z "$(seccion290 "$P290/.claude/agents/implementer.md" "Regla solo del kit.")" ]; tap_check $? "290 init: implementer.md no trae la regla que es solo del kit"
+  [ -z "$(seccion290 "$P290/AGENTS.md" "Regla de AGENTS solo del kit.")" ]; tap_check $? "290 init: AGENTS.md no trae la regla que es solo del kit"
+  grep -qxF "sha=$SHA_A" "$P290/.barrilete/rules.lock"; tap_check $? "290 init: el proyecto hereda el sha del lock del kit"
+  tap_run out 0 python3 "$P290/scripts/agents/sync-rules" --root "$P290" --check
+  [ "$TAP_RC" = 0 ]; tap_check $? "290 init: sync-rules --check sale 0 en el proyecto recién inicializado" "$out"
+  Q290="$TMP/q290"; git clone -q --branch v0.1.0 "$T290" "$Q290" && rm -rf "$Q290/.git"
+  tap_run out 0 env GIT_CONFIG_VALUE_0="$TMP/no-existe/" bash "$TMP/in290.sh" "$Q290" ./scripts/init-template.sh Demo main --no-flow-line
+  [ "$TAP_RC" = 0 ]; tap_check $? "290 init: sin acceso al repo de reglas el init termina bien" "$out"
+  grep -qF "WARNING: sync-rules failed" <<<"$out"; tap_check $? "290 init: sin acceso al repo de reglas el init avisa con su WARNING que falta correr sync-rules"
+
+  # update: el kit pasa a v0.2.0 (lock en B); el proyecto sigue en A y las secciones no cambian
+  tap_run out 0 bash "$TMP/in290.sh" "$P290" python3 scripts/update.py --template "$T290"
+  [ "$TAP_RC" = 0 ]; tap_check $? "290 update: termina bien" "$out"
+  grep -qxF "sha=$SHA_A" "$P290/.barrilete/rules.lock"; tap_check $? "290 update: no cambia el lock del proyecto"
+  [ -n "$(seccion290 "$P290/.claude/agents/implementer.md" "Regla general v1.")" ]; tap_check $? "290 update: no cambia la sección generada del proyecto"
+  [ -f "$P290/.claude/agents/nuevo290.md" ]; tap_check $? "290 update: llega el agente que agrega el kit"
+  grep -qF "barrilete-rules@$SHA_A" "$P290/.claude/agents/nuevo290.md"; tap_check $? "290 update: el agente que agrega el kit trae las reglas del lock del proyecto"
+  grep -qE "rules\.lock.*${SHA_A:0:7}.*${SHA_B:0:7}" <<<"$out"; tap_check $? "290 update: dice que el lock sigue en el sha del proyecto y cuál fija el kit" "$out"
+  tap_run out 0 python3 "$P290/scripts/agents/sync-rules" --root "$P290" --check
+  [ "$TAP_RC" = 0 ]; tap_check $? "290 update: sync-rules --check sale 0 en el proyecto después de actualizar" "$out"
+
+  # install: un repo existente recibe el lock del kit y las secciones del proyecto
+  I290="$TMP/i290"; mkdir -p "$I290" && (cd "$I290" && git init -q -b main && printf '# App\n' >README.md && git add -A && git commit -qm app); tap_check $? "290: el repo de prueba se prepara"
+  tap_run out 0 env PATH="$TMP/bin290:$PATH" bash "$TMP/in290.sh" "$I290" python3 "$T290/scripts/install.py" Demo main --template "$T290"
+  [ "$TAP_RC" = 0 ]; tap_check $? "290 install: termina bien" "$out"
+  grep -qxF "sha=$SHA_B" "$I290/.barrilete/rules.lock"; tap_check $? "290 install: el proyecto recibe el lock del kit"
+  [ -n "$(seccion290 "$I290/.claude/agents/implementer.md" "Regla general v2.")" ]; tap_check $? "290 install: implementer.md recibe la regla general"
+  [ -z "$(seccion290 "$I290/.claude/agents/implementer.md" "Regla solo del kit.")" ]; tap_check $? "290 install: implementer.md no trae la regla que es solo del kit"
+  tap_run out 0 python3 "$I290/scripts/agents/sync-rules" --root "$I290" --check
+  [ "$TAP_RC" = 0 ]; tap_check $? "290 install: sync-rules --check sale 0 en el proyecto" "$out"
+  unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
+fi
+
 tap_done
