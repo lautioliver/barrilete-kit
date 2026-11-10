@@ -231,6 +231,8 @@ proyecto "$TMP/vc" "$SHA1"; rm "$TMP/vc/scripts/agents/verify.py" "$TMP/vc/scrip
 tap_run out 0 "$SYNC" --root "$TMP/vc" --url "$TMP/rules"
 [ "$(reglas "$TMP/vc/.claude/agents/implementer.md")" = "${IMPL_V1/ validated by \`verify.py\`: pr-metadata/}" ]; tap_check $? "validated by: sin verify.py (perfil chico) nadie valida la regla y no lo dice"
 
+# 17 y 18 son del kit: el init deja un docs.yml y un árbol de docs propios del proyecto (test-init corre este test ahí).
+if [ -f "$RAIZ/scripts/init-template.sh" ]; then
 # 17. El CI del kit corre sync-rules --check (#288): nadie edita a mano una sección generada. Sin rules.lock no hay nada que chequear.
 WF="$RAIZ/.github/workflows/docs.yml"
 grep -v '^[[:space:]]*#' "$WF" | grep -q 'python3 scripts/agents/sync-rules --check$'; tap_check $? "CI: docs.yml corre sync-rules --check"
@@ -251,5 +253,6 @@ for f in files:
         print(f)
 ' "$RAIZ"
 [ -z "$restos" ]; tap_check $? "lessons: ningún archivo (salvo historial y migración) nombra lessons.md" "lessons: ningún archivo nombra lessons.md (quedan: ${restos//$'\n'/ })"
+fi
 
 tap_done
