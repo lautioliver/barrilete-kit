@@ -32,7 +32,7 @@ Reglas, en este orden:
 3. **Script antes que texto.** Si se puede verificar mecánicamente (un check de CI, un control en `verify.py` o `prepare.sh`), eso; una instrucción más en Markdown es el último recurso. Las instrucciones son lo que el agente se saltea.
 4. **Largo máximo:** ninguna `SKILL.md` pasa de 120 líneas. Si un ajuste no entra, hay que sacar o pasar a script otra cosa.
 5. **Un cambio por patrón**, con su motivo y los casos que lo justifican.
-6. **Lecciones:** lo que sirve pero no alcanza para cambiar una skill (un caso, o algo que no se puede verificar con un script) va a `docs/agents/lessons.md`, en el mismo PR. Es lo único de las retros que leen los demás agentes: nunca leen retros crudas. Máximo 40 líneas (lo controla `check-docs.py`): si no entra, sacá la lección más vieja o la que ya pasó a una skill.
+6. **Reglas:** lo que sirve pero no alcanza para cambiar una skill (un caso, o algo que no se puede verificar con un script) se propone como regla `proposed` en un PR a `barrilete-rules` (ADR-006 D1), con su evidencia. Una persona la acepta al mergear; `sync-rules` la inyecta después en los roles. El kit no guarda un archivo de lecciones, y los demás agentes nunca leen retros crudas.
 
 ## 4. Proponer en un PR
 

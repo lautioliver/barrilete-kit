@@ -232,7 +232,7 @@ Los lanza `/orchestrate` desde la sesión principal. Comparten las reglas y el f
 
 1. Cada `implement-issue` y `review-pr` deja una retro en la rama `agents/retros`. Es solo git: no ensucia los PRs ni depende de GitHub.
 2. `/improve-skills` busca patrones (al menos dos casos, o uno grave) y prefiere convertirlos en scripts o checks antes que en más texto. Siempre propone en un PR, y se puede programar para que corra una vez por semana.
-3. Lo que sirve pero no alcanza para cambiar una skill va a `docs/agents/lessons.md`, que `implement-issue` lee antes de empezar. Los agentes aprenden de lo consolidado y revisado, nunca de retros crudas.
+3. Lo que sirve pero no alcanza para cambiar una skill se propone como regla en `barrilete-rules`; cuando una persona la acepta, `sync-rules` la inyecta en los roles que la necesitan. Los agentes aprenden de reglas consolidadas y revisadas, nunca de retros crudas.
 
 Las skills tienen un máximo de 120 líneas, que controla `check-docs.py`. Dos checks del workflow de labels salieron de este circuito en un repo real: un PR con `business-logic` tiene que tocar `docs/decisions/` (o decir `ADR sin cambios: <motivo>`; `ADR unchanged: <motivo>` también vale; con un motivo real: el texto de ejemplo sin completar falla), y un PR que llega sin `type:` lo copia del issue que cierra.
 

@@ -65,7 +65,7 @@ P="$TMP/p"; proyecto "$P" "$SHA1"
 # 1. Una corrida genera la sección de cada rol entre marcadores: exactamente sus reglas, `- <texto> (`<id>`)` por id.
 # Un archivo sin sección da una lista vacía, que no es la esperada: ningún caso pasa en vacío.
 sync 0
-IMPL_V1=$'- Regla con check. (`con-check`)\n- Regla uno v1 del implementer. (`impl-uno`)\n- Regla de mi proyecto. (`solo-mio`)'
+IMPL_V1=$'- Regla con check. (`con-check`) validated by `verify.py`: pr-metadata\n- Regla uno v1 del implementer. (`impl-uno`)\n- Regla de mi proyecto. (`solo-mio`)'
 [ "$(reglas "$P/.claude/agents/implementer.md")" = "$IMPL_V1" ]; tap_check $? "implementer: recibe sus reglas, y solo las de su rol, accepted y de su proyecto"
 [ "$(reglas "$P/.claude/agents/reviewer.md")" = '- Regla del reviewer. (`rev-uno`)' ]; tap_check $? "reviewer: recibe solo su regla"
 [ "$(reglas "$P/.claude/i18n/agents/implementer.es.md")" = "$IMPL_V1" ]; tap_check $? "implementer (es): recibe las mismas reglas, sin traducir"
@@ -117,7 +117,7 @@ sync 0
 mkdir -p "$P/.barrilete/rules"
 printf -- '---\nid: propia\nstatus: accepted\norigin: human\napplies_to: [implementer]\nscope: "*"\nclasses: []\nseverity: suggestion\naccepted: 2026-11-07\n---\nRegla propia del proyecto.\n' >"$P/.barrilete/rules/propia.md"
 sync 0
-[ "$(reglas "$P/.claude/agents/implementer.md")" = "$(printf '%s\n%s\n%s\n%s' '- Regla con check. (`con-check`)' '- Regla uno v2 del implementer. (`impl-uno`)' '- Regla propia del proyecto. (`propia`)' '- Regla de mi proyecto. (`solo-mio`)')" ]; tap_check $? "reglas propias: se suman a las del rol, en orden por id"
+[ "$(reglas "$P/.claude/agents/implementer.md")" = "$(printf '%s\n%s\n%s\n%s' '- Regla con check. (`con-check`) validated by `verify.py`: pr-metadata' '- Regla uno v2 del implementer. (`impl-uno`)' '- Regla propia del proyecto. (`propia`)' '- Regla de mi proyecto. (`solo-mio`)')" ]; tap_check $? "reglas propias: se suman a las del rol, en orden por id"
 sed 's/^id: propia/id: impl-uno/' "$P/.barrilete/rules/propia.md" >"$P/.barrilete/rules/impl-uno.md"; rm "$P/.barrilete/rules/propia.md"
 sync 3
 grep -q 'impl-uno' <<<"$out"; tap_check $? "reglas propias: un id que choca con el de barrilete-rules falla y lo nombra"
@@ -220,5 +220,39 @@ if [ -f "$RAIZ/scripts/init-template.sh" ]; then
   [ -f "$K" ] && grep -q '"template": true' "$K"; tap_check $? "el .agent-kit.json del kit dice template true"
 fi
 [ "$(grep -c '^project=' "$RAIZ/.barrilete/rules.lock" || true)" = 0 ]; tap_check $? "el rules.lock del kit no lleva project="
+
+# 16. Una regla con check dice quién la valida (#288, ADR-006 D8): "validated by `verify.py`: <check>". Solo donde verify.py corre.
+proyecto "$TMP/vb" "$SHA1"
+tap_run out 0 "$SYNC" --root "$TMP/vb" --url "$TMP/rules"
+IMPL_VB=$'- Regla con check. (`con-check`) validated by `verify.py`: pr-metadata\n- Regla uno v1 del implementer. (`impl-uno`)\n- Regla de mi proyecto. (`solo-mio`)'
+[ "$(reglas "$TMP/vb/.claude/agents/implementer.md")" = "$IMPL_VB" ]; tap_check $? "validated by: la regla con check dice el check que la valida y las demás quedan como estaban"
+[ "$(reglas "$TMP/vb/.claude/i18n/agents/implementer.es.md")" = "$IMPL_VB" ]; tap_check $? "validated by: la versión es del agente dice lo mismo"
+proyecto "$TMP/vc" "$SHA1"; rm "$TMP/vc/scripts/agents/verify.py" "$TMP/vc/scripts/agents/checks/pr-metadata"
+tap_run out 0 "$SYNC" --root "$TMP/vc" --url "$TMP/rules"
+[ "$(reglas "$TMP/vc/.claude/agents/implementer.md")" = "${IMPL_V1/ validated by \`verify.py\`: pr-metadata/}" ]; tap_check $? "validated by: sin verify.py (perfil chico) nadie valida la regla y no lo dice"
+
+# 17 y 18 son del kit: el init deja un docs.yml y un árbol de docs propios del proyecto (test-init corre este test ahí).
+if [ -f "$RAIZ/scripts/init-template.sh" ]; then
+# 17. El CI del kit corre sync-rules --check (#288): nadie edita a mano una sección generada. Sin rules.lock no hay nada que chequear.
+WF="$RAIZ/.github/workflows/docs.yml"
+grep -v '^[[:space:]]*#' "$WF" | grep -q 'python3 scripts/agents/sync-rules --check$'; tap_check $? "CI: docs.yml corre sync-rules --check"
+grep -v '^[[:space:]]*#' "$WF" | grep -q 'if \[ -f \.barrilete/rules\.lock \]'; tap_check $? "CI: el paso de sync-rules solo corre si el proyecto tiene rules.lock"
+
+# 18. docs/agents/lessons.md se fue (#288): las reglas viven en barrilete-rules. Quedan solo el historial (CHANGELOG, ADRs) y la migración de update.
+[ ! -e "$RAIZ/docs/agents/lessons.md" ]; tap_check $? "lessons: docs/agents/lessons.md ya no existe"
+[ ! -e "$RAIZ/docs/agents/lessons.es.md" ]; tap_check $? "lessons: docs/agents/lessons.es.md ya no existe"
+tap_run restos 0 python3 -I -c '
+import os, re, subprocess, sys
+raiz = sys.argv[1]
+skip = re.compile(r"^(CHANGELOG\.md|docs/decisions/.*|scripts/update\.py|scripts/test-update\.sh|scripts/test-renames\.sh|scripts/agents/test-sync-rules\.sh)$")
+pat = re.compile("lessons(\\.es)?\\.md|MAX_LECCIONES")
+files = subprocess.run(["git", "ls-files", "-co", "--exclude-standard"], cwd=raiz, capture_output=True, text=True, check=True).stdout.split("\n")
+for f in files:
+    p = os.path.join(raiz, f)
+    if f and not skip.match(f) and os.path.isfile(p) and pat.search(open(p, encoding="utf-8", errors="replace").read()):
+        print(f)
+' "$RAIZ"
+[ -z "$restos" ]; tap_check $? "lessons: ningún archivo (salvo historial y migración) nombra lessons.md" "lessons: ningún archivo nombra lessons.md (quedan: ${restos//$'\n'/ })"
+fi
 
 tap_done

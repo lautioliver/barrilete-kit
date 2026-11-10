@@ -121,7 +121,7 @@ barrilete-rules is the source of truth of Barrilete's reusable policies. Its for
 ## Open questions
 
 - **How many rounds without effect before deciding on a rule (D10)?** The proposal is 20.
-- **Does the vault keep a read-only view of the rules, or only the deviations?**
+- **Does the vault keep a read-only view of the rules, or only the deviations?** Decided in the chat (2026-11-10, #288): only the deviations, patterns and measurement. The vault keeps no copy or view of the rules: they are read in `barrilete-rules` and in what `sync-rules` generates.
 - **Does `bk learn` open a proposal's PR on its own, or does the person?** D6 says "someone"; the proposal is that the person opens it from `bk lessons`.
 
 ## Rejected alternatives

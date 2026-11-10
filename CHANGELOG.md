@@ -4,6 +4,12 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 **Publicar una versión** (lo hace una persona): un PR que sube `VERSION` y agrega su sección acá; después del merge, `git tag vX.Y.Z` sobre ese commit y `git push origin vX.Y.Z`. Así `VERSION` en `main` coincide con el último tag.
 
+## [Sin publicar]
+
+### Cambiado
+
+- **El CI chequea las reglas generadas y `lessons.md` desaparece** (#288, ADR-006 D1, D2, D7, fase 2 parte 3). `docs.yml` corre `scripts/agents/sync-rules --check` si hay `.barrilete/rules.lock`: falla si una sección generada (reglas de `AGENTS.md` y de `.claude/agents/`, `classes.yml`, `checks.json`) no es lo que da el lock, por ejemplo si alguien la editó a mano; se arregla corriendo `scripts/agents/sync-rules` y commiteando. Una regla con `check` termina con "validated by `verify.py`: <check>" donde corre `verify.py` (no en el perfil chico). Se borran `docs/agents/lessons.md` (y `.es.md`), su lectura en `implement-issue`, su tope de 40 líneas en `check-docs.py` y sus referencias; `/improve-skills` propone lo que no llega a skill como regla en `barrilete-rules`. El ADR-006 anota que el vault guarda solo los desvíos. Qué hacer en un proyecto: nada si no usa `rules.lock`; si tenés un `docs/agents/lessons.md` propio, el kit ya no lo lee ni lo valida: pasá lo que sirva a una regla de `.barrilete/rules/`.
+
 ## [2.1.0] - 2026-11-10
 
 ### Cambiado

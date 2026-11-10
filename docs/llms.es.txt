@@ -23,7 +23,6 @@ Instrucciones para modelos: leer este archivo y AGENTS.md. Spec aspiracional = /
 - [ADR-006: store de reglas para los agentes](decisions/kit/ADR-006-rules-store-for-agents.md)
 - [Mapa para agentes: docs según cambios, rutas sensibles](agents-map.json)
 - [Contrato de los subagentes: reglas y salida común](agents/subagent-contract.md)
-- [Lecciones de las retros de agentes (revisadas en PR; leer antes de implementar)](agents/lessons.md)
 - [Clases de hallazgo de review-pr (la genera `scripts/agents/sync-rules` desde barrilete-rules, ADR-006)](agents/classes.yml)
 - [AGENTS.md](../AGENTS.md)
 - [Spec](../README.md)
