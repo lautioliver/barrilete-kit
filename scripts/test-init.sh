@@ -388,8 +388,8 @@ import json, sys
 sys.path.insert(0, sys.argv[1] + '/scripts/agents')
 from agents_map import coincide
 g = [x for s in json.load(open(sys.argv[1] + '/docs/agents-map.json'))['sensitive'] if s['type'] == 'agents' for x in s['paths']]
-print(all(coincide(r, g) for r in ('.claude/skills/orchestrate/routing.py', '.claude/agents/implementer.md', 'docs/agents/subagent-contract.md')))
-" "$p"); [ "$cubre" = True ]; tap_check $? "188: [completo] la categoría agents del mapa instalado cubre orchestrate, los agentes y el contrato" "188: [completo] la categoría agents del mapa instalado cubre orchestrate, los agentes y el contrato (salida: $cubre)"
+print(all(coincide(r, g) for r in ('.claude/skills/orchestrate/routing.py', '.claude/agents/implementer.md', 'docs/agents/subagent-contract.md', '.claude/skills/implement-issue/prepare.sh', '.claude/skills/review-pr/SKILL.md', 'scripts/agents/task_events.py', 'AGENTS.md')))
+" "$p"); [ "$cubre" = True ]; tap_check $? "188: [completo] la categoría agents del mapa instalado cubre orchestrate, los agentes, el contrato, implement-issue, review-pr, task_events y AGENTS.md" "188: [completo] la categoría agents del mapa instalado cubre orchestrate, los agentes, el contrato, implement-issue, review-pr, task_events y AGENTS.md (salida: $cubre)"
 c=0; s=$(trap - ERR; cd "$p" && python3 scripts/agents/check-docs.py 2>&1) || c=$?; tap_status "$c" 1; tap_no_traceback "$s"
 ! grep -q "agents-map.json: sensitive 'agents'" <<<"$s"; tap_check $? "188: [completo] check-docs del proyecto recién creado no rechaza las rutas de la categoría agents" "188: [completo] check-docs del proyecto recién creado no rechaza las rutas de la categoría agents"
 printf '# Guía\n' >"$p/docs/manual.es.md"
