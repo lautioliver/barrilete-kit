@@ -65,7 +65,7 @@ P="$TMP/p"; proyecto "$P" "$SHA1"
 # 1. Una corrida genera la sección de cada rol entre marcadores: exactamente sus reglas, `- <texto> (`<id>`)` por id.
 # Un archivo sin sección da una lista vacía, que no es la esperada: ningún caso pasa en vacío.
 sync 0
-IMPL_V1=$'- Regla con check. (`con-check`)\n- Regla uno v1 del implementer. (`impl-uno`)\n- Regla de mi proyecto. (`solo-mio`)'
+IMPL_V1=$'- Regla con check. (`con-check`) validated by `verify.py`: pr-metadata\n- Regla uno v1 del implementer. (`impl-uno`)\n- Regla de mi proyecto. (`solo-mio`)'
 [ "$(reglas "$P/.claude/agents/implementer.md")" = "$IMPL_V1" ]; tap_check $? "implementer: recibe sus reglas, y solo las de su rol, accepted y de su proyecto"
 [ "$(reglas "$P/.claude/agents/reviewer.md")" = '- Regla del reviewer. (`rev-uno`)' ]; tap_check $? "reviewer: recibe solo su regla"
 [ "$(reglas "$P/.claude/i18n/agents/implementer.es.md")" = "$IMPL_V1" ]; tap_check $? "implementer (es): recibe las mismas reglas, sin traducir"
@@ -117,7 +117,7 @@ sync 0
 mkdir -p "$P/.barrilete/rules"
 printf -- '---\nid: propia\nstatus: accepted\norigin: human\napplies_to: [implementer]\nscope: "*"\nclasses: []\nseverity: suggestion\naccepted: 2026-11-07\n---\nRegla propia del proyecto.\n' >"$P/.barrilete/rules/propia.md"
 sync 0
-[ "$(reglas "$P/.claude/agents/implementer.md")" = "$(printf '%s\n%s\n%s\n%s' '- Regla con check. (`con-check`)' '- Regla uno v2 del implementer. (`impl-uno`)' '- Regla propia del proyecto. (`propia`)' '- Regla de mi proyecto. (`solo-mio`)')" ]; tap_check $? "reglas propias: se suman a las del rol, en orden por id"
+[ "$(reglas "$P/.claude/agents/implementer.md")" = "$(printf '%s\n%s\n%s\n%s' '- Regla con check. (`con-check`) validated by `verify.py`: pr-metadata' '- Regla uno v2 del implementer. (`impl-uno`)' '- Regla propia del proyecto. (`propia`)' '- Regla de mi proyecto. (`solo-mio`)')" ]; tap_check $? "reglas propias: se suman a las del rol, en orden por id"
 sed 's/^id: propia/id: impl-uno/' "$P/.barrilete/rules/propia.md" >"$P/.barrilete/rules/impl-uno.md"; rm "$P/.barrilete/rules/propia.md"
 sync 3
 grep -q 'impl-uno' <<<"$out"; tap_check $? "reglas propias: un id que choca con el de barrilete-rules falla y lo nombra"
@@ -229,7 +229,7 @@ IMPL_VB=$'- Regla con check. (`con-check`) validated by `verify.py`: pr-metadata
 [ "$(reglas "$TMP/vb/.claude/i18n/agents/implementer.es.md")" = "$IMPL_VB" ]; tap_check $? "validated by: la versión es del agente dice lo mismo"
 proyecto "$TMP/vc" "$SHA1"; rm "$TMP/vc/scripts/agents/verify.py" "$TMP/vc/scripts/agents/checks/pr-metadata"
 tap_run out 0 "$SYNC" --root "$TMP/vc" --url "$TMP/rules"
-[ "$(reglas "$TMP/vc/.claude/agents/implementer.md")" = "$IMPL_V1" ]; tap_check $? "validated by: sin verify.py (perfil chico) nadie valida la regla y no lo dice"
+[ "$(reglas "$TMP/vc/.claude/agents/implementer.md")" = "${IMPL_V1/ validated by \`verify.py\`: pr-metadata/}" ]; tap_check $? "validated by: sin verify.py (perfil chico) nadie valida la regla y no lo dice"
 
 # 17. El CI del kit corre sync-rules --check (#288): nadie edita a mano una sección generada. Sin rules.lock no hay nada que chequear.
 WF="$RAIZ/.github/workflows/docs.yml"

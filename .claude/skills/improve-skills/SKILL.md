@@ -32,7 +32,7 @@ Rules, in this order:
 3. **Script before text.** If it can be verified mechanically (a CI check, a control in `verify.py` or `prepare.sh`), do that; one more instruction in Markdown is the last resort. Instructions are what the agent skips.
 4. **Maximum length:** no `SKILL.md` goes over 120 lines. If an adjustment does not fit, something else has to be removed or moved to a script.
 5. **One change per pattern**, with its reason and the cases that justify it.
-6. **Lessons:** what is useful but not enough to change a skill (one case, or something that cannot be verified with a script) goes to `docs/agents/lessons.md`, in the same PR. It is the only thing from the retros that the other agents read: they never read raw retros. Maximum 40 lines (checked by `check-docs.py`): if it does not fit, remove the oldest lesson or the one that already moved to a skill.
+6. **Rules:** what is useful but not enough to change a skill (one case, or something that cannot be verified with a script) is proposed as a `proposed` rule in a PR to `barrilete-rules` (ADR-006 D1), with its evidence. A person accepts it by merging; `sync-rules` then injects it into the roles. The kit keeps no lessons file, and the other agents never read raw retros.
 
 ## 4. Propose in a PR
 
