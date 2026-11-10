@@ -205,9 +205,9 @@ They live in `.claude/skills/`.
 | 🐛 | `debug` | Symptom → evidence → root cause → fix → regression test. |
 | 🗄️ | `db-migration` | A plan with compatibility, backfill and rollback before touching the schema. |
 | 📚 | `update-docs` | Finds docs a change made stale (using the map) and fixes them in the same PR. |
-| 👀 | `/review-pr <n>` | A review focused on what's specific to the project: business rules, ADRs, autonomy, docs, tests and sensitive paths. Never approves. |
+| 👀 | `/review-pr <n>` | A review focused on what's specific to the project: business rules, ADRs, glossary and context crossings, autonomy, docs, tests and sensitive paths. Never approves. |
 | 📊 | `/project-status` | An on-the-spot summary (version, work, epics, PRs, debt, decisions, migrations) and "what can I work on now?". |
-| 🎛️ | `/orchestrate` | Splits up to 3 available issues among agents working in parallel, each launched as a subagent or as a `bk` agent in its own tmux window per `roles.yml` (kit/ADR-004; Haiku or Sonnet per `routing.py`, Opus reviews), each in its own worktree, and gathers PRs, questions and escalations in a single message. Never merges or posts without confirmation. |
+| 🎛️ | `/orchestrate` | Splits up to 3 available issues among agents working in parallel, each launched as a subagent or as a `bk` agent in its own tmux window per `roles.yml` (kit/ADR-004; Haiku or Sonnet per `routing.py`, Sonnet reviews), each in its own worktree, and gathers PRs, questions and escalations in a single message. Never merges or posts without confirmation. |
 | 🔁 | `/improve-skills` | Gathers retros and objective signals (CI failures on agent branches, reverts) and proposes skill changes in a PR. Never loosens controls. |
 | 🌿 | `git-workflow` | Branches, commits and PRs. |
 | 👥 | `/add-member`, `/remove-member` | Add, edit, pause or remove the team members who receive issues. |
@@ -220,7 +220,7 @@ In `.claude/agents/`, each role with its model:
 |---|---|---|---|
 | 🛠️ | `implementer` | Sonnet | `implement-issue` in the worktree it is given: business logic, bugs, features and whatever the light one escalates. |
 | 🪶 | `implementer-light` | Haiku | Small issues without sensitive paths or business logic. If it runs into any of that, it stops and escalates. |
-| 👀 | `reviewer` | Opus | `review-pr` from another context, in its own worktree. It does not publish: it returns the findings. |
+| 👀 | `reviewer` | Sonnet | `review-pr` from another context, in its own worktree. It does not publish: it returns the findings. |
 
 `/orchestrate` launches them from the main session. They share the rules and the output format of `docs/agents/subagent-contract.md`, and each one works in its own worktree (`prepare.sh <n> --worktree`). With `bk`, `roles.yml` can launch only the `implementer` as a `bk` agent (`bk run`); `reviewer` and `implementer-light` always run as subagents. A `bk` agent is a normal `/implement-issue` session that asks the person at the moment, outside that contract. `check-docs.py` checks that each one has a model, tools and the contract.
 
@@ -267,7 +267,7 @@ With no members, issues stay unassigned. The team is changed with `/add-member` 
 | 🤖 | Subagents by model | `.claude/agents/` (implementer, light implementer, reviewer) + `docs/agents/subagent-contract.md` |
 | ✅ | Docs and scripts tested in CI | `.github/workflows/docs.yml` + `scripts/agents/check-docs.py`: broken links, paths and ADRs, map paths that no longer exist, what `AGENTS.md` says is ignored and isn't; shellcheck and the `test-*.sh` (they report in TAP through `scripts/agents/tap.sh`, ADR-002 D6), isolated from git config. In a repo with `.agent-kit.json` it only checks the kit's `.md` files, `docs/`, `AGENTS.md` and `llms.txt` (if the kit was installed in an existing repo, without `docs/`: those are the project's), and shellcheck and the tests only the kit's scripts (`check-docs.py --list <glob>`) |
 | 🔒 | Secrets out of the repo | `.gitignore`: `.env*` (except `.env.example`) and what the agent scripts generate |
-| 🧪 | Pre-PR verification | `scripts/agents/verify.py`: based on what changed, runs lint, typecheck, affected tests, migration drift… |
+| 🧪 | Pre-PR verification | `scripts/agents/verify.py`: based on what changed, runs lint, typecheck, affected tests, migration drift… and the checks of the rules (ADR-006) |
 | 👥 | Team | `.github/team.json` + `scripts/agents/team.py`: who receives issues, by area |
 | 🎨 | Brand | `.github/brand/`: Barrilete, the template's identity (init removes it) |
 

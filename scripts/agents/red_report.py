@@ -384,6 +384,9 @@ def cargo_files(diff, case):
         if mod_path is None:
             mod_path = []
     elif mod_path is None:       # cargo2junit
+        # Known limit (#264): cargo2junit does not say which binary ran the test, so a case of tests/api.rs maps to
+        # src/lib.rs (the module path is relative to the crate root): an integration test of the red diff is not
+        # "seen" and the red is rejected as "not in the report". Use nextest when the red touches tests/.
         mod_path = cls
     if binary and binary.startswith("bin/"):
         base, roots = f"src/bin/{binary[4:]}", [f"src/bin/{binary[4:]}.rs", f"src/bin/{binary[4:]}/main.rs", "src/main.rs"]
@@ -408,16 +411,15 @@ def cargo_files(diff, case):
 
 def case_files(diff, case):
     """(kind, [candidate files], scope) for a case, cached. Raises Unmapped when it cannot be mapped (D4: fail closed)."""
-    key = (case.file, case.classname, case.name)
-    cache = diff.__dict__.setdefault("_mapped", {})
-    if key not in cache:
+    def compute():
         try:
-            cache[key] = case_files_uncached(diff, case)
+            return case_files_uncached(diff, case)
         except Unmapped as e:
-            cache[key] = e
-    if isinstance(cache[key], Unmapped):
-        raise cache[key]
-    return cache[key]
+            return e   # the rejection is cached too: the same case is asked again by check_cases
+    found = memo(diff, ("case", case.file, case.classname, case.name), compute)
+    if isinstance(found, Unmapped):
+        raise found
+    return found
 
 
 def case_files_uncached(diff, case):
@@ -578,6 +580,8 @@ def defines(diff, path, added, name):
     if path.endswith(".sh"):
         # The case line of tap.sh: the id is the literal first argument of tap_ok, tap_fail or tap_check (after
         # the status). A line that only mentions the id (an echo, a variable) does not define the case.
+        # Known limit (#264): every case of a .sh in a JUnit report is read as a tap.sh id. Another producer (shunit2
+        # with a JUnit reporter) would be rejected as "not defined by a line this commit adds".
         spellings = {name, name.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")}
         for _, line in added:
             code = strip_comment(line, ["#"])
@@ -658,6 +662,9 @@ def check_cases(diff, report):
 # What the runner runs as a test, by name (ADR-002 D6, decided in #225): the union of the patterns of the reference runners,
 # intersected with the `when` of the entry. A test file with another name (*.bats, a python_files of its own) is not
 # recognized and is not checked: that opens, it does not close. Rust is not recognized by name but by a `fn` under a test attribute.
+# Known limit (#264): the union is intersected only with `when`, so a jest entry with `**/*.ts` has to report a Playwright
+# `e2e/x.spec.ts`, and an entry with `when: **` a `test-x.sh` that only the bash entry runs. The `when` of an entry has to
+# match only the files that runner runs.
 TEST_NAME = re.compile(
     r"(?:^|/)(?:test-[^/]*\.sh|test_[^/]*\.py|[^/]*_test\.py|[^/]*_test\.go"
     r"|[^/]*\.(?:test|spec)\.(?:js|jsx|mjs|cjs|ts|tsx|mts|cts))$")
@@ -700,17 +707,19 @@ def missing_test_files(diff, entry, report):
     wanted = test_files(diff, entry)
     if not wanted:
         return []   # nothing to look for: do not map the cases of the report
-    seen = set()
-    for f in report.suite_files:
+    left = set(wanted)
+    for f in report.suite_files:   # the `file` of a testsuite first: it covers a whole script without mapping a case
         n = normalize_path(diff, f)
         if n:
-            seen.add(n)
-    for c in report.cases:
+            left.discard(n)
+    for c in report.cases:         # then case by case, only until the last wanted file shows up
+        if not left:
+            break
         try:
-            seen.update(case_files(diff, c)[1])
+            left.difference_update(case_files(diff, c)[1])
         except Unmapped:
             pass
-    return [f for f in wanted if f not in seen]
+    return [f for f in wanted if f in left]
 
 
 SECOND_MARKER = re.compile(r"(?:\d+: )?second marker:")

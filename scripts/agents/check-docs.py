@@ -22,8 +22,9 @@ Checks:
   with a leading "?"); warns about code folders the map does not cover.
 - What AGENTS.md says is ignored (`.env*`...) and git does not ignore.
 - docs/agents/classes.yml (ADR-006 D4): readable UTF-8 (a BOM is fine), at least one class, only `- id: <kebab-case>` followed by
-  `  description: <plain text>` (no quotes or YAML syntax that a real parser would read differently), ids not repeated, a
-  description on each one, and `other` (reserved) not listed. The classes ([id]) that review-pr names exist in it; if the
+  `  description: <plain text>` (no quotes or YAML syntax that a real parser would read differently), ids not repeated and not
+  a word YAML 1.1 reads as a boolean or null (y, n, yes, no, true, false, on, off, null), one description on each one, and
+  `other` (reserved) not listed. One mistake, one error: a quoted id is reported once and still counts as a class. The classes ([id]) that review-pr names exist in it; if the
   file is missing, unreadable or empty, that is its own error and the skill is not blamed for each tag.
 - Skills (.claude/skills/*/SKILL.md) over 120 lines, and docs/agents/lessons.md over 40.
 - Subagents (.claude/agents/*.md) without name, description or tools, with a model that is not
@@ -61,12 +62,15 @@ errores = []
 
 
 def archivos_del_kit():
-    """Kit paths according to .agent-kit.json, or None if it does not exist (the template: everything is kit)."""
+    """Kit paths according to .agent-kit.json, or None if it does not exist or says `template: true` (the template: everything is kit)."""
     if not os.path.exists(".agent-kit.json"):
         return None
     try:
         with open(".agent-kit.json", encoding="utf-8") as fh:
-            archivos = json.load(fh)["files"]
+            manifiesto = json.load(fh)
+        if isinstance(manifiesto, dict) and manifiesto.get("template") is True:
+            return None  # the template's own manifest (it only names its project): everything is kit
+        archivos = manifiesto["files"]
         if not isinstance(archivos, dict):
             raise ValueError("'files' must be a path → hash object")
     except (ValueError, KeyError, OSError) as e:
@@ -619,13 +623,15 @@ if os.path.isdir(".claude/skills"):
 # `other` is reserved (no class fits) and is not listed there. Only the review-pr skill (en and es) is checked; if classes.yml is missing, it is an error only when a line of the skill points to it.
 CLASES_YML = "docs/agents/classes.yml"
 SKILLS_CLASES = (".claude/skills/review-pr/SKILL.md", ".claude/skills/review-pr/SKILL.es.md")
+KEBAB = r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
+YAML11 = {"y", "n", "yes", "no", "true", "false", "on", "off", "null"}  # kebab-case words YAML 1.1 reads as a boolean or null
 ids_clases = None  # None: no usable list of classes (missing, unreadable or empty file), so the skill's tags are not checked
 if os.path.exists(CLASES_YML):
     # A strict reader of the file (no YAML library): `- id: <kebab-case>` followed by `  description: <text>`, nothing else.
     ids_leidos = set()
     actual = None  # [id, line, has_description]
     def cerrar():
-        if actual and not actual[2]:
+        if actual and actual[0] and not actual[2]:
             errores.append(f"{CLASES_YML}:{actual[1]}: the class [{actual[0]}] has no description.")
     legible = True
     try:
@@ -634,27 +640,50 @@ if os.path.exists(CLASES_YML):
     except UnicodeDecodeError as e:
         errores.append(f"{CLASES_YML}: is not valid UTF-8 ({e.reason} at byte {e.start}).")
         lineas_yml, legible = [], False
+    except OSError as e:  # a directory, no read permission...: its own error, and the rest of the checks still run
+        errores.append(f"{CLASES_YML}: cannot be read ({e.strerror or e}).")
+        lineas_yml, legible = [], False
     for n, linea in enumerate(lineas_yml, 1):
         linea = linea.rstrip()  # trailing spaces or a CR (CRLF files) are not part of the value
         if not linea.strip() or linea.lstrip().startswith("#"):
             continue
-        m_id = re.fullmatch(r"- id: ([a-z][a-z0-9]*(?:-[a-z0-9]+)*)", linea)
+        m_id = re.fullmatch(r"- id: (" + KEBAB + ")", linea)
         # A plain scalar a real YAML parser reads as the same text (conservative): it starts with a letter or a digit (no quote,
         # flow, tag, "- ", "? ", ", " or "] "), has no ":" before a space or at the end and no "#" after a space or a tab.
         m_desc = re.fullmatch(r"  description: (\w.*)", linea)
         if m_desc and re.search(r":(\s|$)|\s#", m_desc.group(1)):
             m_desc = None
-        if m_id:
+        # A line that tries to be an id but is not well written (quotes, `- ID:`, a comment, two spaces...): one error, and if
+        # the id can still be told it counts as a class, so its description is not a second error and the skill is not blamed.
+        m_clave = None if m_id else re.match(r"\s*-\s*id\s*:(.*)", linea, re.I)
+        if m_id or m_clave:
             cerrar()
-            cid = m_id.group(1)
+            if m_id:
+                cid = m_id.group(1)
+            else:
+                valor = re.sub(r"\s#.*", "", m_clave.group(1)).strip()
+                citado = re.fullmatch(r"([\"'])(.*)\1", valor)
+                valor = citado.group(2) if citado else valor
+                cid = valor if re.fullmatch(KEBAB, valor) else None
+                if citado and cid:
+                    errores.append(f"{CLASES_YML}:{n}: the id [{cid}] is quoted (unexpected line: write `- id: <kebab-case>`, unquoted).")
+                else:
+                    errores.append(f"{CLASES_YML}:{n}: unexpected line (expected `- id: <kebab-case>`, unquoted, with one space and no comment).")
+            if m_id and cid in YAML11:  # quoted, it is already text: the quotes are the error
+                errores.append(f"{CLASES_YML}:{n}: the id [{cid}] is a boolean or null in YAML 1.1, so a YAML parser would not "
+                               "read it as text: pick another id.")
             if cid == "other":
                 errores.append(f"{CLASES_YML}:{n}: `other` is reserved (review-pr uses it when no class fits): do not list it.")
-            if cid in ids_leidos:
+            if cid and cid in ids_leidos:
                 errores.append(f"{CLASES_YML}:{n}: duplicate class id [{cid}].")
-            ids_leidos.add(cid)
+            if cid:
+                ids_leidos.add(cid)
             actual = [cid, n, False]
         elif m_desc and actual and not actual[2]:
             actual[2] = True
+        elif actual and actual[2] and re.fullmatch(r"  description:.*", linea):
+            quien = f"the class [{actual[0]}]" if actual[0] else "this entry"
+            errores.append(f"{CLASES_YML}:{n}: {quien} has a second description: leave a single valid one.")
         else:
             if actual and re.fullmatch(r"  description:.*", linea):
                 actual[2] = True  # one mistake, one error: a bad description is reported as such, not also as a missing one

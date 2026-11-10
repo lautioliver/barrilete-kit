@@ -288,6 +288,23 @@ for prof in full small; do
   says 'test-renamed.sh::renamed case'; tap_check $? "225: the failing case of a renamed test is listed" "map: $prof"
 done
 
+# a copied test is a test the run runs too: with diff.renames=copies git calls it `C`, and the entry has to read it like an `R` (#264)
+for prof in full small; do
+  map=$FULL_MAP; [ "$prof" = small ] && map=$SMALL_MAP
+  jrepo "j-copy-$prof" "$map"
+  git -C "$TMP/w/j-copy-$prof" config diff.renames copies
+  { shead; printf 'tap_ok "old case"\ntap_ok "another old case"\ntap_ok "a third old case"\ntap_done\n'; } >"$TMP/w/j-copy-$prof/scripts/test-old.sh"
+  commit_all "$TMP/w/j-copy-$prof" base
+  # git only sees a copy from a file that the commit also changes
+  { shead; printf 'tap_ok "old case"\ntap_ok "another old case"\ntap_ok "a third old case"\ntap_ok "a fourth old case"\ntap_done\n'; } >"$TMP/w/j-copy-$prof/scripts/test-old.sh"
+  { shead; printf 'tap_ok "old case"\ntap_ok "another old case"\ntap_ok "a third old case"\n[ 1 -eq 2 ]; tap_check $? "copied case"\ntap_done\n'; } >"$TMP/w/j-copy-$prof/scripts/test-copied.sh"
+  commit_all "$TMP/w/j-copy-$prof" red
+  git -C "$TMP/w/j-copy-$prof" diff --raw HEAD^ HEAD | grep -q ' C[0-9]*	'; tap_check $? "264: the fixture of the copied test is a copy for git (diff.renames=copies)" "map: $prof"
+  run_red "$TMP/w/j-copy-$prof"
+  test "$code" -eq 0; tap_check $? "264: a copied test is run by the shipped bash entry: the red is valid (exit 0)" "map: $prof"
+  says 'test-copied.sh::copied case'; tap_check $? "264: the failing case of a copied test is listed" "map: $prof"
+done
+
 # a test file by its name under another runner is a test file when the entry's `when` matches it
 r="$TMP/w/j-pytest"; new_repo "$r"; install_kit "$r"
 mkdir -p "$TMP/jp"; cp "$CORPUS/pytest-assert/"{report.xml,output.txt} "$TMP/jp/"
@@ -532,11 +549,39 @@ grep -q "^Usage: red.sh" <<<"$usage"; tap_check $? "red.sh prints its usage in E
 ! grep -Eqi 'Uso:|ej\.:|comando de test|módulo|Sale con|Ni a ' "$HERE/red.sh" "$KIT/scripts/agents/red_report.py"; tap_check $? "red.sh and red_report.py have no Spanish"
 
 
+# The fixture of the two scripts below: a Diff built without git (a go module with one test file in the diff) and a
+# report of 400 passing cases, half mapped by classname and half by file.
+cat >"$TMP/fake_diff.py" <<'PY'
+import red_report as rr
+
+
+def make_diff(tree):
+    diff = rr.Diff.__new__(rr.Diff)
+    diff.root, diff.commit, diff.status, diff.old_path, diff._added = ".", "x", {"pkg/a/a_test.go": "A"}, {}, {}
+    diff._tree = tree
+    diff.read = lambda p: "module ex.com/m\n" if p == "go.mod" else None
+    return diff
+
+
+TREE = ["go.mod", "pkg/a/a_test.go", "pkg/b/y_test.go"]
+
+
+def make_report(suite_files=()):
+    report = rr.Report()
+    report.suite_files = list(suite_files)
+    for i in range(200):
+        report.cases.append(rr.Case(None, "ex.com/m/pkg/a", "TestA%d" % i, "pass"))
+        report.cases.append(rr.Case("b/y_test.go", "", "TestB%d" % i, "pass"))
+    return report
+PY
+
 # missing_test_files does not walk the tree once per case (a go or rust report can have thousands of passing cases)
 cat >"$TMP/tree-count.py" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1])
+sys.path.insert(0, sys.argv[2])
 import red_report as rr
+from fake_diff import make_diff, make_report, TREE
 
 
 class Counting(set):
@@ -549,15 +594,7 @@ class Counting(set):
 
 def run(when):
     Counting.walks = 0
-    diff = rr.Diff.__new__(rr.Diff)
-    diff.root, diff.commit, diff.status, diff.old_path, diff._added = ".", "x", {"pkg/a/a_test.go": "A"}, {}, {}
-    diff._tree = Counting(["go.mod", "pkg/a/a_test.go", "pkg/b/y_test.go"])
-    diff.read = lambda p: "module ex.com/m\n" if p == "go.mod" else None
-    report = rr.Report()
-    for i in range(200):
-        report.cases.append(rr.Case(None, "ex.com/m/pkg/a", "TestA%d" % i, "pass"))
-        report.cases.append(rr.Case("b/y_test.go", "", "TestB%d" % i, "pass"))
-    missing = rr.missing_test_files(diff, {"when": when}, report)
+    missing = rr.missing_test_files(make_diff(Counting(TREE)), {"when": when}, make_report())
     return Counting.walks, missing
 
 
@@ -566,9 +603,47 @@ print("walks=ok" if walks <= 6 and missing == [] else "walks=%d missing=%s" % (w
 walks, missing = run(["**/*.nomatch"])
 print("none=ok" if walks == 0 and missing == [] else "none=%d missing=%s" % (walks, missing))
 PY
-tap_run out 0 python3 -I "$TMP/tree-count.py" "$KIT/scripts/agents"
+tap_run out 0 python3 -I "$TMP/tree-count.py" "$KIT/scripts/agents" "$TMP"
 # shellcheck disable=SC2154  # tap_run leaves the output in $out
 case $out in *"walks=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "225: missing_test_files walks the tree a few times for 400 cases, not once per case"
 case $out in *"none=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "225: missing_test_files does not map a case when the diff has no test file for the entry"
+
+# missing_test_files stops mapping cases once every test file of the diff has been seen: the `file` of the testsuites
+# counts first, and the cases are mapped one by one only until the last wanted file shows up
+cat >"$TMP/map-count.py" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+sys.path.insert(0, sys.argv[2])
+import red_report as rr
+from fake_diff import make_diff, make_report, TREE
+
+calls = 0
+real = rr.case_files_uncached
+
+
+def counting(diff, case):
+    global calls
+    calls += 1
+    return real(diff, case)
+
+
+rr.case_files_uncached = counting
+
+
+def run(suite_files):
+    global calls
+    calls = 0
+    missing = rr.missing_test_files(make_diff(set(TREE)), {"when": ["**/*_test.go"]}, make_report(suite_files))
+    return calls, missing
+
+
+calls, missing = run(["pkg/a/a_test.go"])
+print("suite=ok" if calls == 0 and missing == [] else "suite=%d missing=%s" % (calls, missing))
+calls, missing = run([])
+print("first=ok" if calls == 1 and missing == [] else "first=%d missing=%s" % (calls, missing))
+PY
+tap_run out 0 python3 -I "$TMP/map-count.py" "$KIT/scripts/agents" "$TMP"
+case $out in *"suite=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "264: missing_test_files maps no case when the testsuites already name every test file of the diff"
+case $out in *"first=ok"*) w=0 ;; *) w=1 ;; esac; tap_check "$w" "264: missing_test_files stops mapping once every test file of the diff has been seen"
 
 tap_done
