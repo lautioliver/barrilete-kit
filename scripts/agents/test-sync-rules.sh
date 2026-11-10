@@ -221,4 +221,35 @@ if [ -f "$RAIZ/scripts/init-template.sh" ]; then
 fi
 [ "$(grep -c '^project=' "$RAIZ/.barrilete/rules.lock" || true)" = 0 ]; tap_check $? "el rules.lock del kit no lleva project="
 
+# 16. Una regla con check dice quién la valida (#288, ADR-006 D8): "validated by `verify.py`: <check>". Solo donde verify.py corre.
+proyecto "$TMP/vb" "$SHA1"
+tap_run out 0 "$SYNC" --root "$TMP/vb" --url "$TMP/rules"
+IMPL_VB=$'- Regla con check. (`con-check`) validated by `verify.py`: pr-metadata\n- Regla uno v1 del implementer. (`impl-uno`)\n- Regla de mi proyecto. (`solo-mio`)'
+[ "$(reglas "$TMP/vb/.claude/agents/implementer.md")" = "$IMPL_VB" ]; tap_check $? "validated by: la regla con check dice el check que la valida y las demás quedan como estaban"
+[ "$(reglas "$TMP/vb/.claude/i18n/agents/implementer.es.md")" = "$IMPL_VB" ]; tap_check $? "validated by: la versión es del agente dice lo mismo"
+proyecto "$TMP/vc" "$SHA1"; rm "$TMP/vc/scripts/agents/verify.py" "$TMP/vc/scripts/agents/checks/pr-metadata"
+tap_run out 0 "$SYNC" --root "$TMP/vc" --url "$TMP/rules"
+[ "$(reglas "$TMP/vc/.claude/agents/implementer.md")" = "$IMPL_V1" ]; tap_check $? "validated by: sin verify.py (perfil chico) nadie valida la regla y no lo dice"
+
+# 17. El CI del kit corre sync-rules --check (#288): nadie edita a mano una sección generada. Sin rules.lock no hay nada que chequear.
+WF="$RAIZ/.github/workflows/docs.yml"
+grep -q 'scripts/agents/sync-rules --check' "$WF"; tap_check $? "CI: docs.yml corre sync-rules --check"
+grep -q 'rules.lock' "$WF"; tap_check $? "CI: el paso de sync-rules solo corre si el proyecto tiene rules.lock"
+
+# 18. docs/agents/lessons.md se fue (#288): las reglas viven en barrilete-rules. Quedan solo el historial (CHANGELOG, ADRs) y la migración de update.
+[ ! -e "$RAIZ/docs/agents/lessons.md" ]; tap_check $? "lessons: docs/agents/lessons.md ya no existe"
+[ ! -e "$RAIZ/docs/agents/lessons.es.md" ]; tap_check $? "lessons: docs/agents/lessons.es.md ya no existe"
+tap_run restos 0 python3 -I -c '
+import os, re, subprocess, sys
+raiz = sys.argv[1]
+skip = re.compile(r"^(CHANGELOG\.md|docs/decisions/.*|scripts/update\.py|scripts/test-update\.sh|scripts/test-renames\.sh|scripts/agents/test-sync-rules\.sh)$")
+pat = re.compile("lessons(\\.es)?\\.md|MAX_LECCIONES")
+files = subprocess.run(["git", "ls-files", "-co", "--exclude-standard"], cwd=raiz, capture_output=True, text=True, check=True).stdout.split("\n")
+for f in files:
+    p = os.path.join(raiz, f)
+    if f and not skip.match(f) and os.path.isfile(p) and pat.search(open(p, encoding="utf-8", errors="replace").read()):
+        print(f)
+' "$RAIZ"
+[ -z "$restos" ]; tap_check $? "lessons: ningún archivo (salvo historial y migración) nombra lessons.md" "lessons: ningún archivo nombra lessons.md (quedan: ${restos//$'\n'/ })"
+
 tap_done
