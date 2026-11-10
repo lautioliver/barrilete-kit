@@ -528,6 +528,97 @@ grep -q "I added" <<<"$s"
 tap_check $? "install con un mapa ilegible no dice que agregó red"
 cd "$TMP" || exit 1
 
+# El glosario y el mapa de contextos (ADR-003, #219): el repo los recibe como un proyecto nuevo, el glosario que ya tiene en otra ruta
+# no se pisa, y el índice del proyecto que no los enlaza se avisa.
+cat >"$TMP/ddd-view.py" <<'PY'
+import json
+m = json.load(open("docs/agents-map.json"))
+print(json.dumps(m.get("contexts", "sin sección"), sort_keys=True))
+PY
+# check-docs.py sale con 1 cuando algo falla, y en un rojo un programa que sale con 1 no se distingue de un crash: este script lo corre y
+# imprime su estado en la primera línea (y lo que dijo después), así el caso compara el estado y no depende de cómo termina.
+cat >"$TMP/check-docs-status.py" <<'PY'
+import subprocess
+r = subprocess.run(["python3", "scripts/agents/check-docs.py"], capture_output=True, text=True)
+print(r.returncode)
+print(r.stdout + r.stderr)
+PY
+U16R="$TMP/usuario-ddd"
+(repo_con_mapa "$U16R" '{"docs": [], "propio": 1}') >/dev/null 2>&1
+cd "$U16R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+es -f docs/reference/glossary.md && es -f docs/reference/contexts.md
+tap_check $? "[ddd] install trae el glosario y el mapa de contextos"
+m=$(python3 "$TMP/ddd-view.py" 2>&1)
+[ "$m" = "[]" ]
+tap_check $? "[ddd] install agrega la sección contexts vacía al mapa del repo"
+m=$(python3 "$TMP/map-view.py" propio 2>&1)
+[[ "$m" == "1 "* ]]
+tap_check $? "[ddd] install conserva lo suyo del mapa al agregar contexts"
+[[ "$s" == *"docs/README.md does not link docs/reference/glossary.md"* ]]
+tap_check $? "[ddd] install avisa que el docs/README.md del repo no enlaza el glosario"
+[[ "$s" == *"(reference/contexts.md)"* ]]
+tap_check $? "[ddd] el aviso dice qué enlace agregar"
+cd "$TMP" || exit 1
+
+U17R="$TMP/usuario-ddd-chico"
+(repo "$U17R") >/dev/null 2>&1
+cd "$U17R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --small --template "$P"
+es -f docs/glossary.md && es -f docs/contexts.md
+tap_check $? "[ddd chico] install --small trae docs/glossary.md y docs/contexts.md"
+[[ "$s" == *"docs/README.md does not link docs/glossary.md"* ]]
+tap_check $? "[ddd chico] install --small avisa que el índice del repo no enlaza el glosario"
+cd "$TMP" || exit 1
+
+# Un glosario propio en otra ruta: no se pisa ni se duplica, y el resumen lo dice.
+U18R="$TMP/usuario-glosario"
+(repo "$U18R" && cd "$U18R" && printf '# Glosario de mi app\n\ncliente: quien paga\n' >docs/glosario.md && printf '{"docs": [], "sensitive": []}\n' >docs/agents-map.json && git add -A && git commit -qm glosario) >/dev/null 2>&1
+cd "$U18R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+g=$(cat docs/glosario.md 2>&1)
+[ "$g" = "$(printf '# Glosario de mi app\n\ncliente: quien paga')" ]
+tap_check $? "[ddd glosario propio] install no toca el glosario del repo"
+[[ "$s" == *"docs/glosario.md"*"glossary"* ]]
+tap_check $? "[ddd glosario propio] install avisa que el repo ya tiene un glosario en otra ruta y lo nombra"
+es -f docs/reference/glossary.md
+tap_check $? "[ddd glosario propio] el glosario del kit se instala junto al del repo, en docs/reference/"
+[ ! -e .agent-kit/pending/docs/reference/glossary.md ]
+tap_check $? "[ddd glosario propio] nada va a pending por el glosario"
+git add -A
+chk=""
+tap_run chk 0 python3 "$TMP/check-docs-status.py"
+[[ "$chk" == 0$'\n'* ]]
+tap_check $? "[ddd glosario propio] check-docs.py corre limpio tras instalar: contexts.md y el README enlazan un glosario que existe" "check-docs.py: $chk"
+cd "$TMP" || exit 1
+
+# Un índice que ya enlaza el glosario y el mapa de contextos no recibe el aviso de enlace.
+U20R="$TMP/usuario-indice-enlazado"
+(repo "$U20R" && cd "$U20R" && mkdir -p docs && printf '# Docs\n\n- [Glossary](reference/glossary.md)\n- [Contexts](reference/contexts.md)\n' >docs/README.md && git add -A && git commit -qm indice) >/dev/null 2>&1
+cd "$U20R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+[[ "$s" != *"does not link"* ]]
+tap_check $? "[ddd enlazado] install no avisa de enlaces cuando el docs/README.md del repo ya los tiene"
+cd "$TMP" || exit 1
+
+# --small no tiene sección contexts (ADR-003 D3): con un mapa ilegible no se pide agregarla a mano.
+U21R="$TMP/usuario-chico-mapa-roto"
+(repo_con_mapa "$U21R" 'esto no es json') >/dev/null 2>&1
+cd "$U21R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --small --template "$P"
+[[ "$s" != *'"contexts": []'* ]]
+tap_check $? "[ddd chico mapa roto] install --small con un mapa ilegible no pide agregar contexts"
+cd "$TMP" || exit 1
+
+# Un glosario que es de otro (una dependencia vendida) no es el glosario del repo: el del kit se instala igual.
+U19R="$TMP/usuario-glosario-vendido"
+(repo "$U19R" && cd "$U19R" && mkdir -p node_modules/x vendor/y && printf '# Glossary de x\n' >node_modules/x/GLOSSARY.md && printf '# Glossary de y\n' >vendor/y/glossary.md && git add -f -A && git commit -qm vendido) >/dev/null 2>&1
+cd "$U19R" || exit 1
+tap_run s 0 env PATH="$TMP/bin:$PATH" python3 "$RAIZ/scripts/install.py" Demo main --template "$P"
+es -f docs/reference/glossary.md
+tap_check $? "[ddd glosario vendido] un glossary.md de node_modules o vendor no cuenta como el glosario del repo"
+cd "$TMP" || exit 1
+
 # La línea del flujo (#181): con -- --flow-line el kit trae statusLine; entra si el proyecto no tiene uno propio.
 # Va al final: importa el install.py real, y la corrida anidada de test-tap.sh (#139) usa uno falso que corta antes.
 python3 - "$RAIZ/scripts" <<'PY'
