@@ -586,9 +586,10 @@ tap_check $? "[ddd glosario propio] el glosario del kit se instala junto al del 
 [ ! -e .agent-kit/pending/docs/reference/glossary.md ]
 tap_check $? "[ddd glosario propio] nada va a pending por el glosario"
 git add -A
-tap_run cd 0 python3 "$TMP/check-docs-status.py"
-[[ "$cd" == 0$'\n'* ]]
-tap_check $? "[ddd glosario propio] check-docs.py corre limpio tras instalar: contexts.md y el README enlazan un glosario que existe" "check-docs.py: $cd"
+chk=""
+tap_run chk 0 python3 "$TMP/check-docs-status.py"
+[[ "$chk" == 0$'\n'* ]]
+tap_check $? "[ddd glosario propio] check-docs.py corre limpio tras instalar: contexts.md y el README enlazan un glosario que existe" "check-docs.py: $chk"
 cd "$TMP" || exit 1
 
 # Un índice que ya enlaza el glosario y el mapa de contextos no recibe el aviso de enlace.
