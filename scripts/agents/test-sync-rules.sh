@@ -233,8 +233,8 @@ tap_run out 0 "$SYNC" --root "$TMP/vc" --url "$TMP/rules"
 
 # 17. El CI del kit corre sync-rules --check (#288): nadie edita a mano una sección generada. Sin rules.lock no hay nada que chequear.
 WF="$RAIZ/.github/workflows/docs.yml"
-grep -q 'scripts/agents/sync-rules --check' "$WF"; tap_check $? "CI: docs.yml corre sync-rules --check"
-grep -q 'rules.lock' "$WF"; tap_check $? "CI: el paso de sync-rules solo corre si el proyecto tiene rules.lock"
+grep -v '^[[:space:]]*#' "$WF" | grep -q 'python3 scripts/agents/sync-rules --check$'; tap_check $? "CI: docs.yml corre sync-rules --check"
+grep -v '^[[:space:]]*#' "$WF" | grep -q 'if \[ -f \.barrilete/rules\.lock \]'; tap_check $? "CI: el paso de sync-rules solo corre si el proyecto tiene rules.lock"
 
 # 18. docs/agents/lessons.md se fue (#288): las reglas viven en barrilete-rules. Quedan solo el historial (CHANGELOG, ADRs) y la migración de update.
 [ ! -e "$RAIZ/docs/agents/lessons.md" ]; tap_check $? "lessons: docs/agents/lessons.md ya no existe"
