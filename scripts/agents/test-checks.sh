@@ -289,6 +289,8 @@ printf '{"checks": [{"id": "mal-check", "rule": "regla-a", "fail_message": "a"},
 verify 1
 eventos
 grep -qx 'mal-check regla-b fail .*' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check dejan un evento por regla"
+grep -qx 'mal-check regla-a fail .*' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check: también la primera"
+grep -qx 'n=2' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check: dos eventos, ni uno más"
 
 rm -rf "$P/.barrilete/learning"
 mkdir -p "$TMP/tarea"; printf '{"id": "323-implementer", "status": "in_progress"}\n' >"$TMP/tarea/task.json"
@@ -301,6 +303,15 @@ rm -rf "$P/.barrilete/learning"
 BK_HARNESS=codex CLAUDECODE=1 verify 0
 eventos
 grep -qx 'harness=codex' <<<"$out"; tap_check $? "check_run: BK_HARNESS manda sobre lo que se deduce del entorno"
+rm -rf "$P/.barrilete/learning"
+BK_HARNESS=Codex_X CLAUDECODE=1 verify 0
+eventos
+grep -q '^harness=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: un BK_HARNESS inválido no se reemplaza por claude-code: el harness queda afuera"
+rm -rf "$P/.barrilete/learning"
+mkdir -p "$TMP/tarea-sin-json"
+BK_TASK_DIR="$TMP/tarea-sin-json" verify 0
+eventos
+grep -q '^task_id=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: sin task.json legible no se inventa un task_id"
 
 rm -rf "$P/.barrilete/learning"
 manifiesto pr-metadata
@@ -308,12 +319,49 @@ GH_MODE=none PATH="$TMP/bin:$PATH" verify 0
 eventos
 grep -qx 'pr-metadata r-pr-metadata skipped .*' <<<"$out"; tap_check $? "check_run: un check que no pudo verificar (sale con 4) deja skipped"
 
-rm -rf "$P/.barrilete/learning"; mkdir -p "$P/.barrilete/learning"; chmod 555 "$P/.barrilete/learning"
+# Un archivo donde va la carpeta: no se puede escribir el registro ni siendo root (chmod no frena a root)
+rm -rf "$P/.barrilete/learning"; echo no-es-carpeta >"$P/.barrilete/learning"
 manifiesto ok-check mal-check
 verify 1
 grep -q 'could not record' <<<"$out"; tap_check $? "check_run: si no puede escribir el registro lo avisa"
 grep -q 'FAILED *check:mal-check' <<<"$out"; tap_check $? "check_run: sin poder escribir el registro, verify.py sigue igual"
-chmod 755 "$P/.barrilete/learning"
+rm -f "$P/.barrilete/learning"
+
+# El registro se ignora solo, aunque el .gitignore del proyecto no tenga la línea (el de $P no la tiene)
+manifiesto ok-check
+verify 0
+st=$(git -C "$P" status --porcelain -uall 2>&1)
+grep -q 'learning' <<<"$st"; [ $? -eq 1 ]; tap_check $? "check_run: el registro no aparece como cambio aunque el .gitignore del proyecto no lo ignore"
+
+# Desde un worktree (un agente de /orchestrate o de bk), el registro va al checkout principal: el worktree se borra
+rm -rf "$P/.barrilete/learning"
+git -C "$P" worktree add -q --detach "$TMP/wt" HEAD 2>/dev/null
+mkdir -p "$TMP/wt/.barrilete" "$TMP/wt/scripts/agents/checks"
+cp "$P/.barrilete/checks.json" "$TMP/wt/.barrilete/"; cp "$P/scripts/agents/checks/ok-check" "$TMP/wt/scripts/agents/checks/"
+cd "$TMP/wt" || exit 2
+BASE=main tap_run out 0 python3 "$TMP/rc.py" python3 scripts/agents/verify.py
+cd "$TMP" || exit 2
+tap_no_traceback "$out"
+eventos
+grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: desde un worktree, el evento queda en el checkout principal"
+[ ! -e "$TMP/wt/.barrilete/learning/events.jsonl" ]; tap_check $? "check_run: desde un worktree, nada queda dentro del worktree"
+git -C "$P" worktree remove --force "$TMP/wt"
+
+# Si verify.py muere a mitad de camino, los checks que ya terminaron quedan registrados
+rm -rf "$P/.barrilete/learning"
+printf '#!/bin/sh
+p=$PPID
+case "$(ps -o comm= -p "$p")" in *sh) p=$(ps -o ppid= -p "$p") ;; esac
+kill -TERM $p
+sleep 5
+' >"$P/scripts/agents/checks/corta"
+chmod +x "$P/scripts/agents/checks/corta"
+manifiesto ok-check corta
+cd "$P" || exit 2
+BASE=main tap_run out 0 python3 "$TMP/rc.py" python3 scripts/agents/verify.py
+cd "$TMP" || exit 2
+eventos
+grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: un check que terminó queda registrado aunque verify.py muera después"
 rm "$P/.barrilete/checks.json"
 
 # 8. Falsos rechazos y falsos verdes que encontró el review (#294): cada caso falla si se borra lo que chequea.
