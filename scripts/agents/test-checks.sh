@@ -14,7 +14,7 @@ TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-checks-XXXXXX")" && pwd -P)
 tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
-unset BASE
+unset BASE CLAUDECODE BK_TASK_DIR BK_HARNESS   # verify.py los lee para el evento check_run: cada caso los pone a mano
 out=""
 leer() { [ -f "$1" ] && cat "$1"; }  # el contenido, o nada si el archivo no existe (un caso falla, no un crash)
 
@@ -245,6 +245,76 @@ GH_MODE=pr PATH="$TMP/bin:$PATH" verify 0 --pr 7
 grep -q 'Skipped.*rule checks' <<<"$out"; tap_check $? "verify.py --pr: dice que salteó los checks de las reglas"
 grep -q 'All verified' <<<"$out"; [ $? -eq 1 ]; tap_check $? "verify.py --pr: con los checks de las reglas salteados no dice All verified"
 grep -q 'not verified' <<<"$out"; tap_check $? "verify.py --pr: con los checks de las reglas salteados los da por no verificados"
+
+# --- verify.py deja un evento check_run por cada check que corre (#323, fase 0 de #321) ---
+EV="$P/.barrilete/learning/events.jsonl"
+# ev.py resume el registro: "n=<líneas>", y por evento "raw <línea>", "<check> <rule_id> <outcome> <claves ordenadas>"
+# (o "json-roto") y sus metadatos. Sin registro imprime n=0: un caso falla, no un crash.
+cat >"$TMP/ev.py" <<'EOF'
+import json, os, sys
+lines = open(sys.argv[1], encoding="utf-8").read().splitlines() if os.path.exists(sys.argv[1]) else []
+print("n=%d" % len(lines))
+for l in lines:
+    print("raw " + l)
+    try:
+        e = json.loads(l)
+    except ValueError:
+        print("json-roto"); continue
+    print(e.get("check"), e.get("rule_id"), e.get("outcome"), ",".join(sorted(e)))
+    for k in ("task_id", "harness", "branch", "v", "kind"):
+        if k in e: print("%s=%s" % (k, e[k]))
+EOF
+eventos() { cd "$TMP" || exit 2; tap_run out 0 python3 "$TMP/ev.py" "$EV"; }
+
+rm -rf "$P/.barrilete/learning"
+manifiesto ok-check mal-check
+verify 1
+eventos
+grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: un check que pasa deja outcome pass con su regla"
+grep -qx 'mal-check r-mal-check fail .*' <<<"$out"; tap_check $? "check_run: un check que falla deja outcome fail con su regla"
+grep -qx 'n=2' <<<"$out"; tap_check $? "check_run: una línea por check, nada más"
+grep -qx 'kind=check_run' <<<"$out"; tap_check $? "check_run: el evento dice kind check_run"
+grep -qx 'v=0' <<<"$out"; tap_check $? "check_run: el evento lleva la versión 0 del esquema"
+grep -qx 'branch=claude/7-algo' <<<"$out"; tap_check $? "check_run: el evento lleva la rama"
+grep -q '^raw .*arreglá' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: el evento no lleva el fail_message"
+grep -q '^raw .*no se cumple' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: el evento no lleva la salida del check"
+grep -qx 'mal-check r-mal-check fail branch,check,kind,outcome,rule_id,ts,v' <<<"$out"; tap_check $? "check_run: sin BK_TASK_DIR ni harness conocido, solo las claves de metadatos"
+
+rm -rf "$P/.barrilete/learning"
+verify 0 --list
+[ ! -e "$EV" ]; tap_check $? "check_run: verify.py --list no registra nada"
+
+rm -rf "$P/.barrilete/learning"
+printf '{"checks": [{"id": "mal-check", "rule": "regla-a", "fail_message": "a"}, {"id": "mal-check", "rule": "regla-b", "fail_message": "b"}]}\n' >"$P/.barrilete/checks.json"
+verify 1
+eventos
+grep -qx 'mal-check regla-b fail .*' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check dejan un evento por regla"
+
+rm -rf "$P/.barrilete/learning"
+mkdir -p "$TMP/tarea"; printf '{"id": "323-implementer", "status": "in_progress"}\n' >"$TMP/tarea/task.json"
+manifiesto ok-check
+BK_TASK_DIR="$TMP/tarea" CLAUDECODE=1 verify 0
+eventos
+grep -qx 'task_id=323-implementer' <<<"$out"; tap_check $? "check_run: con BK_TASK_DIR lleva el id de la tarea (ADR-005)"
+grep -qx 'harness=claude-code' <<<"$out"; tap_check $? "check_run: dentro de Claude Code (CLAUDECODE=1) lleva harness claude-code"
+rm -rf "$P/.barrilete/learning"
+BK_HARNESS=codex CLAUDECODE=1 verify 0
+eventos
+grep -qx 'harness=codex' <<<"$out"; tap_check $? "check_run: BK_HARNESS manda sobre lo que se deduce del entorno"
+
+rm -rf "$P/.barrilete/learning"
+manifiesto pr-metadata
+GH_MODE=none PATH="$TMP/bin:$PATH" verify 0
+eventos
+grep -qx 'pr-metadata r-pr-metadata skipped .*' <<<"$out"; tap_check $? "check_run: un check que no pudo verificar (sale con 4) deja skipped"
+
+rm -rf "$P/.barrilete/learning"; mkdir -p "$P/.barrilete/learning"; chmod 555 "$P/.barrilete/learning"
+manifiesto ok-check mal-check
+verify 1
+grep -q 'could not record' <<<"$out"; tap_check $? "check_run: si no puede escribir el registro lo avisa"
+grep -q 'FAILED *check:mal-check' <<<"$out"; tap_check $? "check_run: sin poder escribir el registro, verify.py sigue igual"
+chmod 755 "$P/.barrilete/learning"
+rm "$P/.barrilete/checks.json"
 
 # 8. Falsos rechazos y falsos verdes que encontró el review (#294): cada caso falla si se borra lo que chequea.
 cd "$P" || exit 1
