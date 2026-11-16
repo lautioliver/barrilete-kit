@@ -235,11 +235,12 @@ fi
 # The lock (repo and sha) is inherited from the template, but the generated sections come with the template's rules, including the ones
 # that are only for the template's project. Regenerate them for this project (its name is the `project` of .agent-kit.json: written here
 # so sync-rules can read it; the registry below overwrites the file). Without access to the rules repo the init does not fail: it says
-# what is pending (#290).
-if [ -f .barrilete/rules.lock ] && [ -f scripts/agents/sync-rules ]; then
+# what is pending (#290). AGENT_KIT_NO_RULES_SYNC=1 skips it: update.py runs sync-rules itself, with the project's lock, and the
+# kit's tests do not touch the network.
+if [ -z "${AGENT_KIT_NO_RULES_SYNC:-}" ] && [ -f .barrilete/rules.lock ] && [ -f scripts/agents/sync-rules ]; then
   python3 -c 'import json, os; json.dump({"project": os.environ["P"]}, open(".agent-kit.json", "w"))'
   if ! python3 scripts/agents/sync-rules; then
-    echo "WARNING: the rules sections still carry the template's rules. Run scripts/agents/sync-rules when you have access to the rules repo." >&2
+    echo "WARNING: sync-rules failed (see above), so the rules sections still carry the template's rules. Fix that (or get access to the rules repo) and run scripts/agents/sync-rules." >&2
   fi
 fi
 # Init registry: with what data the project was created and the hash of each file as it

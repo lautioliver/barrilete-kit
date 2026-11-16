@@ -351,7 +351,9 @@ def inicializar(clon, ref, destino, kit):
         with open(os.path.join(destino, "scripts", "init-template.sh"), encoding="utf-8") as fh:
             if re.search(r"^\s*--flow-line\)", fh.read(), re.M):
                 args.append("--flow-line")
-    sh(*args, cwd=destino, env=dict(os.environ, **{"AGENT_KIT_DATE" if nuevo else "AGENT_KIT_FECHA": kit.get("date", "")}))
+    # AGENT_KIT_NO_RULES_SYNC: the init does not run sync-rules (#290); update.py runs it once, in the project, with its lock.
+    sh(*args, cwd=destino, env=dict(os.environ, AGENT_KIT_NO_RULES_SYNC="1",
+                                    **{"AGENT_KIT_DATE" if nuevo else "AGENT_KIT_FECHA": kit.get("date", "")}))
 
 
 def changelog(clon, ref, desde):
@@ -475,8 +477,27 @@ def _seccion_reglas(texto):
 
 
 def _sha_lock(ruta):
+    """The `sha` of a rules.lock, read as sync-rules reads it (`key = value`, spaces allowed)."""
     with open(ruta, encoding="utf-8") as f:
-        return next((l.split("=", 1)[1].strip() for l in f if l.startswith("sha=")), "")
+        for linea in f:
+            k, igual, v = linea.partition("=")
+            if igual and k.strip() == "sha":
+                return v.strip()
+    return ""
+
+
+def sincronizar_reglas():
+    """Runs the project's sync-rules after the update (#290): with the project's lock, it fills the sections of the files the kit
+    added and leaves the others as they were. A warning if it fails (no access to the rules repo, a check the kit removed)."""
+    if os.environ.get("AGENT_KIT_NO_RULES_SYNC") or not os.path.isfile(REGLAS_LOCK) \
+            or not os.path.isfile(os.path.join("scripts", "agents", "sync-rules")):
+        return None
+    r = subprocess.run([sys.executable, os.path.join("scripts", "agents", "sync-rules")], capture_output=True, text=True)
+    if r.returncode == 0:
+        return None
+    detalle = ((r.stderr or r.stdout).strip().splitlines() or [""])[-1]
+    return (f"scripts/agents/sync-rules failed ({detalle}): the files the kit added may carry the template's rules. "
+            "Fix it and run scripts/agents/sync-rules before committing.")
 
 
 def reglas_del_proyecto(arbol):
@@ -647,6 +668,7 @@ def main():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    aviso_reglas = sincronizar_reglas()
     for accion in ("agregar", "reemplazar", "permisos"):
         for ruta in hechos.get(accion, []):
             registradas[ruta] = huella(ruta)
@@ -700,6 +722,8 @@ def main():
         print(f"\nRules: {REGLAS_LOCK} stays at {lock_reglas[0][:7]}, the project's; this kit version pins "
               f"{lock_reglas[1][:7]}. To move to it, put sha={lock_reglas[1]} in {REGLAS_LOCK} and run "
               "scripts/agents/sync-rules (ADR-006 D7).")
+    if aviso_reglas:
+        print(f"\nWarning: {aviso_reglas}")
     if red_agregada:
         print(f"\nRed: {RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}")
     if aviso_red:

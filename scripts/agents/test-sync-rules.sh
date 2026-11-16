@@ -260,6 +260,7 @@ fi
 # qué fija el kit. Plantilla y repo de reglas son carpetas locales (url.insteadOf): no toca la red. Sin init, update e install
 # (un proyecto ya inicializado) no hay nada que probar.
 if [ -f "$RAIZ/scripts/init-template.sh" ] && [ -f "$RAIZ/scripts/update.py" ] && [ -f "$RAIZ/scripts/install.py" ]; then
+  unset AGENT_KIT_NO_RULES_SYNC  # the other suites set it; here init and update have to run sync-rules
   R290="$TMP/r290"; GH290="$TMP/gh290/lautioliver"; T290="$TMP/t290"
   regla290() { # regla290 <id> <scope> <texto> <applies_to>
     mkdir -p "$R290/rules"
