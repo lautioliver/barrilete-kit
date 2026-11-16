@@ -195,9 +195,20 @@
       "when": [
         "scripts/agents/verify.py",
         "scripts/agents/checks/**",
+        "scripts/agents/learning.py",
         "scripts/agents/test-checks.sh"
       ],
       "run": "bash scripts/agents/test-checks.sh"
+    },
+    {
+      "name": "learning",
+      "when": [
+        "scripts/agents/learning.py",
+        "scripts/agents/task_events.py",
+        "scripts/agents/test-learning.sh",
+        "scripts/agents/test_task_events.py"
+      ],
+      "run": "bash scripts/agents/test-learning.sh && python3 -m unittest scripts/agents/test_task_events.py"
     },
     {
       "name": "sync-rules",
