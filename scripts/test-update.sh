@@ -57,7 +57,7 @@ mkdir -p "$P"
   mkdir -p "$TMP/kit-324" && cp .gitignore "$TMP/kit-324/gitignore" && { cp .barrilete/learning.json "$TMP/kit-324/" || :; }
   rm -f .barrilete/learning.json && grep -vxF '.barrilete/learning/' "$TMP/kit-324/gitignore" >.gitignore
   # Sin la línea del .gitignore, AGENTS.md tampoco puede decir que el store está ignorado (check-docs lo compara).
-  for f in AGENTS.md AGENTS.es.md; do cp "$f" "$TMP/kit-324/$f" && perl -pi -e 's/ \((ignored by git|ignorado por git)\)//' "$f"; done
+  for f in AGENTS.md AGENTS.es.md; do cp "$f" "$TMP/kit-324/$f" && perl -pi -e 's/,? \(?(ignored by git|ignorado por git)\)?//' "$f"; done
   git add -A && git commit -qm v0.1.0 && git tag v0.1.0
   # Un commit después del tag, sin cambiar VERSION: así nace un proyecto creado desde main.
   echo "cambiado posterior" >.claude/skills/debug/cambiado.md

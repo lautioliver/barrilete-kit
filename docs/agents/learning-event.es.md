@@ -1,6 +1,6 @@
 # Evento de aprendizaje (v1)
 
-Lo que un proyecto registra para que `bk learn` pueda medir si sus reglas sirven. Las decisiones están en el [ADR-007](../decisions/kit/ADR-007-per-project-learning.es.md); esta página es cómo las lleva a cabo el kit. El código es `scripts/agents/learning.py`.
+Lo que un proyecto registra para que `bk learn` pueda medir si sus reglas sirven. Las decisiones están en el [ADR-007](../decisions/kit/ADR-007-per-project-learning.md); esta página es cómo las lleva a cabo el kit. El código es `scripts/agents/learning.py`.
 
 ## Dónde va
 
