@@ -21,6 +21,7 @@ Instrucciones para modelos: leer este archivo y AGENTS.md. Spec aspiracional = /
 - [ADR-004: modo de lanzamiento de `/orchestrate` por rol (bk o subagente)](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md)
 - [ADR-005: tareas y eventos para los agentes bk](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md)
 - [ADR-006: store de reglas para los agentes](decisions/kit/ADR-006-rules-store-for-agents.md)
+- [ADR-007: aprendizaje por proyecto](decisions/kit/ADR-007-per-project-learning.md)
 - [Mapa para agentes: docs según cambios, rutas sensibles](agents-map.json)
 - [Contrato de los subagentes: reglas y salida común](agents/subagent-contract.md)
 - [Clases de hallazgo de review-pr (la genera `scripts/agents/sync-rules` desde barrilete-rules, ADR-006)](agents/classes.yml)
