@@ -23,7 +23,7 @@ MAPEO='
   [.[] | . as $pr
     | ([.closingIssuesReferences[].number]
        + ([(.body // "") | gsub("`[^`]*`"; "") | scan("(?i)(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):? +#([0-9]+)") | .[0] | tonumber])
-       + ([.headRefName | capture("^[a-z]+/(?:[a-z]{1,20}/)?(?<n>[0-9]+)-")? | .n | tonumber]))
+       + ([.headRefName | capture("^(?!release/)[a-z]+/(?:[a-z]{1,20}/)?(?<n>[0-9]+)-")? | .n | tonumber]))
     | unique[] | {issue: tostring, pr: $pr.number}]
   | group_by(.issue) | map({key: .[0].issue, value: [.[].pr]}) | from_entries'
 CAMPOS=number,headRefName,body,closingIssuesReferences,baseRefName

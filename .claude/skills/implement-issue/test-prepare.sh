@@ -470,6 +470,7 @@ if [ -e "$DISP" ]; then
 fi
 if [ -e "$RAIZ/.github/labeler.yml" ]; then
   # Cada label con su rama claude/<type>/: borrar una línea o una entrada cambia la lista.
+  # shellcheck disable=SC2016  # el $ es de awk
   tap_run out 0 awk '/^"type:/{l=$1} match($0, /\^claude\/[a-z]+\//){print l, substr($0, RSTART, RLENGTH)}' "$RAIZ/.github/labeler.yml"
   es "$out" = "$(printf '%s\n' '"type:feature": ^claude/feat/' '"type:bug": ^claude/fix/' '"type:task": ^claude/chore/' '"type:docs": ^claude/docs/' '"type:audit": ^claude/audit/')"
   tap_check $? "labeler.yml pone el tipo de claude/<type>/… para los 5 tipos"

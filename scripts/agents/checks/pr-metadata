@@ -31,7 +31,7 @@ _REF = r"(?:([\w.-]+/[\w.-]+)#|https?://github\.com/([\w.-]+/[\w.-]+)/issues/|#)
 ISSUE_LIST = re.compile(r"\b(?:closes|fixes|resolves|refs)\b:?\s+((?:" + _REF + r")(?:\s*(?:,|&|and|y)\s*(?:" + _REF + r"))*)", re.I)
 ISSUE_REF = re.compile(_REF)
 CASE_BULLET = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
-BRANCH_ISSUE = re.compile(r"^[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # also claude/<type>/<n>-…
+BRANCH_ISSUE = re.compile(r"^(?!release/)[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # also claude/<type>/<n>-…
 
 
 def run(*cmd):

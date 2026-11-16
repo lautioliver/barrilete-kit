@@ -46,7 +46,7 @@ from concurrent.futures import ThreadPoolExecutor
 CACHE_TTL = 30
 CACHE_NOMBRE = "agent-kit-flow.json"
 CACHE_RAMAS = 20  # branches kept in the cache; the oldest one goes first
-RAMA_RE = re.compile(r"^[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # <type>/<n>-…, claude/<n>-…, claude/<type>/<n>-…
+RAMA_RE = re.compile(r"^(?!release/)[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # <type>/<n>-…, claude/<n>-…, claude/<type>/<n>-…; release/<date> is not an issue
 PASOS = ["plan", "implement", "review", "merge"]
 NUDOS = {"plan", "merge"}
 TEXTO = {"plan": "plan ●", "merge": "● merge"}
