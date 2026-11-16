@@ -26,7 +26,8 @@ verb (except in bugs and audits) and filler words, in 30 characters at most with
   --review   Only validates and prints: does not assign or create the branch.
   --name <desc>
              Picks the description (e.g. for the second PR of an issue): creates that branch
-             (or resumes it if it exists) even if the issue already has another one. With
+             (or resumes it if it exists and its PR is not merged or closed; if it is, it fails:
+             pick another name) even if the issue already has another one. With
              --worktree, it goes in ../<repo>-wt/<n>-<desc>.
   --worktree  The same, but in its own worktree (../<repo>-wt/<n>), without touching the
               current checkout: useful to run several issues in parallel.
@@ -158,7 +159,8 @@ RAMA="claude/${TIPO:+$TIPO/}$N-$desc"
 # If the issue already has a branch (claude/<n>-* or claude/<type>/<n>-*, whatever the option says, local or
 # on origin), that one is resumed even if the title changed after taking it (#41) or the project turned the
 # option on. With more than one none is chosen: they are listed. The ones of an already merged or closed PR
-# do not count: a reopened issue starts again. With --name only that branch counts.
+# do not count: a reopened issue starts again. With --name only that branch counts, and if its PR is already
+# merged or closed it fails: the name is taken.
 if [ -n "$NOMBRE" ]; then
   del_issue() { grep -xF "$RAMA" || true; }
 else
@@ -169,10 +171,13 @@ remotas=$(git ls-remote --heads origin "claude/$N-*" "claude/*/$N-*") || error "
 remotas=$(awk '{sub("^refs/heads/", "", $2); print $2}' <<<"$remotas" | del_issue)
 existentes=""
 for r in $(printf '%s\n%s\n' "$locales" "$remotas" | sort -u); do
-  if [ -z "$NOMBRE" ]; then
-    estado=$(gh pr list -R "$REPO" --head "$r" --state all --json state -q '.[0].state' 2>/dev/null || true)
-    case "$estado" in MERGED|CLOSED) continue ;; esac
-  fi
+  estado=$(gh pr list -R "$REPO" --head "$r" --state all --json state -q '.[0].state' 2>/dev/null || true)
+  case "$estado" in
+    MERGED|CLOSED)
+      # With --name the name is fixed: a new branch cannot be created with it.
+      [ -z "$NOMBRE" ] || error "the PR of $r is already $(tr '[:upper:]' '[:lower:]' <<<"$estado"): create the branch with another --name <desc>."
+      continue ;;
+  esac
   existentes+="$r"$'\n'
 done
 existentes=$(sed '/^$/d' <<<"$existentes")
