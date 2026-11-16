@@ -360,6 +360,7 @@ ninguna() {  # ninguna <regex> <archivo.md>: imprime ok si ni el .md (tiene que 
 # 9. Cuarta review de #237.
 AG="$RAIZ/AGENTS.md"
 [ "$(cada 'gh pr list --search .head:claude/<n>-' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): el PR de un agente bk se busca con --search head:claude/<n>-, no con --head de un prefijo"
+[ "$(cada '"agent_branch_type": true.*(both|las dos).*head:claude/<n>-.*head:claude/<(type|tipo)>/<n>-' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): con agent_branch_type busca el PR con las dos formas de rama (un issue sin type: y las ramas viejas quedan en claude/<n>-)"
 [ "$(ninguna '--head claude/<n>-' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): ya no usa gh pr list --head con un prefijo"
 [ "$(ninguna 'branch --show-current' "$OS")" = ok ]; tap_check $? "orquestar (paso 4): el orquestador no conoce el worktree del agente bk: busca el PR solo con --search"
 [ "$(cada '(An|Un) `implementer` that|`implementer` que `roles.yml`' "$AG")" = ok ]; tap_check $? "AGENTS.md (subagentes): solo un implementer puede ser bk"

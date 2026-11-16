@@ -450,9 +450,11 @@ es "$TAP_RC" -eq 64; tap_check $? "--name sin letras ni números: uso inválido 
 RAIZ="$AQUI/../../.."
 DISP="$RAIZ/.claude/skills/project-status/available.sh"
 F=$(sed -n 's/^RAMA_RE = re.compile(r"\(.*\)").*/\1/p' "$RAIZ/scripts/agents/flow.py")
-n=$(python3 -c 'import re,sys; m=re.match(sys.argv[1], "claude/audit/64-x"); print(m.group(1) if m else "")' "$F"); es "$n" = 64; tap_check $? "flow.py lee el issue de claude/<type>/<n>-…"
-if grep -q "pr.head.ref" "$RAIZ/.github/workflows/labels.yml"; then
-  J=$(sed -n 's|.*const rama = pr.head.ref.match(/\(.*\)/);.*|\1|p' "$RAIZ/.github/workflows/labels.yml" | sed 's|\\/|/|g')
+LEE='import re,sys; m=re.match(sys.argv[1], sys.argv[2]); print(m.group(1) if m else "-")'
+tap_run out 0 python3 -c "$LEE" "$F" "claude/audit/64-x"; es "$out" = 64; tap_check $? "flow.py lee el issue de claude/<type>/<n>-…"
+tap_run out 0 python3 -c "$LEE" "$F" "release/2026-11-10"; es "$out" = -; tap_check $? "flow.py no lee un issue de release/2026-11-10"
+J=$(sed -n 's|.*const rama = pr.head.ref.match(/\(.*\)/);.*|\1|p' "$RAIZ/.github/workflows/labels.yml" | sed 's|\\/|/|g')
+if [ -n "$J" ]; then
   es "$J" = "$F"; tap_check $? "labels.yml lee el issue de la rama con la regla de flow.py"
 fi
 if [ -e "$RAIZ/scripts/agents/checks/pr-metadata" ]; then
@@ -463,11 +465,14 @@ if [ -e "$DISP" ]; then
   A=$(sed -n 's/.*capture("\(.*\)")?.*/\1/p' "$DISP" | sed 's/(?<n>/(/; s/\[0-9\]/\\d/')
   es "$A" = "$F"; tap_check $? "available.sh lee el issue de la rama con la regla de flow.py"
   MAPEO=$(awk "/^MAPEO='/{f=1; sub(/^MAPEO='/, \"\"); print; next} f && /^ *\| group_by/{sub(/'\$/, \"\"); print; exit} f" "$DISP")
-  m=$(jq -c "$MAPEO" <<<'[{"number":1,"headRefName":"claude/fix/60-x","body":"","closingIssuesReferences":[]},{"number":2,"headRefName":"claude/61-x","body":"","closingIssuesReferences":[]},{"number":3,"headRefName":"feat/62-x","body":"","closingIssuesReferences":[]},{"number":4,"headRefName":"claude/fix/x-63","body":"","closingIssuesReferences":[]}]')
-  es "$m" = '{"60":[1],"61":[2],"62":[3]}'; tap_check $? "available.sh lee el issue de claude/<type>/<n>-…, claude/<n>-… y <type>/<n>-…"
+  m=$(jq -c "$MAPEO" <<<'[{"number":1,"headRefName":"claude/fix/60-x","body":"","closingIssuesReferences":[]},{"number":2,"headRefName":"claude/61-x","body":"","closingIssuesReferences":[]},{"number":3,"headRefName":"feat/62-x","body":"","closingIssuesReferences":[]},{"number":4,"headRefName":"claude/fix/x-63","body":"","closingIssuesReferences":[]},{"number":5,"headRefName":"release/2026-11-10","body":"","closingIssuesReferences":[]}]')
+  es "$m" = '{"60":[1],"61":[2],"62":[3]}'; tap_check $? "available.sh lee el issue de claude/<type>/<n>-…, claude/<n>-… y <type>/<n>-…, y no de release/2026-11-10"
 fi
 if [ -e "$RAIZ/.github/labeler.yml" ]; then
-  [ "$(grep -cE "'\^claude/(feat|fix)/'" "$RAIZ/.github/labeler.yml")" = 2 ]; tap_check $? "labeler.yml pone el tipo de claude/<type>/…"
+  # Cada label con su rama claude/<type>/: borrar una línea o una entrada cambia la lista.
+  tap_run out 0 awk '/^"type:/{l=$1} match($0, /\^claude\/[a-z]+\//){print l, substr($0, RSTART, RLENGTH)}' "$RAIZ/.github/labeler.yml"
+  es "$out" = "$(printf '%s\n' '"type:feature": ^claude/feat/' '"type:bug": ^claude/fix/' '"type:task": ^claude/chore/' '"type:docs": ^claude/docs/' '"type:audit": ^claude/audit/')"
+  tap_check $? "labeler.yml pone el tipo de claude/<type>/… para los 5 tipos"
 fi
 
 tap_done
