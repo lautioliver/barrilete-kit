@@ -13,6 +13,11 @@ A "run" that starts with "TODO" is reported as not configured and is not execute
 It also runs the checks of the rules (ADR-006 D8): .barrilete/checks.json, which scripts/agents/sync-rules generates from
 barrilete-rules, lists {"id", "rule", "fail_message"}; each one runs scripts/agents/checks/<id> --base <ref>, always, and when it
 fails verify.py prints the rule and its fail_message (what to do and when to escalate). A manifest that cannot be read exits with 2.
+Each rule check that runs leaves one check_run event per rule in .barrilete/learning/events.jsonl (ignored by git; #323, phase 0
+of the per-project learning, schema v0 until ADR-007): {"v", "ts", "kind", "check", "rule_id", "outcome" (pass, fail, or
+skipped when the check could not verify), "branch", and "task_id" (BK_TASK_DIR, ADR-005) and "harness" (BK_HARNESS, or
+claude-code with CLAUDECODE=1) only when they are known}. Only metadata: never the fail_message or the check's output.
+Recording is best effort: if it cannot write, it says so on stderr and the exit status does not change.
 
 Usage:
   verify.py                 # against the base branch (BASE, <BASE_BRANCH> or the remote default)
@@ -60,6 +65,54 @@ def checks_de_reglas():
         if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", c["id"]):
             roto(f"the check id {c['id']!r} is not a slug (it names a file in scripts/agents/checks/).")
     return lista
+
+
+REGISTRO = os.path.join(".barrilete", "learning", "events.jsonl")
+RESULTADO_EVENTO = {"ok": "pass", "FAILED": "fail", "not verified": "skipped"}
+
+
+def contexto_evento():
+    """The metadata shared by the check_run events: branch, and task_id and harness when they are known (never guessed)."""
+    ctx = {}
+    r = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
+    rama = r.stdout.strip()
+    if r.returncode == 0 and rama and rama != "HEAD":
+        ctx["branch"] = rama
+    tarea = os.environ.get("BK_TASK_DIR")
+    if tarea:
+        try:
+            with open(os.path.join(tarea, "task.json"), encoding="utf-8") as fh:
+                tid = json.load(fh).get("id")
+        except (OSError, ValueError, AttributeError):
+            tid = None
+        ctx["task_id"] = tid if isinstance(tid, str) and tid else os.path.basename(os.path.normpath(tarea))
+    harness = os.environ.get("BK_HARNESS", "")
+    if re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", harness):
+        ctx["harness"] = harness
+    elif os.environ.get("CLAUDECODE") == "1":
+        ctx["harness"] = "claude-code"
+    return ctx
+
+
+def registrar(resultados, mensajes):
+    """Appends one check_run event per rule of each rule check that ran. Best effort: it never changes the exit status."""
+    try:
+        ctx = contexto_evento()
+        ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        lineas = []
+        for nombre, estado, _ in resultados:
+            if nombre not in mensajes or estado not in RESULTADO_EVENTO:
+                continue
+            for regla, _ in mensajes[nombre]:
+                evento = {"v": 0, "ts": ts, "kind": "check_run", "check": nombre[len("check:"):], "rule_id": regla,
+                          "outcome": RESULTADO_EVENTO[estado], **ctx}
+                lineas.append(json.dumps(evento, ensure_ascii=False) + "\n")
+        if lineas:
+            os.makedirs(os.path.dirname(REGISTRO), exist_ok=True)
+            with open(REGISTRO, "a", encoding="utf-8") as fh:
+                fh.write("".join(lineas))
+    except Exception as e:  # recording is never worth failing verify.py
+        print(f"verify.py: could not record the check runs in {REGISTRO}: {e}", file=sys.stderr)
 
 
 def main():
@@ -142,6 +195,7 @@ def main():
         resultados.append((nombre, estado, time.time() - t0))
         print(flush=True)
 
+    registrar(resultados, mensajes)
     if saltados:
         resultados.append(("rule checks (skipped with --pr)", "not verified", 0))
     print("Result:")
