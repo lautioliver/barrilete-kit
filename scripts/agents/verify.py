@@ -13,12 +13,12 @@ A "run" that starts with "TODO" is reported as not configured and is not execute
 It also runs the checks of the rules (ADR-006 D8): .barrilete/checks.json, which scripts/agents/sync-rules generates from
 barrilete-rules, lists {"id", "rule", "fail_message"}; each one runs scripts/agents/checks/<id> --base <ref>, always, and when it
 fails verify.py prints the rule and its fail_message (what to do and when to escalate). A manifest that cannot be read exits with 2.
-Each rule check that runs leaves, as soon as it finishes, one check_run event per rule in .barrilete/learning/events.jsonl of
-the main checkout (also from a worktree; the folder carries its own .gitignore; #323, phase 0
-of the per-project learning, schema v0 until ADR-007): {"v", "ts", "kind", "check", "rule_id", "outcome" (pass, fail, or
-skipped when the check could not verify), "branch", and "task_id" (BK_TASK_DIR, ADR-005) and "harness" (BK_HARNESS, or
-claude-code with CLAUDECODE=1) only when they are known}. Only metadata: never the fail_message or the check's output.
-Recording is best effort: if it cannot write, it says so on stderr and the exit status does not change.
+Each rule check that runs leaves, as soon as it finishes, one check_run event per rule in the project's learning store
+(ADR-007: the v1 event of docs/agents/learning-event.md, written by scripts/agents/learning.py where .barrilete/learning.json
+says: by default .barrilete/learning/events.jsonl of the main checkout, also from a worktree). The event carries the rule_id
+and the outcome (pass, fail, or skipped when the check could not verify) plus what learning.py adds (project, model,
+harness, and the task's fields with BK_TASK_DIR). Only metadata: never the fail_message or the check's output.
+Recording is best effort: if it cannot write, it says so once on stderr and the exit status does not change.
 
 Usage:
   verify.py                 # against the base branch (BASE, <BASE_BRANCH> or the remote default)
@@ -36,6 +36,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from agents_map import RAIZ, archivos_cambiados, coincide, existe, rama_base  # noqa: E402
+import learning  # noqa: E402
 
 
 def referencia_base(args, base):
@@ -71,68 +72,24 @@ def checks_de_reglas():
 RESULTADO_EVENTO = {"ok": "pass", "FAILED": "fail", "not verified": "skipped"}
 
 
-def carpeta_registro():
-    """.barrilete/learning of the main checkout: from a worktree (an agent of /orchestrate or bk) the log goes to the
-    main checkout, because the worktree is deleted when the agent finishes."""
-    r = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True)
-    comun = r.stdout.strip()
-    raiz = os.path.dirname(comun) if r.returncode == 0 and os.path.basename(comun) == ".git" else RAIZ
-    return os.path.join(raiz, ".barrilete", "learning")
-
-
-def contexto_evento():
-    """The metadata shared by the check_run events: branch, and task_id and harness only when they are known (never guessed)."""
-    ctx = {}
-    r = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
-    rama = r.stdout.strip()
-    if r.returncode == 0 and rama and rama != "HEAD":
-        ctx["branch"] = rama
-    tarea = os.environ.get("BK_TASK_DIR")
-    if tarea:
-        try:
-            with open(os.path.join(tarea, "task.json"), encoding="utf-8") as fh:
-                datos = json.load(fh)
-            tid = datos.get("id") if isinstance(datos, dict) else None
-        except (OSError, ValueError):
-            tid = None
-        if isinstance(tid, str) and tid:
-            ctx["task_id"] = tid
-    harness = os.environ.get("BK_HARNESS")
-    if harness:  # set: it is the only source, and an invalid one leaves the harness out
-        if re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", harness):
-            ctx["harness"] = harness
-    elif os.environ.get("CLAUDECODE") == "1":
-        ctx["harness"] = "claude-code"
-    return ctx
-
-
 class Registro:
-    """Appends check_run events as each rule check finishes, so a run that dies halfway keeps what already ran.
+    """Records check_run events as each rule check finishes, so a run that dies halfway keeps what already ran.
     Best effort: a write that fails is said once on stderr and never changes the exit status."""
 
     def __init__(self, mensajes):
-        self.mensajes, self.ctx, self.carpeta, self.roto = mensajes, None, None, False
+        self.mensajes, self.ctx, self.roto = mensajes, None, False
 
     def anotar(self, nombre, estado):
         if self.roto or nombre not in self.mensajes or estado not in RESULTADO_EVENTO:
             return
-        if self.ctx is None:
-            self.ctx, self.carpeta = contexto_evento(), carpeta_registro()
-        ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        lineas = "".join(json.dumps({"v": 0, "ts": ts, "kind": "check_run", "check": nombre[len("check:"):],
-                                     "rule_id": regla, "outcome": RESULTADO_EVENTO[estado], **self.ctx},
-                                    ensure_ascii=False) + "\n" for regla, _ in self.mensajes[nombre])
         try:
-            os.makedirs(self.carpeta, exist_ok=True)
-            ignorar = os.path.join(self.carpeta, ".gitignore")
-            if not os.path.exists(ignorar):  # it ignores itself, even if the project's .gitignore lacks the line
-                with open(ignorar, "w", encoding="utf-8") as fh:
-                    fh.write("# Generated by scripts/agents/verify.py: the learning log never goes into the repo.\n*\n")
-            with open(os.path.join(self.carpeta, "events.jsonl"), "a", encoding="utf-8") as fh:
-                fh.write(lineas)
-        except OSError as e:
+            if self.ctx is None:
+                self.ctx = learning.contexto()
+            learning.escribir([learning.evento("check_run", {"rule_id": regla, "outcome": RESULTADO_EVENTO[estado]},
+                                               self.ctx) for regla, _ in self.mensajes[nombre]])
+        except (learning.LearningError, OSError) as e:
             self.roto = True
-            print(f"verify.py: could not record the check runs in {self.carpeta}: {e}", file=sys.stderr)
+            print(f"verify.py: could not record the check runs: {e}", file=sys.stderr)
 
 
 def main():

@@ -13,8 +13,8 @@ TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-checks-XXXXXX")" && pwd -P)
 . "$RAIZ/scripts/agents/tap.sh"
 tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
-export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
-unset BASE CLAUDECODE BK_TASK_DIR BK_HARNESS   # verify.py los lee para el evento check_run: cada caso los pone a mano
+export PYTHONDONTWRITEBYTECODE=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+unset BASE CLAUDECODE BK_TASK_DIR BK_HARNESS BK_MODEL BK_PROVIDER   # verify.py los lee para el evento check_run: cada caso los pone a mano
 out=""
 leer() { [ -f "$1" ] && cat "$1"; }  # el contenido, o nada si el archivo no existe (un caso falla, no un crash)
 

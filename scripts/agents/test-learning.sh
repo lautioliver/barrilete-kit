@@ -84,6 +84,13 @@ valida '{"v": 0, "ts": "2026-11-16T12:00:00Z", "project": "proyecto", "kind": "f
 [ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una versión que no es 1 se rechaza"
 valida '{"v": 1, "ts": "2026-11-16T12:00:00Z", "project": "proyecto", "kind": "finding", "model": "m", "harness": "pi", "pr": true}'
 [ "$TAP_RC" -eq 3 ]; tap_check $? "validador: un pr que no es un número se rechaza"
+valida '{"v": 1, "ts": "2026-11-16T12:00:00Z", "project": "proyecto", "kind": ["finding"], "model": "m", "harness": "pi"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "validador: un kind que no es texto (una lista) se rechaza, sin traceback"
+tap_no_traceback "$out"
+printf '\377\376\n' >"$TMP/v.jsonl"
+tap_run out 3 python3 "$L" validate "$TMP/v.jsonl"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "validador: un archivo que no es UTF-8 sale con 3, sin traceback"
+tap_no_traceback "$out"
 valida "$BUENO" '{"v": 1}'
 grep -q 'line 2' <<<"$out"; tap_check $? "validador: dice en qué línea está el evento roto"
 grep -q 'line 1' <<<"$out"; [ $? -eq 1 ]; tap_check $? "validador: no marca la línea que está bien"
