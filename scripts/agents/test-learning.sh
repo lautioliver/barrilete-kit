@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154,SC2016,SC2181  # out lo asigna tap_run; el $ de los JSON es texto
+# shellcheck disable=SC2154,SC2016,SC2319,SC2181  # out lo asigna tap_run; el $ de los JSON es texto
 # Tests del evento de aprendizaje y el store del proyecto (#324, ADR-007 D2, D3, D6): el validador del evento v1,
 # la escritura que respeta `.barrilete/learning.json` (local o la rama agents/learning), `rules_ref` y el task_end
 # que deja task_events.py cuando la tarea de `bk` terminó.
