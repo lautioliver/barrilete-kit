@@ -88,7 +88,7 @@ ADR-006 unified the rules in `barrilete-rules`, but left the learning data outsi
 - **Phase 5 of the epic: shared benchmark, opt-in, counts only.** A project could export, if it wants, counts by class, model, provider, harness and role, the rate per round, the failure rate of each check and the ids of the general rules. Text, prompts, code, evidence, the project or repo name, its own rules, PRs, issues and people would never leave. It would answer "which model leaves the most stale docs?" without any project showing how it works. To be built it has to move to the roadmap and carry its own ADR.
 - **Routing harnesses by area** (#326): this ADR only leaves the `area` field in the event.
 
-This stays here and not in `docs/development/horizon.md`: in the kit that file is the template `init` copies to every new project, and what it said about the kit would reach all of them.
+This stays here and not in the project horizon (horizon.md): in the kit that file is the template `init` copies to every new project, and what it said about the kit would reach all of them.
 
 ## Open questions
 

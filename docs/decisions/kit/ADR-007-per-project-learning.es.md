@@ -88,7 +88,7 @@ ADR-006 unificó las reglas en `barrilete-rules`, pero dejó los datos de aprend
 - **Fase 5 de la épica: benchmark compartido, opt-in, solo conteos.** Un proyecto podría exportar, si quiere, conteos por clase, modelo, proveedor, harness y rol, la tasa por ronda, la tasa de fallo de cada check y los ids de las reglas generales. Nunca saldrían texto, prompts, código, evidencia, el nombre del proyecto o del repo, las reglas propias, PRs, issues ni personas. Serviría para responder "¿qué modelo deja más docs desactualizadas?" sin que ningún proyecto muestre cómo trabaja. Para construirlo tiene que pasar al roadmap y llevar su propio ADR.
 - **El ruteo de harness por área** (#326): este ADR solo deja el campo `area` en el evento.
 
-Esto queda acá y no en `docs/development/horizon.md`: en el kit ese archivo es la plantilla que `init` copia a cada proyecto nuevo, y lo que diga del kit les llegaría a todos.
+Esto queda acá y no en el horizonte del proyecto (horizon.md): en el kit ese archivo es la plantilla que `init` copia a cada proyecto nuevo, y lo que diga del kit les llegaría a todos.
 
 ## Preguntas abiertas
 
