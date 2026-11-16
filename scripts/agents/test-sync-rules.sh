@@ -294,16 +294,19 @@ if [ -f "$RAIZ/scripts/init-template.sh" ] && [ -f "$RAIZ/scripts/update.py" ] &
   seccion290() { sed -n '/<!-- rules:begin/,/<!-- rules:end -->/p' "$1" | grep -F -- "$2" || true; }
 
   # init
-  P290="$TMP/p290"; git clone -q --branch v0.1.0 "$T290" "$P290" && rm -rf "$P290/.git"
+  # Como un repo creado desde la plantilla: su propio git, con la plantilla en un primer commit. El init necesita un repo:
+  # sin él, git rev-parse sale vacío y `cd ""` falla en bash 5 (el bash 3.2 de macOS lo deja pasar).
+  repo290() { git clone -q --branch v0.1.0 "$T290" "$1" && rm -rf "$1/.git" && (cd "$1" && git init -q -b main && git add -A && git commit -qm plantilla); }
+  P290="$TMP/p290"; repo290 "$P290"
   tap_run out 0 bash "$TMP/in290.sh" "$P290" ./scripts/init-template.sh Demo main --no-flow-line
-  (cd "$P290" && git init -q -b main && git add -A && git commit -qm init); tap_check $? "290: el proyecto de prueba se prepara"
+  (cd "$P290" && git add -A && git commit -qm init); tap_check $? "290: el proyecto de prueba se prepara"
   [ -n "$(seccion290 "$P290/.claude/agents/implementer.md" "Regla general v1.")" ]; tap_check $? "290 init: implementer.md recibe la regla general"
   [ -z "$(seccion290 "$P290/.claude/agents/implementer.md" "Regla solo del kit.")" ]; tap_check $? "290 init: implementer.md no trae la regla que es solo del kit"
   [ -z "$(seccion290 "$P290/AGENTS.md" "Regla de AGENTS solo del kit.")" ]; tap_check $? "290 init: AGENTS.md no trae la regla que es solo del kit"
   grep -qxF "sha=$SHA_A" "$P290/.barrilete/rules.lock"; tap_check $? "290 init: el proyecto hereda el sha del lock del kit"
   tap_run out 0 python3 "$P290/scripts/agents/sync-rules" --root "$P290" --check
   [ "$TAP_RC" = 0 ]; tap_check $? "290 init: sync-rules --check sale 0 en el proyecto recién inicializado" "$out"
-  Q290="$TMP/q290"; git clone -q --branch v0.1.0 "$T290" "$Q290" && rm -rf "$Q290/.git"
+  Q290="$TMP/q290"; repo290 "$Q290"
   tap_run out 0 env GIT_CONFIG_VALUE_0="$TMP/no-existe/" bash "$TMP/in290.sh" "$Q290" ./scripts/init-template.sh Demo main --no-flow-line
   [ "$TAP_RC" = 0 ]; tap_check $? "290 init: sin acceso al repo de reglas el init termina bien" "$out"
   grep -qF "WARNING: sync-rules failed" <<<"$out"; tap_check $? "290 init: sin acceso al repo de reglas el init avisa con su WARNING que falta correr sync-rules"
