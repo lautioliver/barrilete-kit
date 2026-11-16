@@ -8,6 +8,8 @@ Amended (2026-11-07): the principle at the start of Decision, D2, D7, D8 and D11
 
 Amended (2026-11-09): D7, what a project inherits of `rules.lock` and the generated sections (`init`, `install`, `grow`, `update`). Decided by @lautioliver in the chat on 2026-11-09, pending their approval in this PR; origin: lautioliver/barrilete-kit#299 and #290.
 
+Amended (2026-11-16): D7, `update.py` no longer replaces a `rules.lock` the kit published: it keeps the project's and says which SHA the kit pins. Decided by @lautioliver in the chat on 2026-11-10 (recorded in lautioliver/barrilete-kit#290), pending their approval of this text in the PR.
+
 Origin: lautioliver/barrilete-kit#256 and a proposal from the person on 2026-11-04 ("store of general rules for agents").
 
 Decided by @lautioliver in the chat:
@@ -81,7 +83,7 @@ barrilete-rules is the source of truth of Barrilete's reusable policies. Its for
    - CI and `verify.py` run without network.
    - A project can have its own rules in `.barrilete/rules/`, with the same format, and `sync-rules` adds them to the store's.
    - **What a project inherits (`init`, `install`, `grow`):** the kit's `rules.lock` (same repo and SHA), and `sync-rules` runs with the project's name, so the rules with `scope: barrilete-kit` drop out and the new project passes `sync-rules --check` from day one.
-   - **`update.py`:** if the project's `rules.lock` is one the kit published, it replaces it with the new one and regenerates the sections; if the project changed it, it keeps it and says so at the end of the summary.
+   - **`update.py` and `install.py`:** they never overwrite the project's `rules.lock` nor what `sync-rules` generated from it (the sections, `.barrilete/checks.json` and `docs/agents/classes.yml`). If the kit pins another SHA, `update.py` says so at the end of the summary, with both SHAs; moving to it is the project's PR: change the lock and run `sync-rules`. `install.py` leaves the kit's version of a file the project already has in `.agent-kit/pending/`, as with any other file.
    - **Success condition 1:** a rule is changed in barrilete-rules, its PR is approved, `rules.lock` is updated, and the role's agent receives exactly that version.
 
 8. **D8. Checks run inside `verify.py`.** A check has three things:

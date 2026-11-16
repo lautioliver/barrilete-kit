@@ -8,6 +8,8 @@ Enmendado (2026-11-07): el principio al inicio de Decisión, D2, D7, D8 y D11 (l
 
 Enmendado (2026-11-09): D7, qué hereda un proyecto del `rules.lock` y de las secciones generadas (`init`, `install`, `grow`, `update`). Lo decidió @lautioliver en el chat el 2026-11-09, pendiente de su aprobación en este PR; origen: lautioliver/barrilete-kit#299 y #290.
 
+Enmendado (2026-11-16): D7, `update.py` ya no reemplaza un `rules.lock` que publicó el kit: conserva el del proyecto y dice qué SHA fija el kit. Lo decidió @lautioliver en el chat el 2026-11-10 (anotado en lautioliver/barrilete-kit#290), pendiente de su aprobación de este texto en el PR.
+
 Origen: lautioliver/barrilete-kit#256 y una propuesta de la persona del 2026-11-04 ("store de reglas generales para agentes").
 
 Decidido por @lautioliver en el chat:
@@ -81,7 +83,7 @@ barrilete-rules es la fuente de verdad de las políticas reutilizables de Barril
    - El CI y `verify.py` corren sin red.
    - Un proyecto puede tener sus propias reglas en `.barrilete/rules/`, con el mismo formato, y `sync-rules` las suma a las del store.
    - **Qué hereda un proyecto (`init`, `install`, `grow`):** el `rules.lock` del kit (mismo repo y SHA), y se corre `sync-rules` con el nombre del proyecto, así las reglas con `scope: barrilete-kit` salen y el proyecto nuevo pasa `sync-rules --check` desde el primer día.
-   - **`update.py`:** si el `rules.lock` del proyecto es uno que publicó el kit, lo reemplaza por el nuevo y regenera las secciones; si el proyecto lo cambió, lo conserva y avisa al final del resumen.
+   - **`update.py` e `install.py`:** nunca pisan el `rules.lock` del proyecto ni lo que `sync-rules` generó con él (las secciones, `.barrilete/checks.json` y `docs/agents/classes.yml`). Si el kit fija otro SHA, `update.py` lo dice al final del resumen, con los dos SHA; pasarse es un PR del proyecto: cambiar el lock y correr `sync-rules`. `install.py` deja en `.agent-kit/pending/` la versión del kit de un archivo que el proyecto ya tiene, como con cualquier otro.
    - **Condición de éxito 1:** se modifica una regla en barrilete-rules, se aprueba su PR, se actualiza `rules.lock` y se comprueba que el agente correspondiente recibe exactamente esa versión.
 
 8. **D8. Los checks corren dentro de `verify.py`.** Un check tiene tres cosas:
