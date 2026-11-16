@@ -8,6 +8,8 @@ Amended (2026-11-07): the principle at the start of Decision, D2, D7, D8 and D11
 
 Amended (2026-11-09): D7, what a project inherits of `rules.lock` and the generated sections (`init`, `install`, `grow`, `update`). Decided by @lautioliver in the chat on 2026-11-09, pending their approval in this PR; origin: lautioliver/barrilete-kit#299 and #290.
 
+Replaced in part (2026-11-16) by ADR-007: D1 (what it says about the vault), D5, D6 and D10. ADR-007 D5 answers the open question about rounds (20 per cell). Decided by @lautioliver in the chat on 2026-11-16, pending their approval in the PR of lautioliver/barrilete-kit#322. The accepted text below is not rewritten.
+
 Origin: lautioliver/barrilete-kit#256 and a proposal from the person on 2026-11-04 ("store of general rules for agents").
 
 Decided by @lautioliver in the chat:
