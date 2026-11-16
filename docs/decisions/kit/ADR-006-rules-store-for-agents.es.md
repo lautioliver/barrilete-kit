@@ -6,9 +6,9 @@ Aceptado (2026-11-05). @lautioliver lo aprobó al mergear lautioliver/barrilete-
 
 Enmendado (2026-11-07): el principio al inicio de Decisión, D2, D7, D8 y D11 (los checks se implementan en el kit, las dos condiciones de éxito y el check `pr-metadata` en la fase 2), aprobado por @lautioliver en el PR #281. Lo decidió @lautioliver en el chat de la sesión barrilete-kit-46 el 2026-11-07; origen: lautioliver/barrilete-kit#280.
 
-Enmendado (2026-11-09): D7, qué hereda un proyecto del `rules.lock` y de las secciones generadas (`init`, `install`, `grow`, `update`). Lo decidió @lautioliver en el chat el 2026-11-09, pendiente de su aprobación en este PR; origen: lautioliver/barrilete-kit#299 y #290.
+Enmendado (2026-11-09): D7, qué hereda un proyecto del `rules.lock` y de las secciones generadas (`init`, `install`, `grow`, `update`). Lo decidió @lautioliver en el chat el 2026-11-09; origen: lautioliver/barrilete-kit#299 y #290.
 
-Enmendado (2026-11-15): D7, `update.py` ya no reemplaza un `rules.lock` que publicó el kit: conserva el del proyecto y dice qué SHA fija el kit. Lo decidió @lautioliver en el chat el 2026-11-10 (anotado en lautioliver/barrilete-kit#290); que `update.py` corra `sync-rules` después de aplicar, el 2026-11-16. Pendiente de su aprobación de este texto en el PR.
+Enmendado (2026-11-15): D7, `update.py` ya no reemplaza un `rules.lock` que publicó el kit: conserva el del proyecto y dice qué SHA fija el kit. Lo decidió @lautioliver en el chat el 2026-11-10 (anotado en lautioliver/barrilete-kit#290); que `update.py` corra `sync-rules` después de aplicar, el 2026-11-16.
 
 Origen: lautioliver/barrilete-kit#256 y una propuesta de la persona del 2026-11-04 ("store de reglas generales para agentes").
 
