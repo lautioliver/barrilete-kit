@@ -385,7 +385,7 @@ Skills have nothing specific to Claude Code: they are Markdown with bash and Pyt
 
 - An authenticated `gh`, `jq` and `python3` on the machine where the agent runs.
 - **Sub-issues and issue dependencies** ("Blocked by" / "Blocking") enabled on GitHub. Without them, skills report the error (404/422) and write the blocker into the issue body, but `planner.py`, `available.sh`, `prepare.sh` and `unblock.yml` lose the automatic part.
-- Agents must be able to push to the `agents/retros` branch. If you protect branches with a broad pattern (`*`), exclude it. If they can't push, `retro.sh` keeps retros in `.git/pending-retros/`.
+- Agents must be able to push to the `agents/retros` branch. If you protect branches with a broad pattern (`*`), exclude it. If they can't push, `retro.sh` keeps retros in `.git/pending-retros/`. The same goes for `agents/learning` if `.barrilete/learning.json` says `branch` (`docs/agents/learning-event.md`).
 
 ## 📄 License
 

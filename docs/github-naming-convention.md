@@ -74,6 +74,8 @@ Rules of the spec:
 
 **Exception: `agents/retros`.** A long-lived orphan branch where agents save their retros (one file per retro) with `.claude/skills/improve-skills/retro.sh`. It is a data branch: it carries no issue number, it is never merged and it is written without a PR, always with that script. If the repo protects branches with a broad pattern (`*`), exclude it, or the retros stay pending in `.git/pending-retros/`. Projects coming from 0.9 keep the `agentes/retros` branch: it is still read (`/improve-skills`), never written or deleted.
 
+**Exception: `agents/learning`.** The data branch of the learning events when `.barrilete/learning.json` says `{"store": "branch"}` (ADR-007 D2, `docs/agents/learning-event.md`). Like `agents/retros`: no issue number, never merged, written without a PR and only with `scripts/agents/learning.py` (`push` uploads it). With the default store (`local`) it does not exist.
+
 > **Decision to make:** do we use the short aliases (`feat/`, `fix/`) or the long ones (`feature/`, `bugfix/`)? Recommended: **short**, because they match the commit types.
 
 ---
@@ -321,7 +323,7 @@ To include in the repo's `CLAUDE.md` / `AGENTS.md`:
 - Valid scopes: those in §2.
 - <BRANCH_RULE>
 - Never push directly to the trunk branches. Everything goes in through a PR.
-- Exception: `agents/retros` (the retros' data branch), only with `retro.sh`.
+- Exception: `agents/retros` (the retros' data branch), only with `retro.sh`, and `agents/learning` (the learning events' data branch), only with `learning.py`.
 - If the change modifies business logic already defined, add the `business-logic` label and explain it in the PR.
 - See docs/github-naming-convention.md for the detail.
 ```
@@ -346,7 +348,7 @@ Mark the option chosen by the team and the date:
 
 | # | Topic | Chosen option | Date | Notes |
 |---|---|---|---|---|
-| 1 | Branches | ✅ Conventional Branch 1.1 | <DATE> | <BRANCH_RULE> Exception: `agents/retros`, the retros' data branch (§1). |
+| 1 | Branches | ✅ Conventional Branch 1.1 | <DATE> | <BRANCH_RULE> Exceptions: `agents/retros`, the retros' data branch, and `agents/learning`, the learning events' one (§1). |
 | 2 | Commits | | | scopes confirmed? |
 | 3 | PRs | | | squash merge? |
 | 4 | Issue titles | | | |

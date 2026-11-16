@@ -74,6 +74,8 @@ Reglas de la spec:
 
 **Excepción: `agents/retros`.** Rama huérfana de larga vida donde los agentes guardan sus retros (un archivo por retro) con `.claude/skills/improve-skills/retro.sh`. Es una rama de datos: no lleva número de issue, no se mergea nunca y se escribe sin PR, siempre con ese script. Si el repo protege ramas con un patrón amplio (`*`), excluila, o las retros quedan pendientes en `.git/pending-retros/`. Los proyectos que vienen de 0.9 conservan la rama `agentes/retros`: se sigue leyendo (`/improve-skills`), nunca se escribe ni se borra.
 
+**Excepción: `agents/learning`.** La rama de datos de los eventos de aprendizaje cuando `.barrilete/learning.json` dice `{"store": "branch"}` (ADR-007 D2, `docs/agents/learning-event.md`). Como `agents/retros`: sin número de issue, no se mergea nunca, se escribe sin PR y solo con `scripts/agents/learning.py` (`push` la sube). Con el store por defecto (`local`) no existe.
+
 > **Decisión a tomar:** ¿usamos los alias cortos (`feat/`, `fix/`) o los largos (`feature/`, `bugfix/`)? Recomendado: **cortos**, porque coinciden con los tipos de commit.
 
 ---
@@ -321,7 +323,7 @@ Para incluir en `CLAUDE.md` / `AGENTS.md` del repo:
 - Scopes válidos: los de §2.
 - <BRANCH_RULE>
 - Nunca pushear directo a las ramas troncales. Todo entra por PR.
-- Excepción: `agents/retros` (rama de datos de las retros), solo con `retro.sh`.
+- Excepción: `agents/retros` (rama de datos de las retros), solo con `retro.sh`, y `agents/learning` (rama de datos de los eventos de aprendizaje), solo con `learning.py`.
 - Si el cambio modifica lógica de negocio ya definida, agregar el label `business-logic` y explicarlo en el PR.
 - Ver docs/github-naming-convention.md para el detalle.
 ```
@@ -346,7 +348,7 @@ Marcar la opción elegida por el equipo y fecha:
 
 | # | Tema | Opción elegida | Fecha | Notas |
 |---|---|---|---|---|
-| 1 | Ramas | ✅ Conventional Branch 1.1 | <DATE> | <BRANCH_RULE> Excepción: `agents/retros`, rama de datos de las retros (§1). |
+| 1 | Ramas | ✅ Conventional Branch 1.1 | <DATE> | <BRANCH_RULE> Excepciones: `agents/retros`, rama de datos de las retros, y `agents/learning`, la de los eventos de aprendizaje (§1). |
 | 2 | Commits | | | ¿scopes confirmados? |
 | 3 | PRs | | | ¿squash merge? |
 | 4 | Títulos de issues | | | |
