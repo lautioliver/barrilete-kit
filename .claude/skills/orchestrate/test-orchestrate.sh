@@ -193,6 +193,21 @@ b=$(grep -n "Removed: $WT/21" <<<"$s" | cut -d: -f1); d=$(grep -n "git branch -D
 es -n "$b" && es -n "$d" && es "$d" -gt "$b"; tap_check $? "--delete da los comandos de las ramas después de sacar los worktrees"
 (cd "$P" && eval "$(grep "git branch -D claude/21-x" <<<"$s")" >/dev/null 2>&1) && ! git -C "$P" rev-parse -q --verify claude/21-x >/dev/null; tap_check $? "el comando que da cleanup.sh borra la rama (ya sin worktree)"
 
+# #330: ramas claude/<type>/<n>-… y worktrees ../<repo>-wt/<n>-<desc> (prepare.sh --name).
+git -C "$P" branch claude/fix/22-x main
+git -C "$P" push -q origin claude/fix/22-x 2>/dev/null
+issue 22 closed "type:bug" "Cerrado."; printf '[{"number": 122, "state": "CLOSED"}]\n' >"$TMP/issues/pr-claude_fix_22-x.json"
+git -C "$P" worktree add -q -b claude/23-segunda "$WT/23-segunda" main 2>/dev/null
+issue 23 closed "type:task" "Cerrado."
+pushd "$P" >/dev/null || exit 2
+lista=""   # lo reasigna tap_run
+tap_run lista 0 "$AQUI/cleanup.sh"
+grep -q "claude/fix/22-x.*closed without merging" <<<"$lista"; tap_check $? "lista la rama claude/<type>/<n>-… de un PR cerrado sin mergear"
+grep -q "$WT/23-segunda" <<<"$lista"; tap_check $? "lista el worktree ../<repo>-wt/<n>-<desc> de un issue cerrado"
+tap_run lista 0 "$AQUI/cleanup.sh" --delete
+popd >/dev/null || exit 2
+es ! -d "$WT/23-segunda"; tap_check $? "--delete saca el worktree ../<repo>-wt/<n>-<desc>"
+
 # 3. Lo que hace falta para correr en paralelo (criterios de #37).
 ! grep -q 'push -u' "$RAIZ/.claude/skills/implement-issue/SKILL.md"; tap_check $? "implement-issue pushea sin -u (el -u escribe .git/config y choca en paralelo)"
 # shellcheck disable=SC2016  # the backtick and the $ are regex, not expansions
