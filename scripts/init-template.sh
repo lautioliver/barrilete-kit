@@ -232,6 +232,16 @@ for evento, modo in (("UserPromptSubmit", "on"), ("Stop", "off")):
 open(ruta, "w", encoding="utf-8").write(json.dumps(ajustes, ensure_ascii=False, indent=2) + "\n")
 PY
 fi
+# The lock (repo and sha) is inherited from the template, but the generated sections come with the template's rules, including the ones
+# that are only for the template's project. Regenerate them for this project (its name is the `project` of .agent-kit.json: written here
+# so sync-rules can read it; the registry below overwrites the file). Without access to the rules repo the init does not fail: it says
+# what is pending (#290).
+if [ -f .barrilete/rules.lock ] && [ -f scripts/agents/sync-rules ]; then
+  python3 -c 'import json, os; json.dump({"project": os.environ["P"]}, open(".agent-kit.json", "w"))'
+  if ! python3 scripts/agents/sync-rules; then
+    echo "WARNING: the rules sections still carry the template's rules. Run scripts/agents/sync-rules when you have access to the rules repo." >&2
+  fi
+fi
 # Init registry: with what data the project was created and the hash of each file as it
 # was left. grow.py uses it to know which files the project did not touch and can replace.
 MODO_KIT=$([ -n "$CHICO" ] && echo small || echo full) RELEASES="$MODO" python3 - <<'PY'
