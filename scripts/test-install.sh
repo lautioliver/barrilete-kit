@@ -147,6 +147,10 @@ tap_check $? "el resumen dice que hay que volver a correr labels.py justo antes 
 es "$(grep -cxF '.env' "$U/.gitignore")" = 1 && grep -qxF 'node_modules' "$U/.gitignore" \
   && grep -qxF '# barrilete' "$U/.gitignore" && grep -qxF '.agent-kit/' "$U/.gitignore" && grep -qxF '__pycache__' "$U/.gitignore"
 tap_check $? ".gitignore conserva lo suyo y agrega solo lo que falta en un bloque # barrilete"
+# #324: el store de aprendizaje (ADR-007 D2) llega al proyecto: su directorio ignorado y learning.json en local.
+grep -qxF '.barrilete/learning/' "$U/.gitignore"; tap_check $? "324: el bloque # barrilete del .gitignore trae .barrilete/learning/"
+[ "$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])) == {"store": "local"})' "$U/.barrilete/learning.json" 2>&1 || :)" = True ]
+tap_check $? "324: la instalación trae .barrilete/learning.json con store local"
 grep -q 'regla propia' "$U/CLAUDE.md" && grep -qx '@AGENTS.md' "$U/CLAUDE.md"
 tap_check $? "CLAUDE.md conserva lo suyo y agrega @AGENTS.md"
 
