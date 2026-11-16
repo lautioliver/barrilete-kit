@@ -659,8 +659,6 @@ def main():
                 migrar_arbol(base)
             movidos, bloqueados, avisos = migrar_arbol(".", registradas)
         lock_reglas = reglas_del_proyecto(nueva)
-        if base:
-            reglas_del_proyecto(base)
         plan = planear(nueva, base, registradas, set(kit.get("withheld", [])))
         hechos, errores = aplicar(plan, nueva)
         red_agregada, aviso_red = completar_red(os.path.join(nueva, MAPA))
