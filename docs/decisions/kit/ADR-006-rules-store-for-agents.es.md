@@ -10,6 +10,8 @@ Enmendado (2026-11-09): D7, qué hereda un proyecto del `rules.lock` y de las se
 
 Enmendado (2026-11-15): D7, `update.py` ya no reemplaza un `rules.lock` que publicó el kit: conserva el del proyecto y dice qué SHA fija el kit. Lo decidió @lautioliver en el chat el 2026-11-10 (anotado en lautioliver/barrilete-kit#290); que `update.py` corra `sync-rules` después de aplicar, el 2026-11-16.
 
+Reemplazado en parte (2026-11-16) por ADR-007: D1 (lo que dice del vault), D5, D6 y D10. ADR-007 D5 responde la pregunta abierta sobre las rondas (20 por celda). Lo decidió @lautioliver en el chat el 2026-11-16, pendiente de su aprobación en el PR de lautioliver/barrilete-kit#322. El texto aceptado de abajo no se reescribe.
+
 Origen: lautioliver/barrilete-kit#256 y una propuesta de la persona del 2026-11-04 ("store de reglas generales para agentes").
 
 Decidido por @lautioliver en el chat:

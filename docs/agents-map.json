@@ -148,7 +148,12 @@
         ".claude/skills/orchestrate/**",
         ".claude/agents/**",
         "?.claude/i18n/agents/**",
-        "docs/agents/subagent-contract*.md"
+        "docs/agents/subagent-contract*.md",
+        ".claude/skills/implement-issue/**",
+        ".claude/skills/review-pr/**",
+        "scripts/agents/task_events.py",
+        "AGENTS.md",
+        "?AGENTS.es.md"
       ]
     }
   ],

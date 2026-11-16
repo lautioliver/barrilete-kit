@@ -69,6 +69,7 @@ Rule: if a product document and the code do not match, [architecture.md](develop
 - [ADR-004](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md) — `/orchestrate` launches each role as a `bk` agent or a subagent, per `roles.yml` (accepted)
 - [ADR-005](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md) — a `bk` agent works on a task with a state and an event log, and declares its close with `bk done` (accepted)
 - [ADR-006](decisions/kit/ADR-006-rules-store-for-agents.md) — one rules store for the agents (`barrilete-rules`) that replaced the kit's lessons file and the `bk learn` lessons (accepted)
+- [ADR-007](decisions/kit/ADR-007-per-project-learning.md) — learning data lives in each project's store (local by default), with one metadata-only event, proposals to the project first and per-cell measurement (rule × model × harness × role); replaces ADR-006 D1, D5, D6 and D10 (proposed)
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — one-line summary`
 
 ### Guides

@@ -10,6 +10,8 @@ Amended (2026-11-09): D7, what a project inherits of `rules.lock` and the genera
 
 Amended (2026-11-15): D7, `update.py` no longer replaces a `rules.lock` the kit published: it keeps the project's and says which SHA the kit pins. Decided by @lautioliver in the chat on 2026-11-10 (recorded in lautioliver/barrilete-kit#290); that `update.py` runs `sync-rules` after applying, on 2026-11-16.
 
+Replaced in part (2026-11-16) by ADR-007: D1 (what it says about the vault), D5, D6 and D10. ADR-007 D5 answers the open question about rounds (20 per cell). Decided by @lautioliver in the chat on 2026-11-16, pending their approval in the PR of lautioliver/barrilete-kit#322. The accepted text below is not rewritten.
+
 Origin: lautioliver/barrilete-kit#256 and a proposal from the person on 2026-11-04 ("store of general rules for agents").
 
 Decided by @lautioliver in the chat:
