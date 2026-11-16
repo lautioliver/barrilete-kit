@@ -43,7 +43,7 @@ Antes de escribir la migración, mostrá y hacé aprobar: schema actual → dese
 
 Detalle en `docs/github-naming-convention.md`.
 
-- **Rama:** <BRANCH_RULE> Nombres `<tipo>/<n°issue>-<descripcion>`; si la crea un agente, `claude/<n°issue>-<descripcion>`.
+- **Rama:** <BRANCH_RULE> Nombres `<tipo>/<n°issue>-<descripcion>`; si la crea un agente, `claude/<n°issue>-<descripcion>` (o `claude/<tipo>/<n°issue>-<descripcion>` si `.agent-kit.json` tiene `"agent_branch_type": true`; ver `docs/github-naming-convention.es.md` §1).
 - **Commits y PRs:** `<tipo>: <descripcion>` en imperativo y minúscula, con la descripción en <COMMIT_LANG> (`feat`, `fix`, `docs`, `chore`, `refactor`, `test`). Cuerpo del PR con `.github/pull_request_template.md` y `Closes #n`.
 - **Labels:** un `type:` por issue y PR; `priority:` solo en issues. Solo los de `.github/labels.yml`.
 - **Equipo:** los issues nuevos se asignan solos a un integrante (por área y carga). El equipo se cambia con `/add-member` y `/remove-member`; no edites el archivo a mano. Asignado = responsable; en curso = con PR abierto.

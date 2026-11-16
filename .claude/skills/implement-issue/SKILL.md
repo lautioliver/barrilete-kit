@@ -13,9 +13,9 @@ If you were not given a number ("take the next one"), run `.claude/skills/projec
 
 ## 1. Take the issue
 
-`.claude/skills/implement-issue/prepare.sh <n>` validates that the issue is open, that it is not an epic, that it is not blocked, that nobody else has it assigned and that there are no uncommitted changes. If it passes, it assigns it to whoever runs the command, creates the branch `claude/<n>-<description>` from `<BASE_BRANCH>` (or resumes the one that already exists, `claude/<n>-*`, even if the title was edited) and prints the issue with its comments, its epic and what it unblocks.
+`.claude/skills/implement-issue/prepare.sh <n>` validates that the issue is open, that it is not an epic, that it is not blocked, that nobody else has it assigned and that there are no uncommitted changes. If it passes, it assigns it to whoever runs the command, creates the branch `claude/<n>-<description>` from `<BASE_BRANCH>` (`claude/<type>/<n>-<desc>` with `"agent_branch_type": true` in `.agent-kit.json`; or resumes the one that already exists, `claude/<n>-*` or `claude/<type>/<n>-*`, even if the title was edited) and prints the issue with its comments, its epic and what it unblocks.
 
-For several issues in parallel, `--worktree` (how to work there: `prepare.sh --help`). To read an issue without taking it, `--review`. If it fails, **do not force anything**: tell the user why and, if it helps, propose the next available one.
+For several issues in parallel, `--worktree` (how to work there: `prepare.sh --help`). To read an issue without taking it, `--review`. For a second branch of the same issue (its second PR), `--name <desc>`. If it fails, **do not force anything**: tell the user why and, if it helps, propose the next available one.
 
 If `BK_TASK_DIR` exists (`bk run` launched you, ADR-005), `bk run` already ran `prepare.sh` for you and released the worktree lock before launching you, so **your first step is to take it**: `cd <worktree> && scripts/agents/worktree-lock.sh claim <worktree>`. Its owner is your own `claude` and its name comes from `BK_TASK_DIR`: it needs no `WORKTREE_LOCK_AGENT`. If it says `held: …`, another live agent is in that worktree: stop and ask in your window, do not share it or delete the lock. `bk done` releases it at the end (see "Close the task").
 

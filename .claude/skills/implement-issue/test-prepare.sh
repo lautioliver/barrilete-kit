@@ -415,6 +415,12 @@ tap_run out 0 "$PREPARAR" 92 --review
 es "$(rama_de "$out")" = "claude/feat/92-remota"; tap_check $? "claude/<type>/<n>0-… no es del issue <n>"
 # --name: otra rama para el issue (el PR 2), aunque tenga una.
 issue 91 "Two formats"; git -C "$TMP/proj" branch claude/91-una main
+# Con una rama en cada formato no sabe cuál retomar (sale con 1, como cualquier otro "CANNOT TAKE").
+git -C "$TMP/proj" branch claude/feat/91-otra main
+c=0; s=$(trap - ERR; "$PREPARAR" 91 --worktree 2>&1) || c=$?; tap_status "$c" 1
+grep -q "claude/91-una" <<<"$s"; tap_check $? "con una rama en cada formato, falla y nombra la de claude/<n>-…"
+grep -q "claude/feat/91-otra" <<<"$s"; tap_check $? "con una rama en cada formato, nombra la de claude/<type>/<n>-…"
+! asignado 91; tap_check $? "con una rama en cada formato, no asigna"
 tap_run out 0 "$PREPARAR" 91 --worktree --name "Segunda parte"
 es "$TAP_RC" -eq 0; tap_check $? "--name crea su rama aunque el issue tenga otra"
 wl=""   # lo reasigna tap_run

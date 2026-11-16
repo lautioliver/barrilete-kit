@@ -59,7 +59,7 @@ jobs:
             if (tiene('type:')) return core.info('The PR already has a type:.');
             const nums = new Set();
             for (const m of (pr.body || '').matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)/gi)) nums.add(Number(m[1]));
-            const rama = pr.head.ref.match(/^[a-z]+\/(\d+)-/);
+            const rama = pr.head.ref.match(/^[a-z]+\/(?:[a-z]{1,20}\/)?(\d+)-/);
             if (rama) nums.add(Number(rama[1]));
             for (const n of nums) {
               let issue;

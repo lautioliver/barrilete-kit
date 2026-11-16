@@ -5,7 +5,7 @@
 
 The two ● are the knots that stay in human hands (approving the plan and merging). The step comes from
 what already exists, nothing is written by hand:
-  - a branch `<type>/<n>-…` (also `claude/<n>-…`) and no open PR → implement
+  - a branch `<type>/<n>-…` (also `claude/<n>-…` and `claude/<type>/<n>-…`) and no open PR → implement
   - an open PR for the branch → review; approved → merge (waiting for your merge)
   - the PR merged → retro
   - the issue with `status:blocked` → blocked, whatever the step
@@ -46,7 +46,7 @@ from concurrent.futures import ThreadPoolExecutor
 CACHE_TTL = 30
 CACHE_NOMBRE = "agent-kit-flow.json"
 CACHE_RAMAS = 20  # branches kept in the cache; the oldest one goes first
-RAMA_RE = re.compile(r"^[a-z]+/(\d+)-")
+RAMA_RE = re.compile(r"^[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # <type>/<n>-…, claude/<n>-…, claude/<type>/<n>-…
 PASOS = ["plan", "implement", "review", "merge"]
 NUDOS = {"plan", "merge"}
 TEXTO = {"plan": "plan ●", "merge": "● merge"}
