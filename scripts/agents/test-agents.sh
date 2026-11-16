@@ -557,6 +557,6 @@ except Exception as e:
 [ "$(tipo_sensible docs/agents/subagent-contract.es.md)" = agents ]; tap_check $? "agents: un cambio en docs/agents/subagent-contract.es.md se marca como sensible (agents)"
 [ "$(tipo_sensible .claude/i18n/agents/implementer.es.md)" = agents ]; tap_check $? "agents: un cambio en .claude/i18n/agents/ se marca como sensible (agents)"
 [ "$(tipo_sensible .claude/settings.json)" = infra ]; tap_check $? "agents: control, el helper ve un archivo sensible que ya estaba en el mapa (infra)"
-[ "$(tipo_sensible docs/agents/lessons.md)" = - ]; tap_check $? "agents: un cambio en docs/agents/lessons.md no se marca como sensible (el contrato sí, las lecciones no)"
+[ "$(tipo_sensible docs/agents/classes.yml)" = - ]; tap_check $? "agents: un cambio en docs/agents/classes.yml no se marca como sensible (el contrato sí, las clases generadas no)"
 
 tap_done
