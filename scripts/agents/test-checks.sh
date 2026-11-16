@@ -324,6 +324,7 @@ rm -rf "$P/.barrilete/learning"; echo no-es-carpeta >"$P/.barrilete/learning"
 manifiesto ok-check mal-check
 verify 1
 grep -q 'could not record' <<<"$out"; tap_check $? "check_run: si no puede escribir el registro lo avisa"
+[ "$(grep -c 'could not record' <<<"$out")" -eq 1 ]; tap_check $? "check_run: con dos checks que no pudo registrar, el aviso sale una sola vez"
 grep -q 'FAILED *check:mal-check' <<<"$out"; tap_check $? "check_run: sin poder escribir el registro, verify.py sigue igual"
 rm -f "$P/.barrilete/learning"
 
@@ -345,6 +346,7 @@ tap_no_traceback "$out"
 eventos
 grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: desde un worktree, el evento queda en el checkout principal"
 [ ! -e "$TMP/wt/.barrilete/learning/events.jsonl" ]; tap_check $? "check_run: desde un worktree, nada queda dentro del worktree"
+grep -q '^branch=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: con HEAD suelto (el worktree está en --detach) el evento no lleva rama"
 git -C "$P" worktree remove --force "$TMP/wt"
 
 # Si verify.py muere a mitad de camino, los checks que ya terminaron quedan registrados
