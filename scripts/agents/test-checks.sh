@@ -14,7 +14,7 @@ TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-checks-XXXXXX")" && pwd -P)
 tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
-unset BASE
+unset BASE CLAUDECODE BK_TASK_DIR BK_HARNESS   # verify.py los lee para el evento check_run: cada caso los pone a mano
 out=""
 leer() { [ -f "$1" ] && cat "$1"; }  # el contenido, o nada si el archivo no existe (un caso falla, no un crash)
 
@@ -245,6 +245,126 @@ GH_MODE=pr PATH="$TMP/bin:$PATH" verify 0 --pr 7
 grep -q 'Skipped.*rule checks' <<<"$out"; tap_check $? "verify.py --pr: dice que salteó los checks de las reglas"
 grep -q 'All verified' <<<"$out"; [ $? -eq 1 ]; tap_check $? "verify.py --pr: con los checks de las reglas salteados no dice All verified"
 grep -q 'not verified' <<<"$out"; tap_check $? "verify.py --pr: con los checks de las reglas salteados los da por no verificados"
+
+# --- verify.py deja un evento check_run por cada check que corre (#323, fase 0 de #321) ---
+EV="$P/.barrilete/learning/events.jsonl"
+# ev.py resume el registro: "n=<líneas>", y por evento "raw <línea>", "<check> <rule_id> <outcome> <claves ordenadas>"
+# (o "json-roto") y sus metadatos. Sin registro imprime n=0: un caso falla, no un crash.
+cat >"$TMP/ev.py" <<'EOF'
+import json, os, sys
+lines = open(sys.argv[1], encoding="utf-8").read().splitlines() if os.path.exists(sys.argv[1]) else []
+print("n=%d" % len(lines))
+for l in lines:
+    print("raw " + l)
+    try:
+        e = json.loads(l)
+    except ValueError:
+        print("json-roto"); continue
+    print(e.get("check"), e.get("rule_id"), e.get("outcome"), ",".join(sorted(e)))
+    for k in ("task_id", "harness", "branch", "v", "kind"):
+        if k in e: print("%s=%s" % (k, e[k]))
+EOF
+eventos() { cd "$TMP" || exit 2; tap_run out 0 python3 "$TMP/ev.py" "$EV"; }
+
+rm -rf "$P/.barrilete/learning"
+manifiesto ok-check mal-check
+verify 1
+eventos
+grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: un check que pasa deja outcome pass con su regla"
+grep -qx 'mal-check r-mal-check fail .*' <<<"$out"; tap_check $? "check_run: un check que falla deja outcome fail con su regla"
+grep -qx 'n=2' <<<"$out"; tap_check $? "check_run: una línea por check, nada más"
+grep -qx 'kind=check_run' <<<"$out"; tap_check $? "check_run: el evento dice kind check_run"
+grep -qx 'v=0' <<<"$out"; tap_check $? "check_run: el evento lleva la versión 0 del esquema"
+grep -qx 'branch=claude/7-algo' <<<"$out"; tap_check $? "check_run: el evento lleva la rama"
+grep -q '^raw .*arreglá' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: el evento no lleva el fail_message"
+grep -q '^raw .*no se cumple' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: el evento no lleva la salida del check"
+grep -qx 'mal-check r-mal-check fail branch,check,kind,outcome,rule_id,ts,v' <<<"$out"; tap_check $? "check_run: sin BK_TASK_DIR ni harness conocido, solo las claves de metadatos"
+
+rm -rf "$P/.barrilete/learning"
+verify 0 --list
+[ ! -e "$EV" ]; tap_check $? "check_run: verify.py --list no registra nada"
+
+rm -rf "$P/.barrilete/learning"
+printf '{"checks": [{"id": "mal-check", "rule": "regla-a", "fail_message": "a"}, {"id": "mal-check", "rule": "regla-b", "fail_message": "b"}]}\n' >"$P/.barrilete/checks.json"
+verify 1
+eventos
+grep -qx 'mal-check regla-b fail .*' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check dejan un evento por regla"
+grep -qx 'mal-check regla-a fail .*' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check: también la primera"
+grep -qx 'n=2' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check: dos eventos, ni uno más"
+
+rm -rf "$P/.barrilete/learning"
+mkdir -p "$TMP/tarea"; printf '{"id": "323-implementer", "status": "in_progress"}\n' >"$TMP/tarea/task.json"
+manifiesto ok-check
+BK_TASK_DIR="$TMP/tarea" CLAUDECODE=1 verify 0
+eventos
+grep -qx 'task_id=323-implementer' <<<"$out"; tap_check $? "check_run: con BK_TASK_DIR lleva el id de la tarea (ADR-005)"
+grep -qx 'harness=claude-code' <<<"$out"; tap_check $? "check_run: dentro de Claude Code (CLAUDECODE=1) lleva harness claude-code"
+rm -rf "$P/.barrilete/learning"
+BK_HARNESS=codex CLAUDECODE=1 verify 0
+eventos
+grep -qx 'harness=codex' <<<"$out"; tap_check $? "check_run: BK_HARNESS manda sobre lo que se deduce del entorno"
+rm -rf "$P/.barrilete/learning"
+BK_HARNESS=Codex_X CLAUDECODE=1 verify 0
+eventos
+grep -q '^harness=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: un BK_HARNESS inválido no se reemplaza por claude-code: el harness queda afuera"
+rm -rf "$P/.barrilete/learning"
+mkdir -p "$TMP/tarea-sin-json"
+BK_TASK_DIR="$TMP/tarea-sin-json" verify 0
+eventos
+grep -q '^task_id=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: sin task.json legible no se inventa un task_id"
+
+rm -rf "$P/.barrilete/learning"
+manifiesto pr-metadata
+GH_MODE=none PATH="$TMP/bin:$PATH" verify 0
+eventos
+grep -qx 'pr-metadata r-pr-metadata skipped .*' <<<"$out"; tap_check $? "check_run: un check que no pudo verificar (sale con 4) deja skipped"
+
+# Un archivo donde va la carpeta: no se puede escribir el registro ni siendo root (chmod no frena a root)
+rm -rf "$P/.barrilete/learning"; echo no-es-carpeta >"$P/.barrilete/learning"
+manifiesto ok-check mal-check
+verify 1
+grep -q 'could not record' <<<"$out"; tap_check $? "check_run: si no puede escribir el registro lo avisa"
+[ "$(grep -c 'could not record' <<<"$out")" -eq 1 ]; tap_check $? "check_run: con dos checks que no pudo registrar, el aviso sale una sola vez"
+grep -q 'FAILED *check:mal-check' <<<"$out"; tap_check $? "check_run: sin poder escribir el registro, verify.py sigue igual"
+rm -f "$P/.barrilete/learning"
+
+# El registro se ignora solo, aunque el .gitignore del proyecto no tenga la línea (el de $P no la tiene)
+manifiesto ok-check
+verify 0
+st=$(git -C "$P" status --porcelain -uall 2>&1)
+grep -q 'learning' <<<"$st"; [ $? -eq 1 ]; tap_check $? "check_run: el registro no aparece como cambio aunque el .gitignore del proyecto no lo ignore"
+
+# Desde un worktree (un agente de /orchestrate o de bk), el registro va al checkout principal: el worktree se borra
+rm -rf "$P/.barrilete/learning"
+git -C "$P" worktree add -q --detach "$TMP/wt" HEAD 2>/dev/null
+mkdir -p "$TMP/wt/.barrilete" "$TMP/wt/scripts/agents/checks"
+cp "$P/.barrilete/checks.json" "$TMP/wt/.barrilete/"; cp "$P/scripts/agents/checks/ok-check" "$TMP/wt/scripts/agents/checks/"
+cd "$TMP/wt" || exit 2
+BASE=main tap_run out 0 python3 "$TMP/rc.py" python3 scripts/agents/verify.py
+cd "$TMP" || exit 2
+tap_no_traceback "$out"
+eventos
+grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: desde un worktree, el evento queda en el checkout principal"
+[ ! -e "$TMP/wt/.barrilete/learning/events.jsonl" ]; tap_check $? "check_run: desde un worktree, nada queda dentro del worktree"
+grep -q '^branch=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: con HEAD suelto (el worktree está en --detach) el evento no lleva rama"
+git -C "$P" worktree remove --force "$TMP/wt"
+
+# Si verify.py muere a mitad de camino, los checks que ya terminaron quedan registrados
+rm -rf "$P/.barrilete/learning"
+printf '#!/bin/sh
+p=$PPID
+case "$(ps -o comm= -p "$p")" in *sh) p=$(ps -o ppid= -p "$p") ;; esac
+kill -TERM $p
+sleep 5
+' >"$P/scripts/agents/checks/corta"
+chmod +x "$P/scripts/agents/checks/corta"
+manifiesto ok-check corta
+cd "$P" || exit 2
+BASE=main tap_run out 0 python3 "$TMP/rc.py" python3 scripts/agents/verify.py
+cd "$TMP" || exit 2
+eventos
+grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: un check que terminó queda registrado aunque verify.py muera después"
+rm "$P/.barrilete/checks.json"
 
 # 8. Falsos rechazos y falsos verdes que encontró el review (#294): cada caso falla si se borra lo que chequea.
 cd "$P" || exit 1

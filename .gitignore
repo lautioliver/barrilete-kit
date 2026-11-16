@@ -10,3 +10,6 @@ __pycache__
 
 # Worktrees del aislamiento de Claude Code (subagentes)
 .claude/worktrees/
+
+# Registro de aprendizaje del proyecto (eventos check_run de verify.py, #323)
+.barrilete/learning/
