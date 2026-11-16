@@ -437,6 +437,13 @@ tap_run out 0 "$PREPARAR" 93 --worktree --name "con worktree"
 es "$TAP_RC" -eq 0; tap_check $? "--worktree --name con la rama ya en ../<repo>-wt/<n> termina bien"
 grep -qx "Worktree: $WT/93" <<<"$out"; tap_check $? "--worktree --name con la rama que ya está en ../<repo>-wt/<n> la retoma ahí"
 es ! -e "$WT/93-con-worktree"; tap_check $? "--worktree --name con la rama ya en ../<repo>-wt/<n> no crea otro worktree"
+# --name con una rama cuyo PR ya se mergeó o cerró: igual que sin --name, no se retoma; como el nombre es fijo, falla y pide otro.
+issue 94 "Nombre usado"; git -C "$TMP/proj" branch claude/94-segunda main
+echo MERGED >"$TMP/issues/pr-claude_94-segunda"
+tap_run out 1 "$PREPARAR" 94 --name segunda
+es "$TAP_RC" -eq 1; tap_check $? "--name con una rama cuyo PR ya se mergeó o cerró falla"
+grep -q -- "--name" <<<"$out"; tap_check $? "--name con una rama cuyo PR ya se mergeó o cerró pide otro nombre"
+! asignado 94; tap_check $? "--name con una rama cuyo PR ya se mergeó o cerró no asigna"
 tap_run out 64 "$PREPARAR" 80 --name
 es "$TAP_RC" -eq 64; tap_check $? "--name sin valor: uso inválido (64)"
 tap_run out 64 "$PREPARAR" 80 --name --worktree
