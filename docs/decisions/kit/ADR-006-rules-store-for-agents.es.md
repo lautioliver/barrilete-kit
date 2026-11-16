@@ -8,7 +8,7 @@ Enmendado (2026-11-07): el principio al inicio de Decisión, D2, D7, D8 y D11 (l
 
 Enmendado (2026-11-09): D7, qué hereda un proyecto del `rules.lock` y de las secciones generadas (`init`, `install`, `grow`, `update`). Lo decidió @lautioliver en el chat el 2026-11-09, pendiente de su aprobación en este PR; origen: lautioliver/barrilete-kit#299 y #290.
 
-Reemplazado en parte (2026-11-16) por [ADR-007](ADR-007-per-project-learning.es.md): D1 (lo que dice del vault), D5, D6 y D10. ADR-007 D5 responde la pregunta abierta sobre las rondas (20 por celda). Lo decidió @lautioliver en el chat el 2026-11-16, pendiente de su aprobación en el PR de lautioliver/barrilete-kit#322. El texto aceptado de abajo no se reescribe.
+Reemplazado en parte (2026-11-16) por ADR-007: D1 (lo que dice del vault), D5, D6 y D10. ADR-007 D5 responde la pregunta abierta sobre las rondas (20 por celda). Lo decidió @lautioliver en el chat el 2026-11-16, pendiente de su aprobación en el PR de lautioliver/barrilete-kit#322. El texto aceptado de abajo no se reescribe.
 
 Origen: lautioliver/barrilete-kit#256 y una propuesta de la persona del 2026-11-04 ("store de reglas generales para agentes").
 
