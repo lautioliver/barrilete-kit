@@ -207,7 +207,7 @@ c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 53 --worktree 2>&1) || c=$?; 
 es "$c" -eq 1; tap_check $? "--worktree con una rama claude/<n>-* que solo está en origin falla"
 es ! -e "$WT/53"; tap_check $? "--worktree con una rama que solo está en origin no crea el worktree"
 es "$(asignaciones 53)" = 0; tap_check $? "--worktree con una rama que solo está en origin no asigna"
-grep -qF "git fetch origin claude/53-remota:claude/53-remota && git log origin/main..claude/53-remota" <<<"$s"
+grep -qF "git fetch origin claude/53-remota:claude/53-remota && git log -p origin/main..claude/53-remota" <<<"$s"
 tap_check $? "--worktree con una rama que solo está en origin dice cómo traerla y mirar sus commits"
 es "$(grep -c "claude/530" <<<"$s")" = 0; tap_check $? "claude/<n>0-* en origin no es del issue <n>"
 
