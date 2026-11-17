@@ -27,9 +27,10 @@ verb (except in bugs and audits) and filler words, in 30 characters at most with
   --review   Only validates and prints: does not assign or create the branch.
   --name <desc>
              Picks the description (e.g. for the second PR of an issue): creates that branch
-             (or resumes it, also from origin, if it exists and its PR is not merged or
-             closed; if it is, it fails: pick another name) even if the issue already has
-             another one. With --worktree, it goes in ../<repo>-wt/<n>-<desc>.
+             (or resumes it if it exists locally and its PR is not merged or closed; if it
+             is, it fails: pick another name) even if the issue already has another one. If it
+             only exists on origin, it fails like without --name. With --worktree, it goes
+             in ../<repo>-wt/<n>-<desc>.
   --worktree  The same, but in its own worktree (../<repo>-wt/<n>), without touching the
               current checkout: useful to run several issues in parallel.
               - Prints "Worktree: <path>". Work there with absolute paths or
@@ -159,7 +160,7 @@ else desc=$(slug "$titulo" cut); fi
 RAMA="claude/${TIPO:+$TIPO/}$N-$desc"
 # If the issue already has a branch (claude/<n>-* or claude/<type>/<n>-*, whatever the option says, local or
 # on origin), that one is resumed even if the title changed after taking it (#41) or the project turned the
-# option on; one that only exists on origin, only with --name (#331, below). With more than one none is chosen: they are listed. The ones of an already merged or closed PR
+# option on; one that only exists on origin is never resumed on its own (#331, below). With more than one none is chosen: they are listed. The ones of an already merged or closed PR
 # do not count: a reopened issue starts again. With --name only that branch counts, and if its PR is already
 # merged or closed it fails: the name is taken.
 if [ -n "$NOMBRE" ]; then
@@ -186,16 +187,16 @@ if [ "$(grep -c . <<<"$existentes")" -gt 1 ]; then
   error "it has more than one branch: $(paste -sd ' ' - <<<"$existentes"). Delete the extra ones, resume one by hand or create another one with --name <desc>."
 fi
 [ -n "$existentes" ] && RAMA="$existentes"
-# Only on origin: the local one is created from there, but only if it was asked for by name (--name). Without
-# --name it is not resumed on its own (#331): anyone with push access can push claude/<n>-…, and in the checkout
-# the Claude Code hooks (.claude/settings.json) would run that branch's scripts. It is fetched by hand after
+# Only on origin: it is not resumed on its own (#331), not even asked for by name (--name): anyone with push
+# access can push claude/<n>-… (and the --name ones are guessable: segunda, pr-2), and in the checkout the
+# Claude Code hooks (.claude/settings.json) would run that branch's scripts. It is fetched by hand after
 # looking at it, and then it is resumed as a local one.
 SOLO_REMOTA=""; SIN_REVISAR=""; EN_ORIGIN=()
 [ -n "$existentes" ] && ! grep -qx "$RAMA" <<<"$locales" && SOLO_REMOTA=1
 # Whoever pushed it picks the name, and the person pastes the command: it goes quoted (;, $( and | are valid in a ref).
-if [ -n "$SOLO_REMOTA" ] && [ -z "$NOMBRE" ]; then
+if [ -n "$SOLO_REMOTA" ]; then
   r=$(printf '%q' "$RAMA")
-  SIN_REVISAR="the issue already has a branch that only exists on origin, not reviewed: $r. To resume it, fetch it and look at its changes: git fetch origin $r:$r && git log -p $(printf '%q' "origin/$BASE")..$r — then run prepare.sh again (it resumes it as a local one). For another branch: --name <desc>."
+  SIN_REVISAR="the issue already has a branch that only exists on origin, not reviewed: $r. To resume it, fetch it and look at its changes: git fetch origin $r:$r && git log -p $(printf '%q' "origin/$BASE")..$r — then run prepare.sh again (it resumes it as a local one). For another branch: --name <another desc>."
 fi
 grep -qx "$RAMA" <<<"$remotas" && EN_ORIGIN=("refs/heads/$RAMA:refs/remotes/origin/$RAMA")
 # The worktree goes next to the main checkout (the first in the list), even if this
@@ -269,8 +270,6 @@ if [ -z "$WORKTREE" ]; then
   traer
   if git show-ref -q --verify "refs/heads/$RAMA"; then
     git switch -q "$RAMA"; echo "Existing branch: $RAMA (resuming)"; atrasada
-  elif [ -n "$SOLO_REMOTA" ]; then
-    git switch -q --no-track -c "$RAMA" "origin/$RAMA"; echo "Existing branch: $RAMA (resuming from origin)"
   else
     git switch -q -c "$RAMA" "origin/$BASE"; echo "New branch: $RAMA (from origin/$BASE)"
   fi
@@ -318,9 +317,6 @@ if [ -n "$en_uso" ]; then
 elif git show-ref -q --verify "refs/heads/$RAMA"; then
   mkdir -p "$(dirname "$WT")"; git worktree add -q "$WT" "$RAMA"
   echo "Existing branch: $RAMA (resuming)"; atrasada
-elif [ -n "$SOLO_REMOTA" ]; then
-  mkdir -p "$(dirname "$WT")"; git worktree add -q --no-track -b "$RAMA" "$WT" "origin/$RAMA"
-  echo "Existing branch: $RAMA (resuming from origin)"
 else
   mkdir -p "$(dirname "$WT")"; git worktree add -q --no-track -b "$RAMA" "$WT" "origin/$BASE"
   echo "New branch: $RAMA (from origin/$BASE)"
