@@ -13,7 +13,7 @@ TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-learning-XXXXXX")" && pwd -P)
 tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
 export PYTHONDONTWRITEBYTECODE=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
-unset BK_TASK_DIR BK_HARNESS BK_MODEL BK_PROVIDER CLAUDECODE CLAUDE_PROJECT_DIR   # cada caso pone los suyos
+unset BK_TASK_DIR BK_HARNESS BK_MODEL BK_PROVIDER BARRILETE_MODEL BARRILETE_PROVIDER CLAUDECODE CLAUDE_PROJECT_DIR   # cada caso pone los suyos
 out=""
 
 # --- un proyecto "proyecto" con su remoto, en la rama de trabajo claude/9-algo ---
@@ -94,6 +94,20 @@ tap_no_traceback "$out"
 valida "$BUENO" '{"v": 1}'
 grep -q 'line 2' <<<"$out"; tap_check $? "validador: dice en qué línea está el evento roto"
 grep -q 'line 1' <<<"$out"; [ $? -eq 1 ]; tap_check $? "validador: no marca la línea que está bien"
+# Las líneas v0 de #323 (verify.py antes del v1) se toleran como heredadas: se cuentan aparte y no se marcan rotas.
+V0='{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "numeros-del-pr", "outcome": "skipped", "branch": "claude/323-registrar-algo", "harness": "claude-code"}'
+printf '%s\n' "$BUENO" "$V0" >"$TMP/v.jsonl"
+tap_run out 0 python3 "$L" validate "$TMP/v.jsonl"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "validador: una línea v0 de check_run de #323 no se marca rota"
+grep -q '^ok: 1 event(s), 1 legacy v0' <<<"$out"; tap_check $? "validador: la línea v0 se cuenta aparte, como heredada"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "nota": "texto"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una línea v0 con un campo que v0 no tenía se rechaza"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "completed"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una línea v0 con un outcome que v0 no tenía se rechaza"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "rule_id": "r", "outcome": "pass"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una línea v0 sin check se rechaza"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "una rama con espacios"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una línea v0 con texto libre en branch se rechaza"
 
 # --- 2. Store local (por defecto, D2): sin learning.json va al directorio ignorado del checkout principal ---
 tap_run out 0 python3 "$L" emit check_run rule_id=r-uno outcome=pass
@@ -110,16 +124,25 @@ ev file "$EVL"
 grep -qx 'model=claude-opus-5-5' <<<"$out"; tap_check $? "emit: BK_MODEL da el modelo"
 grep -qx 'harness=codex' <<<"$out"; tap_check $? "emit: BK_HARNESS da el harness"
 grep -qx 'provider=anthropic' <<<"$out"; tap_check $? "emit: BK_PROVIDER da el proveedor"
+# bk exporta BARRILETE_MODEL y BARRILETE_PROVIDER (barrilete-workspace bin/bk): el kit los lee si no hay BK_*.
+BARRILETE_MODEL=claude-sonnet-5-5 BARRILETE_PROVIDER=openai tap_run out 0 python3 "$L" emit check_run rule_id=r-bar outcome=pass
+tail -n 1 "$EVL" >"$TMP/ult.jsonl"; ev file "$TMP/ult.jsonl"
+grep -qx 'model=claude-sonnet-5-5' <<<"$out"; tap_check $? "emit: sin BK_MODEL, BARRILETE_MODEL da el modelo"
+grep -qx 'provider=openai' <<<"$out"; tap_check $? "emit: sin BK_PROVIDER, BARRILETE_PROVIDER da el proveedor"
+BK_MODEL=claude-opus-5-5 BARRILETE_MODEL=claude-haiku-5-5 BK_PROVIDER=anthropic BARRILETE_PROVIDER=openai tap_run out 0 python3 "$L" emit check_run rule_id=r-ambas outcome=pass
+tail -n 1 "$EVL" >"$TMP/ult.jsonl"; ev file "$TMP/ult.jsonl"
+grep -qx 'model=claude-opus-5-5' <<<"$out"; tap_check $? "emit: BK_MODEL manda sobre BARRILETE_MODEL"
+grep -qx 'provider=anthropic' <<<"$out"; tap_check $? "emit: BK_PROVIDER manda sobre BARRILETE_PROVIDER"
 tap_run out 3 python3 "$L" emit check_run rule_id="con espacios" outcome=pass
 [ "$TAP_RC" -eq 3 ]; tap_check $? "emit: un evento inválido sale con 3"
 ev file "$EVL"
-grep -qx 'n=2' <<<"$out"; tap_check $? "emit: un evento inválido no se escribe"
+grep -qx 'n=4' <<<"$out"; tap_check $? "emit: un evento inválido no se escribe"
 git -C "$P" worktree add -q "$TMP/wt" -b claude/9-wt 2>/dev/null
 cd "$TMP/wt" || exit 2
 tap_run out 0 python3 "$L" emit check_run rule_id=r-wt outcome=pass
 cd "$P" || exit 2
 ev file "$EVL"
-grep -qx 'n=3' <<<"$out"; tap_check $? "store local: desde un worktree el evento va al checkout principal"
+grep -qx 'n=5' <<<"$out"; tap_check $? "store local: desde un worktree el evento va al checkout principal"
 [ ! -e "$TMP/wt/.barrilete/learning/events.jsonl" ]; tap_check $? "store local: desde un worktree nada queda en el worktree"
 
 # Sin origin, el proyecto es la carpeta: un nombre fuera de la forma de la tabla se limpia, no deja de escribir
