@@ -17,7 +17,7 @@ No se instala en el modo `--small`, que no tiene retros (ahí no se instala `.cl
 
 La bitácora depende de lo que escribe `retro.sh` (`.claude/skills/improve-skills/retro.sh`, plantilla en `retro-template.md`). Si cambia algo de esto, cambiá `bitacora.py` en el mismo PR; `scripts/agents/test-bitacora.sh` escribe una retro con `retro.sh` y falla si la bitácora deja de leerla.
 
-- **Dónde:** `retros/*.md` en la rama `agents/retros`. La de `origin` si el repo tiene ese remoto (la trae antes); si no, la local.
+- **Dónde:** `retros/*.md` en la rama `agents/retros` y en la de la 0.9, `agentes/retros` (si un archivo está en las dos, gana la nueva). La de `origin` si el repo tiene ese remoto (la trae antes); si no, la local. Las lee con `retros_dump` de `.claude/skills/improve-skills/legacy-names.sh`, la misma tabla que usan `retro.sh` y `/improve-skills`: las claves y valores de la 0.9 (`rol: revisor`, `modelo:`, `fecha:`) se leen como los nuevos, las comillas alrededor de un valor se quitan y, si una clave se repite, gana la primera.
 - **Frontmatter** (entre dos líneas `---`), líneas `clave: valor`:
   - `pr`: número del PR (con o sin `#`). Las retros se agrupan por PR.
   - `issue`: número del issue. Sin PR, se agrupan por issue; sin ninguno de los dos, cada retro es su propia tarjeta.

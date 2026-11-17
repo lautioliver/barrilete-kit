@@ -17,7 +17,7 @@ It is not installed in `--small` mode, which has no retros (`.claude/skills/impr
 
 The log depends on what `retro.sh` writes (`.claude/skills/improve-skills/retro.sh`, template in `retro-template.md`). If one of these changes, change `bitacora.py` in the same PR; `scripts/agents/test-bitacora.sh` writes a retro with `retro.sh` and fails if the log stops reading it.
 
-- **Where:** `retros/*.md` on the `agents/retros` branch. The one on `origin` if the repo has that remote (it fetches it first); otherwise the local one.
+- **Where:** `retros/*.md` on the `agents/retros` branch and on the 0.9 one, `agentes/retros` (if a file is on both, the new one wins). The one on `origin` if the repo has that remote (it fetches it first); otherwise the local one. It reads them with `retros_dump` of `.claude/skills/improve-skills/legacy-names.sh`, the same table `retro.sh` and `/improve-skills` use: 0.9 keys and values (`rol: revisor`, `modelo:`, `fecha:`) are read as the new ones, quotes around a value are dropped and, if a key repeats, the first one wins.
 - **Frontmatter** (between two `---` lines), `key: value` lines:
   - `pr`: number of the PR (with or without `#`). The retros are grouped by PR.
   - `issue`: number of the issue. Without a PR, the retros are grouped by issue; without either, each retro is its own card.

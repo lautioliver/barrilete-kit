@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Bitácora de agentes (#339): una página con lo que hizo cada agente en cada PR, armada con las retros.
 
-Lee las retros que retro.sh guarda en la rama agents/retros (la del remoto origin si existe; si no, la local) y los
-PRs de `gh pr list`, y escribe .barrilete/bitacora.html (ignorado por git): una tarjeta por PR con cada agente que lo
+Lee las retros que retro.sh guarda en la rama agents/retros y las de la 0.9 (agentes/retros), con retros_dump de
+.claude/skills/improve-skills/legacy-names.sh (la del remoto origin si existe; si no, la local), y los PRs de
+`gh pr list`, y escribe .barrilete/bitacora.html (ignorado por git): una tarjeta por PR con cada agente que lo
 tocó (rol y modelo) y su reporte. Si gh falla, la página sale igual, sin títulos ni estado de los PRs.
 
 Uso: python3 scripts/agents/bitacora.py [-C <repo>] [--theme barrilete|<ruta.css>] [--out <ruta>]
@@ -27,7 +28,7 @@ import sys
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 TEMA_BARRILETE = os.path.join(AQUI, "bitacora", "barrilete.css")
-RAMA = "agents/retros"
+LEGACY = os.path.join(AQUI, "..", "..", ".claude", "skills", "improve-skills", "legacy-names.sh")
 FUENTES = ("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800"
            "&family=JetBrains+Mono:wght@400;500;700&display=swap")
 
@@ -109,17 +110,6 @@ def git(repo, *args, check=True):
     return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, check=check)
 
 
-def punta_retros(repo):
-    """El commit de agents/retros: el del remoto origin si existe (lo trae antes), si no, el local; None sin rama."""
-    if git(repo, "remote", "get-url", "origin", check=False).returncode == 0:
-        git(repo, "fetch", "-q", "origin", f"+refs/heads/{RAMA}:refs/remotes/origin/{RAMA}", check=False)
-        r = git(repo, "rev-parse", "-q", "--verify", f"refs/remotes/origin/{RAMA}^{{commit}}", check=False)
-        if r.returncode == 0:
-            return r.stdout.strip()
-    r = git(repo, "rev-parse", "-q", "--verify", f"refs/heads/{RAMA}^{{commit}}", check=False)
-    return r.stdout.strip() if r.returncode == 0 else None
-
-
 def leer_retro(texto, ruta):
     """El frontmatter (claves de retro.sh) y las secciones **Título:** del cuerpo. None si no tiene frontmatter."""
     m = re.match(r"---\r?\n(.*?)\r?\n---\r?\n?(.*)", texto, re.S)
@@ -138,17 +128,21 @@ def leer_retro(texto, ruta):
     return meta
 
 
-def leer_retros(repo, punta):
-    if not punta:
-        return []
-    rutas = git(repo, "ls-tree", "-r", "-z", "--name-only", punta, "retros/").stdout.split("\0")
+def leer_retros(repo):
+    """Las retros de agents/retros y de la rama 0.9, con las claves y valores viejos ya normalizados.
+
+    Las lee retros_dump de legacy-names.sh, la misma tabla que usan retro.sh y /improve-skills.
+    """
+    out = subprocess.run(["bash", "-c", '. "$1" && retros_dump', "bitacora", LEGACY], cwd=repo,
+                         capture_output=True, check=True).stdout
+    partes = out.split(b"\0")
     retros = []
-    for ruta in sorted(r for r in rutas if r.endswith(".md")):
-        texto = git(repo, "show", f"{punta}:{ruta}").stdout
+    for i in range(0, len(partes) - 1, 2):
+        ruta, texto = partes[i].decode("utf-8", "replace"), partes[i + 1].decode("utf-8", "replace")
         retro = leer_retro(texto, ruta)
         if retro:
             retros.append(retro)
-    return retros
+    return sorted(retros, key=lambda r: r["_archivo"])
 
 
 def leer_prs(repo):
@@ -288,7 +282,7 @@ def main(argv):
     # git resuelve los enlaces (/var → /private/var en macOS): si -C ya es la raíz, se usa tal como vino.
     if os.path.samefile(repo, a.repo):
         repo = os.path.abspath(a.repo)
-    pagina = construir(leer_retros(repo, punta_retros(repo)), leer_prs(repo), idioma(repo),
+    pagina = construir(leer_retros(repo), leer_prs(repo), idioma(repo),
                        temas(repo, a.theme))
     salida = a.out or os.path.join(repo, ".barrilete", "bitacora.html")
     os.makedirs(os.path.dirname(os.path.abspath(salida)), exist_ok=True)
