@@ -36,7 +36,8 @@ Una línea JSON por evento, solo con los campos de la tabla del ADR-007 D3. Obli
 
 - `outcome`: `pass`, `fail` o `skipped` en `check_run`; `completed`, `failed`, `incomplete` o `cancelled` en `task_end`; no va en `deviation` ni en `finding`.
 - Un campo que no está en la tabla, o uno con texto libre, hace inválido el evento y no se escribe nada. El error nombra el campo, nunca su valor.
-- `model` sale de `BK_MODEL`; `harness`, de `BK_HARNESS` (o `claude-code` con `CLAUDECODE=1`); `provider`, de `BK_PROVIDER`. Sin un modelo o un harness conocidos el evento dice `unknown`: el emisor nunca adivina.
+- `model` sale de `BK_MODEL` (o, si no está, de `BARRILETE_MODEL`, que exporta `bk`); `harness`, de `BK_HARNESS` (o `claude-code` con `CLAUDECODE=1`); `provider`, de `BK_PROVIDER` (o `BARRILETE_PROVIDER`). Sin un modelo o un harness conocidos el evento dice `unknown`: el emisor nunca adivina.
+- Las líneas v0 de #323 (el `check_run` de `verify.py` antes del v1, con `check` y `branch`) no se migran: `validate` las cuenta aparte como heredadas y no las marca rotas, siempre que tengan exactamente esa forma.
 - Con `BK_TASK_DIR` (un agente `bk`, ADR-005) lleva además `task_id`, `role` y `pr` cuando `task.json` los tiene, y `rules_ref`.
 
 ### rules_ref
@@ -56,7 +57,7 @@ Escribir nunca frena el trabajo: si el evento no se puede escribir, `verify.py` 
 ## Comandos
 
 ```bash
-python3 scripts/agents/learning.py validate .barrilete/learning/events.jsonl   # 3 y la línea de cada evento roto
+python3 scripts/agents/learning.py validate .barrilete/learning/events.jsonl   # 3 y la línea de cada evento roto; cuenta aparte las v0 heredadas
 python3 scripts/agents/learning.py emit check_run rule_id=pr-metadata outcome=pass
 python3 scripts/agents/learning.py push                                        # solo store branch; 1 si git lo rechaza (con el motivo de git), 3 con un learning.json inválido
 python3 scripts/agents/learning.py rules-ref implementer

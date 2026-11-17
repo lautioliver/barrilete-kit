@@ -3,7 +3,8 @@
 
 The event (ADR-007 D3, documented in docs/agents/learning-event.md) is one JSON line with only the fields of the table in
 CAMPOS: no free text, nothing that is not in the table. `v`, `ts`, `project`, `kind`, `model` and `harness` are required;
-an emitter that cannot know the model or the harness writes `unknown`, it never guesses.
+an emitter that cannot know the model or the harness writes `unknown`, it never guesses. The model and the provider come
+from BK_MODEL and BK_PROVIDER or, without them, from BARRILETE_MODEL and BARRILETE_PROVIDER (what `bk` exports).
 
 Where it goes (D2) is said by .barrilete/learning.json, {"store": "local"} or {"store": "branch"}; without the file, local:
   local   .barrilete/learning/events.jsonl of the main checkout (also from a worktree); the folder ignores itself.
@@ -16,7 +17,7 @@ AGENTS.md and the one of .claude/agents/<role>.md). It only goes in the events o
 never without rules.lock.
 
 Usage:
-  learning.py validate <events.jsonl>    # exits with 3 and says the line of each broken event
+  learning.py validate <events.jsonl>    # exits with 3 and says the line of each broken event; v0 lines of #323 are legacy
   learning.py emit <kind> [field=value…] # adds model, harness, provider, project and the task's fields; 3 if invalid
   learning.py push                       # store branch: uploads agents/learning to origin
   learning.py rules-ref [role]           # prints the rules_ref of that role (1 without rules.lock)
@@ -95,9 +96,31 @@ def problemas(ev):
     return p
 
 
+# The check_run of verify.py before v1 (#323, schema v0). Stores written then keep those lines: `validate` counts them as
+# legacy instead of broken, but only with exactly that shape (no other field, no free text).
+V0 = {
+    "v": lambda x: _entero(x) and x == 0,
+    "ts": CAMPOS["ts"],
+    "kind": lambda x: x == "check_run",
+    "check": _patron(SLUG),
+    "rule_id": _patron(SLUG),
+    "outcome": lambda x: x in OUTCOMES["check_run"],
+    "branch": _patron(r"[A-Za-z0-9._/-]{1,200}"),
+    "task_id": _patron(SLUG),
+    "harness": _patron(SLUG),
+}
+V0_OBLIGATORIOS = ("v", "ts", "kind", "check", "rule_id", "outcome")
+
+
+def es_v0(ev):
+    """Whether it is a legacy v0 check_run line of #323."""
+    return (isinstance(ev, dict) and all(k in V0 and V0[k](x) for k, x in ev.items())
+            and all(k in ev for k in V0_OBLIGATORIOS))
+
+
 def validar_archivo(ruta):
-    """(number of valid events, ["line n: problem", …])."""
-    ok, errores = 0, []
+    """(number of valid events, ["line n: problem", …], number of legacy v0 lines)."""
+    ok, errores, heredadas = 0, [], 0
     with open(ruta, encoding="utf-8") as fh:
         for n, linea in enumerate(fh, 1):
             if not linea.strip():
@@ -107,10 +130,13 @@ def validar_archivo(ruta):
             except ValueError:
                 errores.append(f"line {n}: it is not JSON")
                 continue
+            if es_v0(ev):
+                heredadas += 1
+                continue
             pr = problemas(ev)
             errores += [f"line {n}: {x}" for x in pr]
             ok += not pr
-    return ok, errores
+    return ok, errores, heredadas
 
 
 # --- git ---
@@ -220,14 +246,14 @@ def rules_ref(rol=None, cwd=None):
 def contexto(cwd=None):
     """The fields every event of this process shares: project, model, harness, provider and, inside a `bk` task, the task's."""
     ctx = {"v": 1, "project": proyecto(cwd)}
-    model = os.environ.get("BK_MODEL", "")
+    model = os.environ.get("BK_MODEL") or os.environ.get("BARRILETE_MODEL", "")   # bk exports BARRILETE_*
     ctx["model"] = model if CAMPOS["model"](model) else "unknown"
     harness = os.environ.get("BK_HARNESS")
     if harness is not None:   # set: it is the only source, and an invalid one is unknown (not claude-code)
         ctx["harness"] = harness if CAMPOS["harness"](harness) else "unknown"
     else:
         ctx["harness"] = "claude-code" if os.environ.get("CLAUDECODE") == "1" else "unknown"
-    provider = os.environ.get("BK_PROVIDER", "")
+    provider = os.environ.get("BK_PROVIDER") or os.environ.get("BARRILETE_PROVIDER", "")
     if CAMPOS["provider"](provider):
         ctx["provider"] = provider
     t = tarea()
@@ -391,12 +417,12 @@ def main(argv):
     cmd, args = argv[0], argv[1:]
     try:
         if cmd == "validate" and len(args) == 1:
-            ok, errores = validar_archivo(args[0])
+            ok, errores, heredadas = validar_archivo(args[0])
             for e in errores:
                 print(e)
             if errores:
                 return 3
-            print(f"ok: {ok} event(s)")
+            print(f"ok: {ok} event(s)" + (f", {heredadas} legacy v0 line(s) (#323)" if heredadas else ""))
             return 0
         if cmd == "emit" and args:
             campos = {}

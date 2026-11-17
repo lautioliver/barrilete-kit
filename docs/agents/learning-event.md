@@ -36,7 +36,8 @@ One JSON line per event, only with the fields of the ADR-007 D3 table. Required:
 
 - `outcome`: `pass`, `fail` or `skipped` in `check_run`; `completed`, `failed`, `incomplete` or `cancelled` in `task_end`; it does not go in `deviation` or `finding`.
 - A field that is not in the table, or one with free text, makes the event invalid and nothing is written. The error names the field, never its value.
-- `model` comes from `BK_MODEL`; `harness` from `BK_HARNESS` (or `claude-code` with `CLAUDECODE=1`); `provider` from `BK_PROVIDER`. Without a known model or harness the event says `unknown`: the emitter never guesses.
+- `model` comes from `BK_MODEL` (or, without it, from `BARRILETE_MODEL`, which `bk` exports); `harness` from `BK_HARNESS` (or `claude-code` with `CLAUDECODE=1`); `provider` from `BK_PROVIDER` (or `BARRILETE_PROVIDER`). Without a known model or harness the event says `unknown`: the emitter never guesses.
+- The v0 lines of #323 (the `check_run` of `verify.py` before v1, with `check` and `branch`) are not migrated: `validate` counts them apart as legacy and does not mark them broken, as long as they have exactly that shape.
 - With `BK_TASK_DIR` (a `bk` agent, ADR-005) it also carries `task_id`, `role` and `pr` when `task.json` has them, and `rules_ref`.
 
 ### rules_ref
@@ -56,7 +57,7 @@ Writing never stops the work: if the event cannot be written, `verify.py` and th
 ## Commands
 
 ```bash
-python3 scripts/agents/learning.py validate .barrilete/learning/events.jsonl   # 3 and the line of each broken event
+python3 scripts/agents/learning.py validate .barrilete/learning/events.jsonl   # 3 and the line of each broken event; counts legacy v0 lines apart
 python3 scripts/agents/learning.py emit check_run rule_id=pr-metadata outcome=pass
 python3 scripts/agents/learning.py push                                        # store branch only; 1 if git rejects it (with git's reason), 3 with an invalid learning.json
 python3 scripts/agents/learning.py rules-ref implementer
