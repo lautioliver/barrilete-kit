@@ -13,6 +13,9 @@ tap_at_exit "rm -rf \"\$TMP\""
 # Uso: <condición>; tap_check $? "descripción"
 es() { test "$@"; }
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# The init and update.py do not run sync-rules here (#290): it clones the rules repo, and these suites do not touch the network.
+# Its cases are in scripts/agents/test-sync-rules.sh.
+export AGENT_KIT_NO_RULES_SYNC=1
 # Ningún git de la prueba corre gc ni mantenimiento automático (#224): ver scripts/agents/git-quiet.sh.
 # shellcheck source=/dev/null
 . "$RAIZ/scripts/agents/git-quiet.sh"

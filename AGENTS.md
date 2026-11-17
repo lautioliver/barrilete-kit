@@ -77,7 +77,7 @@ The paths of each category are in `docs/agents-map.json` (`sensitive`). `scripts
 
 Source of truth: `docs/github-naming-convention.md`. Labels: `.github/labels.yml`. Only what is marked as decided in its §12 is mandatory. What is not decided or covered is asked of the team before inventing a format.
 
-- **Branches:** Conventional Branch 1.1, `<type>/<issue-no>-<description>`. Types: `feat`, `fix`, `hotfix`, `chore`, `release`. If an agent creates it: `claude/<issue-no>-<description>`. Lowercase, numbers and hyphens only, no accents or ñ.
+- **Branches:** Conventional Branch 1.1, `<type>/<issue-no>-<description>`. Types: `feat`, `fix`, `hotfix`, `chore`, `release`. If an agent creates it: `claude/<issue-no>-<description>` (or `claude/<type>/<issue-no>-<description>` if `.agent-kit.json` has `"agent_branch_type": true`; see `docs/github-naming-convention.md` §1). Lowercase, numbers and hyphens only, no accents or ñ.
 - **Base branch:** <BRANCH_RULE> See the `git-workflow` skill.
 - **Commits and PR titles:** Conventional Commits 1.0, `<type>(<scope>): <description>`, imperative, lowercase, no final period, ≤ 72 characters. Types in English; description in <COMMIT_LANG>.
 <!-- template:start -->

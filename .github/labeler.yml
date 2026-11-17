@@ -3,19 +3,23 @@
 # Rule: this file ONLY uses labels that exist in .github/labels.yml. Do not create new labels here.
 
 # ── type: from the branch prefix (Conventional Branch 1.1) ──────────
-# No automatic type: claude/, cursor/, release/ and bot branches.
+# Agent branches with the type (claude/fix/12-…, "agent_branch_type" in .agent-kit.json) carry it too.
+# No automatic type: claude/<n>-…, cursor/, release/ and bot branches.
 # In those cases it is set by hand; the workflow check warns if it is missing.
 "type:feature":
-  - head-branch: ['^feat/', '^feature/']
+  - head-branch: ['^feat/', '^feature/', '^claude/feat/']
 
 "type:bug":
-  - head-branch: ['^fix/', '^bugfix/', '^hotfix/']
+  - head-branch: ['^fix/', '^bugfix/', '^hotfix/', '^claude/fix/']
 
 "type:task":
-  - head-branch: ['^chore/']
+  - head-branch: ['^chore/', '^claude/chore/']
 
 "type:docs":
-  - head-branch: ['^docs/']
+  - head-branch: ['^docs/', '^claude/docs/']
+
+"type:audit":
+  - head-branch: ['^claude/audit/']
 
 # ── area: from the files the PR touches ──────────────────────────────
 # TODO: one entry per area: in labels.yml, with the paths of your repo.

@@ -13,9 +13,9 @@ Si no te dieron un número ("tomá el siguiente"), corré `.claude/skills/projec
 
 ## 1. Tomar el issue
 
-`.claude/skills/implement-issue/prepare.sh <n>` valida que el issue esté abierto, que no sea una épica, que no esté bloqueado, que no lo tenga asignado otra persona y que no haya cambios sin commitear. Si pasa, lo asigna a quien corre el comando, crea la rama `claude/<n>-<descripcion>` desde `<BASE_BRANCH>` (o retoma la que ya existe, `claude/<n>-*`, aunque se haya editado el título) e imprime el issue con sus comentarios, su épica y lo que desbloquea.
+`.claude/skills/implement-issue/prepare.sh <n>` valida que el issue esté abierto, que no sea una épica, que no esté bloqueado, que no lo tenga asignado otra persona y que no haya cambios sin commitear. Si pasa, lo asigna a quien corre el comando, crea la rama `claude/<n>-<descripcion>` desde `<BASE_BRANCH>` (`claude/<tipo>/<n>-<desc>` con `"agent_branch_type": true` en `.agent-kit.json`; o retoma la que ya existe, `claude/<n>-*` o `claude/<tipo>/<n>-*`, aunque se haya editado el título) e imprime el issue con sus comentarios, su épica y lo que desbloquea.
 
-Para varios issues en paralelo, `--worktree` (cómo trabajar ahí: `prepare.sh --help`). Para leer un issue sin tomarlo, `--review`. Si falla, **no fuerces nada**: contale al usuario por qué y, si sirve, proponé el siguiente disponible.
+Para varios issues en paralelo, `--worktree` (cómo trabajar ahí: `prepare.sh --help`). Para leer un issue sin tomarlo, `--review`. Para una segunda rama del mismo issue (su PR 2), `--name <desc>`. Si falla, **no fuerces nada**: contale al usuario por qué y, si sirve, proponé el siguiente disponible.
 
 Si existe `BK_TASK_DIR` (te lanzó `bk run`, ADR-005), `bk run` ya corrió `prepare.sh` por vos y soltó el candado del worktree antes de lanzarte, así que **tu primer paso es tomarlo**: `cd <worktree> && scripts/agents/worktree-lock.sh claim <worktree>`. Su dueño es tu propio `claude` y su nombre sale de `BK_TASK_DIR`: no necesita `WORKTREE_LOCK_AGENT`. Si dice `held: …`, otro agente vivo está en ese worktree: frená y preguntá en tu ventana, no lo compartas ni borres el candado. `bk done` lo suelta al final (ver "Cerrar la tarea").
 

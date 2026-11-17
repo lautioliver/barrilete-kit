@@ -77,7 +77,7 @@ Las rutas de cada categoría están en `docs/agents-map.json` (`sensitive`). `sc
 
 Fuente de verdad: `docs/github-naming-convention.md`. Labels: `.github/labels.yml`. Solo lo marcado como decidido en su §12 es obligatorio. Lo que no esté decidido o cubierto se le pregunta al equipo antes de inventar un formato.
 
-- **Ramas:** Conventional Branch 1.1, `<tipo>/<n°issue>-<descripcion>`. Tipos: `feat`, `fix`, `hotfix`, `chore`, `release`. Si la crea un agente: `claude/<n°issue>-<descripcion>`. Solo minúsculas, números y guiones, sin tildes ni ñ.
+- **Ramas:** Conventional Branch 1.1, `<tipo>/<n°issue>-<descripcion>`. Tipos: `feat`, `fix`, `hotfix`, `chore`, `release`. Si la crea un agente: `claude/<n°issue>-<descripcion>` (o `claude/<tipo>/<n°issue>-<descripcion>` si `.agent-kit.json` tiene `"agent_branch_type": true`; ver `docs/github-naming-convention.md` §1). Solo minúsculas, números y guiones, sin tildes ni ñ.
 - **Rama base:** <BRANCH_RULE> Ver la skill `git-workflow`.
 - **Commits y títulos de PR:** Conventional Commits 1.0, `<tipo>(<scope>): <descripcion>`, en imperativo, minúscula, sin punto final, ≤ 72 caracteres. Tipos en inglés; descripción en <COMMIT_LANG>.
 <!-- template:start -->

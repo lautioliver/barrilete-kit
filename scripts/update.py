@@ -351,7 +351,9 @@ def inicializar(clon, ref, destino, kit):
         with open(os.path.join(destino, "scripts", "init-template.sh"), encoding="utf-8") as fh:
             if re.search(r"^\s*--flow-line\)", fh.read(), re.M):
                 args.append("--flow-line")
-    sh(*args, cwd=destino, env=dict(os.environ, **{"AGENT_KIT_DATE" if nuevo else "AGENT_KIT_FECHA": kit.get("date", "")}))
+    # AGENT_KIT_NO_RULES_SYNC: the init does not run sync-rules (#290); update.py runs it once, in the project, with its lock.
+    sh(*args, cwd=destino, env=dict(os.environ, AGENT_KIT_NO_RULES_SYNC="1",
+                                    **{"AGENT_KIT_DATE" if nuevo else "AGENT_KIT_FECHA": kit.get("date", "")}))
 
 
 def changelog(clon, ref, desde):
@@ -457,6 +459,73 @@ def renombrar(raiz, renombres):
         if os.path.isfile(os.path.join(raiz, viejo)):
             os.makedirs(os.path.dirname(os.path.join(raiz, nuevo)), exist_ok=True)
             os.replace(os.path.join(raiz, viejo), os.path.join(raiz, nuevo))
+
+
+REGLAS_LOCK = ".barrilete/rules.lock"
+# What scripts/agents/sync-rules generates from the lock: whole files, and a section inside others (ADR-006 D7).
+REGLAS_ENTEROS = (REGLAS_LOCK, ".barrilete/checks.json", "docs/agents/classes.yml")
+REGLAS_INICIO, REGLAS_FIN = "<!-- rules:begin", "<!-- rules:end -->"
+
+
+def _seccion_reglas(texto):
+    """(start, end) of the generated rules section, or None if there is not exactly one."""
+    b = texto.find(REGLAS_INICIO)
+    e = texto.find(REGLAS_FIN, b) if b != -1 else -1
+    if e == -1 or REGLAS_INICIO in texto[e:]:
+        return None
+    return b, e + len(REGLAS_FIN)
+
+
+def _sha_lock(ruta):
+    """The `sha` of a rules.lock, read as sync-rules reads it (`key = value`, spaces allowed)."""
+    with open(ruta, encoding="utf-8") as f:
+        for linea in f:
+            k, igual, v = linea.partition("=")
+            if igual and k.strip() == "sha":
+                return v.strip()
+    return ""
+
+
+def sincronizar_reglas():
+    """Runs the project's sync-rules after the update (#290): with the project's lock, it fills the sections of the files the kit
+    added and leaves the others as they were. A warning if it fails (no access to the rules repo, a check the kit removed)."""
+    if os.environ.get("AGENT_KIT_NO_RULES_SYNC") or not os.path.isfile(REGLAS_LOCK) \
+            or not os.path.isfile(os.path.join("scripts", "agents", "sync-rules")):
+        return None
+    r = subprocess.run([sys.executable, os.path.join("scripts", "agents", "sync-rules")], capture_output=True, text=True)
+    if r.returncode == 0:
+        return None
+    detalle = ((r.stderr or r.stdout).strip().splitlines() or [""])[-1]
+    return (f"scripts/agents/sync-rules failed ({detalle}): the files the kit added may carry the template's rules. "
+            "Fix it and run scripts/agents/sync-rules before committing.")
+
+
+def reglas_del_proyecto(arbol):
+    """The project keeps its rules.lock and what sync-rules generated from it (#290): in `arbol` (a version of the template)
+    the generated files and sections are replaced by the project's, so the plan neither replaces nor merges them. Only if
+    the project has a lock; without one (a project from before ADR-006) the kit's arrives like any other file.
+    Returns (project's sha, the kit's sha) of the lock."""
+    if not os.path.isfile(REGLAS_LOCK) or not os.path.isfile(os.path.join(arbol, REGLAS_LOCK)):
+        return None
+    del_kit = _sha_lock(os.path.join(arbol, REGLAS_LOCK))
+    for ruta in REGLAS_ENTEROS:
+        if os.path.isfile(ruta) and os.path.isfile(os.path.join(arbol, ruta)):
+            shutil.copyfile(ruta, os.path.join(arbol, ruta))
+    for ruta in archivos(arbol):
+        if not ruta.endswith(".md") or not os.path.isfile(ruta):
+            continue
+        try:
+            with open(os.path.join(arbol, ruta), encoding="utf-8") as f:
+                kit_txt = f.read()
+            with open(ruta, encoding="utf-8") as f:
+                propio = f.read()
+        except UnicodeDecodeError:
+            continue
+        a, p = _seccion_reglas(kit_txt), _seccion_reglas(propio)
+        if a and p:
+            with open(os.path.join(arbol, ruta), "w", encoding="utf-8") as f:
+                f.write(kit_txt[:a[0]] + propio[p[0]:p[1]] + kit_txt[a[1]:])
+    return _sha_lock(REGLAS_LOCK), del_kit
 
 
 def aplicar(plan, nueva):
@@ -589,6 +658,7 @@ def main():
             if base:
                 migrar_arbol(base)
             movidos, bloqueados, avisos = migrar_arbol(".", registradas)
+        lock_reglas = reglas_del_proyecto(nueva)
         plan = planear(nueva, base, registradas, set(kit.get("withheld", [])))
         hechos, errores = aplicar(plan, nueva)
         red_agregada, aviso_red = completar_red(os.path.join(nueva, MAPA))
@@ -596,6 +666,7 @@ def main():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    aviso_reglas = sincronizar_reglas()
     for accion in ("agregar", "reemplazar", "permisos"):
         for ruta in hechos.get(accion, []):
             registradas[ruta] = huella(ruta)
@@ -645,6 +716,12 @@ def main():
         print("Labels: after the merge run the Labels workflow: labels.yml has the old names as `aliases`, so label-sync "
               "renames tipo:x to type:x (and the rest) keeping the ones set on issues and PRs. The old retros branch "
               "agentes/retros stays as it is; if you protect branches, allow pushes to agents/retros.")
+    if lock_reglas and lock_reglas[0] != lock_reglas[1]:
+        print(f"\nRules: {REGLAS_LOCK} stays at {lock_reglas[0][:7]}, the project's; this kit version pins "
+              f"{lock_reglas[1][:7]}. To move to it, put sha={lock_reglas[1]} in {REGLAS_LOCK} and run "
+              "scripts/agents/sync-rules (ADR-006 D7).")
+    if aviso_reglas:
+        print(f"\nWarning: {aviso_reglas}")
     if red_agregada:
         print(f"\nRed: {RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}")
     if aviso_red:
