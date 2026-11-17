@@ -252,4 +252,59 @@ for f in SKILL.md SKILL.es.md; do
   [ "$out" = sí ]; tap_check $? "el skill dice cómo seguir cuando la persona elige la sección parecida" "$f: $out"
 done
 
+# 14. Revisión: solo pasa HTML de la lista permitida, aunque se esconda con /, comillas o entidades.
+for malo in '<img/src=x/onerror=x()>' '<img alt=">" onerror=x() src=x>' '<a href="jav&#x61;script:x()">a</a>' \
+            '<a href="data:text/html,x">a</a>' '<a href="vbscript:x">a</a>' '<textarea>a</textarea>' \
+            '<p style="background:url(x)">a</p>' '<p/onclick=x()>a</p>' '<svg><a>x</a></svg>' '<p id="decidir-la-ruta">a</p>'; do
+  printf '%s\n' "$malo" >"$TMP/malo.html"
+  tap_run out 64 python3 -I "$ADD" -C "$TMP/p" add --topic "Otro tema" --entry "$TMP/malo.html"
+  [ "$TAP_RC" = 64 ]; tap_check $? "add rechaza una entrada con HTML fuera de la lista permitida" "$malo: rc=$TAP_RC"
+done
+cat >"$TMP/bueno.html" <<'EOF'
+<div class="kpis"><div class="kpi ok"><b>12</b> casos</div><div class="kpi warn"><b>2</b> abiertos</div></div>
+<div class="cards"><div class="card danger"><h3>Te espera a vos</h3><p>Validar <a href="https://example.test/x">esto</a> y <a href="#otro-tema">aquello</a>.</p></div></div>
+<table class="tbl"><thead><tr><th>Antes</th><th>Después</th></tr></thead><tbody><tr><td colspan="2"><code>x</code></td></tr></tbody></table>
+<div class="bars"><div class="bar ok"><span>Hecho</span><i style="--v:70%"></i></div></div>
+<ol class="flow"><li>issue</li><li>rojo</li></ol>
+<div class="note warn"><p><span class="ok">hecho</span><br><em>y</em> <strong>z</strong></p></div>
+<ul><li>uno</li></ul>
+EOF
+tap_run out 0 python3 -I "$ADD" -C "$TMP/p" add --topic "Otro tema" --entry "$TMP/bueno.html"
+[ "$TAP_RC" = 0 ]; tap_check $? "add acepta los componentes que lista el skill" "$out"
+
+# 15. Revisión: un archivo con CRLF (checkout de Windows) se lee igual y no duplica la sección.
+git init -q "$TMP/crlf"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf" add --topic "Tema" --entry "$TMP/e1.html"
+tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p, newline="").read(); open(p, "w", newline="").write(t.replace("\n", "\r\n"))' "$TMP/crlf/docs/bitacora.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf" find --topic "Tema"
+[ "$out" = "exact tema" ]; tap_check $? "con CRLF, find encuentra la sección" "$out"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf" add --topic "Tema" --entry "$TMP/e2.html"
+tap_run forma_out 0 python3 -I "$TMP/forma.py" "$TMP/crlf/docs/bitacora.html"
+[ "$(sed -n 1p <<<"$forma_out")" = "tema:2" ]; tap_check $? "con CRLF, la entrada se suma a la sección que ya estaba" "$forma_out"
+
+# 16. Revisión: el archivo queda legible para todos (umask) y conserva su modo al sumar entradas.
+modo() { tap_run modo_out 0 python3 -I -c 'import os, sys; print(oct(os.stat(sys.argv[1]).st_mode & 0o777))' "$1"; }
+git init -q "$TMP/modo"
+umask 022
+tap_run out 0 python3 -I "$ADD" -C "$TMP/modo" add --topic "Tema" --entry "$TMP/e1.html"
+modo "$TMP/modo/docs/bitacora.html"
+[ "$modo_out" = 0o644 ]; tap_check $? "un archivo nuevo sigue el umask" "$modo_out"
+chmod 664 "$TMP/modo/docs/bitacora.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/modo" add --topic "Tema" --entry "$TMP/e2.html"
+modo "$TMP/modo/docs/bitacora.html"
+[ "$modo_out" = 0o664 ]; tap_check $? "sumar una entrada conserva el modo del archivo" "$modo_out"
+
+# 17. Revisión: un tema no puede tomar el id de un bloque de la página.
+for t in "Theme barrilete" "Theme project" "Structure"; do
+  tap_run out 64 python3 -I "$ADD" -C "$TMP/p" add --topic "$t" --entry "$TMP/e1.html"
+  [ "$TAP_RC" = 64 ]; tap_check $? "un tema con el id de un bloque de la página es un error de uso" "$t: rc=$TAP_RC"
+done
+
+# 18. Revisión: el modo --small no lleva este test (no tiene quien lo corra) y el hub de docs lista el skill.
+tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/profiles/small/DELETE" "scripts/agents/test-bitacora-add.sh"
+case "$out" in sí|"no está") tap_ok "el modo --small no lleva el test de la bitácora" ;; *) tap_fail "el modo --small no lleva el test de la bitácora" "$out" ;; esac
+# shellcheck disable=SC2016  # las comillas invertidas son parte del texto que se busca
+tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/docs/README.md" '`orchestrate`, `bitacora`'
+[ "$out" = sí ]; tap_check $? "el hub de docs lista el skill bitacora" "$out"
+
 tap_done
