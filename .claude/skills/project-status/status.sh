@@ -52,18 +52,30 @@ fi
 
 echo
 echo "## Migrations"
-# Which files of each PR fall under a `schema` path of the map: agents_map.py converts the globs
-# (the leading "?" of an optional path, ** and *), so this section matches the same files it does.
-es_schema() { # reads file names on stdin; prints the first one under a schema path
-  python3 -c '
+# Which open PRs touch a `schema` path of the map. agents_map.py converts the globs (the leading "?"
+# of an optional path, ** and *), so this section matches the same files it does. One python3 call for
+# every PR; if it cannot run, the section says it did not verify instead of saying there is nothing.
+lineas="" sin_diff=""
+for pr in $(gh pr list --limit 50 --json number -q '.[].number'); do
+  if archivos=$(gh pr diff "$pr" --name-only 2>/dev/null); then
+    lineas+=$(printf '%s\n' "$archivos" | sed "s/^/$pr /")$'\n'
+  else
+    sin_diff="$sin_diff #$pr"
+  fi
+done
+if pend=$(printf '%s' "$lineas" | python3 -c '
 import json, sys
 sys.path.insert(0, "scripts/agents")
 from agents_map import coincide
-globs = [g for s in json.load(open("docs/agents-map.json"))["sensitive"] if s["type"] == "schema" for g in s["paths"]]
-print(next((l for l in sys.stdin.read().splitlines() if l and coincide(l, globs)), ""))'
-}
-pend=""
-for pr in $(gh pr list --limit 50 --json number -q '.[].number'); do
-  [ -n "$(gh pr diff "$pr" --name-only 2>/dev/null | es_schema)" ] && pend="$pend #$pr"
-done
-if [ -n "$pend" ]; then echo "- Open PRs with schema changes:$pend"; else echo "_No open PR touches migrations._"; fi
+globs = [g for s in json.load(open("docs/agents-map.json")).get("sensitive", []) if s["type"] == "schema" for g in s["paths"]]
+prs = []
+for linea in sys.stdin.read().splitlines():
+    pr, _, ruta = linea.partition(" ")
+    if ruta and pr not in prs and coincide(ruta, globs):
+        prs.append(pr)
+print("".join(" #" + pr for pr in prs))' 2>/dev/null); then
+  if [ -n "$pend" ]; then echo "- Open PRs with schema changes:$pend"; else echo "_No open PR touches migrations._"; fi
+else
+  echo "_Not verified: scripts/agents/agents_map.py could not read the schema paths of docs/agents-map.json._"
+fi
+[ -z "$sin_diff" ] || echo "- Could not read the files of:$sin_diff"
