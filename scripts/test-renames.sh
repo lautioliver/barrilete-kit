@@ -78,11 +78,11 @@ while IFS='|' read -r old new; do
 done <<<"$RENAMES"
 
 # Old names in the content of any file (except this test, the CHANGELOG, ADR-001 and the tests that
-# use old values on purpose: the 0.9 init, the label aliases and the old retro values).
+# use old values on purpose: the 0.9 init, the label aliases and the old retro values, also in the log).
 OLD_NAMES='scripts/agentes|docs/agentes|barandas\.py|test_barandas|hooks/barandas|mapa-agentes|mapa\.py|verificar\.py|equipo\.py|equipo\.json|preparar\.sh|rojo\.sh|limpiar\.sh|ruteo\.py|planificar\.py|disponibles\.sh|estado\.sh|senales\.sh|plantilla-retro|actualizar\.py|crecer\.py|init-plantilla|test-actualizar|test-orquestar|test-preparar|test-rojo|test-agentes|desbloquear\.yml|convencion-nombres-github|contrato-subagentes|lecciones\.md|probar-la-plantilla|perfiles/|\.github/marca|revisor\.md|skills/(crear-issue|estado|mejorar-skills|orquestar)|/(orquestar|crear-issue|mejorar-skills|estado)\b|usar estado\b|skills/status/|[ `(]/status([^.[:alnum:]_-]|$)|SIN MODIFICAR|--chico|--listar|--revisar|BORRAR|implementador-liviano|agents/(implementador|revisor)|rol: (implementador|revisor)|name: (implementador|revisor)|AGENT_KIT_(PLANTILLA|FECHA)|<PROYECTO>|<RAMA_BASE>|<FECHA>|<REGLA_RAMAS>|(plantilla|marca):(inicio|fin)|agent-kit/pendientes'
 # Anchored to the label syntax: Spanish prose ("el tipo: ...", .es.md files) must not trip it.
 LABELS_OLD='tipo:(feature|bug|task|audit|docs)|prioridad:(critica|alta|media|baja)|estado:(a-triar|necesita-info|bloqueado)|logica-negocio'
-hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|scripts/test-update\.sh|scripts/update\.py|scripts/agents/test_labels\.py|.*/improve-skills/(test-retros|legacy-names)\.sh)$' \
+hits=$(git ls-files -co --exclude-standard | grep -vE '^(CHANGELOG\.md|scripts/test-renames\.sh|docs/decisions/ADR-001-.*|scripts/test-update\.sh|scripts/update\.py|scripts/agents/test_labels\.py|.*/improve-skills/(test-retros|legacy-names)\.sh|scripts/agents/test-bitacora\.sh)$' \
   | while read -r f; do [ -f "$f" ] && grep -IHnE "$OLD_NAMES" "$f"; done | head -5 || true)
 if [ -z "$hits" ]; then tap_ok "no file mentions an old file, path or flag name"
 else tap_fail "no file mentions an old file, path or flag name" "no file mentions an old file, path or flag name (e.g. $(head -1 <<<"$hits" | cut -c1-100))"; fi

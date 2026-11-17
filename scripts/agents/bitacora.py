@@ -2,9 +2,9 @@
 """Bitácora de agentes (#339): una página con lo que hizo cada agente en cada PR, armada con las retros.
 
 Lee las retros que retro.sh guarda en la rama agents/retros y las de la 0.9 (agentes/retros), con retros_dump de
-.claude/skills/improve-skills/legacy-names.sh (la del remoto origin si existe; si no, la local), y los PRs de
-`gh pr list`, y escribe .barrilete/bitacora.html (ignorado por git): una tarjeta por PR con cada agente que lo
-tocó (rol y modelo) y su reporte. Si gh falla, la página sale igual, sin títulos ni estado de los PRs.
+.claude/skills/improve-skills/legacy-names.sh (la del remoto origin si existe; si no, la local), y el título,
+estado y link de los PRs que citan (gh api graphql), y escribe .barrilete/bitacora.html (ignorado por git): una
+tarjeta por PR con cada agente que lo tocó (rol y modelo) y su reporte. Si gh falla, la página sale igual, sin títulos ni estado de los PRs.
 
 Uso: python3 scripts/agents/bitacora.py [-C <repo>] [--theme barrilete|<ruta.css>] [--out <ruta>]
 
@@ -122,10 +122,24 @@ def leer_retro(texto, ruta):
             meta.setdefault(k.strip(), v.strip())
     partes = re.split(r"^\*\*([^*\n]+?):\*\*", m.group(2), flags=re.M)
     secciones = [(partes[i].strip(), partes[i + 1].strip()) for i in range(1, len(partes) - 1, 2)]
-    if not secciones and m.group(2).strip():
-        secciones = [(None, m.group(2).strip())]
+    if partes[0].strip():   # lo que va antes del primer **Título:** (o el cuerpo entero, si no tiene secciones)
+        secciones.insert(0, (None, partes[0].strip()))
     meta["_secciones"], meta["_archivo"] = secciones, ruta
     return meta
+
+
+def entorno_fetch(repo):
+    """El fetch de las retros no se cuelga: git no pide clave y ssh no espera una clave ni una conexión sin fin.
+
+    Si la persona ya eligió su ssh (GIT_SSH_COMMAND, GIT_SSH o core.sshCommand), se respeta.
+    """
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+    env.setdefault("GIT_HTTP_LOW_SPEED_LIMIT", "1000")
+    env.setdefault("GIT_HTTP_LOW_SPEED_TIME", "30")
+    propio = git(repo, "config", "core.sshCommand", check=False).stdout.strip()
+    if not (env.get("GIT_SSH_COMMAND") or env.get("GIT_SSH") or propio):
+        env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o ConnectTimeout=15"
+    return env
 
 
 def leer_retros(repo):
@@ -134,7 +148,7 @@ def leer_retros(repo):
     Las lee retros_dump de legacy-names.sh, la misma tabla que usan retro.sh y /improve-skills.
     """
     out = subprocess.run(["bash", "-c", '. "$1" && retros_dump', "bitacora", LEGACY], cwd=repo,
-                         capture_output=True, check=True).stdout
+                         capture_output=True, check=True, env=entorno_fetch(repo)).stdout
     partes = out.split(b"\0")
     retros = []
     for i in range(0, len(partes) - 1, 2):
@@ -145,19 +159,35 @@ def leer_retros(repo):
     return sorted(retros, key=lambda r: r["_archivo"])
 
 
-def leer_prs(repo):
-    try:
-        out = subprocess.run(["gh", "pr", "list", "--state", "all", "--limit", "1000",
-                              "--json", "number,title,state,url"],
-                             cwd=repo, capture_output=True, text=True, check=True, timeout=60).stdout
-        return {str(p["number"]): p for p in json.loads(out) if isinstance(p, dict) and "number" in p}
-    except (OSError, subprocess.SubprocessError, ValueError, TypeError):
-        return {}
+def leer_prs(repo, numeros):
+    """Título, estado y link de los PRs que citan las retros, con una consulta a gh por cada 100. Sin PRs, no llama.
+
+    Un número que no es un PR (o gh sin sesión o sin red) queda sin datos: la tarjeta sale igual.
+    """
+    prs = {}
+    numeros = sorted(set(numeros), key=int)
+    for i in range(0, len(numeros), 100):
+        alias = " ".join(f"p{n}:pullRequest(number:{n}){{number title state url}}" for n in numeros[i:i + 100])
+        consulta = f"query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{{alias}}}}}"
+        try:
+            # Con un número que no es un PR, gh sale con 1 pero da los datos que tiene: se usan igual.
+            out = subprocess.run(["gh", "api", "graphql", "-F", "owner={owner}", "-F", "name={repo}",
+                                  "-f", f"query={consulta}"],
+                                 cwd=repo, capture_output=True, text=True, timeout=60).stdout
+            repositorio = (json.loads(out).get("data") or {}).get("repository") or {}
+        except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+            continue
+        for p in repositorio.values() if isinstance(repositorio, dict) else ():
+            if isinstance(p, dict) and "number" in p:
+                prs[str(p["number"])] = p
+    return prs
 
 
 def numero(valor):
+    """El número de un PR o issue: hasta 9 cifras ASCII (isdigit() acepta "²", que int() no lee, y un número más
+    largo no entra en el Int de GraphQL y tiraría la consulta entera). Si no, "" (como si no lo tuviera)."""
     v = (valor or "").strip().lstrip("#")
-    return v if v.isdigit() else ""
+    return v if re.fullmatch(r"[0-9]{1,9}", v) else ""
 
 
 def texto_html(t):
@@ -167,7 +197,8 @@ def texto_html(t):
 
 
 def tarjeta(clave, retros, prs, tx):
-    pr, issue = clave
+    tipo, valor = clave
+    pr = valor if tipo == "pr" else ""
     e = html.escape
     if pr:
         info = prs.get(pr, {})
@@ -181,7 +212,8 @@ def tarjeta(clave, retros, prs, tx):
                 if estado in ESTADO_CLASE else "")
     else:
         titulo, chip = e(tx["no_pr"]), ""
-    extra = f'<span class="meta">{e(tx["issue"])} #{e(issue)}</span>' if issue else ""
+    issues = sorted({numero(r.get("issue")) for r in retros} - {""}, key=int)
+    extra = "".join(f'<span class="meta">{e(tx["issue"])} #{e(n)}</span>' for n in issues)
     agentes = []
     for r in retros:
         rol, modelo = r.get("role") or "session", r.get("model") or "unknown"
@@ -198,18 +230,31 @@ def tarjeta(clave, retros, prs, tx):
             f'{"".join(agentes)}</article>')
 
 
-def construir(retros, prs, lang, temas):
-    tx = TEXTOS[lang]
+def agrupar(retros):
+    """Una tarjeta por PR. Una retro con solo el issue va a la del PR de ese issue, si otra retro dice cuál es
+    (y es uno solo); si no, a la del issue. Sin PR ni issue, cada retro es su propia tarjeta."""
+    pr_de = {}
+    for r in retros:
+        pr, issue = numero(r.get("pr")), numero(r.get("issue"))
+        if pr and issue:
+            pr_de.setdefault(issue, set()).add(pr)
     grupos = {}
     for r in retros:
         pr, issue = numero(r.get("pr")), numero(r.get("issue"))
-        clave = (pr, "") if pr else ("", issue) if issue else ("", r["_archivo"])
+        if not pr and len(pr_de.get(issue, ())) == 1:
+            pr = next(iter(pr_de[issue]))
+        clave = ("pr", pr) if pr else ("issue", issue) if issue else ("file", r["_archivo"])
         grupos.setdefault(clave, []).append(r)
+    return grupos
+
+
+def construir(retros, prs, lang, temas):
+    tx = TEXTOS[lang]
+    grupos = agrupar(retros)
     # Lo más reciente arriba: por la fecha de su última retro, y a igual fecha, por número.
     def orden(item):
-        (pr, issue), rs = item
-        n = int(pr or (issue if issue.isdigit() else 0) or 0)
-        return (max(r.get("date", "") for r in rs), n)
+        (tipo, valor), rs = item
+        return (max(r.get("date", "") for r in rs), int(valor) if tipo != "file" else 0)
     tarjetas = [tarjeta(k, sorted(rs, key=lambda r: r.get("date", "")), prs, tx)
                 for k, rs in sorted(grupos.items(), key=orden, reverse=True)]
     if tarjetas:
@@ -282,8 +327,9 @@ def main(argv):
     # git resuelve los enlaces (/var → /private/var en macOS): si -C ya es la raíz, se usa tal como vino.
     if os.path.samefile(repo, a.repo):
         repo = os.path.abspath(a.repo)
-    pagina = construir(leer_retros(repo), leer_prs(repo), idioma(repo),
-                       temas(repo, a.theme))
+    retros = leer_retros(repo)
+    citados = {numero(r.get("pr")) for r in retros} - {""}
+    pagina = construir(retros, leer_prs(repo, citados), idioma(repo), temas(repo, a.theme))
     salida = a.out or os.path.join(repo, ".barrilete", "bitacora.html")
     os.makedirs(os.path.dirname(os.path.abspath(salida)), exist_ok=True)
     with open(salida, "w", encoding="utf-8") as f:

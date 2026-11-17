@@ -1,6 +1,6 @@
 # Agent log (`bitacora.py`)
 
-`scripts/agents/bitacora.py` builds one page with what each agent did in each change: a card per PR with every agent that touched it (role and model) and what it reported in its retro (#339). It reads the retros that `retro.sh` saves on the `agents/retros` branch and the PRs of `gh pr list`, and writes `.barrilete/bitacora.html` (ignored by git, one self-contained file).
+`scripts/agents/bitacora.py` builds one page with what each agent did in each change: a card per PR with every agent that touched it (role and model) and what it reported in its retro (#339). It reads the retros that `retro.sh` saves on the `agents/retros` branch and the title, state and link of the PRs they cite (one `gh api graphql` query per 100 PRs; none if no retro cites a PR), and writes `.barrilete/bitacora.html` (ignored by git, one self-contained file).
 
 ```bash
 python3 scripts/agents/bitacora.py                      # this repo, barrilete design (+ the project's, if any)
@@ -17,15 +17,17 @@ It is not installed in `--small` mode, which has no retros (`.claude/skills/impr
 
 The log depends on what `retro.sh` writes (`.claude/skills/improve-skills/retro.sh`, template in `retro-template.md`). If one of these changes, change `bitacora.py` in the same PR; `scripts/agents/test-bitacora.sh` writes a retro with `retro.sh` and fails if the log stops reading it.
 
-- **Where:** `retros/*.md` on the `agents/retros` branch and on the 0.9 one, `agentes/retros` (if a file is on both, the new one wins). The one on `origin` if the repo has that remote (it fetches it first); otherwise the local one. It reads them with `retros_dump` of `.claude/skills/improve-skills/legacy-names.sh`, the same table `retro.sh` and `/improve-skills` use: 0.9 keys and values (`rol: revisor`, `modelo:`, `fecha:`) are read as the new ones, quotes around a value are dropped and, if a key repeats, the first one wins.
+- **Where:** `retros/*.md` on the `agents/retros` branch and on the 0.9 one, `agentes/retros` (if a file is on both, the new one wins). The one on `origin` if the repo has that remote (it fetches it first); otherwise the local one. It reads them with `retros_dump` of `.claude/skills/improve-skills/legacy-names.sh`, the same table `retro.sh` and `/improve-skills` use: 0.9 keys and values (`rol:`, `modelo:`, `fecha:` and values like `revisor`) are read as the new ones, quotes around a value are dropped and, if a key repeats, the first one wins.
 - **Frontmatter** (between two `---` lines), `key: value` lines:
-  - `pr`: number of the PR (with or without `#`). The retros are grouped by PR.
-  - `issue`: number of the issue. Without a PR, the retros are grouped by issue; without either, each retro is its own card.
+  - `pr`: number of the PR (with or without `#`, up to 9 digits; anything else counts as no PR). The retros are grouped by PR.
+  - `issue`: number of the issue, shown on the card. A retro with only the issue goes to the card of that issue's PR when another retro says which one it is (and it is only one); otherwise the retros are grouped by issue. Without either, each retro is its own card.
   - `role`: `implementer`, `implementer-light`, `reviewer`, `orchestrator` or `session` (`retro.sh` writes `session` if it is missing).
   - `model`: `opus`, `sonnet`, `haiku` or `unknown`.
   - `skill`: `implement-issue`, `review-pr`, `orchestrate` or `improve-skills` (what the agent did).
   - `date`: `YYYY-MM-DD` (`retro.sh` fills it in). The most recent changes go first.
-- **Body:** sections that start a line with `**Title:**`. The four of the template (`Deviations`, `Decisions not covered`, `What the review found`, `Proposal`, or their Spanish forms) are translated to the language of the page; any other title is shown as written. A body without sections is shown whole as the report.
+- **Body:** sections that start a line with `**Title:**`. The four of the template (`Deviations`, `Decisions not covered`, `What the review found`, `Proposal`, or their Spanish forms) are translated to the language of the page; any other title is shown as written. The text before the first section (or the whole body, if it has none) is shown as the report.
+- **Bytes:** a retro that is not valid UTF-8 is shown with the bad bytes replaced, never with an error.
+- **Fetch:** it runs with `GIT_TERMINAL_PROMPT=0` and, unless the person chose their own ssh (`GIT_SSH_COMMAND`, `GIT_SSH` or `core.sshCommand`), with `ssh -o BatchMode=yes -o ConnectTimeout=15`: offline or without a key it uses what it already has instead of waiting.
 
 Everything in a retro is text: it is escaped, never interpreted as HTML.
 
