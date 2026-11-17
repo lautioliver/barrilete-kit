@@ -25,7 +25,7 @@ One JSON line per event, only with the fields of the ADR-007 D3 table. Required:
 |---|---|
 | `v` | `1` |
 | `ts` | `YYYY-MM-DDTHH:MM:SS[.ffffff]Z` (UTC) |
-| `project` | the repo name |
+| `project` | the repo name (of `origin`, or else the folder of the main checkout; what is not a letter, number, `.`, `_` or `-` becomes `-`) |
 | `task_id` | the ADR-005 id (`244-implementer`) |
 | `pr` | a positive number |
 | `provider`, `harness`, `area`, `role`, `class`, `rule_id`, `outcome` | slug: lowercase, numbers and hyphens |
@@ -58,6 +58,6 @@ Writing never stops the work: if the event cannot be written, `verify.py` and th
 ```bash
 python3 scripts/agents/learning.py validate .barrilete/learning/events.jsonl   # 3 and the line of each broken event
 python3 scripts/agents/learning.py emit check_run rule_id=pr-metadata outcome=pass
-python3 scripts/agents/learning.py push                                        # store branch only
+python3 scripts/agents/learning.py push                                        # store branch only; 1 if git rejects it (with git's reason), 3 with an invalid learning.json
 python3 scripts/agents/learning.py rules-ref implementer
 ```

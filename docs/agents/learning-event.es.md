@@ -25,7 +25,7 @@ Una línea JSON por evento, solo con los campos de la tabla del ADR-007 D3. Obli
 |---|---|
 | `v` | `1` |
 | `ts` | `AAAA-MM-DDTHH:MM:SS[.ffffff]Z` (UTC) |
-| `project` | el nombre del repo |
+| `project` | el nombre del repo (el de `origin`, o si no la carpeta del checkout principal; lo que no es letra, número, `.`, `_` o `-` queda como `-`) |
 | `task_id` | el id del ADR-005 (`244-implementer`) |
 | `pr` | un número positivo |
 | `provider`, `harness`, `area`, `role`, `class`, `rule_id`, `outcome` | slug: minúsculas, números y guiones |
@@ -58,6 +58,6 @@ Escribir nunca frena el trabajo: si el evento no se puede escribir, `verify.py` 
 ```bash
 python3 scripts/agents/learning.py validate .barrilete/learning/events.jsonl   # 3 y la línea de cada evento roto
 python3 scripts/agents/learning.py emit check_run rule_id=pr-metadata outcome=pass
-python3 scripts/agents/learning.py push                                        # solo store branch
+python3 scripts/agents/learning.py push                                        # solo store branch; 1 si git lo rechaza (con el motivo de git), 3 con un learning.json inválido
 python3 scripts/agents/learning.py rules-ref implementer
 ```
