@@ -245,7 +245,11 @@ except OSError:
 else:
     print("sí" if sys.argv[2] in texto else "no")
 EOF
-for f in SKILL.md SKILL.es.md; do
+# En la plantilla van los dos idiomas; en un proyecto instalado, el init deja solo SKILL.md (en su idioma).
+tap_run plantilla 0 python3 -I -c 'import os, sys; print("sí" if os.path.isdir(sys.argv[1]) else "no")' "$RAIZ/profiles"
+archivos="SKILL.md"
+case "$plantilla" in sí) archivos="SKILL.md SKILL.es.md" ;; esac
+for f in $archivos; do
   tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/.claude/skills/bitacora/$f" "bitacora_add.py find"
   [ "$out" = sí ]; tap_check $? "el skill /bitacora busca la sección con find antes de escribir, en inglés y español" "$f: $out"
   tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/.claude/skills/bitacora/$f" "--into"
