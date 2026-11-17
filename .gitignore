@@ -13,3 +13,6 @@ __pycache__
 
 # Registro de aprendizaje del proyecto (eventos check_run de verify.py, #323)
 .barrilete/learning/
+
+# Bitácora de agentes (scripts/agents/bitacora.py, #339): se genera, no se versiona
+.barrilete/bitacora.html

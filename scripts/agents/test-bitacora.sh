@@ -15,6 +15,7 @@ CSS="$RAIZ/scripts/agents/bitacora/barrilete.css"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.test GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.test
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-bitacora-XXXXXX")
+TMP=$(cd "$TMP" && pwd)   # sin la doble barra de un TMPDIR que termina en /
 # shellcheck disable=SC2016  # se expande al salir, no ahora
 tap_at_exit 'rm -rf "$TMP"'
 
@@ -61,7 +62,7 @@ grep -qF 'data-pr="42"' "$pagina"; tap_check $? "la retro de retro.sh aparece ag
 grep -qF 'Agregar la bitácora de prueba' "$pagina"; tap_check $? "el título del PR sale de gh"
 grep -qF 'Desvío de prueba' "$pagina"; tap_check $? "las secciones de la retro aparecen en la tarjeta"
 grep -qF '<script>alert(1)</script>' "$pagina"; es=$?; [ "$es" = 1 ]; tap_check $? "el texto de una retro no se interpreta como HTML"
-[ "$out" = "ok: $pagina" ]; tap_check $? "dice en una línea dónde dejó la página"
+[ "$out" = "ok: $pagina" ]; tap_check $? "dice en una línea dónde dejó la página" "$out"
 
 # 2. Correrlo dos veces da la misma página.
 cp "$pagina" "$TMP/primera.html"
