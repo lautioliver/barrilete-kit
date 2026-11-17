@@ -235,6 +235,18 @@
       "run": "bash scripts/agents/test-agents.sh"
     },
     {
+      "name": "bitacora",
+      "when": [
+        "scripts/agents/bitacora.py",
+        "scripts/agents/bitacora/**",
+        "scripts/agents/test-bitacora.sh",
+        ".claude/skills/improve-skills/retro.sh",
+        "docs/agents/bitacora.md",
+        "?docs/agents/bitacora.es.md"
+      ],
+      "run": "bash scripts/agents/test-bitacora.sh"
+    },
+    {
       "name": "red",
       "when": [
         ".claude/skills/implement-issue/red.sh",

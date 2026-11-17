@@ -7,6 +7,10 @@
 # - normalize_legacy_names: the 0.9 (Spanish) keys and values of the retro frontmatter become the new
 #   ones, so old and new retros count as the same group when they are read or saved.
 #   Usage: normalize_legacy_names < text   (only rewrites the frontmatter, the first block between --- lines)
+#   It also drops the quotes around a value ("88", 'reviewer') and, if a key repeats (a 0.9 key next to its new
+#   one), keeps the first. CRLF lines are accepted.
+# - retros_dump: every retro of both branches (agents/retros wins over agentes/retros when a file is in both),
+#   normalized, as "<path>\0<text>\0" pairs. scripts/agents/bitacora.py reads the retros with it: one definition.
 # shellcheck disable=SC2034  # used by the scripts that source this file
 RETROS_BRANCH=agents/retros
 # shellcheck disable=SC2034
@@ -37,14 +41,30 @@ normalize_legacy_names() {
     fm && $0 ~ /^---\r?$/ { fm = 0; print; next }
     fm && match($0, /^[a-z_]+:/) {
       key = substr($0, 1, RLENGTH - 1); val = trim(substr($0, RLENGTH + 1))
+      raw = val
       if (val ~ /^".*"$/ || val ~ /^\047.*\047$/) val = substr(val, 2, length(val) - 2)   # quoted value
       nk = (key in K) ? K[key] : key
+      if (seen[nk]++) next   # a repeated key (modelo: next to model:): the first stays
       vk = val; gsub(/ /, "_", vk); vk = nk ":" vk
       nv = val
       if (nk == "area" && nv ~ /^area:/) nv = trim(substr(nv, 6))   # `area: area:docs` and `area: docs` are the same group
       if (vk in V) { nv = V[vk]; gsub(/_/, " ", nv) }
-      if (nk != key || nv != val) { print nk ":" (nv == "" ? "" : " " nv); next }
+      if (nk != key || nv != raw) { print nk ":" (nv == "" ? "" : " " nv); next }
     }
     { print }
   '
+}
+
+retros_dump() {
+  local b tip f vistos=$'\n'
+  for b in "$RETROS_BRANCH" "$RETROS_LEGACY_BRANCH"; do
+    tip=$(retros_tip "$b")
+    [ -n "$tip" ] || continue
+    while IFS= read -r -d '' f; do
+      case "$f" in *.md) ;; *) continue ;; esac
+      case "$vistos" in *$'\n'"$f"$'\n'*) continue ;; esac   # already read from agents/retros
+      vistos+="$f"$'\n'
+      printf '%s\0' "$f"; git show "$tip:$f" | normalize_legacy_names; printf '\0'
+    done < <(git ls-tree -r --name-only -z "$tip" -- retros/)
+  done
 }
