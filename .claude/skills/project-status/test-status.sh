@@ -20,9 +20,10 @@ case "$*" in
   "repo view"*defaultBranchRef.name*) echo main ;;
   "repo view"*) echo o/r ;;
   "api "*) echo '[]' ;;
-  "pr list --limit 50"*) echo 7 ;;
+  "pr list --limit 50"*) printf '%s\n' ${GH_PRS:-7} ;;
   "pr list"*) echo "  - #7 Un PR" ;;
   "pr diff 7 --name-only") cat "$GH_FILES" ;;
+  "pr diff 8 --name-only") echo "gh falso: diff demasiado grande" >&2; exit 1 ;;
   "issue list"*label\ type:audit*) echo 0 ;;
   "issue list"*) ;;
   *) echo "gh falso: $*" >&2; exit 1 ;;
@@ -60,7 +61,7 @@ echo db/migrations/001.sql >"$GH_FILES"
 tap_run out 0 bash "$STATUS"
 grep -qxF -- '- Open PRs with schema changes: #7' <<<"$out"; tap_check $? "una ruta schema con ? delante detecta el PR con migraciones"
 case "$out" in
-  *"grep:"*) tap_fail "la sección Migrations no imprime errores de grep" ;;
+  *"grep:"*|*Traceback*) tap_fail "la sección Migrations no imprime errores de grep" ;;
   *) tap_ok "la sección Migrations no imprime errores de grep" ;;
 esac
 
@@ -81,5 +82,22 @@ mapa '?**/migrations/**'
 echo docs/README.md >"$GH_FILES"
 tap_run out 0 bash "$STATUS"
 grep -qxF -- '_No open PR touches migrations._' <<<"$out"; tap_check $? "un PR sin rutas schema no aparece en Migrations"
+
+# 5. Sin agents_map.py la sección no se puede verificar: lo dice, sin traceback, en vez de decir que no hay PRs.
+mv scripts/agents/agents_map.py "$TMP/agents_map.py"
+mapa '?**/migrations/**'
+echo db/migrations/001.sql >"$GH_FILES"
+tap_run out 0 bash "$STATUS"
+grep -qF -- '_Not verified:' <<<"$out"; tap_check $? "sin agents_map.py la sección Migrations dice que no verificó"
+case "$out" in
+  *Traceback*|*"No open PR touches migrations"*) tap_fail "sin agents_map.py no hay traceback ni un falso sin migraciones" ;;
+  *) tap_ok "sin agents_map.py no hay traceback ni un falso sin migraciones" ;;
+esac
+mv "$TMP/agents_map.py" scripts/agents/agents_map.py
+
+# 6. Un PR cuyo diff no se puede leer se nombra, no se cuenta como sin migraciones.
+GH_PRS="7 8" tap_run out 0 bash "$STATUS"
+grep -qxF -- '- Could not read the files of: #8' <<<"$out"; tap_check $? "un PR cuyo diff falla se nombra en Migrations"
+grep -qxF -- '- Open PRs with schema changes: #7' <<<"$out"; tap_check $? "con un diff que falla, los demás PRs se siguen revisando"
 
 tap_done
