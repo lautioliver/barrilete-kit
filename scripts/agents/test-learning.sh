@@ -108,10 +108,10 @@ valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "rule_id": "
 [ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una línea v0 sin check se rechaza"
 valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "una rama con espacios"}'
 [ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una línea v0 con texto libre en branch se rechaza"
-for ver in 1 7; do
-  valida '{"v": '"$ver"', "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "main"}'
-  [ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una línea con la forma v0 pero v=$ver no se cuenta como heredada"
-done
+valida '{"v": 1, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "main"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una línea con la forma v0 pero v=1 no se cuenta como heredada"
+valida '{"v": 7, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "main"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "validador: una línea con la forma v0 pero v=7 no se cuenta como heredada"
 
 # --- 2. Store local (por defecto, D2): sin learning.json va al directorio ignorado del checkout principal ---
 tap_run out 0 python3 "$L" emit check_run rule_id=r-uno outcome=pass
