@@ -16,6 +16,8 @@ Decidido por @lautioliver en el chat (2026-11-16):
 
 El resto (la lista de campos, los valores de `outcome`, el formato de `rules_ref` y cómo se toma UHP) son refinamientos que escribió un agente y la persona no decidió por separado. Se aprueban al aceptar este ADR o se cambian en la revisión de su PR.
 
+Enmendado en lautioliver/barrilete-kit#324 (2026-11-17), decidido por @lautioliver: la celda de D5 no lleva rol (regla × modelo × harness, como arriba), y D6 fija el formato de `rules_ref` (comentario del 2026-11-16 en #324).
+
 ## Contexto
 
 ADR-006 unificó las reglas en `barrilete-rules`, pero dejó los datos de aprendizaje afuera de los proyectos:
@@ -65,11 +67,11 @@ ADR-006 unificó las reglas en `barrilete-rules`, pero dejó los datos de aprend
 
 5. **D5. Se miden las reglas que el proyecto aplica, por celda.** Reemplaza a ADR-006 D10 y responde su pregunta abierta sobre las rondas.
    - Las reglas medidas son las que el proyecto recibe: las del SHA de `.barrilete/rules.lock` que le aplican (las mismas que filtra `sync-rules`) y las de `.barrilete/rules/`.
-   - Una celda es regla × modelo × harness × rol. Por celda se miden los hallazgos de las `classes` de la regla por ronda de review, antes y después de `accepted`, y la tasa de fallo de su check si tiene.
+   - Una celda es regla × modelo × harness. Por celda se miden los hallazgos de las `classes` de la regla por ronda de review, antes y después de `accepted`, y la tasa de fallo de su check si tiene.
    - **Mínimo de 20 rondas por celda.** Con menos, el reporte dice "poca muestra" y no da veredicto.
    - Una regla sin efecto con muestra suficiente tiene las mismas tres salidas que en ADR-006, y elige la persona: pasa a check, se reescribe más concreta o pasa a `deprecated`.
 
-6. **D6. Canary de carga: `rules_ref`.** Cada evento de un agente registra qué versión de las reglas recibió: el SHA de `barrilete-rules` de `rules.lock` y un hash corto de las secciones generadas que leyó (`.claude/agents/<rol>.md` y el bloque de `AGENTS.md`). Si un agente corrió con secciones viejas (no se volvió a correr `sync-rules`), se ve en el evento, y la medición atribuye el resultado a la versión que el agente tuvo de verdad. El formato exacto se fija en #324.
+6. **D6. Canary de carga: `rules_ref`.** Cada evento de un agente registra qué versión de las reglas recibió: el SHA de `barrilete-rules` de `rules.lock` y un hash corto de las secciones generadas que leyó (`.claude/agents/<rol>.md` y el bloque de `AGENTS.md`). Si un agente corrió con secciones viejas (no se volvió a correr `sync-rules`), se ve en el evento, y la medición atribuye el resultado a la versión que el agente tuvo de verdad. El formato, fijado en #324: `<primeros 12 del SHA de rules.lock>.<primeros 12 del sha256 del bloque de reglas de AGENTS.md y el de .claude/agents/<rol>.md>`. Va solo en los eventos de un agente `bk` (`BK_TASK_DIR`), y nunca sin `rules.lock`.
 
 7. **D7. Compatible con UHP, no dependiente.** Del Unified Harness Protocol se toma el vocabulario, no el formato:
    - los estados de la tarea: `completed`, `failed`, `incomplete`, `cancelled` (ya en ADR-005);
