@@ -85,7 +85,7 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 - [`agents/subagent-contract.md`](agents/subagent-contract.md) — reglas y formato de salida de los subagentes de `.claude/agents/` (implementador, implementador liviano, revisor)
 - [`agents/bitacora.md`](agents/bitacora.md) — la bitácora del proyecto `docs/bitacora.html`: cómo `/bitacora <tema>` suma entradas (`scripts/agents/bitacora_add.py`), sus componentes y sus tokens de diseño
 - [`agents/classes.yml`](agents/classes.yml) — las clases con que `review-pr` etiqueta los hallazgos (la genera `scripts/agents/sync-rules` desde barrilete-rules, ADR-006)
-- Skills en [`../.claude/skills/`](../.claude/skills/): `plan-feature`, `create-issue`, `implement-issue`, `debug`, `db-migration`, `update-docs`, `review-pr`, `project-status`, `git-workflow`, `improve-skills`, `orchestrate`
+- Skills en [`../.claude/skills/`](../.claude/skills/): `plan-feature`, `create-issue`, `implement-issue`, `debug`, `db-migration`, `update-docs`, `review-pr`, `project-status`, `git-workflow`, `improve-skills`, `orchestrate`, `bitacora`
 - Los docs se validan en CI: [`../scripts/agents/check-docs.py`](../scripts/agents/check-docs.py)
 
 ---

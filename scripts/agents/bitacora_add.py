@@ -46,18 +46,24 @@ TEXTOS = {
 
 MARCA_NAV = "<!-- bitacora:nav -->"
 MARCA_MAIN = "<!-- bitacora:main -->"
-SECCION = re.compile(r'^<section id="([a-z0-9-]+)" data-topic="([^"]*)">$', re.M)
+SECCION = re.compile(r'^<section id="([a-z0-9-]+)" data-topic="([^"]*)">\r?$', re.M)
+# Ids que ya usa la página: una sección con uno de ellos rompería su link.
+RESERVADOS = re.compile(r"^(theme-.*|structure)$")
 
-# Lo que una entrada no puede traer: código, estilos o marcos, manejadores on…=, javascript:, comentarios (podrían
-# esconder o imitar los marcadores) y etiquetas de la estructura de la página.
-PROHIBIDO = re.compile(
-    r"<\s*/?\s*(script|style|iframe|object|embed|frame|frameset|base|meta|link|form|html|head|body|header|nav|main"
-    r"|section|article|template|svg|math)\b"
-    r"|<[^>]*\son[a-z]+\s*="
-    r"|javascript\s*:"
-    r"|<!--",
-    re.I)
-VACIAS = {"area", "br", "col", "hr", "img", "input", "source", "track", "wbr"}
+# Una entrada es una lista permitida de HTML: solo estas etiquetas y, de cada una, solo estos atributos. Se revisa
+# después de que HTMLParser decodifica las entidades, así que "jav&#x61;script:" llega como "javascript:".
+ETIQUETAS = {"p", "br", "hr", "strong", "b", "em", "i", "u", "s", "small", "mark", "code", "pre", "kbd", "sub", "sup",
+             "span", "div", "h3", "h4", "ul", "ol", "li", "dl", "dt", "dd", "blockquote", "a", "abbr", "time",
+             "table", "caption", "thead", "tbody", "tfoot", "tr", "th", "td"}
+ATRIBUTOS = {"class", "title"}
+ATRIBUTOS_DE = {"a": {"href"}, "abbr": set(), "time": {"datetime"}, "th": {"colspan", "rowspan", "scope"},
+                "td": {"colspan", "rowspan"}, "i": {"style"}}
+VACIAS = {"br", "hr"}
+CLASE = re.compile(r"^[A-Za-z0-9_ -]*$")
+ESTILO = re.compile(r"^\s*--v\s*:\s*\d{1,3}(\.\d+)?%\s*;?\s*$")     # solo el ancho de una barra
+HREF = re.compile(r"^(https?://|mailto:|#)[^\s]*$|^[^:\s]*$", re.I)    # sin esquema (relativo) o uno de estos
+# Además, sobre el texto crudo: lo que un navegador podría leer distinto que HTMLParser.
+PROHIBIDO = re.compile(r"(?<![a-z])on[a-z]+\s*=|javascript\s*:|<!--|<!\[CDATA|<\?", re.I)
 
 # La estructura de la página y los componentes de una entrada: solo usan los tokens del contrato.
 ESTRUCTURA = """
@@ -205,27 +211,60 @@ def parecidas(objetivo, lista):
         or difflib.SequenceMatcher(None, objetivo, s).ratio() >= PARECIDO)]
 
 
-class Balance(HTMLParser):
-    """Cuenta las etiquetas abiertas y cerradas: una entrada que deja algo abierto se comería la página que sigue."""
+class Revisor(HTMLParser):
+    """Revisa una entrada contra la lista permitida y que cierre todo lo que abre (si no, se comería la página)."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.pila, self.mal = [], None
 
+    def falla(self, motivo):
+        self.mal = self.mal or motivo
+
     def handle_starttag(self, tag, attrs):
+        if tag not in ETIQUETAS:
+            return self.falla(f"<{tag}> no está entre las etiquetas permitidas")
+        for nombre, valor in attrs:
+            valor = valor or ""
+            if nombre not in ATRIBUTOS | ATRIBUTOS_DE.get(tag, set()):
+                self.falla(f"el atributo {nombre} de <{tag}> no está permitido")
+            elif nombre == "class" and not CLASE.match(valor):
+                self.falla(f"class={valor!r} no es una lista de clases")
+            elif nombre == "style" and not ESTILO.match(valor):
+                self.falla(f"style={valor!r}: solo se permite el ancho de una barra (--v:70%)")
+            elif nombre == "href" and not HREF.match(valor.strip()):
+                self.falla(f"href={valor!r}: solo links relativos, #, http(s) o mailto")
         if tag not in VACIAS:
             self.pila.append(tag)
 
     def handle_startendtag(self, tag, attrs):
-        pass
+        self.handle_starttag(tag, attrs)
+        if tag not in VACIAS and self.pila and self.pila[-1] == tag:
+            self.pila.pop()
 
     def handle_endtag(self, tag):
         if tag in VACIAS:
             return
         if not self.pila or self.pila[-1] != tag:
-            self.mal = self.mal or f"</{tag}> no cierra lo último que se abrió"
+            self.falla(f"</{tag}> no cierra lo último que se abrió")
         else:
             self.pila.pop()
+
+    def handle_data(self, data):
+        if "<" in data:
+            self.falla("hay un < suelto o una etiqueta sin cerrar (en el texto, escribí &lt;)")
+
+    def handle_comment(self, data):
+        self.falla("los comentarios no están permitidos")
+
+    def handle_decl(self, decl):
+        self.falla("las declaraciones no están permitidas")
+
+    def handle_pi(self, data):
+        self.falla("las instrucciones de proceso no están permitidas")
+
+    def unknown_decl(self, data):
+        self.falla("las declaraciones no están permitidas")
 
 
 def leer_entrada(ruta):
@@ -239,28 +278,39 @@ def leer_entrada(ruta):
         raise ErrorDeUso("--entry: la entrada está vacía")
     m = PROHIBIDO.search(texto)
     if m:
-        raise ErrorDeUso(f"--entry: la entrada no puede traer {m.group(0).strip()!r} (ni scripts, estilos, manejadores "
-                         "on…=, javascript:, comentarios ni etiquetas de la estructura de la página)")
-    b = Balance()
-    b.feed(texto)
-    b.close()
-    if b.mal or b.pila:
-        raise ErrorDeUso(f"--entry: el HTML no está balanceado ({b.mal or 'queda abierto <' + b.pila[-1] + '>'})")
+        raise ErrorDeUso(f"--entry: la entrada no puede traer {m.group(0).strip()!r} (manejadores on…=, javascript:, "
+                         "comentarios)")
+    rev = Revisor()
+    rev.feed(texto)
+    rev.close()
+    if rev.mal or rev.pila or rev.rawdata:
+        motivo = rev.mal or (f"queda abierto <{rev.pila[-1]}>" if rev.pila else "termina en una etiqueta sin cerrar")
+        raise ErrorDeUso(f"--entry: {motivo}. Componentes permitidos: docs/agents/bitacora.md o el skill /bitacora")
     return texto
 
 
 def insertar(texto, marca, bloque):
-    """Pone el bloque en las líneas de arriba de la marca: lo que ya estaba no cambia."""
+    """Pone el bloque en las líneas de arriba de la marca: lo que ya estaba no cambia. Usa el fin de línea del archivo."""
+    if "\r\n" in texto:
+        bloque = bloque.replace("\n", "\r\n")
     i = texto.index(marca)
     return texto[:i] + bloque + texto[i:]
 
 
 def escribir(ruta, texto):
     os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    # mkstemp crea con 0600: el archivo conserva su modo, o el que daría el umask si es nuevo.
+    try:
+        modo = os.stat(ruta).st_mode & 0o777
+    except FileNotFoundError:
+        umask = os.umask(0)
+        os.umask(umask)
+        modo = 0o666 & ~umask
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(ruta), prefix=".bitacora-")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
             f.write(texto)
+        os.chmod(tmp, modo)
         os.replace(tmp, ruta)
     except BaseException:
         os.unlink(tmp)
@@ -296,10 +346,17 @@ def imprimir_parecidas(lista):
         print(f"similar {s}\t{t}")
 
 
-def cmd_find(repo, a):
-    s = slug(a.topic)
+def slug_de(tema):
+    s = slug(tema)
     if not s:
         raise ErrorDeUso("--topic: el tema necesita al menos una letra o un número")
+    if RESERVADOS.match(s):
+        raise ErrorDeUso(f"--topic: {s} es el id de un bloque de la página; usá otro nombre")
+    return s
+
+
+def cmd_find(repo, a):
+    s = slug_de(a.topic)
     texto = leer_pagina(os.path.join(repo, RUTA))
     lista = secciones(texto) if texto else []
     if s in dict(lista):
@@ -314,9 +371,7 @@ def cmd_find(repo, a):
 
 
 def cmd_add(repo, a):
-    s = slug(a.topic)
-    if not s:
-        raise ErrorDeUso("--topic: el tema necesita al menos una letra o un número")
+    s = slug_de(a.topic)
     entrada = leer_entrada(a.entry)
     ruta = os.path.join(repo, RUTA)
     texto = leer_pagina(ruta)
