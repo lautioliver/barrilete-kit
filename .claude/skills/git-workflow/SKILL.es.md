@@ -10,7 +10,7 @@ Detalle en `docs/github-naming-convention.md`. Resumen obligatorio en `AGENTS.md
 ## Ramas
 
 - <BRANCH_RULE> Creá la rama de trabajo desde `<BASE_BRANCH>` actualizada.
-- Nombre: `claude/<n°issue>-<descripcion>` (agente) o `<tipo>/<n°issue>-<descripcion>` (persona). Solo minúsculas, números y guiones.
+- Nombre: `claude/<n°issue>-<descripcion>` (agente; `claude/<tipo>/<n°issue>-<descripcion>` con `"agent_branch_type": true` en `.agent-kit.json`, la arma `prepare.sh`) o `<tipo>/<n°issue>-<descripcion>` (persona). Solo minúsculas, números y guiones.
 - Si no hay issue, preguntá si abrir uno (skill `create-issue`) antes de inventar el número.
 
 <!-- releases:start -->

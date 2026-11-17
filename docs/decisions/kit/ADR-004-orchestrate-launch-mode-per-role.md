@@ -59,3 +59,7 @@ By ADR-005 D7 (lautioliver/barrilete-kit#250). **D3 changes:** the orchestrator 
 ## Amendment 2026-11-05
 
 By lautioliver/barrilete-kit#263, decided by @lautioliver in the chat. **D1's role table changes for `reviewer`: it goes from opus to sonnet**, for cost (reviews were ~26% of the agents' cost in the last 14 days). The reason it has to change in the repo: `roles.yml` decides the mode (`mode.py`), not the model, and under `/orchestrate` the reviewer always runs as a subagent whose model is set by `.claude/agents/reviewer.md`. The mode (`sub`) and the other roles do not change. The accepted table above is not rewritten.
+
+## Amendment 2026-11-16
+
+By lautioliver/barrilete-kit#330 (PR #332), decided by @lautioliver in the chat. **D3 changes only for projects with `"agent_branch_type": true`** in `.agent-kit.json`: the PR of a `bk` agent is searched with both forms, `gh pr list --search 'head:claude/<n>-'` and `--search 'head:claude/<type>/<n>-'`, because an issue without a `type:` label and branches from before the option keep `claude/<n>-…`, and `head:` matches by prefix. Without the option D3 does not change. The accepted text above is not rewritten.

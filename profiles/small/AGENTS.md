@@ -43,7 +43,7 @@ Before writing the migration, show it and get it approved: current schema → de
 
 Details in `docs/github-naming-convention.md`.
 
-- **Branch:** <BRANCH_RULE> Names `<type>/<issue-no>-<description>`; if an agent creates it, `claude/<issue-no>-<description>`.
+- **Branch:** <BRANCH_RULE> Names `<type>/<issue-no>-<description>`; if an agent creates it, `claude/<issue-no>-<description>` (or `claude/<type>/<issue-no>-<description>` if `.agent-kit.json` has `"agent_branch_type": true`; see `docs/github-naming-convention.md` §1).
 - **Commits and PRs:** `<type>: <description>` in the imperative and lowercase, with the description in <COMMIT_LANG> (`feat`, `fix`, `docs`, `chore`, `refactor`, `test`). PR body with `.github/pull_request_template.md` and `Closes #n`.
 - **Labels:** one `type:` per issue and PR; `priority:` only on issues. Only those in `.github/labels.yml`.
 - **Team:** new issues are assigned on their own to a member (by area and load). The team is changed with `/add-member` and `/remove-member`; do not edit the file by hand. Assigned = owner; in progress = with an open PR.

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Cleans up what an orchestrate run leaves behind, for the already closed issues:
-# - the worktrees ../<repo>-wt/<n> (the prepare.sh --worktree ones): the worktree is removed, unless
-#   its branch has an open PR;
-# - the claude/<n>-… branches (local or remote) whose PR was closed without merging: they are only listed, with
+# - the worktrees ../<repo>-wt/<n> and ../<repo>-wt/<n>-<desc> (the prepare.sh --worktree ones; the second, with
+#   --name): the worktree is removed, unless its branch has an open PR;
+# - the claude/<n>-… and claude/<type>/<n>-… branches (local or remote) whose PR was closed without merging: they are only listed, with
 #   the command to delete them (git push origin --delete; gh pr close --delete-branch fails from a
 #   detached HEAD). Deleting a branch can lose work, so the person decides. It is decided
 #   by the state of the PR on GitHub, not by ancestry (works with squash and rebase).
@@ -51,17 +51,18 @@ pr_abierto() {
 
 cerrados=(); sucios=()
 while read -r ruta; do
-  cerrado "${ruta##*/}" "$ruta" || continue
+  n="${ruta##*/}"; n="${n%%-*}"   # ../<repo>-wt/<n> or ../<repo>-wt/<n>-<desc>
+  cerrado "$n" "$ruta" || continue
   pr_abierto "$(git -C "$ruta" branch --show-current 2>/dev/null)" && continue
   if [ -n "$(git -C "$ruta" status --porcelain 2>/dev/null)" ]; then sucios+=("$ruta")
   else cerrados+=("$ruta"); fi
-done < <(git worktree list --porcelain | sed -n 's/^worktree //p' | grep -E -- '-wt/[0-9]+$' || true)
+done < <(git worktree list --porcelain | sed -n 's/^worktree //p' | grep -E -- '-wt/[0-9]+(-[a-z0-9-]+)?$' || true)
 
 # Branches of closed issues (local or remote, no fetch: listing changes nothing), by the state of their PR.
 ramas=(); avisos=()
 while read -r rama; do
-  [[ "$rama" =~ ^claude/([0-9]+)- ]] || continue
-  cerrado "${BASH_REMATCH[1]}" "$rama" || continue
+  [[ "$rama" =~ ^claude/([a-z]{1,20}/)?([0-9]+)- ]] || continue
+  cerrado "${BASH_REMATCH[2]}" "$rama" || continue
   if ! estados=$(gh pr list --head "$rama" --state all --json number,state 2>/dev/null | jq -r '[.[].state] | join(",")' 2>/dev/null); then
     echo "Could not read the PRs of $rama." >&2; errores=1; continue
   fi

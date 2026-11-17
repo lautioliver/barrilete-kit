@@ -1,22 +1,34 @@
 #!/usr/bin/env bash
 # Prepares the implementation of an issue: validates it can be taken, assigns it
 # and creates the branch. Prints the issue context for the agent.
-# Usage: prepare.sh <issue number> [--review] [--worktree]
+# Usage: prepare.sh <issue number> [--review] [--worktree] [--name <desc>]
 #   --review:  only validates and prints; does not assign or create the branch.
+#   --name:    the description of the branch, instead of taking it from the title.
 #   --worktree: creates (or resumes) the branch in its own worktree, ../<repo>-wt/<n>,
 #               without touching the current checkout. Prints "Worktree: <path>".
 set -euo pipefail
-USO="Usage: $0 <issue number> [--review] [--worktree] | --help"
+USO="Usage: $0 <issue number> [--review] [--worktree] [--name <desc>] | --help"
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<AYUDA
 $USO
 
 Validates that the issue can be taken (open, not an epic, not blocked, no other person
 assigned, no uncommitted changes), assigns it, creates the branch claude/<n>-<description>
-from the base branch (or resumes the issue one, claude/<n>-*, local or on origin, even if the title
-changed; if there is more than one, it fails and lists them) and prints the issue with its context.
+from the base branch (or resumes the issue one, claude/<n>-* or claude/<type>/<n>-*, local or on
+origin, even if the title changed; if there is more than one, it fails and lists them) and prints
+the issue with its context.
+
+With "agent_branch_type": true in .agent-kit.json the branch is claude/<type>/<n>-<desc>:
+<type> comes from the type: label (feature→feat, bug→fix, task→chore, docs, audit; without
+it, claude/<n>-<desc>); <desc>, from the title without the "Audit <area>:" prefix, the leading
+verb (except in bugs and audits) and filler words, in 30 characters at most without cutting words.
 
   --review   Only validates and prints: does not assign or create the branch.
+  --name <desc>
+             Picks the description (e.g. for the second PR of an issue): creates that branch
+             (or resumes it if it exists and its PR is not merged or closed; if it is, it fails:
+             pick another name) even if the issue already has another one. With
+             --worktree, it goes in ../<repo>-wt/<n>-<desc>.
   --worktree  The same, but in its own worktree (../<repo>-wt/<n>), without touching the
               current checkout: useful to run several issues in parallel.
               - Prints "Worktree: <path>". Work there with absolute paths or
@@ -33,17 +45,23 @@ Environment:
   BK_HUMAN   Login of the person responsible (a leading @ and the case are ignored). It wins
              over the token's user. Required when the agent runs with a GitHub App token
              (gh api user gives 403): without it, the script stops with exit 64.
+  AGENT_BRANCH_TYPE
+             1 or 0: wins over "agent_branch_type" of .agent-kit.json.
 AYUDA
   exit 0
 fi
 N="${1:?$USO}"; N="${N#\#}"; shift
-REVISAR=""; WORKTREE=""
-for opcion in "$@"; do
-  case "$opcion" in
+REVISAR=""; WORKTREE=""; NOMBRE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --review) REVISAR=1 ;;
     --worktree) WORKTREE=1 ;;
+    --name) [ $# -ge 2 ] && [ -n "$2" ] && [[ "$2" != --* ]] || { echo "$USO" >&2; exit 64; }
+            NOMBRE="$2"; shift ;;
+    --name=?*) NOMBRE="${1#--name=}" ;;
     *) echo "$USO" >&2; exit 64 ;;
   esac
+  shift
 done
 [[ "$N" =~ ^[0-9]+$ ]] || { echo "$USO" >&2; exit 64; }
 BASE="${BASE:-<BASE_BRANCH>}"   # the template init replaces <BASE_BRANCH>
@@ -93,26 +111,78 @@ otros=$(jq -r --arg yo "$YO" '[.assignees[].login | select(ascii_downcase != $yo
 [ -n "$otros" ] && error "it belongs to $otros (responsible). Ask them for it or reassign it: gh issue edit $N --remove-assignee <login> --add-assignee $YO"
 
 titulo=$(jq -r .title <<<"$issue")
-# Branch: claude/<n>-<description>, lowercase, no accents, only [a-z0-9-], ≤ 50 characters.
-slug=$(printf '%s' "$titulo" | perl -CS -MUnicode::Normalize -ne 'print lc NFD($_) =~ s/\pM//gr' \
-  | perl -pe 's/[^a-z0-9]+/-/g; s/^-+|-+$//g; s/^(.{1,40})(-.*)?$/$1/ if length > 40')
-RAMA="claude/$N-$slug"
-# If the issue already has a branch (claude/<n>-*, local or on origin), that one is resumed even if the title
-# changed after taking it (#41). With more than one none is chosen: they are listed. The ones of an already merged
-# or closed PR do not count: a reopened issue starts again.
-del_issue() { grep -E "^claude/$N-[^/]+$" || true; }
+# The project's options (.agent-kit.json at the root of the repo; the env var wins, for the tests).
+kit_json="$(git rev-parse --show-toplevel)/.agent-kit.json"
+kit_opcion() { [ -f "$kit_json" ] && jq -r "$1 // empty" "$kit_json" 2>/dev/null || true; }
+case "${AGENT_BRANCH_TYPE:-$(kit_opcion .agent_branch_type)}" in 1|true) CON_TIPO=1 ;; *) CON_TIPO="" ;; esac
+IDIOMA=$(kit_opcion .language); [ "$IDIOMA" = es ] || IDIOMA=en
+TIPO=""
+if [ -n "$CON_TIPO" ]; then
+  TIPO=$(jq -r '[.labels[].name | select(startswith("type:") or startswith("tipo:")) | sub("^(type|tipo):"; "")] | first // empty' <<<"$issue")
+  case "$TIPO" in feature) TIPO=feat ;; bug) TIPO=fix ;; task) TIPO=chore ;; esac
+  TIPO=$(printf '%s' "$TIPO" | LC_ALL=C tr -cd '[:lower:]' | cut -c1-20)
+fi
+# slug <text> <mode>: lowercase, no accents, only [a-z0-9-].
+#   cut (claude/<n>-…): ≤ 40 characters, as always. name (--name): ≤ 50 characters, no word cut.
+#   prune (claude/<type>/<n>-…): without the "Audit <area>:" prefix, the leading verb (except in bugs and
+#   audits: their title may start with the symptom) and filler words, ≤ 30 characters without cutting words.
+#   In Spanish the leading verb is the one ending in -ar/-er/-ir ("PR 1 mergeado" keeps "pr").
+slug() {
+  printf '%s' "$1" | MODO="$2" TIPO="$TIPO" IDIOMA="$IDIOMA" perl -CS -MUnicode::Normalize -0777 -ne '
+    my $t = lc NFD($_); $t =~ s/\pM//g;
+    if ($ENV{MODO} eq "cut") { $t =~ s/[^a-z0-9]+/-/g; $t =~ s/^-+|-+$//g; $t =~ s/^(.{1,40})(-.*)?$/$1/ if length($t) > 40; print $t; exit; }
+    my @p;
+    if ($ENV{MODO} eq "prune") {
+      $t = $1 if $t =~ /^(?:audit|auditoria)\b[^:\n]{0,60}:\s*(\S.*)$/s;
+      my @todas = grep { length } split /[^a-z0-9]+/, $t;
+      @p = @todas;
+      my $verbo = $ENV{IDIOMA} eq "es" ? qr/^[a-z]{3,}(?:ar|er|ir)$/ : qr/^[a-z]+$/;
+      shift @p if @p > 1 && $ENV{TIPO} !~ /^(?:fix|audit)$/ && $p[0] =~ $verbo;
+      my @relleno = $ENV{IDIOMA} eq "es"
+        ? qw(el la los las lo un una unos unas de del al a en y e o u que con por para se su sus es entre como)
+        : qw(the a an of to in on at by for from with and or is are as into between that);
+      my %relleno = map { $_ => 1 } @relleno;
+      @p = grep { !$relleno{$_} } @p;
+      @p = @todas unless @p;
+    } else { @p = grep { length } split /[^a-z0-9]+/, $t; }
+    my $max = $ENV{MODO} eq "prune" ? 30 : 50;
+    my $s = "";
+    for my $w (@p) { my $n = $s eq "" ? $w : "$s-$w"; last if length($n) > $max; $s = $n; }
+    $s = substr($p[0], 0, $max) if $s eq "" && @p;
+    print $s;'
+}
+if [ -n "$NOMBRE" ]; then desc=$(slug "$NOMBRE" name)
+elif [ -n "$CON_TIPO" ]; then desc=$(slug "$titulo" prune)
+else desc=$(slug "$titulo" cut); fi
+[ -n "$desc" ] || { [ -n "$NOMBRE" ] && { echo "$USO" >&2; exit 64; }; desc=issue; }
+RAMA="claude/${TIPO:+$TIPO/}$N-$desc"
+# If the issue already has a branch (claude/<n>-* or claude/<type>/<n>-*, whatever the option says, local or
+# on origin), that one is resumed even if the title changed after taking it (#41) or the project turned the
+# option on. With more than one none is chosen: they are listed. The ones of an already merged or closed PR
+# do not count: a reopened issue starts again. With --name only that branch counts, and if its PR is already
+# merged or closed it fails: the name is taken.
+if [ -n "$NOMBRE" ]; then
+  del_issue() { grep -xF "$RAMA" || true; }
+else
+  del_issue() { grep -E "^claude/([a-z]{1,20}/)?$N-[^/]+$" || true; }
+fi
 locales=$(git for-each-ref --format='%(refname:strip=2)' "refs/heads/claude/" | del_issue)
-remotas=$(git ls-remote --heads origin "claude/$N-*") || error "could not query the branches of origin (network or permissions?). Without that I could create a second branch for the issue."
+remotas=$(git ls-remote --heads origin "claude/$N-*" "claude/*/$N-*") || error "could not query the branches of origin (network or permissions?). Without that I could create a second branch for the issue."
 remotas=$(awk '{sub("^refs/heads/", "", $2); print $2}' <<<"$remotas" | del_issue)
 existentes=""
 for r in $(printf '%s\n%s\n' "$locales" "$remotas" | sort -u); do
   estado=$(gh pr list -R "$REPO" --head "$r" --state all --json state -q '.[0].state' 2>/dev/null || true)
-  case "$estado" in MERGED|CLOSED) continue ;; esac
+  case "$estado" in
+    MERGED|CLOSED)
+      # With --name the name is fixed: a new branch cannot be created with it.
+      [ -z "$NOMBRE" ] || error "the PR of $r is already $(tr '[:upper:]' '[:lower:]' <<<"$estado"): create the branch with another --name <desc>."
+      continue ;;
+  esac
   existentes+="$r"$'\n'
 done
 existentes=$(sed '/^$/d' <<<"$existentes")
 if [ "$(grep -c . <<<"$existentes")" -gt 1 ]; then
-  error "it has more than one branch: $(paste -sd ' ' - <<<"$existentes"). Delete the extra ones or resume one by hand."
+  error "it has more than one branch: $(paste -sd ' ' - <<<"$existentes"). Delete the extra ones, resume one by hand or create another one with --name <desc>."
 fi
 [ -n "$existentes" ] && RAMA="$existentes"
 # Only on origin: the local one is created from there.
@@ -124,7 +194,7 @@ grep -qx "$RAMA" <<<"$remotas" && EN_ORIGIN=("refs/heads/$RAMA:refs/remotes/orig
 if [ -n "$WORKTREE" ]; then
   raiz=$(git worktree list --porcelain | awk '/^worktree /{print substr($0, 10); exit}')
   raiz=$(cd "$raiz" && pwd -P)
-  WT="$(dirname "$raiz")/$(basename "$raiz")-wt/$N"
+  WT="$(dirname "$raiz")/$(basename "$raiz")-wt/$N${NOMBRE:+-$desc}"
 fi
 
 echo "# Issue #$N: $titulo"
@@ -175,6 +245,8 @@ en_uso=$(git worktree list --porcelain | awk -v r="branch refs/heads/$RAMA" '/^w
 if [ -n "$en_uso" ]; then
   [ -d "$en_uso" ] || error "the branch $RAMA is in a locked worktree whose folder does not exist ($en_uso). If nobody uses it: git worktree unlock \"$en_uso\" && git worktree prune"
   en_uso=$(cd "$en_uso" && pwd -P)
+  # --worktree --name with the branch already in the issue's worktree (../<repo>-wt/<n>): resumed there.
+  [ -n "$WORKTREE" ] && [ -n "$NOMBRE" ] && [ "$en_uso" = "${WT%-"$desc"}" ] && WT="$en_uso"
 fi
 
 if [ -z "$WORKTREE" ]; then

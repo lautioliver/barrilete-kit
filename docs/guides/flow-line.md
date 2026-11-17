@@ -10,7 +10,7 @@ The two ● are the knots that stay in human hands: approving the plan and mergi
 
 | What there is | Step |
 |---|---|
-| A branch `<type>/<n>-…` (also `claude/<n>-…`) with no open PR, or with a draft PR | implement |
+| A branch `<type>/<n>-…` (also `claude/<n>-…` and `claude/<type>/<n>-…`) with no open PR, or with a draft PR | implement |
 | An open PR for the branch | review |
 | The PR approved (the required review or, if the repo requires none, an approval and no change requests) | ● merge (waiting for your merge) |
 | The PR merged | retro |

@@ -15,7 +15,7 @@ If you were not given a number ("take the next one"), list `gh issue list --stat
 .claude/skills/implement-issue/prepare.sh <n>
 ```
 
-It validates that it is open, that nobody else has it and that there are no uncommitted changes; it assigns it, creates `claude/<n>-<description>` from `<BASE_BRANCH>` and prints the issue with its comments. If it fails, tell the user why; do not force anything. To read it without taking it: `--review`.
+It validates that it is open, that nobody else has it and that there are no uncommitted changes; it assigns it, creates `claude/<n>-<description>` (`claude/<type>/<n>-<description>` with `"agent_branch_type": true` in `.agent-kit.json`) from `<BASE_BRANCH>` and prints the issue with its comments. If it fails, tell the user why; do not force anything. To read it without taking it: `--review`.
 
 ## 2. Understand
 

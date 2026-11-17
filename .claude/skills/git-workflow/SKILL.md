@@ -10,7 +10,7 @@ Details in `docs/github-naming-convention.md`. Mandatory summary in `AGENTS.md`.
 ## Branches
 
 - <BRANCH_RULE> Create the working branch from an up-to-date `<BASE_BRANCH>`.
-- Name: `claude/<issue-no>-<description>` (agent) or `<type>/<issue-no>-<description>` (person). Lowercase, numbers and hyphens only.
+- Name: `claude/<issue-no>-<description>` (agent; `claude/<type>/<issue-no>-<description>` with `"agent_branch_type": true` in `.agent-kit.json`, made by `prepare.sh`) or `<type>/<issue-no>-<description>` (person). Lowercase, numbers and hyphens only.
 - If there is no issue, ask whether to open one (skill `create-issue`) before inventing the number.
 
 <!-- releases:start -->

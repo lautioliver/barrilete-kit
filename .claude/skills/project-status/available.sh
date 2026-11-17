@@ -17,13 +17,13 @@ issues=$(gh api --paginate "repos/$REPO/issues?state=open&per_page=100" \
 
 # Open PRs and the issues they close: {"<issue number>": [<PR number>, ...]}.
 # GitHub only fills closingIssuesReferences when the PR goes to the default branch,
-# so "Closes #n" is also read from the body, and the number from the branch (<type>/<n>-…).
+# so "Closes #n" is also read from the body, and the number from the branch (<type>/<n>-…, claude/<n>-… or claude/<type>/<n>-…).
 # shellcheck disable=SC2016  # jq program
 MAPEO='
   [.[] | . as $pr
     | ([.closingIssuesReferences[].number]
        + ([(.body // "") | gsub("`[^`]*`"; "") | scan("(?i)(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):? +#([0-9]+)") | .[0] | tonumber])
-       + ([.headRefName | capture("^[a-z]+/(?<n>[0-9]+)-")? | .n | tonumber]))
+       + ([.headRefName | capture("^(?!release/)[a-z]+/(?:[a-z]{1,20}/)?(?<n>[0-9]+)-")? | .n | tonumber]))
     | unique[] | {issue: tostring, pr: $pr.number}]
   | group_by(.issue) | map({key: .[0].issue, value: [.[].pr]}) | from_entries'
 CAMPOS=number,headRefName,body,closingIssuesReferences,baseRefName
