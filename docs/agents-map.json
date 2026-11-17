@@ -237,14 +237,14 @@
     {
       "name": "bitacora",
       "when": [
-        "scripts/agents/bitacora.py",
+        "scripts/agents/bitacora_add.py",
         "scripts/agents/bitacora/**",
-        "scripts/agents/test-bitacora.sh",
-        ".claude/skills/improve-skills/retro.sh",
+        "scripts/agents/test-bitacora-add.sh",
+        ".claude/skills/bitacora/**",
         "docs/agents/bitacora.md",
         "?docs/agents/bitacora.es.md"
       ],
-      "run": "bash scripts/agents/test-bitacora.sh"
+      "run": "bash scripts/agents/test-bitacora-add.sh"
     },
     {
       "name": "red",

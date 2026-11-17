@@ -10,7 +10,7 @@
 #   It also drops the quotes around a value ("88", 'reviewer') and, if a key repeats (a 0.9 key next to its new
 #   one), keeps the first. CRLF lines are accepted.
 # - retros_dump: every retro of both branches (agents/retros wins over agentes/retros when a file is in both),
-#   normalized, as "<path>\0<text>\0" pairs. scripts/agents/bitacora.py reads the retros with it: one definition.
+#   normalized, as "<path>\0<text>\0" pairs.
 # shellcheck disable=SC2034  # used by the scripts that source this file
 RETROS_BRANCH=agents/retros
 # shellcheck disable=SC2034

@@ -1,35 +1,37 @@
-# Agent log (`bitacora.py`)
+# Project log (`/bitacora`)
 
-`scripts/agents/bitacora.py` builds one page with what each agent did in each change: a card per PR with every agent that touched it (role and model) and what it reported in its retro (#339). It reads the retros that `retro.sh` saves on the `agents/retros` branch and the title, state and link of the PRs they cite (one `gh api graphql` query per 100 PRs; none if no retro cites a PR), and writes `.barrilete/bitacora.html` (ignored by git, one self-contained file).
+`docs/bitacora.html` is the project log: one file per project, versioned in git so every member has it, with one section per topic (#343). A person adds an entry from the chat with `/bitacora <topic>` (skill `.claude/skills/bitacora/`): the agent writes it with the context of that conversation (what changed and why, what was decided, how it was checked, what is still open) and `scripts/agents/bitacora_add.py` inserts it. Nothing generates entries on its own.
 
 ```bash
-python3 scripts/agents/bitacora.py                      # this repo, barrilete design (+ the project's, if any)
-python3 scripts/agents/bitacora.py -C ../other-repo     # another repo
-python3 scripts/agents/bitacora.py --theme barrilete    # ignore .barrilete/bitacora.css
-python3 scripts/agents/bitacora.py --theme design.css   # use that file instead of .barrilete/bitacora.css
+python3 scripts/agents/bitacora_add.py find --topic "Decide the route"
+python3 scripts/agents/bitacora_add.py add --topic "Decide the route" --entry /tmp/entry.html
+python3 scripts/agents/bitacora_add.py add --topic "Decide the routes" --into decide-the-route --entry /tmp/entry.html
+python3 scripts/agents/bitacora_add.py -C ../other-repo add --topic "Release" --new --entry /tmp/entry.html
 ```
 
-The labels follow `language` in `.agent-kit.json` (`en` or `es`; without it, `en`). It prints `ok: <path>` and ends with 0. A usage error (a `--theme` file that does not exist, an unknown option) is one line and 64. If `gh` fails (no session, no network) the page is still written, without PR titles or states. Without retros, the page says so. Running it twice with the same retros gives the same page.
+## How entries are added
 
-It is not installed in `--small` mode, which has no retros (`.claude/skills/improve-skills` is not installed there).
+- **The section is the topic.** Its slug (lowercase, no accents, hyphens) is its id and its link: `docs/bitacora.html#decide-the-route`. Two topics with the same slug are the same section.
+- **Only inserts.** A new section goes at the end of `<main>` and its link at the end of the index; an entry goes at the end of its section, with the date (`--date YYYY-MM-DD`, today by default). Everything that was there stays byte for byte; the test checks it with a diff that only allows inserted lines. The places to insert are HTML comments (`<!-- bitacora:nav -->`, `<!-- bitacora:main -->`, `<!-- bitacora:end <slug> -->`): if the file lost them (edited by hand), the script does not touch it and exits with 65.
+- **A similar name is asked about.** `find` answers `exact <slug>`, `none <slug>` (exit 0) or one `similar <slug>\t<topic>` line per similar section (exit 3): a slug that contains the other one between hyphens, or a `difflib` ratio of 0.8 or more. `add` with a similar section and without `--into <slug>` or `--new` writes nothing and exits with 3; the skill asks the person and repeats with their answer.
+- **The entry is an HTML fragment** that uses the components below. It is rejected (exit 64, the file is not touched) if it is empty, has `<script>`, `<style>`, `<iframe>`, `<object>`, `<form>`, `on…=` handlers, `javascript:`, HTML comments, page structure tags (`<html>`, `<body>`, `<nav>`, `<main>`, `<section>`, `<article>`…) or tags left open. The topic is always written escaped, as text.
+- **The file is created** the first time, with the labels in the language of `language` in `.agent-kit.json` (`en` or `es`; without it, `en`) and the design of that moment. Other exits: 64 for a usage error (also outside a git repo), 1 if it cannot read or write.
 
-## The retro contract
+The page has no scripts. The kit does not ship a `docs/bitacora.html`: each project creates its own with its first `/bitacora`.
 
-The log depends on what `retro.sh` writes (`.claude/skills/improve-skills/retro.sh`, template in `retro-template.md`). If one of these changes, change `bitacora.py` in the same PR; `scripts/agents/test-bitacora.sh` writes a retro with `retro.sh` and fails if the log stops reading it.
+## Components
 
-- **Where:** `retros/*.md` on the `agents/retros` branch and on the 0.9 one, `agentes/retros` (if a file is on both, the new one wins). The one on `origin` if the repo has that remote (it fetches it first); otherwise the local one. It reads them with `retros_dump` of `.claude/skills/improve-skills/legacy-names.sh`, the same table `retro.sh` and `/improve-skills` use: 0.9 keys and values (`rol:`, `modelo:`, `fecha:` and values like `revisor`) are read as the new ones, quotes around a value are dropped and, if a key repeats, the first one wins.
-- **Frontmatter** (between two `---` lines), `key: value` lines:
-  - `pr`: number of the PR (with or without `#`, up to 9 digits; anything else counts as no PR). The retros are grouped by PR.
-  - `issue`: number of the issue, shown on the card. A retro with only the issue goes to the card of that issue's PR when another retro says which one it is (and it is only one); otherwise the retros are grouped by issue. Without either, each retro is its own card.
-  - `role`: `implementer`, `implementer-light`, `reviewer`, `orchestrator` or `session` (`retro.sh` writes `session` if it is missing).
-  - `model`: `opus`, `sonnet`, `haiku` or `unknown`.
-  - `skill`: `implement-issue`, `review-pr`, `orchestrate` or `improve-skills` (what the agent did).
-  - `date`: `YYYY-MM-DD` (`retro.sh` fills it in). The most recent changes go first.
-- **Body:** sections that start a line with `**Title:**`. The four of the template (`Deviations`, `Decisions not covered`, `What the review found`, `Proposal`, or their Spanish forms) are translated to the language of the page; any other title is shown as written. The text before the first section (or the whole body, if it has none) is shown as the report.
-- **Bytes:** a retro that is not valid UTF-8 is shown with the bad bytes replaced, never with an error.
-- **Fetch:** it runs with `GIT_TERMINAL_PROMPT=0` and, unless the person chose their own ssh (`GIT_SSH_COMMAND`, `GIT_SSH` or `core.sshCommand`), with `ssh -o BatchMode=yes -o ConnectTimeout=15`: offline or without a key it uses what it already has instead of waiting.
+The page carries the styles of these classes; the skill lists their HTML.
 
-Everything in a retro is text: it is escaped, never interpreted as HTML.
+| Class | What for |
+|---|---|
+| `kpis` + `kpi` | key numbers, with `ok`, `warn` or `danger` |
+| `cards` + `card` | cards by status (done, in progress, waiting on you) |
+| `tbl` | tables: before/after, options; they scroll sideways on a phone |
+| `bars` + `bar` | bars, with the width in `style="--v:70%"` |
+| `flow` | a flow of steps (`<ol>`) |
+| `note` | a highlighted note |
+| `ok`, `warn`, `danger` | status: done, in progress, waiting on a person or broken |
 
 ## The design: tokens
 
@@ -38,14 +40,14 @@ The page uses only these tokens. The barrilete design (`scripts/agents/bitacora/
 | Token | What it is | Light | Dark |
 |---|---|---|---|
 | `--bg` | page background | `#F6F7F9` | `#121418` |
-| `--surface` | blocks inside a card, code | `#E9ECF1` | `#1C1F26` |
-| `--card` | cards | `#FFFFFF` | `#23262E` |
+| `--surface` | blocks inside an entry, code | `#E9ECF1` | `#1C1F26` |
+| `--card` | entries | `#FFFFFF` | `#23262E` |
 | `--ink` | text | `#14161A` | `#ECEEF2` |
 | `--muted` | secondary text | `#5A6270` | `#A3AAB6` |
-| `--accent` | links and agent labels | `#2450E0` | `#8FB0FF` |
-| `--ok` | merged | `#17693D` | `#5FD39A` |
-| `--warn` | open | `#8A5300` | `#FFB020` |
-| `--danger` | closed | `#B4122B` | `#FF8A96` |
+| `--accent` | links and highlights | `#2450E0` | `#8FB0FF` |
+| `--ok` | done | `#17693D` | `#5FD39A` |
+| `--warn` | in progress | `#8A5300` | `#FFB020` |
+| `--danger` | waiting on you, broken | `#B4122B` | `#FF8A96` |
 | `--font-display` | titles | Bricolage Grotesque, then the system's | |
 | `--font-mono` | everything else | JetBrains Mono, then the system's | |
 
@@ -55,7 +57,7 @@ The fonts come from Google Fonts with `display=swap`: without network, the text 
 
 ### The project's design
 
-If the project has `.barrilete/bitacora.css`, it goes after the barrilete design and overrides the tokens it defines; whatever it does not define stays as barrilete. It is the project's file: the kit does not install it, and it is versioned like any other.
+If the project has `.barrilete/bitacora.css`, it goes after the barrilete design (both are copied into the page when it is created) and overrides the tokens it defines; whatever it does not define stays as barrilete. It is the project's file: the kit does not install it, and it is versioned like any other.
 
 ```css
 /* .barrilete/bitacora.css */
@@ -69,3 +71,5 @@ If the project has `.barrilete/bitacora.css`, it goes after the barrilete design
 ```
 
 A token defined only in `:root` applies to both modes (a later `:root` wins over barrilete's dark block): to give dark mode its own value, define it in the `@media` block too, as in the example. If you change colors, check the contrast yourself: the test only checks barrilete's.
+
+The design is copied into the page when it is created, and entries never rewrite it: a page that already exists keeps the design it was born with. To give it a new one, change the `<style id="theme-…">` blocks by hand in a PR of its own.
