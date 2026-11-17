@@ -122,6 +122,16 @@ ev file "$EVL"
 grep -qx 'n=3' <<<"$out"; tap_check $? "store local: desde un worktree el evento va al checkout principal"
 [ ! -e "$TMP/wt/.barrilete/learning/events.jsonl" ]; tap_check $? "store local: desde un worktree nada queda en el worktree"
 
+# Sin origin, el proyecto es la carpeta: un nombre fuera de la forma de la tabla se limpia, no deja de escribir
+mkdir -p "$TMP/mi proyecto ñ"
+git init -q "$TMP/mi proyecto ñ"
+cd "$TMP/mi proyecto ñ" || exit 2
+tap_run out 0 python3 "$P/$L" emit check_run rule_id=r-carpeta outcome=pass
+cd "$P" || exit 2
+ev file "$TMP/mi proyecto ñ/.barrilete/learning/events.jsonl"
+grep -qx 'n=1' <<<"$out"; tap_check $? "emit: sin origin y con una carpeta con espacios o ñ el evento se escribe igual"
+grep -qx 'project=mi-proyecto-' <<<"$out"; tap_check $? "emit: lo que no entra en la forma del proyecto queda como -"
+
 # --- 3. Store branch (D2): la rama agents/learning, sin tocar la rama de trabajo ---
 rm -rf "$P/.barrilete/learning"
 printf '{"store": "branch"}\n' >"$P/.barrilete/learning.json"
@@ -167,11 +177,23 @@ grep -qx 'rule_id=r-local' <<<"$out"; tap_check $? "push: suma el evento local"
 tap_run out 0 python3 "$L" push
 ev ref "$TMP/proyecto.git" refs/heads/agents/learning
 grep -qx 'n=5' <<<"$out"; tap_check $? "push: otra vez sin eventos nuevos no duplica nada"
+# Un rechazo que no es una carrera (un hook del remoto) no se reintenta: sale con 1 y dice lo que dijo git
+printf '#!/bin/sh\necho "hook: agents/learning no se acepta acá" >&2\nexit 1\n' >"$TMP/proyecto.git/hooks/pre-receive"
+chmod +x "$TMP/proyecto.git/hooks/pre-receive"
+tap_run out 0 python3 "$L" emit check_run rule_id=r-hook outcome=pass
+tap_run out 1 python3 "$L" push
+[ "$TAP_RC" -eq 1 ]; tap_check $? "push: un rechazo del remoto sale con 1"
+grep -q 'no se acepta acá' <<<"$out"; tap_check $? "push: un rechazo del remoto muestra el motivo que dio git"
+grep -q 'kept moving' <<<"$out"; [ $? -eq 1 ]; tap_check $? "push: un rechazo del remoto no se confunde con una carrera"
+rm -f "$TMP/proyecto.git/hooks/pre-receive"
 
 printf '{"store": "nube"}\n' >"$P/.barrilete/learning.json"
 tap_run out 3 python3 "$L" emit check_run rule_id=r-nube outcome=pass
 [ "$TAP_RC" -eq 3 ]; tap_check $? "learning.json: un store desconocido es un error"
 grep -q 'learning.json' <<<"$out"; tap_check $? "learning.json: el error nombra el archivo"
+printf '{"store": "nube"}\n' >"$P/.barrilete/learning.json"
+tap_run out 3 python3 "$L" push
+[ "$TAP_RC" -eq 3 ]; tap_check $? "push: un learning.json inválido sale con 3, como en emit (1 es una falla de git)"
 git -C "$P" checkout -q -- .barrilete/learning.json
 
 # --- 4. rules_ref (D6): <12 del SHA de rules.lock>.<12 del sha256 de las secciones generadas que lee el rol> ---

@@ -87,7 +87,7 @@ class Registro:
                 self.ctx = learning.contexto()
             learning.escribir([learning.evento("check_run", {"rule_id": regla, "outcome": RESULTADO_EVENTO[estado]},
                                                self.ctx) for regla, _ in self.mensajes[nombre]])
-        except (learning.LearningError, OSError) as e:
+        except (learning.LearningError, OSError, ValueError) as e:   # ValueError: a file or git output that is not UTF-8
             self.roto = True
             print(f"verify.py: could not record the check runs: {e}", file=sys.stderr)
 

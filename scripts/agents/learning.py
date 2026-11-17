@@ -152,7 +152,9 @@ def proyecto(cwd=None):
     r = _git("remote", "get-url", REMOTO, cwd=cwd)
     url = r.stdout.strip().rstrip("/") if r.returncode == 0 else ""
     nombre = re.split(r"[/:]", url)[-1] if url else os.path.basename(raiz_principal(cwd))
-    return nombre[:-4] if nombre.endswith(".git") else nombre
+    nombre = nombre[:-4] if nombre.endswith(".git") else nombre
+    # A folder like "mi proyecto" or "año" would make every event invalid: what is outside the table's form becomes "-"
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", nombre)[:100] or "unknown"
 
 
 def store(cwd=None):
@@ -367,8 +369,12 @@ def push(cwd=None):
             destino = _commit(texto, [remoto, local], f"learning: join {RAMA}", cwd)
             if _git("update-ref", REF, destino, local, cwd=cwd).returncode != 0:
                 continue   # an emit landed meanwhile: start over
-        if _git("push", "-q", REMOTO, f"{destino}:{REF}", cwd=cwd).returncode == 0:
+        r = _git("push", "-q", REMOTO, f"{destino}:{REF}", cwd=cwd)
+        if r.returncode == 0:
             return f"{RAMA} pushed to {REMOTO}"
+        if not re.search(r"\[rejected\]|fetch first|non-fast-forward", r.stderr):
+            # Not a race (no auth, a protected ref, a hook): retrying does not fix it, git's reason does
+            raise LearningError(f"could not push {RAMA}: {r.stderr.strip() or 'git push failed'}")
     raise LearningError(f"could not push {RAMA}: {REMOTO} kept moving")
 
 
@@ -403,7 +409,12 @@ def main(argv):
             escribir([evento(args[0], campos)])
             return 0
         if cmd == "push" and not args:
-            print(push())
+            store()   # an invalid learning.json is 3, like in emit; only a git failure of the push is 1
+            try:
+                print(push())
+            except LearningError as e:
+                print(f"learning.py: {e}", file=sys.stderr)
+                return 1
             return 0
         if cmd == "rules-ref" and len(args) <= 1:
             ref = rules_ref(args[0] if args else None)
@@ -414,7 +425,7 @@ def main(argv):
             return 0
     except LearningError as e:
         print(f"learning.py: {e}", file=sys.stderr)
-        return 1 if cmd == "push" else 3
+        return 3
     except (OSError, ValueError) as e:   # a file that cannot be read, or is not UTF-8
         print(f"learning.py: {e.__class__.__name__}: {e}", file=sys.stderr)
         return 3

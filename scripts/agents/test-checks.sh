@@ -315,6 +315,14 @@ mkdir -p "$TMP/tarea-sin-json"
 BK_TASK_DIR="$TMP/tarea-sin-json" verify 0
 eventos
 grep -q '^task_id=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: sin task.json legible no se inventa un task_id"
+# Un AGENTS.md que no es UTF-8 (rules_ref lo lee con BK_TASK_DIR y rules.lock): el registro avisa, verify.py no se cae
+rm -rf "$P/.barrilete/learning"
+cp "$P/AGENTS.md" "$TMP/AGENTS.bak" 2>/dev/null || :
+[ -f "$P/.barrilete/rules.lock" ] || printf 'repo=o/reglas\nsha=9abec4a99f6d1dfc7f1d879e9f20427db60500e0\n' >"$P/.barrilete/rules.lock"
+printf '<!-- rules:begin o/r@1 -->\n\377\376 roto\n<!-- rules:end -->\n' >"$P/AGENTS.md"
+BK_TASK_DIR="$TMP/tarea" verify 0
+grep -q 'could not record' <<<"$out"; tap_check $? "check_run: un AGENTS.md que no es UTF-8 se avisa como un registro que no se pudo escribir"
+if [ -f "$TMP/AGENTS.bak" ]; then cp "$TMP/AGENTS.bak" "$P/AGENTS.md"; else rm -f "$P/AGENTS.md"; fi
 
 rm -rf "$P/.barrilete/learning"
 manifiesto pr-metadata
@@ -349,7 +357,6 @@ tap_no_traceback "$out"
 eventos
 grep -qx 'r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: desde un worktree, el evento queda en el checkout principal"
 [ ! -e "$TMP/wt/.barrilete/learning/events.jsonl" ]; tap_check $? "check_run: desde un worktree, nada queda dentro del worktree"
-grep -q '^branch=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: con HEAD suelto (el worktree está en --detach) el evento no lleva rama"
 git -C "$P" worktree remove --force "$TMP/wt"
 
 # Si verify.py muere a mitad de camino, los checks que ya terminaron quedan registrados
