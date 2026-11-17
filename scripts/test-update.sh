@@ -29,6 +29,9 @@ prep() {
 }
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# The init and update.py do not run sync-rules here (#290): it clones the rules repo, and these suites do not touch the network.
+# Its cases are in scripts/agents/test-sync-rules.sh.
+export AGENT_KIT_NO_RULES_SYNC=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 # Ningún git de la prueba corre gc ni mantenimiento en segundo plano (#186, #224): ver scripts/agents/git-quiet.sh.
 # shellcheck source=/dev/null
