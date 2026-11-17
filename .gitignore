@@ -11,7 +11,7 @@ __pycache__
 # Worktrees del aislamiento de Claude Code (subagentes)
 .claude/worktrees/
 
-# Registro de aprendizaje del proyecto (eventos check_run de verify.py, #323)
+# Store local de aprendizaje del proyecto (ADR-007, scripts/agents/learning.py)
 .barrilete/learning/
 
 # Bitácora de agentes (scripts/agents/bitacora.py, #339): se genera, no se versiona

@@ -10,6 +10,10 @@ works as before. It reads the hook JSON from stdin and:
   UserPromptSubmit   -> status in_progress (the person answered)
   Stop               -> event turn.waiting, status waiting. It never closes the task (D4): in an interactive
                         session Stop fires at the end of every turn. The agent closes it with `bk done`.
+                        If the task is already terminal (the Stop after `bk done`), it leaves a task_end learning
+                        event in the project's store (ADR-007 D3, scripts/agents/learning.py), once per task: the mark
+                        is a file in the git common dir named by the task id and its `created`. It does not touch the
+                        task: no status, no event in its events.jsonl.
   PostToolUse (Bash) -> `git commit` that worked: event commit (sha); `gh pr create`: event pr.opened (pr).
                         The registration filters in sh before starting Python: other commands cost nothing (D5).
 
@@ -24,6 +28,7 @@ nothing changes and no event is added; a `pending` task (proposed, not approved)
 It never blocks the agent: any error exits 0 without writing.
 """
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -129,6 +134,27 @@ def apply(d, status, etype, data):
         os.close(fd)
 
 
+def task_end(d):
+    """The task_end learning event of a terminal task, once per task (id + created). Silent: errors are raised and the
+    caller swallows them. The mark is taken before writing and dropped if the write fails, so a retry is possible."""
+    with open(os.path.join(d, "task.json")) as f:
+        task = json.load(f)
+    if not isinstance(task, dict) or task.get("status") not in TERMINAL:
+        return
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import learning
+    clave = hashlib.sha256(f"{task.get('id')}\0{task.get('created')}".encode()).hexdigest()[:24]
+    marcas = os.path.join(learning.dir_comun(), "barrilete", "task-end")
+    os.makedirs(marcas, exist_ok=True)
+    marca = os.path.join(marcas, clave)
+    os.close(os.open(marca, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))   # exists: this task already left its task_end
+    try:
+        learning.escribir([learning.evento("task_end", {"outcome": task["status"]})])
+    except BaseException:
+        os.unlink(marca)
+        raise
+
+
 def main():
     d = os.environ.get("BK_TASK_DIR")
     if not d:
@@ -138,6 +164,8 @@ def main():
         c = change(entry) if isinstance(entry, dict) else None
         if c:
             apply(d, *c)
+        if isinstance(entry, dict) and entry.get("hook_event_name") == "Stop":
+            task_end(d)
     except Exception:   # a task event is never worth stopping the agent
         pass
     return 0
