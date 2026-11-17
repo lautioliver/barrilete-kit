@@ -414,7 +414,8 @@ con_contextos '[{"paths": ["src/ventas/**"], "depends_on": [null]}]'
 salida=$(check); [[ "$salida" == *"depends_on must list context names"* && "$salida" != *"depends on itself"* ]]; tap_check $? "contextos: un depends_on con null en un contexto sin name es un error claro y no una autodependencia" "contextos: un depends_on con null en un contexto sin name es un error claro (salida: $salida)"
 
 # 10. agents_map.py dice qué contextos toca el diff (ADR-003 D3): el JSON trae los contextos que tocó el cambio, con su nombre
-# (como clave de "contexts" o como elemento de la lista).
+# (como clave de "contexts" o como elemento de la lista). Además lee, sin romperse, un mapa que check-docs.py rechaza: dos contextos con
+# el mismo nombre (juntan sus archivos), un name vacío (no cuenta como tocado) y "contexts": null (ningún contexto tocado).
 m="$TMP/m"
 mkdir -p "$m/scripts/agents" "$m/docs" "$m/src/ventas" "$m/src/pagos"
 cp "$RAIZ/scripts/agents/agents_map.py" "$m/scripts/agents/"
@@ -523,6 +524,17 @@ printf '{"contexts": []}\n' >"$TMP/r/docs/agents-map.json"
 printf '\n- [Contexts](reference/contexts.md)\n' >>"$TMP/r/docs/README.md"
 printf '# Index\n\n- [Contexts](reference/contexts.md)\n' >"$TMP/r/docs/llms.txt"
 salida=$(check); [[ "$salida" == *"docs/reference/glossary.md is missing"* ]]; tap_check $? "perfil completo: sin docs/reference/glossary.md check-docs falla y lo nombra" "perfil completo: sin docs/reference/glossary.md check-docs falla y lo nombra (salida: $salida)"
+
+# Sin ningún índice que pueda enlazarlos, el chequeo de enlaces no pasa en silencio: lo dice.
+minimo
+modo_small
+git -C "$TMP/r" rm -q -f docs/README.md
+salida=$(check); [[ "$salida" == *"no docs index"* ]]; tap_check $? "--small: sin docs/README.md ni docs/README.es.md, el chequeo de enlaces dice que no hay índice" "--small: sin ningún índice, el chequeo no pasa en silencio (salida: $salida)"
+minimo
+modo_small
+git -C "$TMP/r" rm -q -f docs/README.md
+printf '# Docs\n\n- [Glossary](glossary.md)\n- [Contexts](contexts.md)\n' >"$TMP/r/docs/README.es.md"
+salida=$(check); [[ "$salida" != *"no docs index"* ]]; tap_check $? "--small: con docs/README.es.md como único índice, el chequeo no dice que falte" "--small: un índice en español alcanza (salida: $salida)"
 
 # 11. La categoría `agents` de sensitive (#188): lo que define qué corren los agentes y desde dónde es sensible (AGENTS.md, autonomía).
 # Un repo chico con el mapa real del kit y un cambio en cada ruta; agents_map.py --json dice con qué tipo se marcó.

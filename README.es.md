@@ -117,7 +117,8 @@ Qué toca:
 | `.claude/settings.json` | Fusión JSON: agrega el hook de barandas a tus hooks. Si el archivo no es JSON válido, no tiene objeto `hooks` o es un enlace simbólico, la versión del kit va a `.agent-kit/pending/` en su lugar |
 | Workflow con el mismo nombre | El del kit se instala como `barrilete-<nombre>.yml` |
 | `.github/labels.yml` | Los labels del kit más los que el repo tenía al instalar (`gh label list`), así el primer sync no borra ninguno de ellos |
-| Un `docs/agents-map.json` que ya tengas | Deja el tuyo y le agrega la sección `red` del kit si no la tiene (`red.sh` rechaza un mapa sin ella, ADR-002); el mapa completo del kit va a `.agent-kit/pending/` |
+| Un `docs/agents-map.json` que ya tengas | Deja el tuyo y le agrega la sección `red` del kit si no la tiene (`red.sh` rechaza un mapa sin ella, ADR-002) y una sección `contexts` vacía si no la tiene (ADR-003 D3); el mapa completo del kit va a `.agent-kit/pending/` |
+| Un glosario propio en otra ruta (`glossary.md`, `glosario.md`…) | Deja el tuyo; el glosario del kit se instala al lado (`docs/reference/` lo enlaza) y el resumen dice dónde está el tuyo, para que los unas (ADR-003) |
 | Cualquier otro archivo que ya tengas (por ejemplo `AGENTS.md`, `docs/README.md`, el template de PR) | Deja el tuyo; la versión del kit va a `.agent-kit/pending/` |
 
 Revisalo antes de commitear nada. El instalador no commitea: mirá `git status` y el diff. Después:
@@ -313,6 +314,7 @@ El modo chico deja solo el README en el idioma elegido (en inglés por defecto; 
 - Los que modificó **no se pisan**: la versión completa queda en `.agent-kit/pending/` para integrarla.
 - Un `docs/agents-map.json` que modificó **no** queda en pendientes: conserva sus secciones (su `red` entre ellas) y recibe las del mapa completo; si no tenía `red`, recibe la entrada `bash` del kit.
 - La arquitectura del proyecto chico pasa a `docs/development/architecture.md`.
+- Su glosario y su tabla de contextos (`glossary.md` y `contexts.md`, en `docs/`) pasan a `docs/reference/` si el proyecto escribió en ellos (si no, ocupan su lugar los del perfil completo), y la columna de rutas de la tabla pasa a la sección `contexts` del mapa (una ruta que no coincide con ningún archivo va con `?`, opcional); si la tabla no se puede pasar (un `Depends on` que no está en la tabla, otra cantidad de columnas, ninguna tabla), grow.py lo dice y la tabla queda para que la llenes a mano (ADR-003 D2, D3).
 
 No commitea: revisás el diff y abrís un PR.
 
@@ -334,7 +336,8 @@ Inicializa la versión nueva con los datos del proyecto y la compara archivo por
 
 - Lo que el proyecto no tocó se reemplaza, lo nuevo se agrega y lo que la plantilla sacó se borra.
 - Lo que tocaron los dos lados se fusiona con `git merge-file`. Si hay conflicto, **no se pisa**: la fusión con marcas queda en `.agent-kit/pending/`.
-- Un `docs/agents-map.json` sin sección `red` recibe la entrada `bash` del kit y un aviso que remite a `docs/guides/red-per-runner.md` (ADR-002 D8; `red.sh` rechaza un mapa sin `red`).
+- Un `docs/agents-map.json` sin sección `red` recibe la entrada `bash` del kit y un aviso que remite a `docs/guides/red-per-runner.md` (ADR-002 D8; `red.sh` rechaza un mapa sin `red`), y uno sin sección `contexts` la recibe vacía (ADR-003 D3; uno que no es JSON válido queda como está y el resumen dice que la agregues a mano).
+- El glosario y el mapa de contextos (ADR-003) llegan como cualquier archivo nuevo; si tu índice de docs (`docs/README.md`, y `docs/llms.txt` en el modo completo) no los enlaza, el resumen dice qué agregar.
 - Lo que el proyecto borró no vuelve.
 
 Un proyecto creado con 0.9 (nombres en español) se migra en la misma corrida a los nombres, claves y labels nuevos, conservando sus cambios; sus pasos están en [Desde 0.9](#desde-09) más abajo.

@@ -62,6 +62,66 @@ def con_red(texto, kit):
         return None
     mio["red"] = del_kit["red"]
     return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
+
+
+# The glossary and the map of contexts (ADR-003 D2, D5, D3). `LINK`, `enlaza`, `avisos_enlaces` and `con_contextos` are copies in update.py, grow.py and install.py: they run on their own, so change all of them.
+CONTEXTS_AGREGADO = ("docs/agents-map.json had no `contexts` section (ADR-003 D3): I added it empty. Fill it in with the project's "
+                     "bounded contexts (name, paths, depends_on: the _help of the map explains it); docs/reference/contexts.md is its prose.")
+LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def con_contextos(texto, kit):
+    """The project's map with the kit's (empty) `contexts` section added; None if it already has one or there is nothing to add.
+    ValueError if the project's map is not a JSON object."""
+    try:
+        mio, del_kit = json.loads(texto), json.loads(kit)
+    except ValueError as e:
+        raise ValueError(f"it is not valid JSON ({e})")
+    if not isinstance(mio, dict):
+        raise ValueError("it is not a JSON object")
+    if "contexts" in mio or not isinstance(del_kit, dict) or "contexts" not in del_kit:
+        return None
+    mio["contexts"] = del_kit["contexts"]
+    return json.dumps(mio, ensure_ascii=False, indent=2) + "\n"
+
+
+def aviso_contextos(e):
+    return (f"{MAPA}: could not add its `contexts` section ({e}). A map without it is read as empty, so nothing breaks: "
+            'add `"contexts": []` by hand when you define the contexts.')
+
+
+def enlaza(indice, ruta):
+    """True if the index links ruta (any spelling: ./a.md, <a.md>, a.md#section; not in a code block or inline code)."""
+    try:
+        with open(indice, encoding="utf-8") as f:
+            texto = re.sub(r"```.*?```", "", f.read(), flags=re.S)
+    except (OSError, UnicodeDecodeError):
+        return True  # it cannot be read: there is nothing to say about it
+    for linea in texto.splitlines():
+        for d in LINK.findall(re.sub(r"`[^`]*`", "", linea)):
+            d = d.strip("<>")
+            local = d.split("#")[0]
+            if not re.match(r"^[a-z]+:", d) and local and os.path.normpath(os.path.join(os.path.dirname(indice), local)) == os.path.normpath(ruta):
+                return True
+    return False
+
+
+def avisos_enlaces(chico, existe=os.path.exists):
+    """What the docs indexes do not link of the glossary and the map of contexts: the text of a warning for each one that
+    exists (`existe`) and is not linked. As check-docs.py reads them: --small in docs/glossary.md and docs/contexts.md, from the READMEs;
+    full in docs/reference/, from the READMEs and the llms.txt."""
+    rutas = ["docs/glossary.md", "docs/contexts.md"] if chico else ["docs/reference/glossary.md", "docs/reference/contexts.md"]
+    indices = ["docs/README.md", "docs/README.es.md"] + ([] if chico else ["docs/llms.txt", "docs/llms.es.txt"])
+    avisos = []
+    for ruta in rutas:
+        for indice in indices:
+            if existe(ruta) and os.path.exists(indice) and not enlaza(indice, ruta):
+                titulo = "Glossary" if "glossary" in ruta else "Contexts"
+                avisos.append(f"{indice} does not link {ruta}: add a link to it, for example "
+                              f"[{titulo}]({os.path.relpath(ruta, os.path.dirname(indice))})")
+    return avisos
+
+
 USO = 'Usage: python3 install.py "Project name" [main|develop] [releases] [--small] [--draft] ' \
       "[--template <url or path>] [--version vX.Y.Z] [--lang en|es] [-- <init options>]"
 
@@ -289,6 +349,21 @@ def padre_ocupado(ruta):
                or os.path.islink("/".join(partes[:i + 1])) for i in range(len(partes)))
 
 
+# What planear found about the map and the glossary, for the summary: sections it adds to the repo's map, and the repo's own glossaries.
+AGREGADAS = {"red": False, "contexts": False}
+GLOSARIOS_DEL_KIT = ("docs/reference/glossary.md", "docs/glossary.md")
+GLOSARIOS_AJENOS = {}
+TERCEROS = {"node_modules", "vendor", "third_party", "site-packages", ".venv", "venv"}  # code that is not the repo's own: its glossaries are not the repo's
+
+
+def glosarios_ajenos(ruta):
+    """The repo's tracked files that are a glossary (glossary.md, glosario.md, GLOSSARY.md, glosario.es.md…) in a path other than `ruta`."""
+    r = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
+    return [f for f in r.stdout.splitlines()
+            if re.fullmatch(r"(glossary|glosario)(\.[a-z]{2})?\.md", os.path.basename(f), re.I)
+            and f != ruta and not f.startswith(".agent-kit/") and not set(f.split("/")) & TERCEROS]
+
+
 def planear(nueva, labels_yml):
     """What to do with each kit file, without touching anything: list of (action, project path, kit path, data).
 
@@ -297,6 +372,8 @@ def planear(nueva, labels_yml):
     plan = []
     for ruta in sorted(set(archivos(nueva)) - {".agent-kit.json"}):
         kit = os.path.join(nueva, ruta)
+        if ruta in GLOSARIOS_DEL_KIT and not os.path.lexists(ruta) and (ajenos := glosarios_ajenos(ruta)):
+            GLOSARIOS_AJENOS[ruta] = ajenos  # the repo has its glossary in another path: the kit's goes in anyway, next to it, and the summary warns (ADR-003)
         if ruta in NUNCA_TOCAR:
             plan.append(("skip", ruta, kit, None))
         elif padre_ocupado(ruta):
@@ -320,7 +397,11 @@ def planear(nueva, labels_yml):
             # The project's own map stays and the kit's goes to pending, but a map without `red` gets that section:
             # red.sh rejects it otherwise (ADR-002 D8).
             try:
-                texto = con_red(leer(ruta), leer(kit))
+                mio, del_kit = leer(ruta), leer(kit)
+                con_r = con_red(mio, del_kit)
+                con_ctx = con_contextos(mio if con_r is None else con_r, del_kit)  # also `contexts` (ADR-003 D3)
+                AGREGADAS["red"], AGREGADAS["contexts"] = con_r is not None, con_ctx is not None
+                texto = con_ctx if con_ctx is not None else con_r
             except (ValueError, UnicodeDecodeError):
                 texto = None
             plan.append(("pending", ruta, kit, None))
@@ -376,7 +457,7 @@ def aplicar(plan):
     return registro, renombres
 
 
-def resumen(plan, propios, ref, draft):
+def resumen(plan, propios, ref, draft, chico=False):
     def de(*acciones):
         return [(r, d) for a, r, _, d in plan if a in acciones]
     print(f"\n{'Plan (--draft: nothing was written)' if draft else 'Done'}: kit {ref}.")
@@ -386,13 +467,26 @@ def resumen(plan, propios, ref, draft):
     for r, _ in de("merge"):
         print(f"  - Merged into yours (review the diff): {r}")
     if any(r == MAPA for r, _ in de("merge")):
-        aviso = f"{RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}"
-        print(f"  - {aviso.replace('I added', 'I would add') if draft else aviso}")
+        if AGREGADAS["red"]:
+            aviso = f"{RED_AGREGADA} If your tests are not bash, replace that entry. {RED_GUIA}"
+            print(f"  - {aviso.replace('I added', 'I would add') if draft else aviso}")
+        if AGREGADAS["contexts"]:
+            print(f"  - {CONTEXTS_AGREGADO.replace('I added', 'I would add') if draft else CONTEXTS_AGREGADO}")
     if any(r == MAPA for r, _ in de("pending")):
         try:  # con_red also tells whether the project's map can be read as a JSON object
             con_red(leer(MAPA), "{}")
         except (ValueError, UnicodeDecodeError) as e:
             print(f"  - {MAPA}: could not check its `red` section ({e}). red.sh needs it: add it by hand. {RED_GUIA}")
+            if not chico:  # --small has no `contexts` section (ADR-003 D3)
+                print(f"  - {aviso_contextos(e)}")
+    agregados = {r for r, _ in de("add", "same")}
+    for ruta, otros in GLOSARIOS_AJENOS.items():
+        if ruta in agregados:
+            print(f"  - The repo already has a glossary ({', '.join(otros)}): {'I would install' if draft else 'I installed'} the kit's ({ruta}) next to it, "
+                  "because docs/reference/contexts.md and the docs index link it. Move into one of them the terms of the other, then delete the one you do not keep "
+                  "and fix the links that pointed to it.")
+    for aviso in avisos_enlaces(chico, lambda r: os.path.exists(r) or r in agregados):
+        print(f"  - Warning: {aviso}")
     for r, d in de("rename"):
         print(f"  - Workflow with the same name: the kit's {os.path.basename(r)} is installed as {os.path.basename(d)}")
     if any(r == ".github/labels.yml" for r, _ in de("add")):
@@ -494,7 +588,7 @@ def main():
                 f.write("\n")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    resumen(plan, propios, ref if ref != "HEAD" else "from the default branch", op["draft"])
+    resumen(plan, propios, ref if ref != "HEAD" else "from the default branch", op["draft"], op["small"])
 
 
 if __name__ == "__main__":

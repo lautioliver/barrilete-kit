@@ -115,7 +115,8 @@ What it touches:
 | `.claude/settings.json` | JSON merge: adds the guardrails hook to your hooks. If the file is not valid JSON, has no `hooks` object or is a symlink, the kit's version goes to `.agent-kit/pending/` instead |
 | Workflow with the same name | The kit's is installed as `barrilete-<name>.yml` |
 | `.github/labels.yml` | The kit's labels plus the ones the repo had at install time (`gh label list`), so the first sync deletes none of them |
-| `docs/agents-map.json` you already have | Keeps yours and adds the kit's `red` section if it has none (`red.sh` rejects a map without it, ADR-002); the kit's full map goes to `.agent-kit/pending/` |
+| `docs/agents-map.json` you already have | Keeps yours and adds the kit's `red` section if it has none (`red.sh` rejects a map without it, ADR-002) and an empty `contexts` section if it has none (ADR-003 D3); the kit's full map goes to `.agent-kit/pending/` |
+| A glossary of your own in another path (`glossary.md`, `glosario.md`…) | Keeps it; the kit's glossary is installed next to it (`docs/reference/` links to it) and the summary says where yours is, so you merge them (ADR-003) |
 | Any other file you already have (for example `AGENTS.md`, `docs/README.md`, the PR template) | Keeps yours; the kit's version goes to `.agent-kit/pending/` |
 
 Review it before you commit anything. The installer doesn't commit: review `git status` and the diff. Then:
@@ -311,6 +312,7 @@ The small mode keeps only the README in the chosen language (English by default;
 - Files it modified are **not overwritten**: the full version lands in `.agent-kit/pending/` for you to merge in.
 - A `docs/agents-map.json` it modified is **not** left in pending: it keeps its sections (its `red` among them) and gets the ones of the full map; if it had no `red`, it gets the kit's `bash` entry.
 - The small project's architecture moves to `docs/development/architecture.md`.
+- Its glossary and contexts table (`glossary.md` and `contexts.md`, in `docs/`) move to `docs/reference/` if the project wrote in them (if not, the full profile's own take their place), and the code-paths column of the table passes to the `contexts` section of the map (a path that matches no file goes with a `?`, optional); if the table cannot be passed (a `Depends on` that is not in the table, another number of columns, no table), grow.py says so and the table stays for you to fill in by hand (ADR-003 D2, D3).
 
 It doesn't commit: you review the diff and open a PR.
 
@@ -332,7 +334,8 @@ It initializes the new version with the project's data and compares it file by f
 
 - Files the project never touched are replaced, new ones are added and files the template removed are deleted.
 - Files both sides changed are merged with `git merge-file`. On a conflict **nothing is overwritten**: the merge with markers lands in `.agent-kit/pending/`.
-- A `docs/agents-map.json` without a `red` section gets the kit's `bash` entry and a warning that points to `docs/guides/red-per-runner.md` (ADR-002 D8; `red.sh` rejects a map without `red`).
+- A `docs/agents-map.json` without a `red` section gets the kit's `bash` entry and a warning that points to `docs/guides/red-per-runner.md` (ADR-002 D8; `red.sh` rejects a map without `red`), and one without a `contexts` section gets it empty (ADR-003 D3; one that is not valid JSON stays as it is and the summary says to add it by hand).
+- The glossary and the map of contexts (ADR-003) arrive like any new file; if your docs index (`docs/README.md`, and `docs/llms.txt` in full mode) does not link them, the summary names what to add.
 - Files the project deleted don't come back.
 
 A project created with 0.9 (Spanish names) is migrated in the same run to the new names, keys and labels, keeping its changes. Its steps are in [From 0.9](#from-09) below.

@@ -451,7 +451,13 @@ def validar_contextos(contextos):
     r = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
     archivos = [l for l in r.stdout.splitlines() if l] if r.returncode == 0 else None  # None: no git, the paths are not checked
     nombres = {c.get("name") for c in contextos if isinstance(c, dict) and isinstance(c.get("name"), str) and c.get("name").strip()}
-    errs, vistos = [], set()
+    errs, vistos, regex = [], set(), {}  # regex: glob → its compiled regex, so a glob repeated in the section compiles once
+
+    def regex_de(g):
+        if g not in regex:
+            regex[g] = glob_a_regex(g)
+        return regex[g]
+
     for i, c in enumerate(contextos):
         if not isinstance(c, dict):
             errs.append(f"docs/agents-map.json: contexts[{i}] must be an object (name, paths, depends_on)")
@@ -473,7 +479,7 @@ def validar_contextos(contextos):
             for g in paths:
                 if not isinstance(g, str) or not g:
                     errs.append(f"{pre} every path must be a non-empty glob, not {g!r}")
-                elif archivos is not None and not g.startswith("?") and not any(glob_a_regex(g).match(a) for a in archivos):
+                elif archivos is not None and not g.startswith("?") and not any(regex_de(g).match(a) for a in archivos):
                     errs.append(f"{pre} the path {g} matches no file. If it moved, update it; if it is optional, start it with ?")
         deps = c.get("depends_on", [])
         if not isinstance(deps, list):
@@ -529,6 +535,9 @@ if MAPA and not INSTALADO:
     # Only the kit itself (where the init is still there) requires it as an error. In a project it is a warning, like the ADR index
     # above: after update.py the kit's README may be left in .agent-kit/pending/ and that must not turn its docs CI red.
     problemas = errores if os.path.exists("scripts/init-template.sh") else avisos
+    if not any(os.path.exists(i) for i in indices):
+        problemas.append(f"no docs index ({' or '.join(indices)}) to link the glossary and the map of contexts from (ADR-003 D2, D5): "
+                         "the check of their links has nothing to read")
     for ruta in (["docs/glossary.md", "docs/contexts.md"] if SOLO_RED else ["docs/reference/glossary.md", "docs/reference/contexts.md"]):
         if not os.path.exists(ruta):
             problemas.append(f"{ruta} is missing: the glossary and the map of contexts are required (ADR-003 D2, D5)")
