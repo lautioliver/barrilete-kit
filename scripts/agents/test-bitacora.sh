@@ -19,11 +19,15 @@ TMP=$(cd "$TMP" && pwd)   # sin la doble barra de un TMPDIR que termina en /
 # shellcheck disable=SC2016  # se expande al salir, no ahora
 tap_at_exit 'rm -rf "$TMP"'
 
-# gh falso: devuelve un PR fijo. El que falla simula gh sin sesión o sin red.
+# gh falso: anota cómo lo llamaron en $GH_LOG y responde como `gh api graphql` con el PR 42; como el real, si le
+# piden un número que no es un PR, da los datos que tiene y sale con 1. El que falla simula gh sin sesión o sin red.
 mkdir -p "$TMP/bin" "$TMP/bin-roto"
+export GH_LOG="$TMP/gh.log"
 cat >"$TMP/bin/gh" <<'EOF'
 #!/bin/sh
-echo '[{"number":42,"title":"Agregar la bitácora de prueba","state":"MERGED","url":"https://example.test/pull/42"}]'
+printf '%s\n' "$*" >>"$GH_LOG"
+echo '{"data":{"repository":{"p42":{"number":42,"title":"Agregar la bitácora de prueba","state":"MERGED","url":"https://example.test/pull/42"},"p77":null}},"errors":[{"type":"NOT_FOUND"}]}'
+exit 1
 EOF
 printf '#!/bin/sh\necho "gh: sin sesión" >&2\nexit 1\n' >"$TMP/bin-roto/gh"
 chmod +x "$TMP/bin/gh" "$TMP/bin-roto/gh"
@@ -72,6 +76,7 @@ cmp -s "$TMP/primera.html" "$pagina"; tap_check $? "correrlo dos veces da la mis
 # 3. Sin gh (sin sesión o sin red): la página sale igual, con el PR pero sin su título.
 tap_run out 0 env PATH="$TMP/bin-roto:$PATH" python3 -I "$BITACORA" -C "$TMP/p"
 grep -qF 'data-pr="42"' "$pagina"; tap_check $? "si gh falla, la página sale igual con el PR"
+grep -qF 'Agregar la bitácora de prueba' "$pagina"; es=$?; [ "$es" = 1 ]; tap_check $? "si gh falla, el PR sale sin su título"
 
 # 4. Idioma: inglés por defecto; con "language": "es" en .agent-kit.json, las etiquetas en español.
 grep -qF '>implementer · sonnet<' "$pagina"; tap_check $? "en inglés, el agente se etiqueta como implementer"
@@ -138,18 +143,24 @@ tap_run out 0 python3 -I "$BITACORA" -C "$TMP/p"
 grep -qF 'display=swap' "$pagina"; tap_check $? "las fuentes de Google se cargan sin dejar el texto invisible"
 
 # 7. Sin retros: la página lo dice, en una línea y sin traceback.
+: >"$GH_LOG"
 git init -q "$TMP/vacio"
 git -C "$TMP/vacio" commit -q --allow-empty -m base
 tap_run out 0 python3 -I "$BITACORA" -C "$TMP/vacio"
 grep -qF 'data-empty' "$TMP/vacio/.barrilete/bitacora.html"; tap_check $? "sin retros, la página dice que no hay"
+[ ! -s "$GH_LOG" ]; tap_check $? "sin retros con PR, no llama a gh"
 case "$out" in *Traceback*) tap_fail "sin retros, no hay traceback" "$out" ;; *) tap_ok "sin retros, no hay traceback" ;; esac
 
 # 8. El kit la instala ignorada por git, y el modo --small (sin retros) no la lleva.
 grep -qxF '.barrilete/bitacora.html' "$RAIZ/.gitignore"; tap_check $? "la página va ignorada en el .gitignore del kit"
 if [ -f "$RAIZ/profiles/small/DELETE" ]; then
-  grep -qxF 'scripts/agents/bitacora.py' "$RAIZ/profiles/small/DELETE"; tap_check $? "el modo --small no lleva la bitácora"
+  for r in scripts/agents/bitacora.py scripts/agents/bitacora scripts/agents/test-bitacora.sh; do
+    grep -qxF "$r" "$RAIZ/profiles/small/DELETE"; tap_check $? "el modo --small no lleva <r>" "el modo --small no lleva $r"
+  done
 else
-  tap_skip "el modo --small no lleva la bitácora" "solo en la plantilla: un proyecto instalado no tiene profiles/"
+  for r in scripts/agents/bitacora.py scripts/agents/bitacora scripts/agents/test-bitacora.sh; do
+    tap_skip "el modo --small no lleva $r" "solo en la plantilla: un proyecto instalado no tiene profiles/"
+  done
 fi
 
 # 9. Retros 0.9 (rama agentes/retros, claves y valores en español) y valores entre comillas: se leen con la tabla
@@ -182,5 +193,66 @@ grep -qF 'retro vieja de la 0.9' "$pagina"; tap_check $? "las retros de la rama 
 tarjeta_de 77 | grep -qF 'data-role="reviewer" data-model="opus"' ; tap_check $? "en una retro 0.9, rol: y modelo: se leen como role: y model: con sus valores nuevos"
 tarjeta_de 77 | grep -qF '· 2025-09-01<'; tap_check $? "en una retro 0.9, fecha: se lee como date:"
 tarjeta_de 88 | grep -qF 'data-role="reviewer" data-model="haiku"' ; tap_check $? "los valores entre comillas se leen sin ellas y la primera clave repetida gana"
+
+# 10. Una retro sin PR ni issue es su propia tarjeta, sin un "issue" inventado con su ruta.
+retro_vieja agents/retros retros/2026-02-01-orchestrate-3.md '---
+skill: orchestrate
+run: 3
+role: orchestrator
+model: opus
+date: 2026-02-01
+---
+**Deviations:** corrida sin PR ni issue
+'
+# 11. El issue se ve en la tarjeta del PR, y una retro con solo el issue va a la tarjeta del PR de ese issue.
+retro_vieja agents/retros retros/2026-02-02-implement-issue-7.md '---
+skill: implement-issue
+issue: 7
+role: implementer
+model: sonnet
+date: 2026-02-02
+---
+**Deviations:** retro del issue sin PR todavía
+'
+# 12. Una retro con bytes que no son UTF-8 no rompe la página.
+retro_vieja agents/retros retros/2026-02-03-review-pr-55.md $'---\nskill: review-pr\npr: 55\nrole: reviewer\nmodel: opus\ndate: 2026-02-03\n---\n**Deviations:** Desv\xedo en latin-1\n'
+# 13. El texto antes del primer **Título:** no se pierde.
+retro_vieja agents/retros retros/2026-02-04-review-pr-66.md '---
+skill: review-pr
+pr: 66
+role: reviewer
+model: opus
+date: 2026-02-04
+---
+Resumen antes de las secciones.
+**Deviations:** ninguno
+'
+: >"$GH_LOG"
+tap_run out 0 python3 -I "$BITACORA" -C "$TMP/p"
+grep -qF 'corrida sin PR ni issue' "$pagina"; tap_check $? "una retro sin PR ni issue aparece"
+grep -qF '#retros/' "$pagina"; es=$?; [ "$es" = 1 ]; tap_check $? "una retro sin PR ni issue no muestra su ruta como issue"
+tarjeta_de 42 | grep -qF 'issue #7'; tap_check $? "la tarjeta de un PR muestra su issue"
+tarjeta_de 42 | grep -qF 'retro del issue sin PR todavía'; tap_check $? "una retro con solo el issue va a la tarjeta del PR de ese issue"
+tarjeta_de 55 | grep -qF 'en latin-1'; tap_check $? "una retro que no es UTF-8 aparece igual"
+case "$out" in *Traceback*) tap_fail "una retro que no es UTF-8 no da traceback" "$out" ;; *) tap_ok "una retro que no es UTF-8 no da traceback" ;; esac
+tarjeta_de 66 | grep -qF 'Resumen antes de las secciones.'; tap_check $? "el texto antes del primer título no se pierde"
+pedidos=$({ grep -o 'pullRequest(number:[0-9]*)' "$GH_LOG" || true; } | tr -dc '0-9\n' | sort -n | tr '\n' ' ')
+[ "$pedidos" = "42 55 66 77 88 " ]; tap_check $? "a gh le pide solo los PRs que citan las retros" "$pedidos"
+[ "$(wc -l <"$GH_LOG" | tr -d ' ')" = 1 ]; tap_check $? "a gh lo llama una vez" "$(cat "$GH_LOG")"
+
+# 14. El fetch de las retros no se cuelga pidiendo una clave ni esperando una conexión: ssh en modo batch y con
+#     tiempo de conexión, sin prompt de git. ssh es un falso en PATH (sin red).
+cat >"$TMP/bin/ssh" <<'EOF'
+#!/bin/sh
+printf 'args: %s\nprompt: %s\n' "$*" "${GIT_TERMINAL_PROMPT-}" >"$TMP_SSH_LOG"
+exit 255
+EOF
+chmod +x "$TMP/bin/ssh"
+git clone -q "$TMP/remoto.git" "$TMP/ssh" 2>/dev/null
+git -C "$TMP/ssh" remote set-url origin ssh://example.invalid/x.git
+tap_run out 0 env -u GIT_SSH_COMMAND -u GIT_SSH TMP_SSH_LOG="$TMP/ssh.log" python3 -I "$BITACORA" -C "$TMP/ssh"
+grep -qF 'BatchMode=yes' "$TMP/ssh.log"; tap_check $? "el fetch usa ssh sin pedir clave" "$(cat "$TMP/ssh.log" 2>/dev/null)"
+grep -qF 'ConnectTimeout=' "$TMP/ssh.log"; tap_check $? "el fetch usa ssh con tiempo de conexión"
+grep -qxF 'prompt: 0' "$TMP/ssh.log"; tap_check $? "el fetch corre sin prompt de git"
 
 tap_done
