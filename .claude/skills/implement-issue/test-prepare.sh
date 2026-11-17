@@ -54,6 +54,8 @@ git clone -q "$TMP/remoto.git" "$TMP/proj" 2>/dev/null
 WT="$TMP/proj-wt"
 asignado() { grep -q "^issue edit $1 .*--add-assignee yo\( \|$\)" "$GH_LOG"; }
 worktrees() { git -C "$TMP/proj" worktree list | wc -l | tr -d ' '; }
+# Cuántas veces se asignó el issue <n> (0 = nunca).
+asignaciones() { grep -c "^issue edit $1 .*--add-assignee yo\( \|$\)" "$GH_LOG"; }
 
 # 1. Issue nuevo: crea el worktree y la rama, y lo asigna. El checkout principal sucio no lo frena.
 echo sucio >"$TMP/proj/sucio.txt"
@@ -199,19 +201,58 @@ issue 53 "Titulo distinto"
 git clone -q "$TMP/remoto.git" "$TMP/otro-clon" 2>/dev/null
 (cd "$TMP/otro-clon" && git switch -q -c claude/53-remota origin/main && git commit -q --allow-empty -m remota \
   && git push -q origin claude/53-remota && git switch -q -c claude/530-otra origin/main && git push -q origin claude/530-otra) 2>/dev/null
-c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 53 --worktree 2>&1) || c=$?; tap_status "$c" 0
-es "$c" -eq 0 && es "$(git -C "$WT/53" branch --show-current)" = claude/53-remota \
-  && es "$(git -C "$WT/53" log -1 --format=%s)" = remota
-tap_check $? "una rama claude/<n>-* que solo está en origin se retoma (y claude/<n>0-* no cuenta)"
+# #331: una rama del issue que solo está en origin no se retoma sola (la pudo empujar cualquiera con
+# acceso y los hooks correrían sus scripts): falla y dice cómo traerla; una vez traída, se retoma.
+c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 53 --worktree 2>&1) || c=$?; tap_status "$c" 1
+es "$c" -eq 1; tap_check $? "--worktree con una rama claude/<n>-* que solo está en origin falla"
+es ! -e "$WT/53"; tap_check $? "--worktree con una rama que solo está en origin no crea el worktree"
+es "$(asignaciones 53)" = 0; tap_check $? "--worktree con una rama que solo está en origin no asigna"
+grep -qF "git fetch origin claude/53-remota:claude/53-remota && git log origin/main..claude/53-remota" <<<"$s"
+tap_check $? "--worktree con una rama que solo está en origin dice cómo traerla y mirar sus commits"
+es "$(grep -c "claude/530" <<<"$s")" = 0; tap_check $? "claude/<n>0-* en origin no es del issue <n>"
 
 # 10. Hallazgos de /code-review de #41.
 issue 54 "Solo remota sin worktree"
 (cd "$TMP/otro-clon" && git switch -q -c claude/54-remota origin/main && git commit -q --allow-empty -m r54 \
   && git push -q origin claude/54-remota) 2>/dev/null
-c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 54 2>&1) || c=$?; tap_status "$c" 0
-es "$c" -eq 0 && es "$(git -C "$TMP/proj" branch --show-current)" = claude/54-remota && es "$(git -C "$TMP/proj" log -1 --format=%s)" = r54
-tap_check $? "sin --worktree, una rama que solo está en origin se retoma"
+c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 54 2>&1) || c=$?; tap_status "$c" 1
+es "$c" -eq 1; tap_check $? "sin --worktree, una rama que solo está en origin falla"
+es "$(git -C "$TMP/proj" branch --show-current)" = main; tap_check $? "sin --worktree, con una rama que solo está en origin no cambia de rama"
+es -z "$(git -C "$TMP/proj" for-each-ref refs/heads/claude/54-remota)"; tap_check $? "sin --worktree, con una rama que solo está en origin no la crea local"
+es "$(asignaciones 54)" = 0; tap_check $? "sin --worktree, con una rama que solo está en origin no asigna"
+grep -qF "git fetch origin claude/54-remota:claude/54-remota" <<<"$s"; tap_check $? "sin --worktree, dice cómo traerla"
 git -C "$TMP/proj" switch -q main
+
+# Traída a mano (git fetch origin <b>:<b>, lo que imprime el error), se retoma como local.
+issue 58 "Traida con worktree"; issue 59 "Traida sin worktree"
+(cd "$TMP/otro-clon" && git switch -q -c claude/58-remota origin/main && git commit -q --allow-empty -m r58 \
+  && git push -q origin claude/58-remota && git switch -q -c claude/59-remota origin/main \
+  && git commit -q --allow-empty -m r59 && git push -q origin claude/59-remota) 2>/dev/null
+git -C "$TMP/proj" fetch -q origin claude/58-remota:claude/58-remota claude/59-remota:claude/59-remota
+c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 58 --worktree 2>&1) || c=$?; tap_status "$c" 0
+es "$(git -C "$WT/58" branch --show-current 2>/dev/null)" = claude/58-remota; tap_check $? "--worktree, con la rama traída a mano, la retoma"
+es "$(git -C "$WT/58" log -1 --format=%s 2>/dev/null)" = r58; tap_check $? "--worktree, con la rama traída a mano, la retoma con sus commits"
+c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 59 2>&1) || c=$?; tap_status "$c" 0
+es "$(git -C "$TMP/proj" branch --show-current)" = claude/59-remota; tap_check $? "sin --worktree, con la rama traída a mano, la retoma"
+es "$(git -C "$TMP/proj" log -1 --format=%s)" = r59; tap_check $? "sin --worktree, con la rama traída a mano, la retoma con sus commits"
+git -C "$TMP/proj" switch -q main
+
+# El nombre lo elige quien empujó la rama y la persona pega el comando: va escapado.
+issue 95 "Nombre hostil"
+# shellcheck disable=SC2016  # el ${IFS} va literal en el nombre de la rama: es lo que se prueba
+hostil='claude/95-a;touch${IFS}pwned'
+(cd "$TMP/otro-clon" && git switch -q -c "$hostil" origin/main && git push -q origin "$hostil") 2>/dev/null
+c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 95 2>&1) || c=$?; tap_status "$c" 1
+grep -qF 'git fetch origin claude/95-a\;touch\$\{IFS\}pwned:claude/95-a\;touch\$\{IFS\}pwned &&' <<<"$s"
+tap_check $? "el comando para traer una rama con ; o signos de shell en el nombre la escapa"
+
+# --name pide la rama por su nombre: esa sí se retoma aunque solo esté en origin.
+issue 57 "Por nombre"
+(cd "$TMP/otro-clon" && git switch -q -c claude/57-segunda origin/main && git commit -q --allow-empty -m r57 \
+  && git push -q origin claude/57-segunda) 2>/dev/null
+c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 57 --worktree --name segunda 2>&1) || c=$?; tap_status "$c" 0
+es "$(git -C "$WT/57-segunda" branch --show-current 2>/dev/null)" = claude/57-segunda; tap_check $? "--name retoma la rama pedida aunque solo esté en origin"
+es "$(git -C "$WT/57-segunda" log -1 --format=%s 2>/dev/null)" = r57; tap_check $? "--name retoma de origin la rama pedida con sus commits"
 
 issue 55 "Reabierto"
 (cd "$TMP/otro-clon" && git switch -q -c claude/55-vieja origin/main && git push -q origin claude/55-vieja) 2>/dev/null
@@ -410,6 +451,7 @@ git -C "$TMP/otro-clon" push -q origin claude/feat/92-remota 2>/dev/null
 issue 92 "Remote typed"
 tap_run out 0 "$PREPARAR" 92 --review
 es "$(rama_de "$out")" = "claude/feat/92-remota"; tap_check $? "encuentra en origin una rama claude/<type>/<n>-…"
+grep -qF "git fetch origin claude/feat/92-remota:claude/feat/92-remota" <<<"$out"; tap_check $? "--review avisa que la rama solo está en origin y cómo traerla, sin fallar"
 git -C "$TMP/proj" branch claude/fix/920-otra main
 tap_run out 0 "$PREPARAR" 92 --review
 es "$(rama_de "$out")" = "claude/feat/92-remota"; tap_check $? "claude/<type>/<n>0-… no es del issue <n>"
