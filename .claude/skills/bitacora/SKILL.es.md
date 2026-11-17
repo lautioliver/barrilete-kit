@@ -61,4 +61,4 @@ Escribí el fragmento en un archivo temporal fuera del repo y borralo después. 
 
 Una línea con la sección y el link: `docs/bitacora.html#<slug>`. El archivo es versionado: commitealo en la rama en la que estás trabajando, o decile a la persona que queda para commitear. No abras un PR solo para la bitácora salvo que lo pida.
 
-Diseño, componentes y cómo un proyecto cambia los colores: `docs/agents/bitacora.md`.
+Tokens del diseño: `scripts/agents/bitacora/barrilete.css`; un proyecto los pisa en su propio .barrilete/bitacora.css, que se lee al crear la página. El detalle está en el doc de la bitácora del kit (docs/agents/bitacora.md, que el modo `--small` no instala).

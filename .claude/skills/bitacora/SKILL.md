@@ -61,4 +61,4 @@ Write the fragment in a temporary file outside the repo and delete it afterwards
 
 One line with the section and the link: `docs/bitacora.html#<slug>`. The file is versioned: commit it on the branch you are working on, or tell the person it is left to commit. Do not open a PR only for the log unless they ask.
 
-Design, components and how a project changes the colors: `docs/agents/bitacora.md`.
+Design tokens: `scripts/agents/bitacora/barrilete.css`; a project overrides them in its own .barrilete/bitacora.css, read when the page is created. The full detail is in the kit's log doc (docs/agents/bitacora.md, not installed in `--small` mode).
