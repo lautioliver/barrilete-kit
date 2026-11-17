@@ -7,10 +7,9 @@ python3 scripts/agents/bitacora.py                      # this repo, barrilete d
 python3 scripts/agents/bitacora.py -C ../other-repo     # another repo
 python3 scripts/agents/bitacora.py --theme barrilete    # ignore .barrilete/bitacora.css
 python3 scripts/agents/bitacora.py --theme design.css   # use that file instead of .barrilete/bitacora.css
-python3 scripts/agents/bitacora.py --lang es            # labels in Spanish (default: "language" of .agent-kit.json, or en)
 ```
 
-It prints `ok: <path>` and ends with 0. A usage error (a `--theme` file that does not exist, an unknown option) is one line and 64. If `gh` fails (no session, no network) the page is still written, without PR titles or states. Without retros, the page says so. Running it twice with the same retros gives the same page.
+The labels follow `language` in `.agent-kit.json` (`en` or `es`; without it, `en`). It prints `ok: <path>` and ends with 0. A usage error (a `--theme` file that does not exist, an unknown option) is one line and 64. If `gh` fails (no session, no network) the page is still written, without PR titles or states. Without retros, the page says so. Running it twice with the same retros gives the same page.
 
 It is not installed in `--small` mode, which has no retros (`.claude/skills/improve-skills` is not installed there).
 

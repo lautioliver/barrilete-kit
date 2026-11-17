@@ -146,6 +146,10 @@ case "$out" in *Traceback*) tap_fail "sin retros, no hay traceback" "$out" ;; *)
 
 # 8. El kit la instala ignorada por git, y el modo --small (sin retros) no la lleva.
 grep -qxF '.barrilete/bitacora.html' "$RAIZ/.gitignore"; tap_check $? "la página va ignorada en el .gitignore del kit"
-grep -qxF 'scripts/agents/bitacora.py' "$RAIZ/profiles/small/DELETE"; tap_check $? "el modo --small no lleva la bitácora"
+if [ -f "$RAIZ/profiles/small/DELETE" ]; then
+  grep -qxF 'scripts/agents/bitacora.py' "$RAIZ/profiles/small/DELETE"; tap_check $? "el modo --small no lleva la bitácora"
+else
+  tap_skip "el modo --small no lleva la bitácora" "solo en la plantilla: un proyecto instalado no tiene profiles/"
+fi
 
 tap_done

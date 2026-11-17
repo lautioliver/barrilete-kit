@@ -7,10 +7,9 @@ python3 scripts/agents/bitacora.py                      # este repo, diseño de 
 python3 scripts/agents/bitacora.py -C ../otro-repo      # otro repo
 python3 scripts/agents/bitacora.py --theme barrilete    # ignora .barrilete/bitacora.css
 python3 scripts/agents/bitacora.py --theme diseño.css   # usa ese archivo en lugar de .barrilete/bitacora.css
-python3 scripts/agents/bitacora.py --lang en            # etiquetas en inglés (por defecto: "language" de .agent-kit.json, o en)
 ```
 
-Imprime `ok: <ruta>` y termina con 0. Un error de uso (un `--theme` que no existe, una opción desconocida) es una línea y 64. Si `gh` falla (sin sesión, sin red), la página sale igual, sin títulos ni estado de los PRs. Sin retros, la página lo dice. Correrlo dos veces con las mismas retros da la misma página.
+Las etiquetas siguen `language` de `.agent-kit.json` (`en` o `es`; sin él, `en`). Imprime `ok: <ruta>` y termina con 0. Un error de uso (un `--theme` que no existe, una opción desconocida) es una línea y 64. Si `gh` falla (sin sesión, sin red), la página sale igual, sin títulos ni estado de los PRs. Sin retros, la página lo dice. Correrlo dos veces con las mismas retros da la misma página.
 
 No se instala en el modo `--small`, que no tiene retros (ahí no se instala `.claude/skills/improve-skills`).
 

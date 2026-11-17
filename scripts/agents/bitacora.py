@@ -5,15 +5,15 @@ Lee las retros que retro.sh guarda en la rama agents/retros (la del remoto origi
 PRs de `gh pr list`, y escribe .barrilete/bitacora.html (ignorado por git): una tarjeta por PR con cada agente que lo
 tocó (rol y modelo) y su reporte. Si gh falla, la página sale igual, sin títulos ni estado de los PRs.
 
-Uso: python3 scripts/agents/bitacora.py [-C <repo>] [--theme barrilete|<ruta.css>] [--lang en|es] [--out <ruta>]
+Uso: python3 scripts/agents/bitacora.py [-C <repo>] [--theme barrilete|<ruta.css>] [--out <ruta>]
 
   -C        el repo (por defecto, el de la carpeta actual).
   --theme   el diseño. Por defecto, el de barrilete (bitacora/barrilete.css) más .barrilete/bitacora.css del
             proyecto si existe, que va después y pisa los tokens que define. `barrilete` ignora el del proyecto;
             una ruta usa ese archivo en su lugar.
-  --lang    el idioma de las etiquetas. Por defecto, "language" de .agent-kit.json, o en.
   --out     dónde escribir la página (por defecto, .barrilete/bitacora.html del repo).
 
+Las etiquetas siguen "language" de .agent-kit.json (en o es; sin él, en).
 El formato de las retros que lee y el contrato de tokens del diseño: docs/agents/bitacora.md.
 Imprime "ok: <ruta>" y termina con 0; con un error de uso, una línea y 64.
 """
@@ -266,9 +266,7 @@ def temas(repo, tema):
     return lista
 
 
-def idioma(repo, lang):
-    if lang:
-        return lang
+def idioma(repo):
     try:
         with open(os.path.join(repo, ".agent-kit.json"), encoding="utf-8") as f:
             valor = json.load(f).get("language")
@@ -281,7 +279,6 @@ def main(argv):
     p = Argumentos(prog="bitacora.py", description=__doc__.split("\n")[0])
     p.add_argument("-C", dest="repo", default=".")
     p.add_argument("--theme")
-    p.add_argument("--lang", choices=sorted(TEXTOS))
     p.add_argument("--out")
     a = p.parse_args(argv)
     r = git(a.repo, "rev-parse", "--show-toplevel", check=False)
@@ -291,7 +288,7 @@ def main(argv):
     # git resuelve los enlaces (/var → /private/var en macOS): si -C ya es la raíz, se usa tal como vino.
     if os.path.samefile(repo, a.repo):
         repo = os.path.abspath(a.repo)
-    pagina = construir(leer_retros(repo, punta_retros(repo)), leer_prs(repo), idioma(repo, a.lang),
+    pagina = construir(leer_retros(repo, punta_retros(repo)), leer_prs(repo), idioma(repo),
                        temas(repo, a.theme))
     salida = a.out or os.path.join(repo, ".barrilete", "bitacora.html")
     os.makedirs(os.path.dirname(os.path.abspath(salida)), exist_ok=True)
