@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2319  # "<condición>; tap_check $?" es el patrón de los tests (tap.sh)
+# shellcheck disable=SC2319,SC2154,SC2164  # "<condición>; tap_check $?" es el patrón de los tests (tap.sh); tap_run asigna out y orden; un pushd que falla corta la corrida (tap.sh)
 # Tests de scripts/agents/bitacora.py (#339): arma .barrilete/bitacora.html con las retros que escribe retro.sh
 # en agents/retros y los PRs de gh, con el diseño de barrilete o el del proyecto.
 # No usa GitHub: las retros van a un remoto local y gh es un falso en PATH.
