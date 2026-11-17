@@ -246,13 +246,21 @@ c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 95 2>&1) || c=$?; tap_status 
 grep -qF 'git fetch origin claude/95-a\;touch\$\{IFS\}pwned:claude/95-a\;touch\$\{IFS\}pwned &&' <<<"$s"
 tap_check $? "el comando para traer una rama con ; o signos de shell en el nombre la escapa"
 
-# --name pide la rama por su nombre: esa sí se retoma aunque solo esté en origin.
+# --name tampoco la retoma sola: los nombres se adivinan (segunda, pr-2) y alguien pudo empujarla antes.
 issue 57 "Por nombre"
 (cd "$TMP/otro-clon" && git switch -q -c claude/57-segunda origin/main && git commit -q --allow-empty -m r57 \
   && git push -q origin claude/57-segunda) 2>/dev/null
-c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 57 --worktree --name segunda 2>&1) || c=$?; tap_status "$c" 0
-es "$(git -C "$WT/57-segunda" branch --show-current 2>/dev/null)" = claude/57-segunda; tap_check $? "--name retoma la rama pedida aunque solo esté en origin"
-es "$(git -C "$WT/57-segunda" log -1 --format=%s 2>/dev/null)" = r57; tap_check $? "--name retoma de origin la rama pedida con sus commits"
+c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 57 --worktree --name segunda 2>&1) || c=$?; tap_status "$c" 1
+es "$c" -eq 1; tap_check $? "--name con una rama que solo está en origin falla"
+es ! -e "$WT/57-segunda"; tap_check $? "--name con una rama que solo está en origin no crea el worktree"
+es "$(asignaciones 57)" = 0; tap_check $? "--name con una rama que solo está en origin no asigna"
+grep -qF "git fetch origin claude/57-segunda:claude/57-segunda && git log -p origin/main..claude/57-segunda" <<<"$s"
+tap_check $? "--name con una rama que solo está en origin dice cómo traerla"
+c=0; s=$(trap - ERR; cd "$TMP/proj" && "$PREPARAR" 57 --name segunda 2>&1) || c=$?; tap_status "$c" 1
+es "$c" -eq 1 && es "$(git -C "$TMP/proj" branch --show-current)" = main \
+  && es -z "$(git -C "$TMP/proj" for-each-ref refs/heads/claude/57-segunda)"
+tap_check $? "sin --worktree, --name con una rama que solo está en origin falla sin cambiar de rama"
+git -C "$TMP/proj" switch -q main
 
 issue 55 "Reabierto"
 (cd "$TMP/otro-clon" && git switch -q -c claude/55-vieja origin/main && git push -q origin claude/55-vieja) 2>/dev/null
