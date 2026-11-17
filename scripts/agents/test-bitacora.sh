@@ -152,4 +152,35 @@ else
   tap_skip "el modo --small no lleva la bitácora" "solo en la plantilla: un proyecto instalado no tiene profiles/"
 fi
 
+# 9. Retros 0.9 (rama agentes/retros, claves y valores en español) y valores entre comillas: se leen con la tabla
+#    de legacy-names.sh, como las lee /improve-skills, y la primera clave repetida gana.
+retro_vieja() {   # retro_vieja <rama> <archivo> <contenido>: la escribe en el remoto sin tocar el clon
+  local blob arbol padre commit
+  blob=$(printf '%s' "$3" | git --git-dir="$TMP/remoto.git" hash-object -w --stdin)
+  padre=$(git --git-dir="$TMP/remoto.git" rev-parse -q --verify "refs/heads/$1" || true)
+  arbol=$(GIT_INDEX_FILE="$TMP/idx" sh -c 'rm -f "$GIT_INDEX_FILE"; git --git-dir="$1" read-tree --empty
+    [ -z "$2" ] || git --git-dir="$1" read-tree "$2"; git --git-dir="$1" update-index --add --cacheinfo "100644,$3,$4"
+    git --git-dir="$1" write-tree' _ "$TMP/remoto.git" "$padre" "$blob" "$2")
+  commit=$(git --git-dir="$TMP/remoto.git" commit-tree "$arbol" ${padre:+-p "$padre"} -m retro)
+  git --git-dir="$TMP/remoto.git" update-ref "refs/heads/$1" "$commit"
+}
+retro_vieja agentes/retros retros/2025-09-01-review-pr-77.md '---
+skill: review-pr
+pr: 77
+rol: revisor
+modelo: opus
+fecha: 2025-09-01
+---
+**Desvíos:** retro vieja de la 0.9
+'
+retro_vieja agents/retros retros/2026-01-02-implement-issue-88.md $'---\r\nskill: implement-issue\r\npr: "88"\r\nrole: \'reviewer\'\r\nrole: implementer\r\nmodel: "haiku"\r\ndate: 2026-01-02\r\n---\r\n**Deviations:** con comillas y CRLF\r\n'
+tarjeta_de() {   # tarjeta_de <pr>: solo el <article> de ese PR (la página va en una línea)
+  python3 -I -c 'import re,sys; print("\n".join(a for a in re.findall(r"<article.*?</article>", open(sys.argv[1], encoding="utf-8").read()) if f"data-pr=\"{sys.argv[2]}\"" in a))' "$pagina" "$1"
+}
+tap_run out 0 python3 -I "$BITACORA" -C "$TMP/p"
+grep -qF 'retro vieja de la 0.9' "$pagina"; tap_check $? "las retros de la rama 0.9 agentes/retros aparecen"
+tarjeta_de 77 | grep -qF 'data-role="reviewer" data-model="opus"' ; tap_check $? "en una retro 0.9, rol: y modelo: se leen como role: y model: con sus valores nuevos"
+tarjeta_de 77 | grep -qF '· 2025-09-01<'; tap_check $? "en una retro 0.9, fecha: se lee como date:"
+tarjeta_de 88 | grep -qF 'data-role="reviewer" data-model="haiku"' ; tap_check $? "los valores entre comillas se leen sin ellas y la primera clave repetida gana"
+
 tap_done
