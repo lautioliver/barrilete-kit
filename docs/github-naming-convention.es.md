@@ -72,6 +72,12 @@ Reglas de la spec:
 | `release/` | Preparar una versión | `release/v1.0.0` |
 | `claude/` | Rama creada por un agente de Claude | `claude/57-auditoria-flujo-pago` |
 
+**Ramas de agentes con el tipo** (opcional, lautioliver/barrilete-kit#330). Con `"agent_branch_type": true` en `.agent-kit.json`, `.claude/skills/implement-issue/prepare.sh` las nombra `claude/<tipo>/<n°issue>-<descripcion>` (ejemplo: `claude/fix/57-cobro-doble-reintento`):
+- `<tipo>` sale del label `type:` del issue: `feature` → `feat`, `bug` → `fix`, `task` → `chore`, `docs`, `audit`. Sin label `type:` la rama es `claude/<n°issue>-<descripcion>`.
+- `<descripcion>` sale del título sin el prefijo `Auditoría <área>:`, sin el verbo inicial (los títulos van en imperativo; en bugs y auditorías no se saca, porque pueden empezar por el síntoma) ni palabras de relleno (la lista del `language` de la instalación), con 30 caracteres como mucho y sin cortar palabras. En español solo cuenta como verbo una primera palabra terminada en -ar/-er/-ir.
+- `prepare.sh --name <descripcion>` la elige a mano en los dos formatos (p. ej. el PR 2 de un issue; con `--worktree`, en `../<repo>-wt/<n>-<descripcion>`).
+- Una rama del issue que ya existe se retoma en cualquiera de los dos formatos, y los scripts y el CI leen los dos: activar la opción no deja huérfanas las ramas viejas. Sin la opción no cambia nada.
+
 **Excepción: `agents/retros`.** Rama huérfana de larga vida donde los agentes guardan sus retros (un archivo por retro) con `.claude/skills/improve-skills/retro.sh`. Es una rama de datos: no lleva número de issue, no se mergea nunca y se escribe sin PR, siempre con ese script. Si el repo protege ramas con un patrón amplio (`*`), excluila, o las retros quedan pendientes en `.git/pending-retros/`. Los proyectos que vienen de 0.9 conservan la rama `agentes/retros`: se sigue leyendo (`/improve-skills`), nunca se escribe ni se borra.
 
 > **Decisión a tomar:** ¿usamos los alias cortos (`feat/`, `fix/`) o los largos (`feature/`, `bugfix/`)? Recomendado: **cortos**, porque coinciden con los tipos de commit.
@@ -315,7 +321,7 @@ Para incluir en `CLAUDE.md` / `AGENTS.md` del repo:
 
 ```markdown
 ## Convenciones de nombres (obligatorio)
-- Ramas: `<tipo>/<n°issue>-<descripcion>`; si la crea un agente, usar `claude/<n°issue>-<descripcion>`.
+- Ramas: `<tipo>/<n°issue>-<descripcion>`; si la crea un agente, usar `claude/<n°issue>-<descripcion>` (`claude/<tipo>/<n°issue>-<descripcion>` con `"agent_branch_type": true`).
 - Tipos de rama: feat, fix, hotfix, chore, release, claude.
 - Commits y títulos de PR: Conventional Commits 1.0 → `<tipo>(<scope>): <descripcion>`.
 - Scopes válidos: los de §2.

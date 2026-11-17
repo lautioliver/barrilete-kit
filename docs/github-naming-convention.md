@@ -72,6 +72,12 @@ Rules of the spec:
 | `release/` | Preparing a version | `release/v1.0.0` |
 | `claude/` | Branch created by a Claude agent | `claude/57-payment-flow-audit` |
 
+**Agent branches with the type** (optional, lautioliver/barrilete-kit#330). With `"agent_branch_type": true` in `.agent-kit.json`, `.claude/skills/implement-issue/prepare.sh` names them `claude/<type>/<issue-no>-<description>` (example: `claude/fix/57-double-charge-retry`):
+- `<type>` comes from the issue's `type:` label: `feature` → `feat`, `bug` → `fix`, `task` → `chore`, `docs`, `audit`. Without a `type:` label the branch is `claude/<issue-no>-<description>`.
+- `<description>` comes from the title without the `Audit <area>:` prefix, the leading verb (titles are imperative; not in bugs and audits, which may start with the symptom) and filler words (the list of the installation's `language`), in 30 characters at most without cutting words. In Spanish only a leading word ending in -ar/-er/-ir counts as a verb.
+- `prepare.sh --name <description>` picks it by hand in both formats (e.g. for the second PR of an issue; with `--worktree`, in `../<repo>-wt/<n>-<description>`).
+- An existing branch of the issue is resumed in either format, and every script and the CI read both: turning the option on does not orphan the old branches. Without the option nothing changes.
+
 **Exception: `agents/retros`.** A long-lived orphan branch where agents save their retros (one file per retro) with `.claude/skills/improve-skills/retro.sh`. It is a data branch: it carries no issue number, it is never merged and it is written without a PR, always with that script. If the repo protects branches with a broad pattern (`*`), exclude it, or the retros stay pending in `.git/pending-retros/`. Projects coming from 0.9 keep the `agentes/retros` branch: it is still read (`/improve-skills`), never written or deleted.
 
 > **Decision to make:** do we use the short aliases (`feat/`, `fix/`) or the long ones (`feature/`, `bugfix/`)? Recommended: **short**, because they match the commit types.
@@ -315,7 +321,7 @@ To include in the repo's `CLAUDE.md` / `AGENTS.md`:
 
 ```markdown
 ## Naming conventions (mandatory)
-- Branches: `<type>/<issue-no>-<description>`; if an agent creates it, use `claude/<issue-no>-<description>`.
+- Branches: `<type>/<issue-no>-<description>`; if an agent creates it, use `claude/<issue-no>-<description>` (`claude/<type>/<issue-no>-<description>` with `"agent_branch_type": true`).
 - Branch types: feat, fix, hotfix, chore, release, claude.
 - Commits and PR titles: Conventional Commits 1.0 → `<type>(<scope>): <description>`.
 - Valid scopes: those in §2.

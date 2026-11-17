@@ -15,7 +15,7 @@ Si no te dieron un número ("tomá el siguiente"), listá `gh issue list --state
 .claude/skills/implement-issue/prepare.sh <n>
 ```
 
-Valida que esté abierto, que no lo tenga otra persona y que no haya cambios sin commitear; lo asigna, crea `claude/<n>-<descripcion>` desde `<BASE_BRANCH>` e imprime el issue con sus comentarios. Si falla, contale al usuario por qué; no fuerces nada. Para leerlo sin tomarlo: `--review`.
+Valida que esté abierto, que no lo tenga otra persona y que no haya cambios sin commitear; lo asigna, crea `claude/<n>-<descripcion>` (`claude/<tipo>/<n>-<descripcion>` con `"agent_branch_type": true` en `.agent-kit.json`) desde `<BASE_BRANCH>` e imprime el issue con sus comentarios. Si falla, contale al usuario por qué; no fuerces nada. Para leerlo sin tomarlo: `--review`.
 
 ## 2. Entender
 

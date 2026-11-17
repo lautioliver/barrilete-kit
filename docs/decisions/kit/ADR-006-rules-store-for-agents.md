@@ -6,7 +6,11 @@ Accepted (2026-11-05). @lautioliver approved it by merging lautioliver/barrilete
 
 Amended (2026-11-07): the principle at the start of Decision, D2, D7, D8 and D11 (checks are implemented in the kit, the two success conditions, and the `pr-metadata` check in phase 2), approved by @lautioliver in the PR #281. Decided by @lautioliver in the chat of the barrilete-kit-46 session on 2026-11-07; origin: lautioliver/barrilete-kit#280.
 
-Amended (2026-11-09): D7, what a project inherits of `rules.lock` and the generated sections (`init`, `install`, `grow`, `update`). Decided by @lautioliver in the chat on 2026-11-09, pending their approval in this PR; origin: lautioliver/barrilete-kit#299 and #290.
+Amended (2026-11-09): D7, what a project inherits of `rules.lock` and the generated sections (`init`, `install`, `grow`, `update`). Decided by @lautioliver in the chat on 2026-11-09; origin: lautioliver/barrilete-kit#299 and #290.
+
+Amended (2026-11-15): D7, `update.py` no longer replaces a `rules.lock` the kit published: it keeps the project's and says which SHA the kit pins. Decided by @lautioliver in the chat on 2026-11-10 (recorded in lautioliver/barrilete-kit#290); that `update.py` runs `sync-rules` after applying, on 2026-11-16.
+
+Replaced in part (2026-11-16) by ADR-007: D1 (what it says about the vault), D5, D6 and D10. ADR-007 D5 answers the open question about rounds (20 per cell). Decided by @lautioliver in the chat on 2026-11-16, pending their approval in the PR of lautioliver/barrilete-kit#322. The accepted text below is not rewritten.
 
 Origin: lautioliver/barrilete-kit#256 and a proposal from the person on 2026-11-04 ("store of general rules for agents").
 
@@ -81,7 +85,7 @@ barrilete-rules is the source of truth of Barrilete's reusable policies. Its for
    - CI and `verify.py` run without network.
    - A project can have its own rules in `.barrilete/rules/`, with the same format, and `sync-rules` adds them to the store's.
    - **What a project inherits (`init`, `install`, `grow`):** the kit's `rules.lock` (same repo and SHA), and `sync-rules` runs with the project's name, so the rules with `scope: barrilete-kit` drop out and the new project passes `sync-rules --check` from day one.
-   - **`update.py`:** if the project's `rules.lock` is one the kit published, it replaces it with the new one and regenerates the sections; if the project changed it, it keeps it and says so at the end of the summary.
+   - **`update.py` and `install`:** they never overwrite the project's `rules.lock` nor what `sync-rules` generated from it (the sections, `.barrilete/checks.json` and the copy of `classes.yml`). If the kit pins another SHA, `update.py` says so at the end of the summary, with both SHAs; moving to it is the project's PR: change the lock and run `sync-rules`. After applying, `update.py` runs `sync-rules` with the project's lock, so the files the kit adds get the project's rules; if it fails (no access to the rules repo, a check the kit removed), it says so. That run also regenerates, from the project's lock, any generated section that does not match it: a hand edit inside a section (which says not to edit it) is lost. Keeping that step was decided by @lautioliver in the chat on 2026-11-16. The installer (`install`) leaves the kit's version of a file the project already has in `.agent-kit/pending/`, as with any other file.
    - **Success condition 1:** a rule is changed in barrilete-rules, its PR is approved, `rules.lock` is updated, and the role's agent receives exactly that version.
 
 8. **D8. Checks run inside `verify.py`.** A check has three things:

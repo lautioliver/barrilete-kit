@@ -355,4 +355,132 @@ tap_run out 3 "$PREPARAR" 71 --worktree
 es -f "$GD71/agent-lock"; tap_check $? "falla con un candado que ya era suyo: no lo suelta"
 unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT GH_EDIT_FALLA
 
+# #330: ramas claude/<type>/<n>-<desc> con "agent_branch_type" (o AGENT_BRANCH_TYPE), --name y los dos formatos.
+# Corre en "$TMP/proj" (el cd de arriba): cada prepare.sh va por tap_run, y lo que se compara es su salida.
+issue_t() { # issue_t <n> <título> <label>
+  printf '{"state":"open","title":"%s","labels":[{"name":"%s"}],"assignees":[],"html_url":"u","body":"cuerpo"}\n' "$2" "$3" >"$TMP/issues/$1.json"
+}
+rama_de() { sed -n 's/^New branch: \([^ ]*\).*/\1/p; s/^Existing branch: \([^ ]*\).*/\1/p; s/.*Proposed branch: \([^,)]*\).*/\1/p' <<<"$1" | head -1; }
+issue_t 80 "Show past events of the org that finished" "type:bug"; issue_t 81 "Audit checkout: order detail says delivered" "type:audit"
+issue_t 82 "Add the back side to the ticket design" "type:feature"; issue 83 "Make something"
+issue_t 84 "Share error texts between the panel and the app" "type:task"
+issue_t 85 "Rename every agent branch to carry its type before merging anything" "type:docs"
+tap_run out 0 "$PREPARAR" 82 --review
+es "$(rama_de "$out")" = "claude/82-add-the-back-side-to-the-ticket-design"; tap_check $? "sin la opción, la rama no lleva el tipo ni se poda (como siempre)"
+export AGENT_BRANCH_TYPE=1
+tap_run out 0 "$PREPARAR" 80 --review
+es "$(rama_de "$out")" = "claude/fix/80-show-past-events-org-finished"; tap_check $? "con la opción, type:bug va como fix/ y conserva el verbo (puede ser el síntoma), sin relleno"
+tap_run out 0 "$PREPARAR" 81 --review
+es "$(rama_de "$out")" = "claude/audit/81-order-detail-says-delivered"; tap_check $? "una auditoría saca el prefijo 'Audit <área>:'"
+tap_run out 0 "$PREPARAR" 82 --review
+es "$(rama_de "$out")" = "claude/feat/82-back-side-ticket-design"; tap_check $? "type:feature va como feat/, sin el verbo inicial ni relleno"
+tap_run out 0 "$PREPARAR" 83 --review
+es "$(rama_de "$out")" = "claude/83-something"; tap_check $? "un issue sin type: no lleva tipo"
+tap_run out 0 "$PREPARAR" 84 --review
+es "$(rama_de "$out")" = "claude/chore/84-error-texts-panel-app"; tap_check $? "type:task va como chore/; 'between' y 'the' son relleno"
+tap_run out 0 "$PREPARAR" 85 --review
+es "$(rama_de "$out")" = "claude/docs/85-every-agent-branch-carry-its"; tap_check $? "la descripción llega a 30 caracteres sin cortar palabras"
+export AGENT_BRANCH_TYPE=0
+tap_run out 0 "$PREPARAR" 82 --review
+es "$(rama_de "$out")" = "claude/82-add-the-back-side-to-the-ticket-design"; tap_check $? "AGENT_BRANCH_TYPE=0 apaga la opción"
+unset AGENT_BRANCH_TYPE
+# Desde .agent-kit.json, con el idioma de la instalación.
+issue_t 86 "Mostrar error 409: idempotency en checkout" "type:feature"; issue_t 87 "PR 1 mergeado" "type:feature"
+printf '{"language": "es", "agent_branch_type": true}\n' >"$TMP/proj/.agent-kit.json"
+tap_run out 0 "$PREPARAR" 86 --review
+es "$(rama_de "$out")" = "claude/feat/86-error-409-idempotency-checkout"; tap_check $? "con agent_branch_type en .agent-kit.json y language es, saca el verbo y el relleno en español"
+tap_run out 0 "$PREPARAR" 87 --review
+es "$(rama_de "$out")" = "claude/feat/87-pr-1-mergeado"; tap_check $? "en español solo saca la primera palabra si es un verbo (-ar/-er/-ir)"
+printf '{"language": "es"}\n' >"$TMP/proj/.agent-kit.json"
+tap_run out 0 "$PREPARAR" 87 --review
+es "$(rama_de "$out")" = "claude/87-pr-1-mergeado"; tap_check $? "sin agent_branch_type en .agent-kit.json, la rama no lleva el tipo"
+rm -f "$TMP/proj/.agent-kit.json"
+# Una rama del issue en cualquier formato se retoma, con la opción o sin ella.
+export AGENT_BRANCH_TYPE=1
+issue_t 89 "Old branch" "type:bug"; git -C "$TMP/proj" branch claude/89-vieja main
+tap_run out 0 "$PREPARAR" 89 --review
+es "$(rama_de "$out")" = "claude/89-vieja"; tap_check $? "con la opción, retoma una rama del issue en el formato claude/<n>-…"
+unset AGENT_BRANCH_TYPE
+issue 90 "Typed branch"; git -C "$TMP/proj" branch claude/fix/90-con-tipo main
+tap_run out 0 "$PREPARAR" 90 --review
+es "$(rama_de "$out")" = "claude/fix/90-con-tipo"; tap_check $? "sin la opción, retoma una rama del issue en el formato claude/<type>/<n>-…"
+git -C "$TMP/otro-clon" switch -q -c claude/feat/92-remota origin/main
+git -C "$TMP/otro-clon" commit -q --allow-empty -m r92
+git -C "$TMP/otro-clon" push -q origin claude/feat/92-remota 2>/dev/null
+issue 92 "Remote typed"
+tap_run out 0 "$PREPARAR" 92 --review
+es "$(rama_de "$out")" = "claude/feat/92-remota"; tap_check $? "encuentra en origin una rama claude/<type>/<n>-…"
+git -C "$TMP/proj" branch claude/fix/920-otra main
+tap_run out 0 "$PREPARAR" 92 --review
+es "$(rama_de "$out")" = "claude/feat/92-remota"; tap_check $? "claude/<type>/<n>0-… no es del issue <n>"
+# --name: otra rama para el issue (el PR 2), aunque tenga una.
+issue 91 "Two formats"; git -C "$TMP/proj" branch claude/91-una main
+# Con una rama en cada formato no sabe cuál retomar (sale con 1, como cualquier otro "CANNOT TAKE").
+git -C "$TMP/proj" branch claude/feat/91-otra main
+c=0; s=$(trap - ERR; "$PREPARAR" 91 --worktree 2>&1) || c=$?; tap_status "$c" 1
+grep -q "claude/91-una" <<<"$s"; tap_check $? "con una rama en cada formato, falla y nombra la de claude/<n>-…"
+grep -q "claude/feat/91-otra" <<<"$s"; tap_check $? "con una rama en cada formato, nombra la de claude/<type>/<n>-…"
+! asignado 91; tap_check $? "con una rama en cada formato, no asigna"
+tap_run out 0 "$PREPARAR" 91 --worktree --name "Segunda parte"
+es "$TAP_RC" -eq 0; tap_check $? "--name crea su rama aunque el issue tenga otra"
+wl=""   # lo reasigna tap_run
+tap_run wl 0 git -C "$TMP/proj" worktree list --porcelain
+grep -qx "worktree $WT/91-segunda-parte" <<<"$wl"; tap_check $? "--name pone su worktree en ../<repo>-wt/<n>-<desc>"
+grep -qx "branch refs/heads/claude/91-segunda-parte" <<<"$wl"; tap_check $? "--name nombra la rama claude/<n>-<desc>"
+export AGENT_BRANCH_TYPE=1
+tap_run out 0 "$PREPARAR" 80 --review --name=segunda
+es "$(rama_de "$out")" = "claude/fix/80-segunda"; tap_check $? "--name=<desc> con la opción lleva el tipo y no poda la descripción"
+unset AGENT_BRANCH_TYPE
+issue 93 "Con worktree"
+tap_run out 0 "$PREPARAR" 93 --worktree
+tap_run out 0 "$PREPARAR" 93 --worktree --name "con worktree"
+es "$TAP_RC" -eq 0; tap_check $? "--worktree --name con la rama ya en ../<repo>-wt/<n> termina bien"
+grep -qx "Worktree: $WT/93" <<<"$out"; tap_check $? "--worktree --name con la rama que ya está en ../<repo>-wt/<n> la retoma ahí"
+es ! -e "$WT/93-con-worktree"; tap_check $? "--worktree --name con la rama ya en ../<repo>-wt/<n> no crea otro worktree"
+# --name con una rama cuyo PR ya se mergeó o cerró: igual que sin --name, no se retoma; como el nombre es fijo, falla y pide otro.
+issue 94 "Nombre usado"; git -C "$TMP/proj" branch claude/94-segunda main
+echo MERGED >"$TMP/issues/pr-claude_94-segunda"
+tap_run out 1 "$PREPARAR" 94 --name segunda
+es "$TAP_RC" -eq 1; tap_check $? "--name con una rama cuyo PR ya se mergeó o cerró falla"
+grep -q -- "--name" <<<"$out"; tap_check $? "--name con una rama cuyo PR ya se mergeó o cerró pide otro nombre"
+! asignado 94; tap_check $? "--name con una rama cuyo PR ya se mergeó o cerró no asigna"
+tap_run out 64 "$PREPARAR" 80 --name
+es "$TAP_RC" -eq 64; tap_check $? "--name sin valor: uso inválido (64)"
+tap_run out 64 "$PREPARAR" 80 --name --worktree
+es "$TAP_RC" -eq 64; tap_check $? "--name seguido de otra opción: uso inválido (64)"
+tap_run out 64 "$PREPARAR" 80 --name '!!!'
+es "$TAP_RC" -eq 64; tap_check $? "--name sin letras ni números: uso inválido (64)"
+
+# Los lectores reconocen el issue de claude/<type>/<n>-… y de claude/<n>-…, con la misma regla (la de flow.py).
+# El perfil chico borra project-status, checks/ y labeler.yml, y su labels.yml no lee la rama (profiles/small/DELETE):
+# se chequean los que están.
+RAIZ="$AQUI/../../.."
+DISP="$RAIZ/.claude/skills/project-status/available.sh"
+F=$(sed -n 's/^RAMA_RE = re.compile(r"\(.*\)").*/\1/p' "$RAIZ/scripts/agents/flow.py")
+LEE='import re,sys; m=re.match(sys.argv[1], sys.argv[2]); print(m.group(1) if m else "-")'
+tap_run out 0 python3 -c "$LEE" "$F" "claude/audit/64-x"; es "$out" = 64; tap_check $? "flow.py lee el issue de claude/<type>/<n>-…"
+tap_run out 0 python3 -c "$LEE" "$F" "release/2026-11-10"; es "$out" = -; tap_check $? "flow.py no lee un issue de release/2026-11-10"
+J=$(sed -n 's|.*const rama = pr.head.ref.match(/\(.*\)/);.*|\1|p' "$RAIZ/.github/workflows/labels.yml" | sed 's|\\/|/|g')
+if [ -n "$J" ]; then
+  es "$J" = "$F"; tap_check $? "labels.yml lee el issue de la rama con la regla de flow.py"
+fi
+if [ -e "$RAIZ/scripts/agents/checks/pr-metadata" ]; then
+  P=$(sed -n 's/^BRANCH_ISSUE = re.compile(r"\(.*\)").*/\1/p' "$RAIZ/scripts/agents/checks/pr-metadata")
+  es "$P" = "$F"; tap_check $? "pr-metadata lee el issue de la rama con la regla de flow.py"
+fi
+if [ -e "$DISP" ]; then
+  A=$(sed -n 's/.*capture("\(.*\)")?.*/\1/p' "$DISP" | sed 's/(?<n>/(/; s/\[0-9\]/\\d/')
+  es "$A" = "$F"; tap_check $? "available.sh lee el issue de la rama con la regla de flow.py"
+  MAPEO=$(awk "/^MAPEO='/{f=1; sub(/^MAPEO='/, \"\"); print; next} f && /^ *\| group_by/{sub(/'\$/, \"\"); print; exit} f" "$DISP")
+  m=$(jq -c "$MAPEO" <<<'[{"number":1,"headRefName":"claude/fix/60-x","body":"","closingIssuesReferences":[]},{"number":2,"headRefName":"claude/61-x","body":"","closingIssuesReferences":[]},{"number":3,"headRefName":"feat/62-x","body":"","closingIssuesReferences":[]},{"number":4,"headRefName":"claude/fix/x-63","body":"","closingIssuesReferences":[]},{"number":5,"headRefName":"release/2026-11-10","body":"","closingIssuesReferences":[]}]')
+  es "$m" = '{"60":[1],"61":[2],"62":[3]}'; tap_check $? "available.sh lee el issue de claude/<type>/<n>-…, claude/<n>-… y <type>/<n>-…, y no de release/2026-11-10"
+fi
+if [ -e "$RAIZ/.github/labeler.yml" ]; then
+  # Cada label con su rama claude/<type>/: borrar una línea o una entrada cambia la lista.
+  # shellcheck disable=SC2016  # el $ es de awk
+  tap_run out 0 awk '/^"type:/{l=$1} match($0, /\^claude\/[a-z]+\//){print l, substr($0, RSTART, RLENGTH)}' "$RAIZ/.github/labeler.yml"
+  es "$out" = "$(printf '%s\n' '"type:feature": ^claude/feat/' '"type:bug": ^claude/fix/' '"type:task": ^claude/chore/' '"type:docs": ^claude/docs/' '"type:audit": ^claude/audit/')"
+  tap_check $? "labeler.yml pone el tipo de claude/<type>/… para los 5 tipos"
+fi
+
 tap_done

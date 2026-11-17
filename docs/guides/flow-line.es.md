@@ -10,7 +10,7 @@ Los dos ● son los nudos que quedan en manos de las personas: aprobar el plan y
 
 | Qué hay | Paso |
 |---|---|
-| Una rama `<tipo>/<n>-…` (también `claude/<n>-…`) sin PR abierto, o con el PR en draft | implement |
+| Una rama `<tipo>/<n>-…` (también `claude/<n>-…` y `claude/<tipo>/<n>-…`) sin PR abierto, o con el PR en draft | implement |
 | Un PR abierto de la rama | review |
 | El PR aprobado (la review obligatoria o, si el repo no la pide, una aprobación sin cambios pedidos) | ● merge (esperando tu merge) |
 | El PR mergeado | retro |

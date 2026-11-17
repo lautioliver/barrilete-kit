@@ -69,6 +69,7 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 - [ADR-004](decisions/kit/ADR-004-orchestrate-launch-mode-per-role.md) — `/orchestrate` lanza cada rol como agente `bk` o como subagente, según `roles.yml` (aceptado)
 - [ADR-005](decisions/kit/ADR-005-tasks-and-events-for-bk-agents.md) — un agente `bk` trabaja sobre una tarea con estado y registro de eventos, y declara su cierre con `bk done` (aceptado)
 - [ADR-006](decisions/kit/ADR-006-rules-store-for-agents.md) — un solo store de reglas para los agentes (`barrilete-rules`) que reemplazó el archivo de lecciones del kit y las lecciones de `bk learn` (aceptado)
+- [ADR-007](decisions/kit/ADR-007-per-project-learning.md) — los datos de aprendizaje viven en el store de cada proyecto (local por defecto), con un solo evento de metadatos, las propuestas primero al proyecto y la medición por celda (regla × modelo × harness × rol); reemplaza a ADR-006 en D1, D5, D6 y D10 (propuesto)
 - TODO: `- [ADR-001](decisions/ADR-001-....md) — resumen en una línea`
 
 ### Guías

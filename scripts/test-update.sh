@@ -30,6 +30,9 @@ prep() {
 }
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# The init and update.py do not run sync-rules here (#290): it clones the rules repo, and these suites do not touch the network.
+# Its cases are in scripts/agents/test-sync-rules.sh.
+export AGENT_KIT_NO_RULES_SYNC=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@t
 # Ningún git de la prueba corre gc ni mantenimiento en segundo plano (#186, #224): ver scripts/agents/git-quiet.sh.
 # shellcheck source=/dev/null
@@ -391,6 +394,7 @@ mkdir -p "$P09"
   cd "$P09" && python3 "$TMP/rev09.py" "$P09" "$TABLA" \
     && cp "$TMP/init-plantilla-09.sh" scripts/init-plantilla.sh && chmod +x scripts/init-plantilla.sh \
     && rm -f scripts/init-template.sh && echo 0.9.0 >VERSION \
+    && mkdir -p docs/agentes && printf '# Lecciones\n\nLo que se aprendió de las retros.\n' >docs/agentes/lecciones.md \
     && git init -q -b main && git add -A && git commit -qm v0.9.0 && git tag v0.9.0 \
     && git rm -rqf . && (cd "$RAIZ" && git ls-files -z -co --exclude-standard | tar --null -T - -cf -) | tar -xf - \
     && echo 0.10.0 >VERSION \
@@ -465,6 +469,9 @@ tap_check $? "[0.9] la migración no agrega el corpus de red.sh ni test-red.sh (
 grep -q "^# del proyecto" "$D/scripts/agents/verify.py" && grep -q "^# nuevo en 0.10" "$D/scripts/agents/verify.py"
 tap_check $? "[0.9] un archivo renombrado con cambios del proyecto y de la plantilla se fusiona (no se pierde ninguno)"
 grep -q "Lección del proyecto." "$D/docs/agents/lessons.md"; tap_check $? "[0.9] un archivo renombrado con cambios solo del proyecto los conserva en la ruta nueva"
+# La 0.9 traía docs/agentes/lecciones.md y la plantilla lo quitó (#288): con cambios del proyecto queda, y update lo dice (#313).
+quitados=$(sed -n '/^The template removed them, but you modified them/,/^$/p' <<<"$s")
+grep -qx "  - docs/agents/lessons.md" <<<"$quitados"; tap_check $? "[0.9] un archivo renombrado que la plantilla quitó y el proyecto cambió se avisa con su ruta nueva"
 grep -q "Línea nueva de la plantilla 0.10." "$D/.claude/skills/create-issue/SKILL.md"; tap_check $? "[0.9] un archivo renombrado que el proyecto no tocó se reemplaza por la versión nueva"
 head -1 "$D/docs/github-naming-convention.md" | grep -q "Convención del proyecto" && grep -q '^<<<<<<<' "$D/.agent-kit/pending/docs/github-naming-convention.md"
 tap_check $? "[0.9] un conflicto en un archivo renombrado no lo pisa: la fusión con marcas queda en .agent-kit/pending/ con la ruta nueva"
