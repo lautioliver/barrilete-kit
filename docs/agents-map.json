@@ -191,6 +191,15 @@
       "run": "bash .claude/skills/implement-issue/test-prepare.sh"
     },
     {
+      "name": "project-status",
+      "when": [
+        "scripts/agents/agents_map.py",
+        ".claude/skills/project-status/status.sh",
+        ".claude/skills/project-status/test-status.sh"
+      ],
+      "run": "bash .claude/skills/project-status/test-status.sh"
+    },
+    {
       "name": "rule-checks",
       "when": [
         "scripts/agents/verify.py",

@@ -52,13 +52,30 @@ fi
 
 echo
 echo "## Migrations"
-migr=$(python3 -c "import json;print(' '.join(r for s in json.load(open('docs/agents-map.json'))['sensitive'] if s['type']=='schema' for r in s['paths']))" 2>/dev/null)
-pend=""
+# Which open PRs touch a `schema` path of the map. agents_map.py converts the globs (the leading "?"
+# of an optional path, ** and *), so this section matches the same files it does. One python3 call for
+# every PR; if it cannot run, the section says it did not verify instead of saying there is nothing.
+lineas="" sin_diff=""
 for pr in $(gh pr list --limit 50 --json number -q '.[].number'); do
-  files=$(gh pr diff "$pr" --name-only 2>/dev/null)
-  for g in $migr; do
-    re=$(printf '%s' "$g" | sed 's#\*\*/#(.*/)?#g; s#\*\*#.*#g; s#\*#[^/]*#g')
-    echo "$files" | grep -Eq "^$re$" && { pend="$pend #$pr"; break; }
-  done
+  if archivos=$(gh pr diff "$pr" --name-only 2>/dev/null); then
+    lineas+=$(printf '%s\n' "$archivos" | sed "s/^/$pr /")$'\n'
+  else
+    sin_diff="$sin_diff #$pr"
+  fi
 done
-if [ -n "$pend" ]; then echo "- Open PRs with schema changes:$pend"; else echo "_No open PR touches migrations._"; fi
+if pend=$(printf '%s' "$lineas" | python3 -c '
+import json, sys
+sys.path.insert(0, "scripts/agents")
+from agents_map import coincide
+globs = [g for s in json.load(open("docs/agents-map.json")).get("sensitive", []) if s["type"] == "schema" for g in s["paths"]]
+prs = []
+for linea in sys.stdin.read().splitlines():
+    pr, _, ruta = linea.partition(" ")
+    if ruta and pr not in prs and coincide(ruta, globs):
+        prs.append(pr)
+print("".join(" #" + pr for pr in prs))' 2>/dev/null); then
+  if [ -n "$pend" ]; then echo "- Open PRs with schema changes:$pend"; else echo "_No open PR touches migrations._"; fi
+else
+  echo "_Not verified: scripts/agents/agents_map.py could not read the schema paths of docs/agents-map.json._"
+fi
+[ -z "$sin_diff" ] || echo "- Could not read the files of:$sin_diff"
