@@ -83,6 +83,7 @@ Regla: si un documento de producto y el código no coinciden, **gana** [architec
 - [`github-naming-convention.md`](github-naming-convention.md) — ramas, commits, PRs, issues y labels ([`.github/labels.yml`](../.github/labels.yml))
 - [`agents-map.json`](agents-map.json) — qué docs revisar según lo que cambia, rutas sensibles y docs obligatorios
 - [`agents/subagent-contract.md`](agents/subagent-contract.md) — reglas y formato de salida de los subagentes de `.claude/agents/` (implementador, implementador liviano, revisor)
+- [`agents/bitacora.md`](agents/bitacora.md) — la página de bitácora de agentes (`scripts/agents/bitacora.py`): el contrato de retros que lee y sus tokens de diseño
 - [`agents/learning-event.md`](agents/learning-event.md) — el evento de aprendizaje v1, su validador y el store (`.barrilete/learning.json`, ADR-007)
 - [`agents/classes.yml`](agents/classes.yml) — las clases con que `review-pr` etiqueta los hallazgos (la genera `scripts/agents/sync-rules` desde barrilete-rules, ADR-006)
 - Skills en [`../.claude/skills/`](../.claude/skills/): `plan-feature`, `create-issue`, `implement-issue`, `debug`, `db-migration`, `update-docs`, `review-pr`, `project-status`, `git-workflow`, `improve-skills`, `orchestrate`

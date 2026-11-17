@@ -7,6 +7,8 @@
 # <common .git>/pending-retros/ to retry with the same command.
 # The 0.9 branch agentes/retros is only read (--consolidated accepts its commits), never written.
 # Retros with 0.9 keys and values (modelo:, rol:...) are accepted and saved with the new ones.
+# scripts/agents/bitacora.py reads these retros with retros_dump (legacy-names.sh); the format it relies on
+# (keys, **Title:** sections) is in docs/agents/bitacora.md.
 # Usage: retro.sh <file.md>                          publishes a retro
 #        retro.sh --consolidated <commit> <PR link>  marks what is consolidated (used by /improve-skills)
 set -euo pipefail
@@ -80,7 +82,7 @@ else
     echo "retro.sh: the retro must start with a frontmatter between two --- lines. Format:" >&2
     cat "$AQUI/retro-template.md" >&2; exit 1
   fi
-  fm=$({ echo ---; echo "$fm"; echo ---; } | normalize_legacy_names | sed '1d;$d' | awk '/^[a-z_]+:/ { k = $0; sub(/:.*/, "", k); if (seen[k]++) next } { print }')  # 0.9 keys and values (modelo:, orquestar…) become the new ones; a 0.9 key next to its new one: the first stays
+  fm=$({ echo ---; echo "$fm"; echo ---; } | normalize_legacy_names | sed '1d;$d')  # 0.9 keys and values (modelo:, orquestar…) become the new ones; a 0.9 key next to its new one: the first stays
   # An agent_sha / skill_sha that is not a sha (the template copied without filling it in: empty, <...> or loose text) is dropped:
   # retro.sh puts the real ones.
   fm_ok=""
