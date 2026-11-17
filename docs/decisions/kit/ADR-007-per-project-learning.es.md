@@ -16,7 +16,7 @@ Decidido por @lautioliver en el chat (2026-11-16):
 
 El resto (la lista de campos, los valores de `outcome`, el formato de `rules_ref` y cómo se toma UHP) son refinamientos que escribió un agente y la persona no decidió por separado. Se aprueban al aceptar este ADR o se cambian en la revisión de su PR.
 
-Enmendado en lautioliver/barrilete-kit#324 (2026-11-17), decidido por @lautioliver: la celda de D5 no lleva rol (regla × modelo × harness, como arriba), y D6 fija el formato de `rules_ref` (comentario del 2026-11-16 en #324).
+Enmendado en lautioliver/barrilete-kit#324 (2026-11-17), decidido por @lautioliver: la celda de D5 no lleva rol (regla × modelo × harness, como arriba; aprobado en el chat del 2026-11-17, registrado en https://github.com/lautioliver/barrilete-kit/pull/338#issuecomment-6963224944), y D6 fija el formato de `rules_ref` (comentario del 2026-11-16 en #324).
 
 ## Contexto
 

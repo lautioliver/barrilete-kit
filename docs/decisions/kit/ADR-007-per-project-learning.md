@@ -16,7 +16,7 @@ Decided by @lautioliver in the chat (2026-11-16):
 
 The rest (the field list, the `outcome` values, the `rules_ref` format and how UHP is taken) are refinements an agent wrote and the person did not decide separately. They are approved by accepting this ADR or changed in the review of its PR.
 
-Amended in lautioliver/barrilete-kit#324 (2026-11-17), decided by @lautioliver: the D5 cell has no role (rule × model × harness, as above), and D6 fixes the `rules_ref` format (comment of 2026-11-16 on #324).
+Amended in lautioliver/barrilete-kit#324 (2026-11-17), decided by @lautioliver: the D5 cell has no role (rule × model × harness, as above; approved in the chat of 2026-11-17, recorded in https://github.com/lautioliver/barrilete-kit/pull/338#issuecomment-6963224944), and D6 fixes the `rules_ref` format (comment of 2026-11-16 on #324).
 
 ## Context
 
