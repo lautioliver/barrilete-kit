@@ -240,7 +240,24 @@ pedidos=$({ grep -o 'pullRequest(number:[0-9]*)' "$GH_LOG" || true; } | tr -dc '
 [ "$pedidos" = "42 55 66 77 88 " ]; tap_check $? "a gh le pide solo los PRs que citan las retros" "$pedidos"
 [ "$(wc -l <"$GH_LOG" | tr -d ' ')" = 1 ]; tap_check $? "a gh lo llama una vez" "$(cat "$GH_LOG")"
 
-# 14. El fetch de las retros no se cuelga pidiendo una clave ni esperando una conexión: ssh en modo batch y con
+# 14. Un pr: o issue: que no es un número común (un dígito Unicode, 30 cifras) no es un PR: no rompe la página ni la
+#     consulta a gh, que pide solo los números que pueden ser un PR.
+retro_vieja agents/retros retros/2026-02-05-review-pr-x.md '---
+skill: review-pr
+pr: 123456789012345678901234567890
+issue: ²
+role: reviewer
+model: opus
+date: 2026-02-05
+---
+**Deviations:** números raros
+'
+: >"$GH_LOG"
+tap_run out 0 python3 -I "$BITACORA" -C "$TMP/p"
+grep -qF 'números raros' "$pagina"; tap_check $? "una retro con un pr: o issue: que no es un número común aparece"
+grep -qF '123456789012345678901234567890' "$GH_LOG"; es=$?; [ "$es" = 1 ]; tap_check $? "a gh no le pide un número que no puede ser un PR"
+
+# 15. El fetch de las retros no se cuelga pidiendo una clave ni esperando una conexión: ssh en modo batch y con
 #     tiempo de conexión, sin prompt de git. ssh es un falso en PATH (sin red).
 cat >"$TMP/bin/ssh" <<'EOF'
 #!/bin/sh
