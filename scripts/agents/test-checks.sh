@@ -34,8 +34,9 @@ printf '#!/usr/bin/env bash\ntap_check $? "caso uno"\ntap_check $? "caso dos"\n'
 # Ids con comillas, \\ y \$: en el fuente bash van escapados y red.sh los reporta desescapados (#341)
 cat >>"$P/scripts/agents/test-x.sh" <<'EOF2'
 tap_check $? "324: learning.json es {\"store\": \"local\"}"
-tap_check $? "ruta C:\\tmp y \$HOME"
 EOF2
+# con %s: el fuente no tiene la forma de un caso cuyo id se arma al correr (test-tap.sh lo prohíbe), y el fixture sí
+printf '%s $? "ruta C:\\\\tmp y \\$HOME"\n' tap_check >>"$P/scripts/agents/test-x.sh"
 git -C "$P" add -A && git -C "$P" commit -qm rojo; RED=$(git -C "$P" rev-parse --short=10 HEAD)
 echo verde >"$P/impl.txt"
 git -C "$P" add -A && git -C "$P" commit -qm verde
