@@ -81,6 +81,6 @@ If the project has `.barrilete/bitacora.css`, it goes after the barrilete design
 }
 ```
 
-If you change colors, check the contrast yourself: the test only checks barrilete's.
+The page is always light: do not add a `@media (prefers-color-scheme: dark)` block (if you have one from the earlier example, remove it), because it would bring dark colors back onto a light background. If you change colors, check the contrast yourself: the test only checks barrilete's.
 
 The design is copied into the page when it is created, and entries never rewrite it: a page that already exists keeps the design it was born with. To give it a new one, change the `<style id="theme-…">` blocks by hand in a PR of its own.

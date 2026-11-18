@@ -51,6 +51,8 @@ Components (the page already has their styles and they use the design tokens):
 | Note | the idea in one sentence, a warning | `<div class="note"><p><strong>The idea.</strong> …</p></div>` |
 | Status in text | | `<span class="ok">done</span>`, `<span class="warn">in progress</span>`, `<span class="danger">waiting on you</span>` |
 
+A page created before the diagrams does not have their styles (the design is copied when it is created): if `docs/bitacora.html` has no `.branch` or `.map`, draw the options with cards or a table and the parts with a flow.
+
 Status colors: `ok` done or chosen, `warn` in progress, `danger` waiting on a person, broken or dropped. Never only the color: the word says it too. In a map, `node` also takes `ok`, `warn` and `danger`.
 
 Use only these components and plain text tags (`p`, `strong`, `em`, `ul`/`ol`/`li`, `a href`, `h3`, `h4`…): the script checks the fragment against an allowlist and rejects (exit 64, the file is not touched) anything else, such as scripts, styles, `on…=` handlers, `javascript:`, comments, page structure tags, a loose `<` (write `&lt;`, which passes), tags left open (`<b/>` leaves it open: close it with `</b>`; only `<br/>` and `<hr/>` self-close; `</br>` does not pass), links to another site without a scheme (`//host`) or a tag left half written at the end (`<b`). Its message says what was wrong: fix the fragment and try again.

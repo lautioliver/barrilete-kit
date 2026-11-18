@@ -51,6 +51,8 @@ Componentes (la página ya trae sus estilos y usan los tokens del diseño):
 | Nota | la idea en una frase, un aviso | `<div class="note"><p><strong>La idea.</strong> …</p></div>` |
 | Estado en el texto | | `<span class="ok">hecho</span>`, `<span class="warn">en curso</span>`, `<span class="danger">te espera a vos</span>` |
 
+Una página creada antes de los diagramas no trae sus estilos (el diseño se copia al crearla): si `docs/bitacora.html` no tiene `.branch` ni `.map`, dibujá las opciones con tarjetas o una tabla y las partes con un flujo.
+
 Colores de estado: `ok` hecho o elegida, `warn` en curso, `danger` espera a una persona, está roto o se descartó. Nunca solo el color: la palabra también lo dice. En un mapa, `node` también acepta `ok`, `warn` y `danger`.
 
 Usá solo estos componentes y etiquetas de texto simples (`p`, `strong`, `em`, `ul`/`ol`/`li`, `a href`, `h3`, `h4`…): el script revisa el fragmento contra una lista permitida y rechaza (sale con 64 y no toca el archivo) todo lo demás, como scripts, estilos, manejadores `on…=`, `javascript:`, comentarios, etiquetas de la estructura de la página, un `<` suelto (escribí `&lt;`, que pasa), etiquetas que quedan abiertas (`<b/>` la deja abierta: cerrala con `</b>`; solo `<br/>` y `<hr/>` se cierran solas; `</br>` no pasa), links a otro sitio sin esquema (`//host`) o una etiqueta a medio escribir al final (`<b`). Su mensaje dice qué estaba mal: arreglá el fragmento y probá de nuevo.

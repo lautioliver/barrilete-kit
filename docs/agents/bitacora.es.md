@@ -81,6 +81,6 @@ Si el proyecto tiene `.barrilete/bitacora.css`, va después del diseño de barri
 }
 ```
 
-Si cambiás colores, revisá el contraste vos: el test solo comprueba el de barrilete.
+La página es siempre clara: no le sumes un bloque `@media (prefers-color-scheme: dark)` (si ya lo tenías del ejemplo anterior, sacalo), porque traería de vuelta colores oscuros sobre un fondo claro. Si cambiás colores, revisá el contraste vos: el test solo comprueba el de barrilete.
 
 El diseño se copia en la página cuando se crea, y las entradas nunca lo reescriben: una página que ya existe se queda con el diseño con el que nació. Para darle uno nuevo, cambiá a mano los bloques `<style id="theme-…">` en un PR aparte.
