@@ -404,6 +404,7 @@ rm -f "$GDIR/agent-lock"
 
 # 14. #350: una sesión común que siguió implement-issue en un worktree suelta el candado al entregar (paso 9) y al soltar
 # el issue. Si no, la sesión queda abierta con el worktree held (los casos de #346 y #347).
+# Un proyecto instalado con --lang es tiene SKILL.md en español: los casos de SKILL.md aceptan la frase en cualquiera de los dos.
 # seccion <archivo> <encabezado> [<otro encabezado>]: deja en $out la sección desde ese encabezado hasta el siguiente "## ".
 seccion() { tap_run out 0 awk -v a="$2" -v b="${3:-$2}" 'index($0, a) == 1 || index($0, b) == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/$1"; }
 SK=.claude/skills/implement-issue/SKILL.md
@@ -414,9 +415,9 @@ if [ "$CHICO" = 1 ]; then
 else
   seccion "$SK" "## 9."
   grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: el paso 9 suelta el candado del worktree"
-  grep -qF -- "after the retro" <<<"$out"; tap_check $? "implement-issue: el candado se suelta al final, después de la retro"
-  grep -qF -- "you are not a subagent" <<<"$out"; tap_check $? "implement-issue: un subagente no sigue el paso sin su nombre"
-  grep -qF -- "before editing anything" <<<"$out"; tap_check $? "implement-issue: otra ronda toma el candado antes de editar"
+  grep -qF -e "after the retro" -e "después de la retro" <<<"$out"; tap_check $? "implement-issue: el candado se suelta al final, después de la retro"
+  grep -qF -e "you are not a subagent" -e "no sos un subagente" <<<"$out"; tap_check $? "implement-issue: un subagente no sigue el paso sin su nombre"
+  grep -qF -e "before editing anything" -e "antes de editar nada" <<<"$out"; tap_check $? "implement-issue: otra ronda toma el candado antes de editar"
   seccion "$SK" "## If you have to drop" "## Si hay que soltar"
   grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: soltar el issue suelta el candado del worktree"
 fi
