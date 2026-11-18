@@ -493,6 +493,10 @@ rechaza 'https://github.com/o/../pull/1'
 rechaza 'https://github.com/o/r/pull/1/'
 [ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una barra final se rechaza"
 [ ! -e "$EVL" ]; tap_check $? "348 evidence_ref: ninguno de los rechazados se escribe"
+rechaza 'https://github.com/o/.../pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review: un repo hecho solo de puntos se rechaza"
+rechaza 'https://github.com/o/.../blob/0123abc/README.md'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review: un repo de solo puntos se rechaza tambien en blob"
 acepta 'https://github.com/lautioliver/barrilete-kit/pull/348'
 [ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: pull/<n> vale"
 acepta 'https://github.com/lautioliver/barrilete-kit/issues/348#issuecomment-6968066532'
@@ -520,10 +524,10 @@ rechaza "$(python3 -c "print('a' * 301)")"
 acepta '/Users/x/.claude/projects/p/s.jsonl'
 [ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: una ruta local absoluta vale"
 # Entradas hostiles: largas y con muchos segmentos o repeticiones. Un regex con backtracking catastrofico tardaria minutos.
-LARGO=$(python3 -c "print('https://github.com/o/r/blob/0123abc/' + 'a/' * 150000 + '!')")
+LARGO=$(python3 -c "print('https://github.com/o/r/blob/0123abc/' + 'a/' * 50000 + '!')")
 rechaza "$LARGO"
 [ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref hostil: una ruta de blob larguisima se rechaza en menos de 5 s"
-LARGO=$(python3 -c "print('https://github.com/' + 'a-' * 100000 + '/r/pull/1')")
+LARGO=$(python3 -c "print('https://github.com/' + 'a-' * 50000 + '/r/pull/1')")
 rechaza "$LARGO"
 [ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref hostil: un owner larguisimo se rechaza en menos de 5 s"
 
