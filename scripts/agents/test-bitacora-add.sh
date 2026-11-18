@@ -168,15 +168,14 @@ done
 
 # 11. Contraste AA del texto y los colores de estado en los dos modos; sin red, fuentes del sistema.
 cat >"$TMP/contraste.py" <<'EOF'
-"""Lee los tokens de barrilete.css (modo claro y oscuro) y dice qué pares no llegan a WCAG AA (4.5:1)."""
+"""Lee los tokens de barrilete.css (modo claro) y dice qué pares no llegan a WCAG AA (4.5:1)."""
 import re, sys
 css = open(sys.argv[1], encoding="utf-8").read()
 TOKENS = ["--bg", "--surface", "--card", "--ink", "--muted", "--accent", "--ok", "--warn", "--danger"]
 def bloque(texto):
     return dict(re.findall(r"(--[a-z-]+)\s*:\s*(#[0-9A-Fa-f]{6})", texto))
-oscuro = re.search(r"prefers-color-scheme:\s*dark\)\s*\{(.*?)\}\s*\}", css, re.S)
-claro = bloque(css[: oscuro.start()] if oscuro else css)
-modos = {"claro": claro, "oscuro": {**claro, **bloque(oscuro.group(1))} if oscuro else {}}
+# La página es siempre clara (#361): un solo juego de tokens.
+modos = {"claro": bloque(css)}
 def lum(h):
     c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
     c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
@@ -198,7 +197,7 @@ for modo, t in modos.items():
 print("ok" if not malos else "; ".join(malos))
 EOF
 tap_run out 0 python3 -I "$TMP/contraste.py" "$CSS"
-[ "$out" = ok ]; tap_check $? "el texto y los colores de estado de barrilete cumplen AA en los dos modos" "$out"
+[ "$out" = ok ]; tap_check $? "el texto y los colores de estado de barrilete cumplen AA en modo claro" "$out"
 grep -qE -- '--font-display:.*(system-ui|sans-serif)' "$CSS"; tap_check $? "sin red, los títulos caen en una fuente del sistema"
 grep -qE -- '--font-mono:.*(ui-monospace|monospace)' "$CSS"; tap_check $? "sin red, el texto mono cae en una fuente del sistema"
 
@@ -388,5 +387,49 @@ cp "$TMP/sinfin/docs/bitacora.html" "$TMP/sinfin-antes.html"
 tap_run out 65 python3 -I "$ADD" -C "$TMP/sinfin" add --topic "Otro" --entry "$TMP/e2.html"
 [ "$TAP_RC" = 65 ]; tap_check $? "con una sección sin su marcador de fin, add no escribe y dice que el archivo está roto" "rc=$TAP_RC $out"
 cmp -s "$TMP/sinfin-antes.html" "$TMP/sinfin/docs/bitacora.html"; tap_check $? "con el archivo roto, add no lo toca"
+
+# 22. #361: la página es siempre clara (también el índice y el pie), hay un diagrama con ramas y un mapa de partes
+# que pasan la lista permitida, una página que ya existe no cambia su diseño y el skill pide la idea, no un informe.
+grep -qiE 'prefers-color-scheme' "$CSS"; es=$?; [ "$es" = 1 ]; tap_check $? "el diseño de barrilete no tiene modo oscuro"
+grep -qE 'color-scheme:[[:space:]]*light[[:space:]]*;' "$CSS"; tap_check $? "el diseño de barrilete le pide al navegador el modo claro"
+git init -q "$TMP/claro"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/claro" add --topic "Tema" --entry "$TMP/e1.html"
+grep -qiE 'prefers-color-scheme' "$TMP/claro/docs/bitacora.html"; es=$?; [ "$es" = 1 ]; tap_check $? "una página nueva no cambia a oscuro con el sistema"
+grep -qiE 'background:#(14161A|121418)' "$TMP/claro/docs/bitacora.html"; es=$?; [ "$es" = 1 ]; tap_check $? "el índice y el pie de una página nueva no son negros"
+for clase in branch root opts opt map node edge; do
+  grep -qE "\.${clase}[^a-z-]" "$TMP/claro/docs/bitacora.html"; tap_check $? "la página trae los estilos del diagrama con ramas y del mapa" ".$clase"
+done
+cat >"$TMP/diagramas.html" <<'EOF'
+<div class="branch"><div class="root">¿Dónde se guarda?</div><div class="opts"><div class="opt ok"><h4>Un archivo</h4><p>Elegida.</p></div><div class="opt danger"><h4>Uno por tema</h4><p>Descartada.</p></div></div></div>
+<ul class="map"><li><span class="node">El chat</span><span class="edge">escribe en</span><span class="node">La bitácora</span></li></ul>
+EOF
+tap_run out 0 python3 -I "$ADD" -C "$TMP/claro" add --topic "Tema" --entry "$TMP/diagramas.html"
+[ "$TAP_RC" = 0 ]; tap_check $? "add acepta el diagrama con ramas y el mapa de partes" "rc=$TAP_RC $out"
+for malo in '<div class="branch" style="--v:1%">x</div>' '<div class="opt" onclick="x()">x</div>' \
+            '<ul class="map"><li><svg></svg></li></ul>' '<span class="edge" id="tema">x</span>'; do
+  printf '%s\n' "$malo" >"$TMP/malo.html"
+  tap_run out 64 python3 -I "$ADD" -C "$TMP/claro" add --topic "Tema" --entry "$TMP/malo.html"
+  [ "$TAP_RC" = 64 ]; tap_check $? "dentro de los diagramas se sigue rechazando lo que no está en la lista permitida" "$malo: rc=$TAP_RC"
+done
+# Una página que nació con otro diseño (con modo oscuro) lo conserva al sumar entradas.
+git init -q "$TMP/vieja"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/vieja" add --topic "Tema" --entry "$TMP/e1.html"
+tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p).read(); open(p, "w").write(t.replace("<style id=\"theme-barrilete\">", "<style id=\"theme-barrilete\">\n@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }", 1))' "$TMP/vieja/docs/bitacora.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/vieja" add --topic "Tema" --entry "$TMP/e2.html"
+grep -qF '@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }' "$TMP/vieja/docs/bitacora.html"; tap_check $? "una página que ya existe conserva el diseño con el que nació"
+for f in $archivos; do
+  case "$f" in SKILL.es.md) camino="de dónde salió"; jerga="sin nombres de archivos" ;; *) camino="where it came from"; jerga="no file names" ;; esac
+  for frase in "$camino" "$jerga" 'class="branch"' 'class="map"'; do
+    tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/.claude/skills/bitacora/$f" "$frase"
+    [ "$out" = sí ]; tap_check $? "el skill pide la idea con gráficos y en lenguaje de persona, no un informe" "$f: $frase: $out"
+  done
+done
+docs_bitacora="docs/agents/bitacora.md"
+case "$plantilla" in sí) docs_bitacora="docs/agents/bitacora.md docs/agents/bitacora.es.md" ;; esac
+for f in $docs_bitacora; do
+  case "$f" in *.es.md) titulo="## Para qué sirve" ;; *) titulo="## What it is for" ;; esac
+  tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/$f" "$titulo"
+  [ "$out" = sí ]; tap_check $? "la documentación explica qué es la bitácora y para qué sirve" "$f: $out"
+done
 
 tap_done
