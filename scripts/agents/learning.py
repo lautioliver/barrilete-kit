@@ -63,7 +63,7 @@ def _patron(regex):
 _OWNER = r"[A-Za-z0-9][A-Za-z0-9-]{0,38}"
 _REPO = r"(?!\.+/)[A-Za-z0-9._-]{1,100}"
 _SHA = r"[0-9a-f]{7,40}"
-_SEG = r"(?!\.{1,2}(?:/|$))[A-Za-z0-9._~-]{1,100}"   # the class of a local path, without `/`, `.` or `..`
+_SEG = r"(?!\.{1,2}(?:/|#|\Z))[A-Za-z0-9._~-]{1,100}"   # the class of a local path, without `/`, `.` or `..`
 _URL_GITHUB = re.compile(
     rf"https://github\.com/{_OWNER}/{_REPO}/(?:"
     rf"(?:pull|issues)/[0-9]{{1,10}}(?:#(?:issuecomment-|discussion_r)[0-9]{{1,20}})?"
@@ -74,7 +74,7 @@ _RUTA_LOCAL = re.compile(r"[A-Za-z0-9._~/-]{1,300}")
 
 def evidencia(x):
     """Whether a value is a valid evidence_ref: a local path or a URL of the list of ADR-007 D3."""
-    if "://" in x:
+    if "://" in x:   # anything with a scheme is a URL and has to be on the list; the rest is judged as a local path
         return _URL_GITHUB.fullmatch(x) is not None
     return _RUTA_LOCAL.fullmatch(x) is not None
 
