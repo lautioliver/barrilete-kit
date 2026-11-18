@@ -57,6 +57,28 @@ def _patron(regex):
     return lambda x: isinstance(x, str) and r.fullmatch(x) is not None
 
 
+# evidence_ref: `push` publishes the store, and that is where a webhook or a token travels. So a URL is valid only if it is
+# one of these, and anything else (another host, http, a port, user, query, `%`, `=`) is not. Each piece is a fixed class with
+# no nested quantifier, so a hostile input is rejected in linear time.
+_OWNER = r"[A-Za-z0-9][A-Za-z0-9-]{0,38}"
+_REPO = r"(?!\.+/)[A-Za-z0-9._-]{1,100}"
+_SHA = r"[0-9a-f]{7,40}"
+_SEG = r"(?!\.{1,2}(?:/|#|\Z))[A-Za-z0-9._~-]{1,100}"   # the class of a local path, without `/`, `.` or `..`
+_URL_GITHUB = re.compile(
+    rf"https://github\.com/{_OWNER}/{_REPO}/(?:"
+    rf"(?:pull|issues)/[0-9]{{1,10}}(?:#(?:issuecomment-|discussion_r)[0-9]{{1,20}})?"
+    rf"|blob/{_SHA}/(?=[^#]{{1,300}}(?:#|\Z)){_SEG}(?:/{_SEG})*(?:#L[0-9]{{1,7}}(?:-L[0-9]{{1,7}})?)?"
+    rf"|commit/{_SHA})")
+_RUTA_LOCAL = re.compile(r"[A-Za-z0-9._~/-]{1,300}")
+
+
+def evidencia(x):
+    """Whether a value is a valid evidence_ref: a local path or a URL of the list of ADR-007 D3."""
+    if "://" in x:   # anything with a scheme is a URL and has to be on the list; the rest is judged as a local path
+        return _URL_GITHUB.fullmatch(x) is not None
+    return _RUTA_LOCAL.fullmatch(x) is not None
+
+
 # The table of ADR-007 D3. Each value is checked against its form: a field of the table with free text inside is rejected.
 CAMPOS = {
     "v": lambda x: _entero(x) and x == 1,
@@ -73,10 +95,8 @@ CAMPOS = {
     "class": _patron(SLUG),
     "rule_id": _patron(SLUG),
     "outcome": _patron(SLUG),   # which values depends on kind: see problemas()
-    # A URL without user or password, query, or key=value in the path or the fragment: `push` publishes the store, and
-    # that is where a token travels (?token=, ;jsessionid=, #access_token=, %3F). A comment link (#issuecomment-1) is valid.
-    "evidence_ref": _patron(r"(?:https?://[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~/:@+!,-]{0,450})?"
-                            r"(?:#[A-Za-z0-9._~/-]{0,200})?|[A-Za-z0-9._~/-]{1,300})"),
+    # A local path, or one of the GitHub URLs of the list in ADR-007 D3 (amended in #348): see evidencia().
+    "evidence_ref": lambda x: isinstance(x, str) and evidencia(x),
     "rules_ref": _patron(r"[0-9a-f]{12}\.[0-9a-f]{12}"),
 }
 OBLIGATORIOS = ("v", "ts", "project", "kind", "model", "harness")

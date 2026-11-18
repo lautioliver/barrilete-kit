@@ -429,4 +429,155 @@ valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr
 valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "a​b"}'
 [ "$TAP_RC" -eq 3 ]; tap_check $? "342 review: una rama v0 con un caracter invisible se rechaza"
 
+# 8. #348: evidence_ref acepta una ruta local y solo estas URLs de github.com (ADR-007 D3, enmendado): pull o issues con ancla
+# opcional, blob/<sha>/<ruta> con #L opcional, commit/<sha>. Cualquier otra URL se rechaza.
+rm -rf "$P/.barrilete/learning"
+# limitado.py corre learning.py con una alarma de 5 s (sobrevive al exec, y RLIMIT_CPU no la respeta macOS): un regex con backtracking catastrofico muere en vez de colgar el test.
+cat >"$TMP/limitado.py" <<'EOF2'
+import os, signal, sys
+signal.alarm(5)
+os.execv(sys.executable, [sys.executable] + sys.argv[1:])
+EOF2
+rechaza() { tap_run out 3 python3 "$TMP/limitado.py" "$L" emit finding class=x evidence_ref="$1"; }
+acepta() { tap_run out 0 python3 "$TMP/limitado.py" "$L" emit finding class=x evidence_ref="$1"; }
+rechaza 'https://hooks.slack.com/services/T0123/B0123/abcdefSECRET'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: la URL de un webhook de Slack se rechaza"
+rechaza 'https://example.com/o/r/pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: otro host con forma de PR se rechaza"
+rechaza 'https://github.com.evil.com/o/r/pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: un host que empieza con github.com se rechaza"
+rechaza 'http://github.com/o/r/pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: http sin TLS se rechaza"
+rechaza 'https://github.com:8443/o/r/pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: github.com con puerto se rechaza"
+rechaza 'https://github.com/o/r/tree/main/docs'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una ruta de github.com que no es de la lista se rechaza"
+rechaza 'https://github.com/o/r/actions/runs/123'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: actions/runs no esta en la lista"
+rechaza 'https://github.com/o/r/pull/12/files'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: pull/<n>/files no esta en la lista"
+rechaza 'https://github.com/o/r/pull/abc'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: pull/<n> exige un numero"
+rechaza 'https://github.com/o/r/pull/12#pullrequestreview-5'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: un ancla de PR que no es issuecomment ni discussion_r se rechaza"
+rechaza 'https://github.com/o/r/issues/12#issuecomment-abc'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: issuecomment- exige un numero"
+rechaza 'https://github.com/o/r/blob/main/README.md'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: blob con una rama en lugar del sha se rechaza"
+rechaza 'https://github.com/o/r/blob/0123abcz/README.md'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: blob con un sha no hexadecimal se rechaza"
+rechaza 'https://github.com/o/r/blob/0123abc/../../etc/passwd'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: blob con .. en la ruta se rechaza"
+rechaza 'https://github.com/o/r/blob/0123abc/a//b'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: blob con un segmento vacio se rechaza"
+rechaza 'https://github.com/o/r/blob/0123abc/a:b@c'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: blob con : o @ en la ruta se rechaza (la clase de la ruta local)"
+rechaza 'https://github.com/o/r/blob/0123abc/README.md#L10-12'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: #L<n>-<m> sin la segunda L se rechaza"
+rechaza 'https://github.com/o/r/blob/0123abc/README.md#section'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: un ancla de blob que no es #L se rechaza"
+rechaza 'https://github.com/o/r/commit/0123abc#issuecomment-1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: commit no lleva ancla"
+rechaza 'https://github.com/o/r/commit/main'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: commit con una rama en lugar del sha se rechaza"
+rechaza 'https://github.com/o/r/commit/0123ab'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: un sha de menos de 7 digitos se rechaza"
+rechaza 'https://github.com/o/r/commit/0123456789abcdef0123456789abcdef012345678'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: un sha de mas de 40 digitos se rechaza"
+rechaza 'https://github.com/-o/r/pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: un owner que empieza con guion se rechaza"
+rechaza 'https://github.com/o_x/r/pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: un owner con guion bajo se rechaza"
+rechaza 'https://github.com/o/../pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: el repo .. se rechaza"
+rechaza 'https://github.com/o/r/pull/1/'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una barra final se rechaza"
+[ ! -e "$EVL" ]; tap_check $? "348 evidence_ref: ninguno de los rechazados se escribe"
+rechaza 'https://github.com/o/.../pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review: un repo hecho solo de puntos se rechaza"
+rechaza 'https://github.com/o/.../blob/0123abc/README.md'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review: un repo de solo puntos se rechaza tambien en blob"
+rep() { python3 -c "import sys; print(sys.argv[1] * int(sys.argv[2]))" "$1" "$2"; }
+rechaza "https://github.com/o/r/blob/0123abc/..#L1"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: blob con .. seguido de un ancla se rechaza"
+rechaza "https://github.com/o/r/blob/0123abc/a/..#L1"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: blob con a/.. seguido de un ancla se rechaza"
+rechaza "https://github.com/o/r/blob/0123abc/.#L1"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: blob con . seguido de un ancla se rechaza"
+rechaza "https://github.com/o/r/blob/0123abc/a+b"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: blob con + en la ruta se rechaza"
+rechaza "https://github.com/o/r/blob/0123abc/a!b"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: blob con ! en la ruta se rechaza"
+rechaza "https://github.com/o/r/blob/0123abc/a,b"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: blob con , en la ruta se rechaza"
+rechaza "https://github.com/o/r/blob/0123abc/a#Labc"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: el ancla Labc se rechaza"
+rechaza "https://github.com/o/r/blob/0123abc/a#L"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: el ancla L sin numero se rechaza"
+acepta "https://github.com/$(rep a 39)/r/pull/1"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 review2: un owner de 39 caracteres vale"
+rechaza "https://github.com/$(rep a 40)/r/pull/1"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: un owner de 40 caracteres se rechaza"
+acepta "https://github.com/o/$(rep a 100)/pull/1"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 review2: un repo de 100 caracteres vale"
+rechaza "https://github.com/o/$(rep a 101)/pull/1"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: un repo de 101 caracteres se rechaza"
+acepta "https://github.com/o/r/blob/0123abc/$(rep a 100)"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 review2: un segmento de ruta de 100 caracteres vale"
+rechaza "https://github.com/o/r/blob/0123abc/$(rep a 101)"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: un segmento de ruta de 101 caracteres se rechaza"
+acepta "https://github.com/o/r/pull/$(rep 1 10)"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 review2: un numero de PR de 10 digitos vale"
+rechaza "https://github.com/o/r/pull/$(rep 1 11)"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: un numero de PR de 11 digitos se rechaza"
+acepta "https://github.com/o/r/issues/1#issuecomment-$(rep 1 20)"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 review2: un ancla issuecomment de 20 digitos vale"
+rechaza "https://github.com/o/r/issues/1#issuecomment-$(rep 1 21)"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: un ancla issuecomment de 21 digitos se rechaza"
+acepta "https://github.com/o/r/pull/1#discussion_r$(rep 1 20)"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 review2: un ancla discussion_r de 20 digitos vale"
+rechaza "https://github.com/o/r/pull/1#discussion_r$(rep 1 21)"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: un ancla discussion_r de 21 digitos se rechaza"
+acepta "https://github.com/o/r/blob/0123abc/a#L$(rep 1 7)"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 review2: una linea de 7 digitos vale"
+rechaza "https://github.com/o/r/blob/0123abc/a#L$(rep 1 8)"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: una linea de 8 digitos se rechaza"
+acepta "https://github.com/o/r/blob/0123abc/a#L1-L$(rep 1 7)"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 review2: el fin de un rango de 7 digitos vale"
+rechaza "https://github.com/o/r/blob/0123abc/a#L1-L$(rep 1 8)"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 review2: el fin de un rango de 8 digitos se rechaza"
+acepta 'https://github.com/lautioliver/barrilete-kit/pull/348'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: pull/<n> vale"
+acepta 'https://github.com/lautioliver/barrilete-kit/issues/348#issuecomment-6968066532'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: issues/<n>#issuecomment-<n> vale"
+acepta 'https://github.com/o/r/pull/12#discussion_r1234567'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: pull/<n>#discussion_r<n> vale"
+acepta 'https://github.com/o/.github/blob/0123abc4567/docs/a_b-c.d~e/README.md#L10'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: blob/<sha>/<ruta>#L<n> vale"
+acepta 'https://github.com/o/r/blob/0123abc4567/README.md#L10-L20'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: blob/<sha>/<ruta>#L<n>-L<m> vale"
+acepta 'https://github.com/o/r/commit/0123456789abcdef0123456789abcdef01234567'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: commit/<sha> de 40 digitos vale"
+acepta 'https://github.com/o/r/commit/0123abc'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: commit/<sha> de 7 digitos vale"
+rechaza "https://github.com/o/r/blob/0123abc/$(python3 -c "print('a' * 100 + '/' + 'a' * 100 + '/' + 'a' * 100 + '/a')")"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una ruta de blob de mas de 300 caracteres se rechaza"
+acepta "https://github.com/o/r/blob/0123abc/$(python3 -c "print('a' * 100 + '/' + 'a' * 100 + '/' + 'a' * 98)")#L1"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: una ruta de blob de 300 caracteres vale"
+rechaza 'token=abc'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una ruta local con = se rechaza"
+rechaza '/tmp/a b'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una ruta local con un espacio se rechaza"
+rechaza "$(python3 -c "print('a' * 301)")"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una ruta local de mas de 300 caracteres se rechaza"
+acepta '/Users/x/.claude/projects/p/s.jsonl'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: una ruta local absoluta vale"
+# Entradas hostiles: largas y con muchos segmentos o repeticiones. Un regex con backtracking catastrofico tardaria minutos.
+LARGO=$(python3 -c "print('https://github.com/o/r/blob/0123abc/' + 'a/' * 50000 + '!')")
+rechaza "$LARGO"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref hostil: una ruta de blob larguisima se rechaza en menos de 5 s"
+LARGO=$(python3 -c "print('https://github.com/' + 'a-' * 50000 + '/r/pull/1')")
+rechaza "$LARGO"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref hostil: un owner larguisimo se rechaza en menos de 5 s"
+
 tap_done

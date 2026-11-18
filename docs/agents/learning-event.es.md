@@ -31,7 +31,7 @@ Una línea JSON por evento, solo con los campos de la tabla del ADR-007 D3. Obli
 | `provider`, `harness`, `area`, `role`, `class`, `rule_id`, `outcome` | slug: minúsculas, números y guiones |
 | `model` | un id de modelo sin espacios (`claude-sonnet-5-5`, `openai/gpt-4o`) |
 | `kind` | `check_run`, `task_end`, `deviation` o `finding` |
-| `evidence_ref` | una ruta local o una URL, nunca la evidencia. La URL no lleva usuario ni clave, ni query (`?`), ni `%`, ni `=` en el path o el fragmento: `push` publica el store, y por ahí viaja un token (`#issuecomment-1` vale) |
+| `evidence_ref` | una ruta local (`[A-Za-z0-9._~/-]`, hasta 300), o solo una de estas URLs de `https://github.com/<owner>/<repo>/`: `pull/<n>` o `issues/<n>` (con `#issuecomment-<n>` o `#discussion_r<n>` opcional), `blob/<sha>/<ruta>` (con `#L<n>` o `#L<n>-L<m>` opcional; la ruta en esa clase, sin `..`, hasta 300) y `commit/<sha>`. `<sha>` son de 7 a 40 dígitos hexadecimales en minúscula; `<owner>` tiene hasta 39 letras, números o `-`, sin empezar con `-`; `<repo>` tiene hasta 100 de `[A-Za-z0-9._-]`, nunca solo puntos. Cualquier otra URL se rechaza: `push` publica el store, y en las otras viaja un webhook o un token (ADR-007 D3). Nunca la evidencia misma |
 | `rules_ref` | `<12 hex>.<12 hex>` (abajo) |
 
 - `outcome`: `pass`, `fail` o `skipped` en `check_run`; `completed`, `failed`, `incomplete` o `cancelled` en `task_end`; no va en `deviation` ni en `finding`.
