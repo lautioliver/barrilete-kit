@@ -20,6 +20,8 @@ Amended in lautioliver/barrilete-kit#324 (2026-11-17), decided by @lautioliver: 
 
 Amended in lautioliver/barrilete-kit#348 (2026-11-18), decided by @lautioliver in the chat (recorded in https://github.com/lautioliver/barrilete-kit/issues/348#issuecomment-6968066532): D3 limits `evidence_ref` to a local path plus the GitHub URLs of the list in D3, instead of any URL without credentials or query.
 
+Amended in lautioliver/barrilete-kit#345 (2026-11-18), decided by @lautioliver in the chat (recorded in https://github.com/lautioliver/barrilete-kit/issues/345#issuecomment-6988907723): in D3, the `class` of a `deviation` is the deviation type and every deviation goes to the store; in D5, deviations count through the type → class mapping of `classes.yml`.
+
 ## Context
 
 ADR-006 unified the rules in `barrilete-rules`, but left the learning data outside the projects:
@@ -54,13 +56,15 @@ ADR-006 unified the rules in `barrilete-rules`, but left the learning data outsi
    | `area` | the issue's `area:` label | for routing by area (#326) |
    | `role` | `implementer` · `reviewer`… | which role the rule reaches |
    | `kind` | `deviation` · `finding` · `check_run` · `task_end` | what happened |
-   | `class` | id from `classes.yml` | connects deviation, rule and finding (ADR-006 D4) |
+   | `class` | in `finding`, an id from `classes.yml`; in `deviation`, the deviation type (below) | connects deviation, rule and finding (ADR-006 D4) |
    | `rule_id` | rule id | the mapped rule, if there is one |
    | `outcome` | depends on `kind` (below) | the result |
    | `evidence_ref` | local path or an allowed URL (below) | where the evidence is, never the evidence |
    | `rules_ref` | see D6 | which version of the rules the agent received |
 
    - **`evidence_ref`:** a local path, or only one of these URLs, all of `https://github.com/<owner>/<repo>/`: `pull/<n>` or `issues/<n>` with an optional `#issuecomment-<n>` or `#discussion_r<n>`; `blob/<sha>/<path>` with an optional `#L<n>` or `#L<n>-L<m>`; `commit/<sha>`. `<sha>` is hexadecimal (lowercase, 7 to 40 digits). Any other URL is rejected (a webhook or a token travels in the others, and `push` publishes the store).
+   - **`class` in `deviation`:** the deviation type as a slug, not an id from `classes.yml`. The ones the Claude Code adapter (`bk learn`) writes today: `guardrail-block`, `hook-block`, `user-denied`, `interrupt`, `verify-fail`, `contract-*`, `plan-correction` and `user-correction`. A type connects to its class through the D5 mapping.
+   - **Every deviation goes to the store**, also the person's corrections, denials and interruptions (`user-correction`, `user-denied`, `interrupt`, `plan-correction`): the event keeps the type, never what the person wrote.
    - **Required:** `v`, `ts`, `project`, `kind`, `model` and `harness`. The rest go when they are known. The emitter does not guess: if it cannot know the model or the harness, it writes `unknown`, and the report counts them apart.
    - **`outcome`:** in `check_run`, `pass`, `fail` or `skipped` (the check could not verify), as in the v0 of #323. In `task_end`, the terminal states of ADR-005 D3: `completed`, `failed`, `incomplete` or `cancelled`. In `deviation` and `finding` it does not go.
    - **No text fields.** The schema has no free-text fields, and an event with a field that is not in the table is rejected (a test in lautioliver/barrilete-kit#324 proves it). Prompts, code, text from transcripts or from people, client names and secrets never get in: the event has to be auditable without seeing anything of the business.
@@ -71,6 +75,7 @@ ADR-006 unified the rules in `barrilete-rules`, but left the learning data outsi
 5. **D5. The rules the project applies are measured, per cell.** It replaces ADR-006 D10 and answers its open question about rounds.
    - The rules measured are the ones the project receives: those of the `.barrilete/rules.lock` SHA that apply to it (the same ones `sync-rules` filters) and those of `.barrilete/rules/`.
    - A cell is rule × model × harness. Per cell, the findings of the rule's `classes` per review round are measured before and after `accepted`, and the failure rate of its check if it has one.
+   - **Deviations, through the `classes.yml` mapping.** Each class in `barrilete-rules` carries an optional `deviations` list with the deviation types that belong to it, and a type falls in one class at most. Per cell, the deviations of the types mapped to the rule's `classes` are also measured, per task (`task_end`), apart from the findings per round. A type with no class is kept in the store but not measured. The mapping values are loaded with a PR to `barrilete-rules`, not in this ADR.
    - **A minimum of 20 rounds per cell.** With fewer, the report says "small sample" and gives no verdict.
    - A rule with no effect and a large enough sample has the same three outcomes as in ADR-006, and the person picks: it becomes a check, it is rewritten more concretely, or it moves to `deprecated`.
 
@@ -124,3 +129,4 @@ This stays here and not in the project horizon (horizon.md): in the kit that fil
 - **Issues of epic #321** (already open):
   - **kit** #324: the v1 event and the store (D2, D3, D6); #325: the Codex, Copilot, Cursor and pi adapters (it touches hooks: ask first);
   - **barrilete-workspace** lautioliver/barrilete-workspace#11: the Claude Code adapter; #12: proposals to the project (D4) and the alert for a silent stream; #13: the per-cell report (D5); #14: an A/B with tasks from the git history.
+- **What the #345 amendment asks for** (no issue yet): in `barrilete-rules`, the `deviations` list in `classes.yml`, its validator accepting it, and the mapping values; in `bk learn effect` (#13), counting the mapped deviations per task.
