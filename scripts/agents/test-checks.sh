@@ -59,6 +59,9 @@ describe('grupo', () => {
 describe.each([[1]])('tabla %s', () => {
   it('anda', () => {});
 });
+describe.each([[1]])('it (%s)', () => {
+  it('va', () => {});
+});
 EOF3
 cat >"$P/scripts/agents/y.test.mjs" <<'EOF4'
 it('it\'s mjs', () => {});
@@ -204,7 +207,7 @@ pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > ${largo// /a}" "Clos
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
 tap_no_traceback "$out"
 grep -qx 'rc=3' <<<"$out"; tap_check $? "casos: un título de it.each con 8 comodines contra un nombre de 3000 caracteres termina y falla" "$(tail -1 <<<"$out")"
-pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > ${largo// /a}c" "Closes #7")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > ${largo// /a}xc" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
 tap_no_traceback "$out"
 grep -qx 'rc=3' <<<"$out"; tap_check $? "casos: un título de it.each con el principio y el final del nombre y sin las partes del medio termina y falla" "$(tail -1 <<<"$out")"
@@ -220,6 +223,9 @@ GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::otra tabla 1 > anda" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q "otra tabla 1.*name is not in" <<<"$out"; tap_check $? "casos: un grupo inventado sigue fallando aunque haya un describe.each"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::it (1) > va" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un título de describe.each que empieza con it ( se encuentra (no se oculta dentro del string)"
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::suma 1 > anda" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q "suma 1 > anda.*name is not in" <<<"$out"; tap_check $? "casos: un grupo no se encuentra con el título de un it.each (es de un test, no de un grupo)"
