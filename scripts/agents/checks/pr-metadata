@@ -20,9 +20,13 @@ or gh failed: no network, no login, another wording): verify.py reports it as "n
 (1 and 2 are left for a crash, a Python traceback, so that a test can tell it from an expected failure.)
 """
 import json
+import os
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
+import red_report  # noqa: E402  (scripts/agents/red_report.py: the same JS spellings and it.each titles red.sh accepts)
 
 USAGE = "Usage: scripts/agents/checks/pr-metadata --base <ref>"
 HEX = re.compile(r"^[0-9a-fA-F]{7,64}$")
@@ -36,7 +40,7 @@ CASE_BULLET = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
 BRANCH_ISSUE = re.compile(r"^(?!release/)[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # also claude/<type>/<n>-…
 
 
-JS_EXT = (".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts")  # the same list as red_report.JS_EXT
+JS_EXT = red_report.JS_EXT
 
 
 def sh_spelling(name):
@@ -51,12 +55,15 @@ def js_spelling(name):
     return re.compile("".join(r"\\\\" if c == "\\" else r"\\?" + re.escape(c) for c in name))
 
 
-def in_source(path, part, src):
+def in_source(path, part, src, last=False):
     """Is `part` of a case name in `src`, as the file of `path` can write it? red.sh reports the id unescaped and the
     source keeps it escaped (#341 bash, #349 JS/TS); only the spellings of that language count, so a stray escape
-    elsewhere in the file does not make an invented name match."""
+    elsewhere in the file does not make an invented name match. The `last` part of a JS/TS name is the test's own
+    title, and an it.each title has placeholders the runner fills in (#355): red_report.js_defines matches it whole."""
     if path.endswith(JS_EXT):  # not `part in src`: a lone backslash of the source is an escape, not a backslash of the name
-        return js_spelling(part).search(src) is not None
+        if js_spelling(part).search(src) is not None:
+            return True
+        return last and red_report.js_defines(list(enumerate(src.split("\n"), 1)), part)
     if part in src:
         return True
     if path.endswith(".sh"):
@@ -157,7 +164,8 @@ def main(argv):
                 problems.append(f"failing case {case!r}: it has no file path before ::")
             elif rc != 0:
                 problems.append(f"failing case {case!r}: {path} does not exist at the red commit {red}")
-            elif not all(part and in_source(path.strip(), part, src) for part in re.split(r"::| > ", cname)):
+            elif not all(part and in_source(path.strip(), part, src, i == len(parts) - 1)
+                         for parts in [re.split(r"::| > ", cname)] for i, part in enumerate(parts)):
                 problems.append(f"failing case {case!r}: the name is not in {path} at the red commit {red}")
 
     for line in lines:

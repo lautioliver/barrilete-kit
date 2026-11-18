@@ -187,9 +187,9 @@ GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > caso a" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
 [ "$TAP_RC" = 0 ]; tap_check $? "casos: un test.each con un comodín con nombre en el título se encuentra con el valor reemplazado"
-pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > suma 1 extra" "Closes #7")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > otra suma 1" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
-grep -q "suma 1 extra.*name is not in" <<<"$out"; tap_check $? "casos: un nombre que solo empieza como un título de it.each falla (el nombre entero)"
+grep -q "otra suma 1.*name is not in" <<<"$out"; tap_check $? "casos: un nombre que solo contiene un título de it.each falla (el nombre entero)"
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > cualquier cosa" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q "cualquier cosa.*name is not in" <<<"$out"; tap_check $? "casos: un título de it.each hecho solo de comodines no acepta cualquier nombre"
