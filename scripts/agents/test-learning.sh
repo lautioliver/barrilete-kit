@@ -389,4 +389,42 @@ tap_run out 0 python3 "$L" emit finding ts=2026-11-17T10:00:00Z class=stale-docs
 tap_run out 0 python3 "$L" emit check_run rule_id=r-342 outcome=fail
 [ "$TAP_RC" -eq 0 ]; tap_check $? "342 emit: rule_id y outcome se pueden poner"
 
+# --- 7. Hallazgos del /code-review de #342 ---
+# 7a. Dentro de una tarea `bk`, role y pr vienen de task.json (y rules_ref es el del rol): emit no los pisa.
+printf '{"id": "342-implementer", "role": "implementer", "status": "in_progress", "pr": 7, "seq": 1, "created": "2026-11-17T10:00:00.000Z"}\n' >"$TMP/tarea/task.json"
+rm -rf "$P/.barrilete/learning"
+BK_TASK_DIR="$TMP/tarea" tap_run out 64 python3 "$L" emit finding class=x role=reviewer
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 review: en una tarea bk, emit no pisa el role de task.json"
+BK_TASK_DIR="$TMP/tarea" tap_run out 64 python3 "$L" emit finding class=x pr=99
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 review: en una tarea bk, emit no pisa el pr de task.json"
+[ ! -e "$EVL" ]; tap_check $? "342 review: en una tarea bk, un role o pr pisado no escribe nada"
+# 7b. Un campo que emit no acepta sale siempre con 64, sea del contexto o no esté en la tabla.
+tap_run out 64 python3 "$L" emit finding class=x nota=texto
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 review: un campo fuera de la tabla en emit sale con 64, como uno del contexto"
+# 7c. evento() desde Python tampoco deja pisar el contexto (verify.py y task_events.py lo llaman directo).
+cat >"$TMP/pisar.py" <<'EOF'
+import sys
+sys.path.insert(0, sys.argv[1])
+import learning
+for campos in ({"model": "x"}, {"project": "otro"}, {"rules_ref": "000000000000.000000000000"}, {"nota": "t"}):
+    try:
+        learning.evento("finding", campos, ctx={"v": 1, "project": "p", "model": "m", "harness": "h"})
+        print("pisado", sorted(campos))
+    except learning.LearningError:
+        print("rechazado", sorted(campos))
+EOF
+tap_run out 0 python3 "$TMP/pisar.py" "$P/scripts/agents"
+grep -q '^pisado' <<<"$out"; [ $? -eq 1 ]; tap_check $? "342 review: evento() rechaza un campo del contexto o fuera de la tabla"
+grep -q "^rechazado \['model'\]" <<<"$out"; tap_check $? "342 review: evento() rechaza model"
+grep -q "^rechazado \['nota'\]" <<<"$out"; tap_check $? "342 review: evento() rechaza un campo fuera de la tabla"
+# 7d. La rama v0 son los caracteres de un nombre de rama, no cualquier texto sin espacios.
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "password=hunter2"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 review: una rama v0 con = se rechaza"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "\"<script>\""}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 review: una rama v0 con comillas o <> se rechaza"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "a..b"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 review: una rama v0 con .. se rechaza"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "a​b"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 review: una rama v0 con un caracter invisible se rechaza"
+
 tap_done
