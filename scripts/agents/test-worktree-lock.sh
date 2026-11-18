@@ -546,15 +546,40 @@ export WORKTREE_LOCK_HANDOFF=$TOKEN
 tap_run out 0 "$LOCK" claim "$TMP/wt"
 grep -qx "claimed" <<<"$out"; tap_check $? "traspaso: con el hash guardado, el token sigue tomándolo"
 unset WORKTREE_LOCK_HANDOFF
-# Un nombre de agente con salto de línea no planta una reserva en el candado.
+# Un nombre de agente con salto de línea no planta una reserva en el candado. Lo plantado es el sha256 de "conocido" (lo
+# que guarda un handoff de verdad), así que sin la limpieza del nombre "conocido" sí tomaría el candado.
 rm -f "$GDIR/agent-lock"
-export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=$'agente-a\nhandoff=conocido'
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=$'agente-a\nhandoff=01eb334f2a23594ec6b1bb6f1d85a648e4e81a99e7e2b676dd57c1cb4b9b3dc1'
 tap_run out 0 "$LOCK" claim "$TMP/wt"
-leer; grep -qx 'handoff=conocido' <<<"$LK"; [ $? = 1 ]; tap_check $? "traspaso: un nombre con salto de línea no planta una reserva"
+leer; grep -qx 'handoff=01eb334f2a23594ec6b1bb6f1d85a648e4e81a99e7e2b676dd57c1cb4b9b3dc1' <<<"$LK"; [ $? = 1 ]; tap_check $? "traspaso: un nombre con salto de línea no planta una reserva"
 export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b WORKTREE_LOCK_HANDOFF=conocido
 tap_run out 0 "$LOCK" claim "$TMP/wt"
 grep -qx "claimed" <<<"$out"; [ $? = 1 ]; tap_check $? "traspaso: la reserva plantada con el nombre no se toma"
 unset WORKTREE_LOCK_HANDOFF
+# Sin sha256sum ni shasum no hay hash: un token no toma un candado vivo (aunque no tenga reserva) y handoff falla en vez
+# de imprimir un token que no reservó nada. El PATH falso tiene todos los programas del PATH menos sha*sum*.
+mkdir -p "$TMP/nohash"
+IFS=: read -ra DIRS <<<"$ORIG_PATH"
+for d in "${DIRS[@]}"; do
+  for f in "$d"/*; do
+    b=${f##*/}
+    case "$b" in sha*sum*) continue ;; esac
+    if [ -x "$f" ] && [ ! -e "$TMP/nohash/$b" ]; then ln -s "$f" "$TMP/nohash/$b"; fi
+  done
+done
+rm -f "$GDIR/agent-lock"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b
+tap_run out 0 env PATH="$TMP/nohash" WORKTREE_LOCK_HANDOFF=cualquiera "$LOCK" claim "$TMP/wt"
+grep -q '^held: agente-a' <<<"$out"; tap_check $? "traspaso: sin herramienta de hash, un token no toma un candado sin reserva"
+leer; grep -qx "pid=$VIVO" <<<"$LK"; tap_check $? "traspaso: sin herramienta de hash, el candado sigue con el dueño"
+rm -f "$GDIR/agent-lock"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+tap_run out 64 env PATH="$TMP/nohash" "$LOCK" handoff "$TMP/wt"
+grep -q '^handed-off:' <<<"$out"; [ $? = 1 ]; tap_check $? "traspaso: sin herramienta de hash, handoff no da un token"
+leer; grep -q '^handoff=' <<<"$LK"; [ $? = 1 ]; tap_check $? "traspaso: sin herramienta de hash, handoff no deja reserva"
 # Pasado y con el dueño muerto: stale, como cualquier candado de un dueño muerto.
 cat >"$GDIR/agent-lock" <<LK
 pid=$MUERTO
