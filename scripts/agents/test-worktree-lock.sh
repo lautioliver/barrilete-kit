@@ -387,6 +387,11 @@ grep -q 'session chat-viejo' <<<"$out"; [ $? = 1 ]; tap_check $? "sesión dueña
 printf '{"pid":%s,"name":"chat, idle","status":"busy","procStart":"%s"}\n' "$VIVO" "$LOCAL_START" >"$TMP/sesiones/$VIVO.json"
 tap_run out 0 "$LOCK" status "$TMP/wt"
 grep -q 'session chat idle, busy' <<<"$out"; tap_check $? "sesión dueña: una coma en el nombre no finge el estado"
+UTC_START=$(TZ=UTC LC_ALL=C ps -o lstart= -p "$VIVO" | sed 's/^ *//; s/ *$//')
+printf '{"pid":%s,"name":"chat-utc","status":"idle","procStart":"%s"}\n' "$VIVO" "$UTC_START" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat-utc, idle' <<<"$out"; tap_check $? "sesión dueña: procStart en UTC (como lo escribe Claude Code) nombra la sesión"
+printf '{"pid":%s,"name":"chat, idle","status":"busy","procStart":"%s"}\n' "$VIVO" "$LOCAL_START" >"$TMP/sesiones/$VIVO.json"
 export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
 tap_run out 0 "$LOCK" status "$TMP/wt"
 grep -qx "held: agente-a (pid $VIVO, since [^,)]*, session chat idle, busy)" <<<"$out"; tap_check $? "sesión dueña: status del propio dueño nombra su sesión"

@@ -45,8 +45,10 @@ dueno() {
 campo() { sed -n "s/^$1=//p" "$lock" | head -1; }
 
 # La sesión de Claude Code dueña del candado (#350): ", session <nombre>, <estado>" si <sesiones>/<pid>.json existe y es de
-# ese pid; si no, nada. Así quien recibe held sabe a qué sesión pedirle que lo suelte. Solo caracteres imprimibles, sin
-# ; ( ), y hasta 60 por campo: el nombre lo elige la persona y no puede agregar líneas ni partes falsas al mensaje.
+# ese proceso (mismo pid y, si el archivo trae procStart, la misma hora de inicio: un archivo que dejó un claude muerto
+# no nombra al proceso que reusó su pid); si no, nada. Así quien recibe held sabe a qué sesión pedirle que lo suelte.
+# Solo caracteres imprimibles, sin ; ( ) ni comas, y hasta 60 por campo: el nombre lo elige la persona y no puede agregar
+# líneas ni partes falsas (otro estado) al mensaje.
 # Entorno: WORKTREE_LOCK_SESSIONS_DIR (por defecto ${CLAUDE_CONFIG_DIR:-~/.claude}/sessions).
 SESION_PY='import json, sys
 try:
@@ -55,7 +57,10 @@ except Exception:
     sys.exit(0)
 if not isinstance(d, dict) or str(d.get("pid")) != sys.argv[2]:
     sys.exit(0)
-limpio = lambda v: "".join(c for c in str(v) if c.isprintable() and c not in ";()")[:60].strip()
+norm = lambda v: " ".join(str(v).split())
+if d.get("procStart") and norm(d["procStart"]) not in (norm(sys.argv[3]), norm(sys.argv[4])):
+    sys.exit(0)
+limpio = lambda v: "".join(c for c in str(v) if c.isprintable() and c not in ";(),")[:60].strip()
 nombre, estado = limpio(d.get("name") or ""), limpio(d.get("status") or "")
 if nombre:
     print(", session " + nombre + (", " + estado if estado else ""), end="")'
@@ -63,7 +68,8 @@ sesion() {
   local dir="${WORKTREE_LOCK_SESSIONS_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions}"
   case "$1" in ''|*[!0-9]*) return 0 ;; esac
   [ -f "$dir/$1.json" ] || return 0
-  python3 -I -c "$SESION_PY" "$dir/$1.json" "$1" 2>/dev/null || true
+  # procStart se compara con la hora de inicio en UTC (la que escribe Claude Code hoy) y en la hora local.
+  python3 -I -c "$SESION_PY" "$dir/$1.json" "$1" "$(inicio "$1")" "$(LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null)" 2>/dev/null || true
 }
 # El mensaje de un candado ajeno, con la sesión dueña si se la encuentra.
 ocupado() { echo "held: ${l_agent:-agent} (pid ${l_pid:-?}, since ${l_since:-?}$(sesion "$l_pid")); another agent is working in $wt. Use your own worktree (prepare.sh <n> --worktree) and do not share it."; }
