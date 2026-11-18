@@ -4,9 +4,11 @@
 The event (ADR-007 D3, documented in docs/agents/learning-event.md) is one JSON line with only the fields of the table in
 CAMPOS: no free text, nothing that is not in the table. `v`, `ts`, `project`, `kind`, `model` and `harness` are required;
 an emitter that cannot know the model or the harness writes `unknown`, it never guesses. The model and the provider come
-from BK_MODEL and BK_PROVIDER or, without them, from BARRILETE_MODEL and BARRILETE_PROVIDER (what `bk` exports).
+from BK_MODEL and BK_PROVIDER or, without them, from BARRILETE_MODEL and BARRILETE_PROVIDER (what `bk` exports); the harness,
+from BK_HARNESS or, if it is unset or empty, `claude-code` with CLAUDECODE=1.
 
-Where it goes (D2) is said by .barrilete/learning.json, {"store": "local"} or {"store": "branch"}; without the file, local:
+Where it goes (D2) is said by .barrilete/learning.json of the main checkout (also from a worktree), {"store": "local"} or
+{"store": "branch"}; without the file, local:
   local   .barrilete/learning/events.jsonl of the main checkout (also from a worktree); the folder ignores itself.
   branch  the data branch agents/learning: each write is one plumbing commit on the local branch, without touching the
           working branch, the index or the tree. `push` uploads it (joining the lines if the remote moved); emit never goes
@@ -18,7 +20,9 @@ never without rules.lock.
 
 Usage:
   learning.py validate <events.jsonl>    # exits with 3 and says the line of each broken event; v0 lines of #323 are legacy
-  learning.py emit <kind> [field=value…] # adds model, harness, provider, project and the task's fields; 3 if invalid
+  learning.py emit <kind> [field=value…] # adds model, harness, provider, project and the task's fields; 3 if invalid,
+                                         # 64 with a field that is not the event's own: only ts, pr,
+                                         # area, role, class, rule_id, outcome, evidence_ref (role/pr not in a bk task)
   learning.py push                       # store branch: uploads agents/learning to origin
   learning.py rules-ref [role]           # prints the rules_ref of that role (1 without rules.lock)
 Exit status: 0 ok; 1 nothing to print (rules-ref without lock) or a git failure in push; 3 an invalid event or
@@ -69,10 +73,15 @@ CAMPOS = {
     "class": _patron(SLUG),
     "rule_id": _patron(SLUG),
     "outcome": _patron(SLUG),   # which values depends on kind: see problemas()
-    "evidence_ref": _patron(r"(?:https?://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]{1,500}|[A-Za-z0-9._~/-]{1,300})"),
+    # A URL without user or password, query, or key=value in the path or the fragment: `push` publishes the store, and
+    # that is where a token travels (?token=, ;jsessionid=, #access_token=, %3F). A comment link (#issuecomment-1) is valid.
+    "evidence_ref": _patron(r"(?:https?://[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~/:@+!,-]{0,450})?"
+                            r"(?:#[A-Za-z0-9._~/-]{0,200})?|[A-Za-z0-9._~/-]{1,300})"),
     "rules_ref": _patron(r"[0-9a-f]{12}\.[0-9a-f]{12}"),
 }
 OBLIGATORIOS = ("v", "ts", "project", "kind", "model", "harness")
+# What `emit field=value` can set: the event's own fields. The rest says who emits it (contexto()) and is never set by hand.
+PROPIOS = ("ts", "pr", "area", "role", "class", "rule_id", "outcome", "evidence_ref")
 
 
 class LearningError(Exception):
@@ -105,7 +114,7 @@ V0 = {
     "check": _patron(SLUG),
     "rule_id": _patron(SLUG),
     "outcome": lambda x: x in OUTCOMES["check_run"],
-    "branch": _patron(r"[A-Za-z0-9._/-]{1,200}"),
+    "branch": _patron(r"(?!.*\.\.)[\w./@+#-]{1,200}"),   # the characters of a branch name (v0 wrote any): letters, ñ too
     "task_id": _patron(SLUG),
     "harness": _patron(SLUG),
 }
@@ -184,7 +193,8 @@ def proyecto(cwd=None):
 
 
 def store(cwd=None):
-    ruta = os.path.join(raiz(cwd), ".barrilete", "learning.json")
+    # The main checkout's, where the local store writes: a worktree with an old copy would split the events in two stores
+    ruta = os.path.join(raiz_principal(cwd), ".barrilete", "learning.json")
     if not os.path.exists(ruta):
         return "local"
     try:
@@ -249,7 +259,7 @@ def contexto(cwd=None):
     model = os.environ.get("BK_MODEL") or os.environ.get("BARRILETE_MODEL", "")   # bk exports BARRILETE_*
     ctx["model"] = model if CAMPOS["model"](model) else "unknown"
     harness = os.environ.get("BK_HARNESS")
-    if harness is not None:   # set: it is the only source, and an invalid one is unknown (not claude-code)
+    if harness:   # set and not empty: it is the only source, and an invalid one is unknown (not claude-code)
         ctx["harness"] = harness if CAMPOS["harness"](harness) else "unknown"
     else:
         ctx["harness"] = "claude-code" if os.environ.get("CLAUDECODE") == "1" else "unknown"
@@ -351,9 +361,18 @@ def escribir(eventos, cwd=None):
         _escribir_local(lineas, cwd)
 
 
+def ajenos(campos, ctx):
+    """The given fields that are not the event's own: outside PROPIOS, or already set by the context (role and pr in a `bk`
+    task come from task.json, and rules_ref is the one of that role)."""
+    return sorted(k for k in campos if k not in PROPIOS or k in ctx)
+
+
 def evento(kind, campos=None, ctx=None, cwd=None):
-    """An event of this kind with the shared context, ts and the given fields (which win over the context)."""
+    """An event of this kind with the shared context, ts and the given fields, which never overwrite the context."""
     ev = dict(ctx if ctx is not None else contexto(cwd))
+    malos = ajenos(campos or {}, ev)
+    if malos:
+        raise LearningError(f"fields that are not the event's own: {', '.join(malos)}")
     ev.update({"ts": ahora(), "kind": kind})
     ev.update(campos or {})
     return ev
@@ -407,7 +426,7 @@ def push(cwd=None):
 # --- CLI ---
 
 def _valor(campo, texto):
-    return int(texto) if campo in ("v", "pr") and re.fullmatch(r"\d{1,9}", texto) else texto
+    return int(texto) if campo == "pr" and re.fullmatch(r"\d{1,9}", texto) else texto
 
 
 def main(argv):
@@ -432,7 +451,13 @@ def main(argv):
                     print(f"learning.py: {a!r} is not field=value", file=sys.stderr)
                     return 64
                 campos[k] = _valor(k, v)
-            escribir([evento(args[0], campos)])
+            ctx = contexto()
+            malos = ajenos(campos, ctx)
+            if malos:
+                print(f"learning.py: emit does not set {', '.join(malos)}: it sets {', '.join(PROPIOS)}, and inside a bk "
+                      "task not role or pr (they come from task.json)", file=sys.stderr)
+                return 64
+            escribir([evento(args[0], campos, ctx)])
             return 0
         if cmd == "push" and not args:
             store()   # an invalid learning.json is 3, like in emit; only a git failure of the push is 1

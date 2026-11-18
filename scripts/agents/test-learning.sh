@@ -301,4 +301,132 @@ BK_TASK_DIR="$TMP/tarea" tap_run out 0 python3 "$TE" <"$TMP/stop.json"
 ev ref "$P" refs/heads/agents/learning
 grep -qx 'task_id=327-reviewer' <<<"$out"; tap_check $? "task_end: con store branch va a agents/learning"
 
+# --- 6. Ajustes de la review de #338 (#342) ---
+# 6a. El store lo dice el learning.json del checkout principal, el mismo donde escribe el store local: un worktree con una
+# copia vieja no reparte los eventos en dos stores.
+printf '{"store": "local"}\n' >"$TMP/wt/.barrilete/learning.json"   # la copia vieja del worktree; el principal dice branch
+rm -rf "$P/.barrilete/learning"
+cd "$TMP/wt" || exit 2
+tap_run out 0 python3 "$L" emit check_run rule_id=r-342-wt outcome=pass
+cd "$P" || exit 2
+ev ref "$P" refs/heads/agents/learning
+grep -qx 'rule_id=r-342-wt' <<<"$out"; tap_check $? "342 store: desde un worktree manda el learning.json del checkout principal"
+[ ! -e "$EVL" ]; tap_check $? "342 store: un learning.json viejo del worktree no abre un segundo store local"
+printf '{"store": "local"}\n' >"$P/.barrilete/learning.json"
+printf '{"store": "branch"}\n' >"$TMP/wt/.barrilete/learning.json"
+git -C "$P" update-ref -d refs/heads/agents/learning
+cd "$TMP/wt" || exit 2
+tap_run out 0 python3 "$L" emit check_run rule_id=r-342-wt-local outcome=pass
+cd "$P" || exit 2
+[ -z "$(git -C "$P" for-each-ref refs/heads/agents/learning 2>&1)" ]; tap_check $? "342 store: con el principal en local, un worktree que dice branch no crea la rama"
+ev file "$EVL"
+grep -qx 'rule_id=r-342-wt-local' <<<"$out"; tap_check $? "342 store: con el principal en local, el evento del worktree va al store local"
+git -C "$TMP/wt" checkout -q -- .barrilete/learning.json
+
+# 6b. BK_HARNESS vacío cuenta como no definido (como en v0, decidido por @lautioliver en el chat de #342): manda CLAUDECODE=1.
+BK_HARNESS="" CLAUDECODE=1 tap_run out 0 python3 "$L" emit check_run rule_id=r-342-vacio outcome=pass
+tail -n 1 "$EVL" >"$TMP/ult.jsonl"; ev file "$TMP/ult.jsonl"
+grep -qx 'harness=claude-code' <<<"$out"; tap_check $? "342 harness: BK_HARNESS vacío con CLAUDECODE=1 es claude-code"
+BK_HARNESS="no válido" CLAUDECODE=1 tap_run out 0 python3 "$L" emit check_run rule_id=r-342-invalido outcome=pass
+tail -n 1 "$EVL" >"$TMP/ult.jsonl"; ev file "$TMP/ult.jsonl"
+grep -qx 'harness=unknown' <<<"$out"; tap_check $? "342 harness: BK_HARNESS no vacío e inválido sigue siendo unknown"
+
+# 6c. La rama de una línea v0 es la que escribió verify.py de #323: cualquier nombre de rama que git acepta, sin espacios.
+printf '%s\n' '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "fix/9-a@b+c#d"}' >"$TMP/v.jsonl"
+tap_run out 0 python3 "$L" validate "$TMP/v.jsonl"
+grep -q '1 legacy v0' <<<"$out"; tap_check $? "342 v0: una rama con @, + o # es una línea heredada, no rota"
+printf '%s\n' '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "feat/9-año"}' >"$TMP/v.jsonl"
+tap_run out 0 python3 "$L" validate "$TMP/v.jsonl"
+grep -q '1 legacy v0' <<<"$out"; tap_check $? "342 v0: una rama con letras fuera de ASCII es una línea heredada"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "rama\tcon tab"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 v0: una rama con un tab sigue rota"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "a:b"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 v0: una rama con un caracter que git no acepta sigue rota"
+
+# 6d. evidence_ref no lleva query, ni credenciales en la URL, ni query dentro del fragmento: push publica el store.
+rm -rf "$P/.barrilete/learning"
+tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://github.com/o/r/pull/1?token=abc'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: una URL con query se rechaza"
+tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://u:tok@github.com/o/r/pull/1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: una URL con usuario y clave se rechaza"
+tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://github.com/o/r/pull/1#access_token=abc?x=1'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: un fragmento con query se rechaza"
+tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://example.com/cb#access_token=abc'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: un fragmento con clave=valor se rechaza"
+tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://example.com/app;jsessionid=abc/x'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: un parámetro de path con clave=valor se rechaza"
+tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://example.com/a/token=abc'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: un = en el path, sin ; ni ?, se rechaza"
+tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://example.com/x%3Ftoken%3Dabc'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: una query codificada con % se rechaza"
+[ ! -e "$EVL" ]; tap_check $? "342 evidence_ref: ninguno de los rechazados se escribe"
+tap_run out 0 python3 "$L" emit finding class=x evidence_ref='https://github.com/o/r/pull/12#issuecomment-6963224944'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "342 evidence_ref: una URL con fragmento sin query sigue valiendo"
+tap_run out 0 python3 "$L" emit deviation class=x evidence_ref='~/.claude/projects/p/s.jsonl'
+[ "$TAP_RC" -eq 0 ]; tap_check $? "342 evidence_ref: una ruta local sigue valiendo"
+
+# 6e. emit campo=valor solo pone los campos propios del evento; los del contexto (quién lo emite) no se pisan.
+rm -rf "$P/.barrilete/learning"
+tap_run out 64 python3 "$L" emit check_run rule_id=r outcome=pass model=claude-opus-5-5
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 emit: model no se pisa"
+grep -q 'model' <<<"$out"; tap_check $? "342 emit: el rechazo nombra el campo"
+tap_run out 64 python3 "$L" emit check_run rule_id=r outcome=pass project=otro
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 emit: project no se pisa"
+tap_run out 64 python3 "$L" emit check_run rule_id=r outcome=pass rules_ref=000000000000.000000000000
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 emit: rules_ref no se pisa"
+tap_run out 64 python3 "$L" emit check_run rule_id=r outcome=pass harness=codex
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 emit: harness no se pisa"
+tap_run out 64 python3 "$L" emit check_run rule_id=r outcome=pass provider=openai
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 emit: provider no se pisa"
+tap_run out 64 python3 "$L" emit check_run rule_id=r outcome=pass task_id=1-implementer
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 emit: task_id no se pisa"
+tap_run out 64 python3 "$L" emit check_run rule_id=r outcome=pass kind=finding
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 emit: kind no se pisa"
+tap_run out 64 python3 "$L" emit check_run rule_id=r outcome=pass v=1
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 emit: v no se pisa"
+[ ! -e "$EVL" ]; tap_check $? "342 emit: un campo del contexto no escribe nada"
+# Los que manda el adaptador de Claude Code (barrilete-workspace lib/learn_store.py) siguen pasando
+tap_run out 0 python3 "$L" emit finding ts=2026-11-17T10:00:00Z class=stale-docs role=reviewer pr=12 area=infra evidence_ref=https://github.com/o/r/pull/12
+[ "$TAP_RC" -eq 0 ]; tap_check $? "342 emit: ts, class, role, pr, area y evidence_ref se pueden poner"
+tap_run out 0 python3 "$L" emit check_run rule_id=r-342 outcome=fail
+[ "$TAP_RC" -eq 0 ]; tap_check $? "342 emit: rule_id y outcome se pueden poner"
+
+# --- 7. Hallazgos del /code-review de #342 ---
+# 7a. Dentro de una tarea `bk`, role y pr vienen de task.json (y rules_ref es el del rol): emit no los pisa.
+printf '{"id": "342-implementer", "role": "implementer", "status": "in_progress", "pr": 7, "seq": 1, "created": "2026-11-17T10:00:00.000Z"}\n' >"$TMP/tarea/task.json"
+rm -rf "$P/.barrilete/learning"
+BK_TASK_DIR="$TMP/tarea" tap_run out 64 python3 "$L" emit finding class=x role=reviewer
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 review: en una tarea bk, emit no pisa el role de task.json"
+BK_TASK_DIR="$TMP/tarea" tap_run out 64 python3 "$L" emit finding class=x pr=99
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 review: en una tarea bk, emit no pisa el pr de task.json"
+[ ! -e "$EVL" ]; tap_check $? "342 review: en una tarea bk, un role o pr pisado no escribe nada"
+# 7b. Un campo que emit no acepta sale siempre con 64, sea del contexto o no esté en la tabla.
+tap_run out 64 python3 "$L" emit finding class=x nota=texto
+[ "$TAP_RC" -eq 64 ]; tap_check $? "342 review: un campo fuera de la tabla en emit sale con 64, como uno del contexto"
+# 7c. evento() desde Python tampoco deja pisar el contexto (verify.py y task_events.py lo llaman directo).
+cat >"$TMP/pisar.py" <<'EOF'
+import sys
+sys.path.insert(0, sys.argv[1])
+import learning
+for campos in ({"model": "x"}, {"project": "otro"}, {"rules_ref": "000000000000.000000000000"}, {"nota": "t"}):
+    try:
+        learning.evento("finding", campos, ctx={"v": 1, "project": "p", "model": "m", "harness": "h"})
+        print("pisado", sorted(campos))
+    except learning.LearningError:
+        print("rechazado", sorted(campos))
+EOF
+tap_run out 0 python3 "$TMP/pisar.py" "$P/scripts/agents"
+grep -q '^pisado' <<<"$out"; [ $? -eq 1 ]; tap_check $? "342 review: evento() rechaza un campo del contexto o fuera de la tabla"
+grep -q "^rechazado \['model'\]" <<<"$out"; tap_check $? "342 review: evento() rechaza model"
+grep -q "^rechazado \['nota'\]" <<<"$out"; tap_check $? "342 review: evento() rechaza un campo fuera de la tabla"
+# 7d. La rama v0 son los caracteres de un nombre de rama, no cualquier texto sin espacios.
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "password=hunter2"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 review: una rama v0 con = se rechaza"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "\"<script>\""}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 review: una rama v0 con comillas o <> se rechaza"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "a..b"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 review: una rama v0 con .. se rechaza"
+valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr-metadata", "rule_id": "r", "outcome": "pass", "branch": "a​b"}'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 review: una rama v0 con un caracter invisible se rechaza"
+
 tap_done
