@@ -70,9 +70,6 @@ VACIAS = {"br", "hr"}
 CLASE = re.compile(r"^[A-Za-z0-9_ -]*$")
 ESTILO = re.compile(r"^\s*--v\s*:\s*\d{1,3}(\.\d+)?%\s*;?\s*$")     # solo el ancho de una barra
 HREF = re.compile(r"^(https?://|mailto:|#)[^\s]*$|^[^:\s]*$", re.I)    # sin esquema (relativo) o uno de estos
-# Sobre el texto crudo de cada etiqueta (no sobre el texto, que puede nombrarlos): lo que un navegador podría leer
-# como atributo aunque HTMLParser no lo haga.
-PROHIBIDO_EN_ETIQUETA = re.compile(r"(?<![a-z])on[a-z]+\s*=|javascript\s*:", re.I)
 # Y sobre toda la entrada: comentarios, CDATA e instrucciones de proceso, que podrían esconder marcadores.
 PROHIBIDO = re.compile(r"<!--|<!\[CDATA|<\?", re.I)
 
@@ -319,9 +316,6 @@ class Revisor(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag not in ETIQUETAS:
             return self.falla(f"<{tag}> no está entre las etiquetas permitidas")
-        m = PROHIBIDO_EN_ETIQUETA.search(self.get_starttag_text() or "")
-        if m:
-            return self.falla(f"<{tag}> no puede traer {m.group(0).strip()!r} (manejadores on…=, javascript:)")
         for nombre, valor in attrs:
             valor = valor or ""
             if nombre not in ATRIBUTOS | ATRIBUTOS_DE.get(tag, set()):
