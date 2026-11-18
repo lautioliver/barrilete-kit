@@ -66,6 +66,13 @@ EOF3
 cat >"$P/scripts/agents/y.test.mjs" <<'EOF4'
 it('it\'s mjs', () => {});
 EOF4
+# Un string sin cerrar con 60 barras invertidas antes de un it.each, una vez por cada regex de red_report.js_defines (it(,
+# it.each(...)( y la línea que cierra la tabla): `(?:\\.|(?!\1).)*` hacía backtracking y pr-metadata no terminaba.
+printf -v barras '%60s' ''
+barras=${barras// /\\}
+printf "it('%s\nit.each([[1]])('ok %%s', () => {});\n" "$barras" >"$P/scripts/agents/z1.test.ts"
+printf "it.each([[1]])('%s\nit.each([[1]])('ok %%s', () => {});\n" "$barras" >"$P/scripts/agents/z2.test.ts"
+printf "it.each([\n])('%s\nit.each([[1]])('ok %%s', () => {});\n" "$barras" >"$P/scripts/agents/z3.test.ts"
 printf 'def test_algo():\n    pass\n' >"$P/scripts/agents/test_x.py"
 git -C "$P" add -A && git -C "$P" commit -qm rojo; RED=$(git -C "$P" rev-parse --short=10 HEAD)
 echo verde >"$P/impl.txt"
@@ -229,6 +236,18 @@ GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::suma 1 > anda" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q "suma 1 > anda.*name is not in" <<<"$out"; tap_check $? "casos: un grupo no se encuentra con el título de un it.each (es de un test, no de un grupo)"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/z1.test.ts::ok 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=0' <<<"$out"; tap_check $? "casos: un string sin cerrar con muchas barras en it( no cuelga pr-metadata" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/z2.test.ts::ok 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=0' <<<"$out"; tap_check $? "casos: un string sin cerrar con muchas barras en it.each(...)( no cuelga pr-metadata" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/z3.test.ts::ok 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=0' <<<"$out"; tap_check $? "casos: un string sin cerrar con muchas barras en el cierre de una tabla de it.each no cuelga pr-metadata" "$(tail -1 <<<"$out")"
 pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::ls "a" y $B' "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id bash con escapes mezclados que red.sh no reportaría falla"
