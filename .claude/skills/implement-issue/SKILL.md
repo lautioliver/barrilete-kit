@@ -79,6 +79,8 @@ With everything committed, `python3 scripts/agents/verify.py` runs what applies 
 
 Watch the PR's checks (`gh pr checks <pr> --watch`). If any fails because of your change, fix it and push again with `git push origin HEAD` (the branch has no upstream). If it fails because of something unrelated, say so.
 
+If you worked in a worktree (`prepare.sh <n> --worktree`), there is no `BK_TASK_DIR` and you are not a subagent, release its lock as the very last step, after the retro (the Retro section below), whatever CI says: `cd <worktree> && scripts/agents/worktree-lock.sh release <worktree>`. Your session stays open after you reply and its `claude` keeps the lock, so a review session or its `implementer` would find the worktree `held` (#350). For another round of fixes, take it again with `prepare.sh <n> --worktree` before editing anything. If the work passes to another session (`bk handoff`, a new chat), release the lock before handing off: the lock belongs to your `claude`, and the new session cannot release it. A session that finds `held: … session <name>` asks that session to release it; it does not force another pid. A `bk` agent releases it with `bk done` and a subagent with its own name (`WORKTREE_LOCK_AGENT`), as its definition says.
+
 Reply with:
 - Link to the PR and CI status.
 - What changed, in two or three lines.
@@ -113,4 +115,4 @@ A question closes nothing: ask in your window and wait for the answer. Without `
 
 ## If you have to drop the issue
 
-If you cannot finish (new blocker, pending decision, scope much larger than the issue says): comment on the issue what you did and what is missing, push the branch if it has something useful and unassign yourself (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`). That way `available.sh` shows it again.
+If you cannot finish (new blocker, pending decision, scope much larger than the issue says): comment on the issue what you did and what is missing, push the branch if it has something useful and unassign yourself (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`). That way `available.sh` shows it again. If you worked in a worktree, there is no `BK_TASK_DIR` and you are not a subagent, release its lock too: `cd <worktree> && scripts/agents/worktree-lock.sh release <worktree>`.

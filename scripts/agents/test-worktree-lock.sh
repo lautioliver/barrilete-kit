@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154,SC2319  # out lo asigna tap_run; el $? de una aserción es el de la aserción
+# shellcheck disable=SC2154,SC2319,SC2016  # los programas awk van entre comillas simples; out lo asigna tap_run; el $? de una aserción es el de la aserción
 # Tests de scripts/agents/worktree-lock.sh (#267): un worktree tiene un solo dueño vivo.
 # El candado vive en el directorio git del worktree (no en el árbol de trabajo), así que nunca se commitea.
 # Uso: bash scripts/agents/test-worktree-lock.sh
@@ -362,4 +362,89 @@ if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "creado
 if [ "$CHICO" = 1 ]; then tap_skip "implement-issue (es): el agente de bk toma el candado al empezar" "proyecto chico (mode: small): su implement-issue no trae la parte de bk"
 elif [ -f "$RAIZ/.claude/skills/implement-issue/SKILL.es.md" ]; then grep -qF -- "scripts/agents/worktree-lock.sh claim" "$RAIZ/.claude/skills/implement-issue/SKILL.es.md"; tap_check $? "implement-issue (es): el agente de bk toma el candado al empezar"; else tap_skip "implement-issue (es): el agente de bk toma el candado al empezar" "no existe .claude/skills/implement-issue/SKILL.es.md en este proyecto"; fi
 
+# 13. #350: el mensaje held nombra la sesión dueña (el pid cruzado con <sesiones>/<pid>.json de Claude Code), así quien lo
+# recibe sabe a quién pedirle que lo suelte. Sin ese archivo, el mensaje queda como antes.
+rm -f "$GDIR/agent-lock"
+mkdir -p "$TMP/sesiones"
+printf '{"pid":%s,"name":"chat-duenio","status":"idle"}\n' "$VIVO" >"$TMP/sesiones/$VIVO.json"
+export WORKTREE_LOCK_SESSIONS_DIR="$TMP/sesiones"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -q 'session chat-duenio' <<<"$out"; tap_check $? "sesión dueña: claim held nombra la sesión"
+grep -q 'session chat-duenio, idle' <<<"$out"; tap_check $? "sesión dueña: claim held dice si la sesión está quieta"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat-duenio' <<<"$out"; tap_check $? "sesión dueña: status held nombra la sesión"
+printf '{"pid":%s,"name":"a\\nheld: falso","status":"idle"}\n' "$VIVO" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+n=$(printf '%s\n' "$out" | wc -l | tr -d ' ')
+[ "$n" = 1 ]; tap_check $? "sesión dueña: un nombre con salto de línea no agrega líneas al mensaje"
+LOCAL_START=$(LC_ALL=C ps -o lstart= -p "$VIVO" | sed 's/^ *//; s/ *$//')
+printf '{"pid":%s,"name":"chat-viejo","status":"idle","procStart":"Thu Jan  1 00:00:00 1970"}\n' "$VIVO" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat-viejo' <<<"$out"; [ $? = 1 ]; tap_check $? "sesión dueña: un archivo de otro proceso con el mismo pid (procStart distinto) no nombra la sesión"
+printf '{"pid":%s,"name":"chat, idle","status":"busy","procStart":"%s"}\n' "$VIVO" "$LOCAL_START" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat idle, busy' <<<"$out"; tap_check $? "sesión dueña: una coma en el nombre no finge el estado"
+UTC_START=$(TZ=UTC LC_ALL=C ps -o lstart= -p "$VIVO" | sed 's/^ *//; s/ *$//')
+printf '{"pid":%s,"name":"chat-utc","status":"idle","procStart":"%s"}\n' "$VIVO" "$UTC_START" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat-utc, idle' <<<"$out"; tap_check $? "sesión dueña: procStart en UTC (como lo escribe Claude Code) nombra la sesión"
+printf '{"pid":%s,"name":"chat, idle","status":"busy","procStart":"%s"}\n' "$VIVO" "$LOCAL_START" >"$TMP/sesiones/$VIVO.json"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -qx "held: agente-a (pid $VIVO, since [^,)]*, session chat idle, busy)" <<<"$out"; tap_check $? "sesión dueña: status del propio dueño nombra su sesión"
+export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b
+printf '{"pid":%s,"name":"%s","status":"idle"}\n' "$VIVO" "$(printf 'x%.0s' $(seq 200))" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -qE 'session x{60}, idle\)' <<<"$out"; tap_check $? "sesión dueña: un nombre de 200 caracteres queda en 60"
+printf '{"pid":%s,"name":"chat-ajeno","status":"idle"}\n' "$$" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat-ajeno' <<<"$out"; [ $? = 1 ]; tap_check $? "sesión dueña: un <pid>.json con otro pid adentro no nombra la sesión"
+rm -f "$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q "^held: agente-a (pid $VIVO, since [^,)]*); another agent" <<<"$out"; tap_check $? "sin archivo de sesión: el mensaje held queda como antes"
+unset WORKTREE_LOCK_SESSIONS_DIR WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
+rm -f "$GDIR/agent-lock"
+
+# 14. #350: una sesión común que siguió implement-issue en un worktree suelta el candado al entregar (paso 9) y al soltar
+# el issue. Si no, la sesión queda abierta con el worktree held (los casos de #346 y #347).
+# Un proyecto instalado con --lang es tiene SKILL.md en español: los casos de SKILL.md aceptan la frase en cualquiera de los dos.
+# seccion <archivo> <encabezado> [<otro encabezado>]: deja en $out la sección desde ese encabezado hasta el siguiente "## ".
+seccion() { tap_run out 0 awk -v a="$2" -v b="${3:-$2}" 'index($0, a) == 1 || index($0, b) == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/$1"; }
+SK=.claude/skills/implement-issue/SKILL.md
+if [ "$CHICO" = 1 ]; then
+  for c in "el paso 9 suelta el candado del worktree" "soltar el issue suelta el candado del worktree" "el candado se suelta al final, después de la retro" "un subagente no sigue el paso sin su nombre" "otra ronda toma el candado antes de editar" "al pasar el trabajo a otra sesión, se suelta antes"; do
+    tap_skip "implement-issue: $c" "proyecto chico (mode: small): su implement-issue no usa worktrees"
+  done
+  tap_skip "contrato: held nombra la sesión a la que pedirle que lo suelte" "proyecto chico (mode: small): su implement-issue no usa worktrees"
+else
+  seccion "$SK" "## 9."
+  grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: el paso 9 suelta el candado del worktree"
+  grep -qF -e "after the retro" -e "después de la retro" <<<"$out"; tap_check $? "implement-issue: el candado se suelta al final, después de la retro"
+  grep -qF -e "you are not a subagent" -e "no sos un subagente" <<<"$out"; tap_check $? "implement-issue: un subagente no sigue el paso sin su nombre"
+  grep -qF -e "before editing anything" -e "antes de editar nada" <<<"$out"; tap_check $? "implement-issue: otra ronda toma el candado antes de editar"
+  grep -qF -e "release the lock before handing off" -e "soltá el candado antes de pasarlo" <<<"$out"; tap_check $? "implement-issue: al pasar el trabajo a otra sesión, se suelta antes"
+  mencion docs/agents/subagent-contract.md "the session to ask to release it" "la sesión a la que pedirle que lo suelte"; tap_check $? "contrato: held nombra la sesión a la que pedirle que lo suelte"
+  seccion "$SK" "## If you have to drop" "## Si hay que soltar"
+  grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: soltar el issue suelta el candado del worktree"
+fi
+SK=.claude/skills/implement-issue/SKILL.es.md
+if [ "$CHICO" = 0 ] && [ -f "$RAIZ/$SK" ]; then
+  seccion "$SK" "## 9."
+  grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue (es): el paso 9 suelta el candado del worktree"
+  grep -qF -- "después de la retro" <<<"$out"; tap_check $? "implement-issue (es): el candado se suelta al final, después de la retro"
+  grep -qF -- "no sos un subagente" <<<"$out"; tap_check $? "implement-issue (es): un subagente no sigue el paso sin su nombre"
+  grep -qF -- "antes de editar nada" <<<"$out"; tap_check $? "implement-issue (es): otra ronda toma el candado antes de editar"
+  grep -qF -- "soltá el candado antes de pasarlo" <<<"$out"; tap_check $? "implement-issue (es): al pasar el trabajo a otra sesión, se suelta antes"
+  grep -qF -- "la sesión a la que pedirle que lo suelte" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): held nombra la sesión a la que pedirle que lo suelte"
+  seccion "$SK" "## Si hay que soltar"
+  grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue (es): soltar el issue suelta el candado del worktree"
+else
+  for c in "el paso 9 suelta el candado del worktree" "el candado se suelta al final, después de la retro" "un subagente no sigue el paso sin su nombre" "otra ronda toma el candado antes de editar" "soltar el issue suelta el candado del worktree" "al pasar el trabajo a otra sesión, se suelta antes"; do
+    tap_skip "implement-issue (es): $c" "no existe SKILL.es.md o proyecto chico"
+  done
+  tap_skip "contrato (es): held nombra la sesión a la que pedirle que lo suelte" "no existe SKILL.es.md o proyecto chico"
+fi
 tap_done
