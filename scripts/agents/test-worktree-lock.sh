@@ -542,6 +542,21 @@ handoff_since=2026-01-01T00:00:00Z
 LK
 tap_run out 0 "$LOCK" claim "$TMP/wt"
 grep -qx "claimed" <<<"$out"; tap_check $? "traspaso: pasado y con el dueño muerto, claim sin token lo toma"
+# release y handoff también esperan al mutex: un claim con el token puede estar reemplazando el candado.
+rm -f "$GDIR/agent-lock"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx "claimed" <<<"$out"; tap_check $? "traspaso: el dueño toma el candado antes de probar el mutex"
+printf 'pid=%s\n' "$VIVO" >"$GDIR/agent-lock.mutex"
+tap_run out 64 "$LOCK" release "$TMP/wt"
+[ -f "$GDIR/agent-lock" ]; tap_check $? "traspaso: con el mutex vivo, release no borra el candado"
+rm -f "$GDIR/agent-lock.mutex"
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+printf 'pid=%s\n' "$VIVO" >"$GDIR/agent-lock.mutex"
+tap_run out 64 "$LOCK" handoff "$TMP/wt"
+leer; grep -qx "pid=$VIVO" <<<"$LK"; tap_check $? "traspaso: con el mutex vivo, el candado sigue ahí para handoff"
+leer; grep -q '^handoff=' <<<"$LK"; [ $? = 1 ]; tap_check $? "traspaso: con el mutex vivo, handoff no reescribe el candado"
+rm -f "$GDIR/agent-lock.mutex"
 unset WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
 rm -f "$GDIR/agent-lock"
 
