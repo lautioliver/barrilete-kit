@@ -79,6 +79,8 @@ Con todo commiteado, `python3 scripts/agents/verify.py` corre lo que corresponde
 
 Mirá los checks del PR (`gh pr checks <pr> --watch`). Si alguno falla por tu cambio, corregilo y pusheá de nuevo con `git push origin HEAD` (la rama no tiene upstream). Si falla por algo ajeno, decilo.
 
+Si trabajaste en un worktree (`prepare.sh <n> --worktree`) y no existe `BK_TASK_DIR`, soltá su candado cuando el CI esté en verde: `cd <worktree> && scripts/agents/worktree-lock.sh release <worktree>`. Tu sesión sigue abierta después de responder y su `claude` conserva el candado, así que una sesión de revisión o su `implementer` encontrarían el worktree `held` (#350). Otra ronda de arreglos lo vuelve a tomar con `prepare.sh <n> --worktree`. Un agente `bk` lo suelta con `bk done` y un subagente con su propio nombre, como dice su definición.
+
 Respondé con:
 - Link al PR y estado del CI.
 - Qué cambió, en dos o tres líneas.
@@ -113,4 +115,4 @@ Una pregunta no cierra nada: preguntá en tu ventana y esperá la respuesta. Sin
 
 ## Si hay que soltar el issue
 
-Si no podés terminar (bloqueo nuevo, decisión pendiente, alcance mucho mayor del que dice el issue): comentá en el issue qué hiciste y qué falta, pusheá la rama si tiene algo útil y desasignate (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`). Así `available.sh` lo vuelve a mostrar.
+Si no podés terminar (bloqueo nuevo, decisión pendiente, alcance mucho mayor del que dice el issue): comentá en el issue qué hiciste y qué falta, pusheá la rama si tiene algo útil y desasignate (`gh issue edit <n> --remove-assignee "${BK_HUMAN:-@me}"`). Así `available.sh` lo vuelve a mostrar. Si trabajaste en un worktree y no existe `BK_TASK_DIR`, soltá también su candado: `cd <worktree> && scripts/agents/worktree-lock.sh release <worktree>`.

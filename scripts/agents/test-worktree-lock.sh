@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154,SC2319  # out lo asigna tap_run; el $? de una aserción es el de la aserción
+# shellcheck disable=SC2154,SC2319,SC2016  # los programas awk van entre comillas simples; out lo asigna tap_run; el $? de una aserción es el de la aserción
 # Tests de scripts/agents/worktree-lock.sh (#267): un worktree tiene un solo dueño vivo.
 # El candado vive en el directorio git del worktree (no en el árbol de trabajo), así que nunca se commitea.
 # Uso: bash scripts/agents/test-worktree-lock.sh
