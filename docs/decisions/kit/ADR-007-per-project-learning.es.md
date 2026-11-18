@@ -18,6 +18,8 @@ El resto (la lista de campos, los valores de `outcome`, el formato de `rules_ref
 
 Enmendado en lautioliver/barrilete-kit#324 (2026-11-17), decidido por @lautioliver: la celda de D5 no lleva rol (regla × modelo × harness, como arriba; aprobado en el chat del 2026-11-17, registrado en https://github.com/lautioliver/barrilete-kit/pull/338#issuecomment-6963224944), y D6 fija el formato de `rules_ref` (comentario del 2026-11-16 en #324).
 
+Enmendado en lautioliver/barrilete-kit#348 (2026-11-18), decidido por @lautioliver en el chat (registrado en https://github.com/lautioliver/barrilete-kit/issues/348#issuecomment-6968066532): D3 limita `evidence_ref` a una ruta local más las URLs de GitHub de la lista de D3, en lugar de cualquier URL sin credenciales ni query.
+
 ## Contexto
 
 ADR-006 unificó las reglas en `barrilete-rules`, pero dejó los datos de aprendizaje afuera de los proyectos:
@@ -55,9 +57,10 @@ ADR-006 unificó las reglas en `barrilete-rules`, pero dejó los datos de aprend
    | `class` | id de `classes.yml` | conecta desvío, regla y hallazgo (ADR-006 D4) |
    | `rule_id` | id de la regla | la regla mapeada, si la hay |
    | `outcome` | depende de `kind` (abajo) | el resultado |
-   | `evidence_ref` | ruta local o URL | dónde está la evidencia, nunca la evidencia |
+   | `evidence_ref` | ruta local o una URL permitida (abajo) | dónde está la evidencia, nunca la evidencia |
    | `rules_ref` | ver D6 | qué versión de las reglas recibió el agente |
 
+   - **`evidence_ref`:** una ruta local, o solo una de estas URLs, todas de `https://github.com/<owner>/<repo>/`: `pull/<n>` o `issues/<n>` con un `#issuecomment-<n>` o `#discussion_r<n>` opcional; `blob/<sha>/<ruta>` con un `#L<n>` o `#L<n>-L<m>` opcional; `commit/<sha>`. `<sha>` es hexadecimal. Cualquier otra URL se rechaza (en las otras viaja un webhook o un token, y `push` publica el store).
    - **Obligatorios:** `v`, `ts`, `project`, `kind`, `model` y `harness`. El resto va cuando se conoce. Quien emite no adivina: si no puede saber el modelo o el harness, escribe `unknown`, y el reporte los cuenta aparte.
    - **`outcome`:** en `check_run`, `pass`, `fail` o `skipped` (el check no pudo verificar), como en el v0 de #323. En `task_end`, los estados terminales de ADR-005 D3: `completed`, `failed`, `incomplete` o `cancelled`. En `deviation` y `finding` no va.
    - **Sin campos de texto.** El esquema no tiene campos de texto libre, y un evento con un campo que no está en la tabla se rechaza (lo prueba un test en lautioliver/barrilete-kit#324). Nunca entran prompts, código, texto de transcripts o de personas, nombres de clientes ni secretos: el evento se tiene que poder auditar sin ver nada del negocio.

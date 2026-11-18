@@ -432,8 +432,14 @@ valida '{"v": 0, "ts": "2026-11-16T03:21:14Z", "kind": "check_run", "check": "pr
 # 8. #348: evidence_ref acepta una ruta local y solo estas URLs de github.com (ADR-007 D3, enmendado): pull o issues con ancla
 # opcional, blob/<sha>/<ruta> con #L opcional, commit/<sha>. Cualquier otra URL se rechaza.
 rm -rf "$P/.barrilete/learning"
-rechaza() { tap_run out 3 python3 "$L" emit finding class=x evidence_ref="$1"; }
-acepta() { tap_run out 0 python3 "$L" emit finding class=x evidence_ref="$1"; }
+# limitado.py corre learning.py con una alarma de 5 s (sobrevive al exec, y RLIMIT_CPU no la respeta macOS): un regex con backtracking catastrofico muere en vez de colgar el test.
+cat >"$TMP/limitado.py" <<'EOF2'
+import os, signal, sys
+signal.alarm(5)
+os.execv(sys.executable, [sys.executable] + sys.argv[1:])
+EOF2
+rechaza() { tap_run out 3 python3 "$TMP/limitado.py" "$L" emit finding class=x evidence_ref="$1"; }
+acepta() { tap_run out 0 python3 "$TMP/limitado.py" "$L" emit finding class=x evidence_ref="$1"; }
 rechaza 'https://hooks.slack.com/services/T0123/B0123/abcdefSECRET'
 [ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: la URL de un webhook de Slack se rechaza"
 rechaza 'https://example.com/o/r/pull/1'
@@ -501,16 +507,24 @@ acepta 'https://github.com/o/r/commit/0123456789abcdef0123456789abcdef01234567'
 [ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: commit/<sha> de 40 digitos vale"
 acepta 'https://github.com/o/r/commit/0123abc'
 [ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: commit/<sha> de 7 digitos vale"
+rechaza "https://github.com/o/r/blob/0123abc/$(python3 -c "print('a' * 100 + '/' + 'a' * 100 + '/' + 'a' * 100 + '/a')")"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una ruta de blob de mas de 300 caracteres se rechaza"
+acepta "https://github.com/o/r/blob/0123abc/$(python3 -c "print('a' * 100 + '/' + 'a' * 100 + '/' + 'a' * 98)")#L1"
+[ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: una ruta de blob de 300 caracteres vale"
+rechaza 'token=abc'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una ruta local con = se rechaza"
+rechaza '/tmp/a b'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una ruta local con un espacio se rechaza"
+rechaza "$(python3 -c "print('a' * 301)")"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref: una ruta local de mas de 300 caracteres se rechaza"
 acepta '/Users/x/.claude/projects/p/s.jsonl'
 [ "$TAP_RC" -eq 0 ]; tap_check $? "348 evidence_ref: una ruta local absoluta vale"
 # Entradas hostiles: largas y con muchos segmentos o repeticiones. Un regex con backtracking catastrofico tardaria minutos.
 LARGO=$(python3 -c "print('https://github.com/o/r/blob/0123abc/' + 'a/' * 150000 + '!')")
-SECONDS=0; rechaza "$LARGO"
-[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref hostil: una ruta de blob larguisima se rechaza"
-[ "$SECONDS" -lt 5 ]; tap_check $? "348 evidence_ref hostil: sin backtracking catastrofico (menos de 5 s)"
+rechaza "$LARGO"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref hostil: una ruta de blob larguisima se rechaza en menos de 5 s"
 LARGO=$(python3 -c "print('https://github.com/' + 'a-' * 100000 + '/r/pull/1')")
-SECONDS=0; rechaza "$LARGO"
-[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref hostil: un owner larguisimo se rechaza"
-[ "$SECONDS" -lt 5 ]; tap_check $? "348 evidence_ref hostil: un owner larguisimo no cuelga"
+rechaza "$LARGO"
+[ "$TAP_RC" -eq 3 ]; tap_check $? "348 evidence_ref hostil: un owner larguisimo se rechaza en menos de 5 s"
 
 tap_done
