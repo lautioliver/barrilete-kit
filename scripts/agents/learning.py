@@ -61,13 +61,13 @@ def _patron(regex):
 # one of these, and anything else (another host, http, a port, user, query, `%`, `=`) is not. Each piece is a fixed class with
 # no nested quantifier, so a hostile input is rejected in linear time.
 _OWNER = r"[A-Za-z0-9][A-Za-z0-9-]{0,38}"
-_REPO = r"(?!\.{1,2}/)[A-Za-z0-9._-]{1,100}"
+_REPO = r"(?!\.+/)[A-Za-z0-9._-]{1,100}"
 _SHA = r"[0-9a-f]{7,40}"
 _SEG = r"(?!\.{1,2}(?:/|$))[A-Za-z0-9._~-]{1,100}"   # the class of a local path, without `/`, `.` or `..`
 _URL_GITHUB = re.compile(
     rf"https://github\.com/{_OWNER}/{_REPO}/(?:"
     rf"(?:pull|issues)/[0-9]{{1,10}}(?:#(?:issuecomment-|discussion_r)[0-9]{{1,20}})?"
-    rf"|blob/{_SHA}/(?=[^#]{{1,300}}(?:#|$)){_SEG}(?:/{_SEG})*(?:#L[0-9]{{1,7}}(?:-L[0-9]{{1,7}})?)?"
+    rf"|blob/{_SHA}/(?=[^#]{{1,300}}(?:#|\Z)){_SEG}(?:/{_SEG})*(?:#L[0-9]{{1,7}}(?:-L[0-9]{{1,7}})?)?"
     rf"|commit/{_SHA})")
 _RUTA_LOCAL = re.compile(r"[A-Za-z0-9._~/-]{1,300}")
 
