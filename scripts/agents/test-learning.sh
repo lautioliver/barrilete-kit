@@ -355,6 +355,8 @@ tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://example.co
 [ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: un fragmento con clave=valor se rechaza"
 tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://example.com/app;jsessionid=abc/x'
 [ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: un parámetro de path con clave=valor se rechaza"
+tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://example.com/a/token=abc'
+[ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: un = en el path, sin ; ni ?, se rechaza"
 tap_run out 3 python3 "$L" emit finding class=x evidence_ref='https://example.com/x%3Ftoken%3Dabc'
 [ "$TAP_RC" -eq 3 ]; tap_check $? "342 evidence_ref: una query codificada con % se rechaza"
 [ ! -e "$EVL" ]; tap_check $? "342 evidence_ref: ninguno de los rechazados se escribe"
