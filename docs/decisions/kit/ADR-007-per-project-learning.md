@@ -16,6 +16,10 @@ Decided by @lautioliver in the chat (2026-11-16):
 
 The rest (the field list, the `outcome` values, the `rules_ref` format and how UHP is taken) are refinements an agent wrote and the person did not decide separately. They are approved by accepting this ADR or changed in the review of its PR.
 
+Amended in lautioliver/barrilete-kit#324 (2026-11-17), decided by @lautioliver: the D5 cell has no role (rule × model × harness, as above; approved in the chat of 2026-11-17, recorded in https://github.com/lautioliver/barrilete-kit/pull/338#issuecomment-6963224944), and D6 fixes the `rules_ref` format (comment of 2026-11-16 on #324).
+
+Amended in lautioliver/barrilete-kit#348 (2026-11-18), decided by @lautioliver in the chat (recorded in https://github.com/lautioliver/barrilete-kit/issues/348#issuecomment-6968066532): D3 limits `evidence_ref` to a local path plus the GitHub URLs of the list in D3, instead of any URL without credentials or query.
+
 ## Context
 
 ADR-006 unified the rules in `barrilete-rules`, but left the learning data outside the projects:
@@ -53,9 +57,10 @@ ADR-006 unified the rules in `barrilete-rules`, but left the learning data outsi
    | `class` | id from `classes.yml` | connects deviation, rule and finding (ADR-006 D4) |
    | `rule_id` | rule id | the mapped rule, if there is one |
    | `outcome` | depends on `kind` (below) | the result |
-   | `evidence_ref` | local path or URL | where the evidence is, never the evidence |
+   | `evidence_ref` | local path or an allowed URL (below) | where the evidence is, never the evidence |
    | `rules_ref` | see D6 | which version of the rules the agent received |
 
+   - **`evidence_ref`:** a local path, or only one of these URLs, all of `https://github.com/<owner>/<repo>/`: `pull/<n>` or `issues/<n>` with an optional `#issuecomment-<n>` or `#discussion_r<n>`; `blob/<sha>/<path>` with an optional `#L<n>` or `#L<n>-L<m>`; `commit/<sha>`. `<sha>` is hexadecimal (lowercase, 7 to 40 digits). Any other URL is rejected (a webhook or a token travels in the others, and `push` publishes the store).
    - **Required:** `v`, `ts`, `project`, `kind`, `model` and `harness`. The rest go when they are known. The emitter does not guess: if it cannot know the model or the harness, it writes `unknown`, and the report counts them apart.
    - **`outcome`:** in `check_run`, `pass`, `fail` or `skipped` (the check could not verify), as in the v0 of #323. In `task_end`, the terminal states of ADR-005 D3: `completed`, `failed`, `incomplete` or `cancelled`. In `deviation` and `finding` it does not go.
    - **No text fields.** The schema has no free-text fields, and an event with a field that is not in the table is rejected (a test in lautioliver/barrilete-kit#324 proves it). Prompts, code, text from transcripts or from people, client names and secrets never get in: the event has to be auditable without seeing anything of the business.
@@ -65,11 +70,11 @@ ADR-006 unified the rules in `barrilete-rules`, but left the learning data outsi
 
 5. **D5. The rules the project applies are measured, per cell.** It replaces ADR-006 D10 and answers its open question about rounds.
    - The rules measured are the ones the project receives: those of the `.barrilete/rules.lock` SHA that apply to it (the same ones `sync-rules` filters) and those of `.barrilete/rules/`.
-   - A cell is rule × model × harness × role. Per cell, the findings of the rule's `classes` per review round are measured before and after `accepted`, and the failure rate of its check if it has one.
+   - A cell is rule × model × harness. Per cell, the findings of the rule's `classes` per review round are measured before and after `accepted`, and the failure rate of its check if it has one.
    - **A minimum of 20 rounds per cell.** With fewer, the report says "small sample" and gives no verdict.
    - A rule with no effect and a large enough sample has the same three outcomes as in ADR-006, and the person picks: it becomes a check, it is rewritten more concretely, or it moves to `deprecated`.
 
-6. **D6. Load canary: `rules_ref`.** Each agent event records which version of the rules it received: the `barrilete-rules` SHA of `rules.lock` and a short hash of the generated sections it read (`.claude/agents/<role>.md` and the `AGENTS.md` block). If an agent ran with old sections (`sync-rules` was not run again), it shows in the event, and the measurement attributes the result to the version the agent really had. The exact format is fixed in #324.
+6. **D6. Load canary: `rules_ref`.** Each agent event records which version of the rules it received: the `barrilete-rules` SHA of `rules.lock` and a short hash of the generated sections it read (`.claude/agents/<role>.md` and the `AGENTS.md` block). If an agent ran with old sections (`sync-rules` was not run again), it shows in the event, and the measurement attributes the result to the version the agent really had. The format, fixed in #324: `<first 12 of the rules.lock SHA>.<first 12 of the sha256 of the rules block of AGENTS.md and the one of .claude/agents/<role>.md>`. It goes only in the events of a `bk` agent (`BK_TASK_DIR`), and never without `rules.lock`.
 
 7. **D7. Compatible with UHP, not dependent on it.** From the Unified Harness Protocol the vocabulary is taken, not the format:
    - the task states: `completed`, `failed`, `incomplete`, `cancelled` (already in ADR-005);

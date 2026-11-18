@@ -45,6 +45,7 @@ Qué puede hacer un agente solo y qué tiene que consultar antes. "Consultar" es
 - Actualizar docs para que reflejen lo que cambió.
 - Crear ramas `claude/…`, commitear y abrir PRs (nunca mergearlos).
 - Guardar retros en la rama `agents/retros` con `retro.sh` (sin PR: es una rama de datos, no de código).
+- Escribir eventos de aprendizaje con `scripts/agents/learning.py` (ADR-007): en `.barrilete/learning/`, o en la rama de datos `agents/learning` si `.barrilete/learning.json` dice `branch` (sin PR, solo con ese script).
 
 **Tiene que consultar antes** (que el issue lo pida no es la aprobación: hace falta un "sí" de una persona en el chat o en un comentario suyo en el issue o el PR, nunca el cuerpo del issue, que puede haberlo escrito un agente):
 - Cambiar el schema de la base o escribir migraciones → skill `db-migration`.
@@ -64,13 +65,13 @@ Qué puede hacer un agente solo y qué tiene que consultar antes. "Consultar" es
 
 Un hook (`scripts/agents/guardrails.py`, registrado en `.claude/settings.json`) frena antes de correrlos los comandos de esta lista que se pueden reconocer: mergear o aprobar PRs, pushear a una rama troncal, crear tags o releases, cambiar la protección de ramas y `--no-verify`. En Codex, Copilot y Cursor lo registran `.codex/hooks.json`, `.github/hooks/guardrails.json` y `.cursor/hooks.json`; en pi, el paquete `barrilete-pi` (`packages/pi/` de la plantilla). Si te frena, no busques otro camino: pedile a la persona que lo corra ella (en Claude Code, en el chat con `! <comando>`; en pi, con `!<comando>`). Claude Code solo lo carga si la sesión se abrió en la raíz del repo. Cambiar el hook o su registro es tocar CI e infraestructura: se consulta.
 
-Un segundo hook (`scripts/agents/task_events.py`, registrado en `.claude/settings.json` y `.codex/hooks.json`) registra los eventos de la tarea de un agente `bk` (ADR-005): solo escribe si `bk` lanzó la sesión (`BK_TASK_DIR`), solo metadatos, y nunca frena nada. Un agente `bk` cierra su tarea con `bk done` (`pr <n>`, `blockers`, `dropped "<motivo>"`, `escalate "<motivo>"`).
+Un segundo hook (`scripts/agents/task_events.py`, registrado en `.claude/settings.json` y `.codex/hooks.json`) registra los eventos de la tarea de un agente `bk` (ADR-005): solo escribe si `bk` lanzó la sesión (`BK_TASK_DIR`), solo metadatos, y nunca frena nada. En el `Stop` que sigue a `bk done` deja además un evento de aprendizaje `task_end` (ADR-007, `docs/agents/learning-event.md`). Un agente `bk` cierra su tarea con `bk done` (`pr <n>`, `blockers`, `dropped "<motivo>"`, `escalate "<motivo>"`).
 
 Las skills mejoran con el uso: `implement-issue` y `review-pr` terminan con una retro en la rama `agents/retros` (`retro.sh`) y `/improve-skills` propone ajustes **siempre en un PR**; nunca quita ni afloja estas reglas. Lo que no llega a skill se propone como regla en `barrilete-rules` (ADR-006): una persona la acepta al mergear, `sync-rules` la inyecta en `AGENTS.md` y en `.claude/agents/`, y eso es lo único de las retros que leen los agentes. Un PR con `business-logic` tiene que enmendar el ADR de la regla o decir "ADR sin cambios: <motivo>" (lo controla el check de labels).
 
 **Subagentes** (`.claude/agents/`, los lanza `/orchestrate`, en pi con la herramienta `subagent` de `barrilete-pi`: `implementer` en Sonnet, `implementer-light` en Haiku, `reviewer` en Sonnet): las mismas reglas, más `docs/agents/subagent-contract.md`. Trabajan solo en su worktree, no pueden consultar a la persona (comentan en el issue y devuelven `question`), nunca publican reviews ni comentarios en PRs, y el liviano frena y devuelve `escalate` si el issue toca rutas sensibles o lógica de negocio (el orquestador lo relanza con Sonnet). Un `implementer` que `roles.yml` marca como `bk` se lanza en cambio como agente `bk` (kit/ADR-004; `reviewer` e `implementer-light` corren siempre como `sub`): una sesión común de `implement-issue`, fuera de este contrato, que sí le pregunta a la persona en su ventana.
 
-Las rutas de cada categoría están en `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` dice si un cambio las toca y qué contextos acotados (sección `contexts` del mapa) cruza, y `scripts/agents/verify.py` corre, antes del PR, las verificaciones que corresponden a lo que cambió (sección `verify` del mapa). También corre los checks de las reglas (`.barrilete/checks.json`, que genera `sync-rules`; ADR-006 D8): si uno falla, imprime la regla y su mensaje, que dice qué hacer y cuándo escalar. Cada check de una regla que corre deja un evento `check_run`, solo metadatos, en `.barrilete/learning/events.jsonl` (ignorado por git), que `bk learn effect` lee para medir cuánto falla.
+Las rutas de cada categoría están en `docs/agents-map.json` (`sensitive`). `scripts/agents/agents_map.py` dice si un cambio las toca y qué contextos acotados (sección `contexts` del mapa) cruza, y `scripts/agents/verify.py` corre, antes del PR, las verificaciones que corresponden a lo que cambió (sección `verify` del mapa). También corre los checks de las reglas (`.barrilete/checks.json`, que genera `sync-rules`; ADR-006 D8): si uno falla, imprime la regla y su mensaje, que dice qué hacer y cuándo escalar. Cada check de una regla que corre deja un evento `check_run`, solo metadatos, en el store de aprendizaje del proyecto (`docs/agents/learning-event.md`; por defecto `.barrilete/learning/events.jsonl`, ignorado por git), que `bk learn effect` lee para medir cuánto falla.
 
 ## Convenciones de GitHub (obligatorio)
 
@@ -90,7 +91,7 @@ Fuente de verdad: `docs/github-naming-convention.md`. Labels: `.github/labels.ym
 - **Issues:** se abren con la skill `create-issue`. Título en imperativo y sin prefijo; el tipo va en el label `type:`. Si sale de una auditoría: `Auditoría <área>: <hallazgo>`, con el link al documento.
 - **Decisiones irreversibles:** ADR nuevo en `docs/decisions/` (ver su README).
 
-Nada entra a las ramas troncales sin PR. La única rama que se escribe sin PR es `agents/retros`, y solo con `retro.sh`.
+Nada entra a las ramas troncales sin PR. Las únicas ramas que se escriben sin PR son `agents/retros`, solo con `retro.sh`, y `agents/learning`, solo con `learning.py`.
 
 ## Docs
 
@@ -107,6 +108,7 @@ Nada entra a las ramas troncales sin PR. La única rama que se escribe sin PR es
 - `docs/agents/classes.yml` — las clases con que `review-pr` etiqueta los hallazgos (la genera `scripts/agents/sync-rules` desde barrilete-rules, ADR-006)
 - `docs/agents/subagent-contract.md` — reglas y salida común de los subagentes (`.claude/agents/`)
 - `docs/agents/bitacora.md` — la bitácora del proyecto `docs/bitacora.html`: cómo `/bitacora <tema>` suma entradas (`scripts/agents/bitacora_add.py`), sus componentes y sus tokens de diseño
+- `docs/agents/learning-event.md` — el evento de aprendizaje v1 y su store (ADR-007)
 
 <!-- rules:begin lautioliver/barrilete-rules@9abec4a99f6d1dfc7f1d879e9f20427db60500e0 (generated by scripts/agents/sync-rules; do not edit: change the rule in barrilete-rules) -->
 ## Rules (barrilete-rules)

@@ -56,11 +56,17 @@ mkdir -p "$P"
   for f in viejo viejo2 borrado cambiado; do echo "$f v0.1" >".claude/skills/debug/$f.md"; done
   echo "echo modo" >.claude/skills/debug/modo.sh && chmod 644 .claude/skills/debug/modo.sh
   echo "Hello v0.1" >.claude/skills/debug/lang.md && echo "Hola v0.1" >.claude/skills/debug/lang.es.md
+  # #324: v0.1.0 es de antes del store de aprendizaje (sin learning.json ni .barrilete/learning/ en el .gitignore); v0.2.0 los trae.
+  mkdir -p "$TMP/kit-324" && cp .gitignore "$TMP/kit-324/gitignore" && { cp .barrilete/learning.json "$TMP/kit-324/" || :; }
+  rm -f .barrilete/learning.json && grep -vxF '.barrilete/learning/' "$TMP/kit-324/gitignore" >.gitignore
+  # Sin la línea del .gitignore, AGENTS.md tampoco puede decir que el store está ignorado (check-docs lo compara).
+  for f in AGENTS.md AGENTS.es.md; do cp "$f" "$TMP/kit-324/$f" && perl -pi -e 's/,? \(?(ignored by git|ignorado por git)\)?//' "$f"; done
   git add -A && git commit -qm v0.1.0 && git tag v0.1.0
   # Un commit después del tag, sin cambiar VERSION: así nace un proyecto creado desde main.
   echo "cambiado posterior" >.claude/skills/debug/cambiado.md
   git commit -qam posterior && git branch posterior
   echo 0.2.0 >VERSION
+  cp "$TMP/kit-324/AGENTS.md" "$TMP/kit-324/AGENTS.es.md" .
   printf '\n## 0.2.0\n\n- Cambio de prueba.\n' >>CHANGELOG.md
   echo "Línea nueva de la plantilla v0.2." >>.claude/skills/debug/SKILL.md
   echo "Línea nueva de la plantilla v0.2." >>AGENTS.md
@@ -71,6 +77,7 @@ mkdir -p "$P"
   echo "cambiado v0.2" >.claude/skills/debug/cambiado.md
   echo "Hello v0.2" >.claude/skills/debug/lang.md && echo "Hola v0.2" >.claude/skills/debug/lang.es.md
   chmod 755 .claude/skills/debug/modo.sh
+  cp "$TMP/kit-324/gitignore" .gitignore && { cp "$TMP/kit-324/learning.json" .barrilete/ || :; }
   git add -A && git commit -qm v0.2.0 && git tag v0.2.0
 ) >>"$TMP/build.log" 2>&1
 
@@ -110,8 +117,12 @@ es -f "$D/scripts/update.py"; tap_check $? "el proyecto completo trae update.py"
   perl -pi -e 's/^# .*/# Convención del proyecto/ if $. == 1' docs/github-naming-convention.md
   echo "cambio del proyecto" >>.claude/skills/debug/viejo2.md
   git rm -q .claude/skills/debug/borrado.md
+  { printf '# mi proyecto\nnode_modules\n\n'; cat .gitignore; } >.gitignore.nuevo && mv .gitignore.nuevo .gitignore
   git commit -qam "cambios del proyecto"
 ) >>"$TMP/build.log" 2>&1
+
+es -f "$D/.gitignore" && es "$(grep -cxF '.barrilete/learning/' "$D/.gitignore" || :)" = 0 && ! [ -e "$D/.barrilete/learning.json" ]
+tap_check $? "324: el proyecto de v0.1.0 no tiene el store de aprendizaje (sin learning.json ni la línea del .gitignore)"
 
 echo sucio >>"$D/AGENTS.md"
 c=0; s=$(trap - ERR; cd "$D" && python3 scripts/update.py --template "$P" 2>&1) || c=$?; tap_status "$c" 1
@@ -133,6 +144,10 @@ es -f "$D/.claude/skills/debug/nuevo.md"; tap_check $? "agrega un archivo nuevo 
 tap_check $? "conserva y avisa un archivo que la plantilla sacó pero el proyecto modificó"
 ! [ -e "$D/.claude/skills/debug/borrado.md" ]; tap_check $? "no vuelve a traer un archivo que el proyecto borró"
 grep -q '"version": "0.2.0"' "$D/.agent-kit.json"; tap_check $? "registra la versión nueva en .agent-kit.json"
+[ "$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])) == {"store": "local"})' "$D/.barrilete/learning.json" 2>&1 || :)" = True ]
+tap_check $? "324: update trae .barrilete/learning.json con store local"
+grep -qxF '.barrilete/learning/' "$D/.gitignore"; tap_check $? "324: update agrega .barrilete/learning/ al .gitignore que el proyecto editó"
+grep -qxF 'node_modules' "$D/.gitignore"; tap_check $? "324: update conserva lo que el proyecto agregó a su .gitignore"
 es -x "$D/.claude/skills/debug/modo.sh"; tap_check $? "aplica un cambio de permisos (ejecutable) aunque el contenido sea igual"
 grep -qi "integrate" <<<"$s" && grep -qi "next update" <<<"$s"; tap_check $? "con conflictos, avisa que hay que integrarlos ahora (la próxima actualización parte de la versión nueva)"
 grep -q "Cambio de prueba" <<<"$s"; tap_check $? "muestra el changelog de las versiones nuevas"

@@ -13,8 +13,8 @@ TMP=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/test-checks-XXXXXX")" && pwd -P)
 . "$RAIZ/scripts/agents/tap.sh"
 tap_begin "$0"
 tap_at_exit "rm -rf \"\$TMP\""
-export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
-unset BASE CLAUDECODE BK_TASK_DIR BK_HARNESS   # verify.py los lee para el evento check_run: cada caso los pone a mano
+export PYTHONDONTWRITEBYTECODE=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+unset BASE CLAUDECODE BK_TASK_DIR BK_HARNESS BK_MODEL BK_PROVIDER   # verify.py los lee para el evento check_run: cada caso los pone a mano
 out=""
 leer() { [ -f "$1" ] && cat "$1"; }  # el contenido, o nada si el archivo no existe (un caso falla, no un crash)
 
@@ -31,6 +31,29 @@ git -C "$P" remote set-head origin main
 BASE_SHA=$(git -C "$P" rev-parse HEAD)
 git -C "$P" switch -q -c claude/7-algo
 printf '#!/usr/bin/env bash\ntap_check $? "caso uno"\ntap_check $? "caso dos"\n' >"$P/scripts/agents/test-x.sh"
+# La última línea del heredoc (#349): escapes mezclados, solo \" escapado y $B suelto; bash lo expandiría y red.sh no lo reportaría
+# Ids con comillas, \\ y \$: en el fuente bash van escapados y red.sh los reporta desescapados (#341)
+cat >>"$P/scripts/agents/test-x.sh" <<'EOF2'
+tap_check $? "324: learning.json es {\"store\": \"local\"}"
+tap_check $? "comando \`ls\` aparte"
+tap_check $? "ls \"a\" y $B"
+EOF2
+# con %s: el fuente no tiene la forma de un caso cuyo id se arma al correr (test-tap.sh lo prohíbe), y el fixture sí
+printf '%s $? "ruta C:\\\\tmp y \\$HOME"\n' tap_check >>"$P/scripts/agents/test-x.sh"
+# Un fuente JS/TS: red.sh reporta el id con todo \x desescapado (red_report.unescape_js) y el fuente lo guarda escapado (#349)
+cat >"$P/scripts/agents/x.test.ts" <<'EOF3'
+describe('grupo', () => {
+  it('doesn\'t crash', () => {});
+  it('Don\'t "quote"', () => {});
+  it("say \"hi\"", () => {});
+  it('ruta C:\\tmp', () => {});
+  it('ruta D:\tmp', () => {});
+});
+EOF3
+cat >"$P/scripts/agents/y.test.mjs" <<'EOF4'
+it('it\'s mjs', () => {});
+EOF4
+printf 'def test_algo():\n    pass\n' >"$P/scripts/agents/test_x.py"
 git -C "$P" add -A && git -C "$P" commit -qm rojo; RED=$(git -C "$P" rev-parse --short=10 HEAD)
 echo verde >"$P/impl.txt"
 git -C "$P" add -A && git -C "$P" commit -qm verde
@@ -101,9 +124,55 @@ grep -q '2' <<<"$out"; tap_check $? "commits: nombra también los 2 reales"
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso inventado" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'caso inventado.*name is not in' <<<"$out"; tap_check $? "casos: un caso que no está en el archivo del red commit falla y se nombra"
+# 6b. Un id con \", \\ o \$ en el fuente se encuentra con el nombre desescapado que reporta red.sh (#341)
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::324: learning.json es {"store": "local"}' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id con comillas escapadas en el fuente se encuentra desescapado"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::ruta C:\tmp y $HOME' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id con barra invertida y dólar escapados en el fuente se encuentra desescapado"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::comando `ls` aparte' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id con acento grave escapado en el fuente se encuentra desescapado"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::324: learning.json es {"store": "nube"}' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'nube.*name is not in' <<<"$out"; tap_check $? "casos: un caso inventado con comillas sigue fallando"
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/no-esta.sh::caso uno" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'no-esta.sh does not exist' <<<"$out"; tap_check $? "casos: un archivo que no existe en el red commit falla y se nombra"
+
+# 6c. JS/TS: las formas del id son las de unescape_js, no las de bash (#349)
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > doesn't crash" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con comilla simple escapada en el fuente se encuentra desescapado"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > Don't \"quote\"" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con comilla simple escapada y comillas dobles sin escapar se encuentra"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/x.test.ts::grupo > say "hi"' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con comillas dobles escapadas en el fuente se encuentra"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > doesn't explote" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "explote.*name is not in" <<<"$out"; tap_check $? "casos: un id JS inventado con comilla sigue fallando"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/x.test.ts::grupo > ruta C:\tmp' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con barra invertida escrita doble en el fuente se encuentra"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/x.test.ts::grupo > ruta D:\tmp' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id JS con barra invertida cuando el fuente tiene una sola falla"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/y.test.mjs::it's mjs" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id de un .mjs con comilla escapada en el fuente se encuentra"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::ls "a" y $B' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id bash con escapes mezclados que red.sh no reportaría falla"
+
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test_x.py::test_algo' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id de otro lenguaje se busca tal cual en el fuente"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test_x.py::test_inventado' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'test_inventado.*name is not in' <<<"$out"; tap_check $? "casos: un id de otro lenguaje que no está en el fuente falla"
 
 # 7. El número del issue: el del `Closes`/`Refs` es el de la rama, y no es el del PR mismo.
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso uno" "Closes #8")"
@@ -248,7 +317,7 @@ grep -q 'not verified' <<<"$out"; tap_check $? "verify.py --pr: con los checks d
 
 # --- verify.py deja un evento check_run por cada check que corre (#323, fase 0 de #321) ---
 EV="$P/.barrilete/learning/events.jsonl"
-# ev.py resume el registro: "n=<líneas>", y por evento "raw <línea>", "<check> <rule_id> <outcome> <claves ordenadas>"
+# ev.py resume el registro: "n=<líneas>", y por evento "raw <línea>", "<rule_id> <outcome> <claves ordenadas>"
 # (o "json-roto") y sus metadatos. Sin registro imprime n=0: un caso falla, no un crash.
 cat >"$TMP/ev.py" <<'EOF'
 import json, os, sys
@@ -260,8 +329,8 @@ for l in lines:
         e = json.loads(l)
     except ValueError:
         print("json-roto"); continue
-    print(e.get("check"), e.get("rule_id"), e.get("outcome"), ",".join(sorted(e)))
-    for k in ("task_id", "harness", "branch", "v", "kind"):
+    print(e.get("rule_id"), e.get("outcome"), ",".join(sorted(e)))
+    for k in ("task_id", "harness", "model", "project", "branch", "check", "v", "kind"):
         if k in e: print("%s=%s" % (k, e[k]))
 EOF
 eventos() { cd "$TMP" || exit 2; tap_run out 0 python3 "$TMP/ev.py" "$EV"; }
@@ -270,15 +339,18 @@ rm -rf "$P/.barrilete/learning"
 manifiesto ok-check mal-check
 verify 1
 eventos
-grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: un check que pasa deja outcome pass con su regla"
-grep -qx 'mal-check r-mal-check fail .*' <<<"$out"; tap_check $? "check_run: un check que falla deja outcome fail con su regla"
+grep -qx 'r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: un check que pasa deja outcome pass con su regla"
+grep -qx 'r-mal-check fail .*' <<<"$out"; tap_check $? "check_run: un check que falla deja outcome fail con su regla"
 grep -qx 'n=2' <<<"$out"; tap_check $? "check_run: una línea por check, nada más"
 grep -qx 'kind=check_run' <<<"$out"; tap_check $? "check_run: el evento dice kind check_run"
-grep -qx 'v=0' <<<"$out"; tap_check $? "check_run: el evento lleva la versión 0 del esquema"
-grep -qx 'branch=claude/7-algo' <<<"$out"; tap_check $? "check_run: el evento lleva la rama"
+grep -qx 'v=1' <<<"$out"; tap_check $? "check_run: el evento lleva la versión 1 del esquema (ADR-007)"
+grep -qx 'project=remoto' <<<"$out"; tap_check $? "check_run: el evento lleva el proyecto, el nombre del repo"
+grep -qx 'model=unknown' <<<"$out"; tap_check $? "check_run: sin BK_MODEL el modelo es unknown"
+grep -q '^branch=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: el evento no lleva la rama (no está en la tabla de ADR-007)"
+grep -q '^check=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: el evento no lleva el id del check (no está en la tabla de ADR-007)"
 grep -q '^raw .*arreglá' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: el evento no lleva el fail_message"
 grep -q '^raw .*no se cumple' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: el evento no lleva la salida del check"
-grep -qx 'mal-check r-mal-check fail branch,check,kind,outcome,rule_id,ts,v' <<<"$out"; tap_check $? "check_run: sin BK_TASK_DIR ni harness conocido, solo las claves de metadatos"
+grep -qx 'r-mal-check fail harness,kind,model,outcome,project,rule_id,ts,v' <<<"$out"; tap_check $? "check_run: sin BK_TASK_DIR ni rules.lock, solo los obligatorios de ADR-007 y la regla"
 
 rm -rf "$P/.barrilete/learning"
 verify 0 --list
@@ -288,8 +360,8 @@ rm -rf "$P/.barrilete/learning"
 printf '{"checks": [{"id": "mal-check", "rule": "regla-a", "fail_message": "a"}, {"id": "mal-check", "rule": "regla-b", "fail_message": "b"}]}\n' >"$P/.barrilete/checks.json"
 verify 1
 eventos
-grep -qx 'mal-check regla-b fail .*' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check dejan un evento por regla"
-grep -qx 'mal-check regla-a fail .*' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check: también la primera"
+grep -qx 'regla-b fail .*' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check dejan un evento por regla"
+grep -qx 'regla-a fail .*' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check: también la primera"
 grep -qx 'n=2' <<<"$out"; tap_check $? "check_run: dos reglas con el mismo check: dos eventos, ni uno más"
 
 rm -rf "$P/.barrilete/learning"
@@ -306,18 +378,26 @@ grep -qx 'harness=codex' <<<"$out"; tap_check $? "check_run: BK_HARNESS manda so
 rm -rf "$P/.barrilete/learning"
 BK_HARNESS=Codex_X CLAUDECODE=1 verify 0
 eventos
-grep -q '^harness=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: un BK_HARNESS inválido no se reemplaza por claude-code: el harness queda afuera"
+grep -qx 'harness=unknown' <<<"$out"; tap_check $? "check_run: un BK_HARNESS inválido no se reemplaza por claude-code: el harness es unknown"
 rm -rf "$P/.barrilete/learning"
 mkdir -p "$TMP/tarea-sin-json"
 BK_TASK_DIR="$TMP/tarea-sin-json" verify 0
 eventos
 grep -q '^task_id=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: sin task.json legible no se inventa un task_id"
+# Un AGENTS.md que no es UTF-8 (rules_ref lo lee con BK_TASK_DIR y rules.lock): el registro avisa, verify.py no se cae
+rm -rf "$P/.barrilete/learning"
+cp "$P/AGENTS.md" "$TMP/AGENTS.bak" 2>/dev/null || :
+[ -f "$P/.barrilete/rules.lock" ] || printf 'repo=o/reglas\nsha=9abec4a99f6d1dfc7f1d879e9f20427db60500e0\n' >"$P/.barrilete/rules.lock"
+printf '<!-- rules:begin o/r@1 -->\n\377\376 roto\n<!-- rules:end -->\n' >"$P/AGENTS.md"
+BK_TASK_DIR="$TMP/tarea" verify 0
+grep -q 'could not record' <<<"$out"; tap_check $? "check_run: un AGENTS.md que no es UTF-8 se avisa como un registro que no se pudo escribir"
+if [ -f "$TMP/AGENTS.bak" ]; then cp "$TMP/AGENTS.bak" "$P/AGENTS.md"; else rm -f "$P/AGENTS.md"; fi
 
 rm -rf "$P/.barrilete/learning"
 manifiesto pr-metadata
 GH_MODE=none PATH="$TMP/bin:$PATH" verify 0
 eventos
-grep -qx 'pr-metadata r-pr-metadata skipped .*' <<<"$out"; tap_check $? "check_run: un check que no pudo verificar (sale con 4) deja skipped"
+grep -qx 'r-pr-metadata skipped .*' <<<"$out"; tap_check $? "check_run: un check que no pudo verificar (sale con 4) deja skipped"
 
 # Un archivo donde va la carpeta: no se puede escribir el registro ni siendo root (chmod no frena a root)
 rm -rf "$P/.barrilete/learning"; echo no-es-carpeta >"$P/.barrilete/learning"
@@ -344,9 +424,8 @@ BASE=main tap_run out 0 python3 "$TMP/rc.py" python3 scripts/agents/verify.py
 cd "$TMP" || exit 2
 tap_no_traceback "$out"
 eventos
-grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: desde un worktree, el evento queda en el checkout principal"
+grep -qx 'r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: desde un worktree, el evento queda en el checkout principal"
 [ ! -e "$TMP/wt/.barrilete/learning/events.jsonl" ]; tap_check $? "check_run: desde un worktree, nada queda dentro del worktree"
-grep -q '^branch=' <<<"$out"; [ $? -eq 1 ]; tap_check $? "check_run: con HEAD suelto (el worktree está en --detach) el evento no lleva rama"
 git -C "$P" worktree remove --force "$TMP/wt"
 
 # Si verify.py muere a mitad de camino, los checks que ya terminaron quedan registrados
@@ -363,7 +442,7 @@ cd "$P" || exit 2
 BASE=main tap_run out 0 python3 "$TMP/rc.py" python3 scripts/agents/verify.py
 cd "$TMP" || exit 2
 eventos
-grep -qx 'ok-check r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: un check que terminó queda registrado aunque verify.py muera después"
+grep -qx 'r-ok-check pass .*' <<<"$out"; tap_check $? "check_run: un check que terminó queda registrado aunque verify.py muera después"
 rm "$P/.barrilete/checks.json"
 
 # 8. Falsos rechazos y falsos verdes que encontró el review (#294): cada caso falla si se borra lo que chequea.

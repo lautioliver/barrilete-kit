@@ -72,6 +72,25 @@ for modo in completo chico; do
   es "$n" = 3; tap_check $? "[<modo>] .env, .env.local y __pycache__ están ignorados" "[$modo] .env, .env.local y __pycache__ están ignorados"
   c=0; (trap - ERR; cd "$p" && git check-ignore -q .env.example) || c=$?; tap_status "$c" 1; es "$c" -ne 0; tap_check $? "[<modo>] .env.example no está ignorado" "[$modo] .env.example no está ignorado"
 
+  # #324: el proyecto nace con el store local (ADR-007 D2), su directorio ignorado y, también en chico, learning.py y task_events.py.
+  [ "$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])) == {"store": "local"})' "$p/.barrilete/learning.json" 2>&1 || :)" = True ]
+  tap_check $? "324: [<modo>] .barrilete/learning.json es {\"store\": \"local\"}" "324: [$modo] .barrilete/learning.json es {\"store\": \"local\"}"
+  # check-ignore sale con 1 si no ignora: eso es un caso fallido, no un crash (por eso el || : y no tap_run)
+  ign=$( (cd "$p" && git check-ignore .barrilete/learning/x 2>&1) || :)
+  es "$ign" = .barrilete/learning/x; tap_check $? "324: [<modo>] .barrilete/learning/ está ignorado" "324: [$modo] .barrilete/learning/ está ignorado"
+  es -f "$p/scripts/agents/learning.py"; tap_check $? "324: [<modo>] el init deja learning.py" "324: [$modo] el init deja learning.py"
+  es -f "$p/scripts/agents/task_events.py"; tap_check $? "324: [<modo>] el init deja task_events.py" "324: [$modo] el init deja task_events.py"
+  # Sin learning.py el caso falla (no corre: python3 saldría con 2, que tap_run toma por un crash)
+  c=1
+  if [ -f "$p/scripts/agents/learning.py" ]; then
+    d=$PWD; cd "$p" || exit 2
+    tap_run out 0 env -u BK_TASK_DIR python3 scripts/agents/learning.py emit check_run rule_id=r-init outcome=pass; c=$TAP_RC
+    cd "$d" || exit 2
+  fi
+  es "$c" = 0; tap_check $? "324: [<modo>] learning.py emit funciona en el proyecto nuevo" "324: [$modo] learning.py emit funciona en el proyecto nuevo"
+  es -s "$p/.barrilete/learning/events.jsonl"; tap_check $? "324: [<modo>] el evento queda en .barrilete/learning/events.jsonl" "324: [$modo] el evento queda en .barrilete/learning/events.jsonl"
+  es -z "$(git -C "$p" status --porcelain)"; tap_check $? "324: [<modo>] emitir no deja nada para commitear" "324: [$modo] emitir no deja nada para commitear"
+
   echo "SECRET=x" >"$p/.env"
   if [ -f "$p/scripts/agents/verify.py" ]; then
     s=$(cd "$p" && python3 scripts/agents/verify.py --list 2>&1)
