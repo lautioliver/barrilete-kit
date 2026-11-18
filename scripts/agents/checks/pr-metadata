@@ -55,12 +55,12 @@ def in_source(path, part, src):
     """Is `part` of a case name in `src`, as the file of `path` can write it? red.sh reports the id unescaped and the
     source keeps it escaped (#341 bash, #349 JS/TS); only the spellings of that language count, so a stray escape
     elsewhere in the file does not make an invented name match."""
+    if path.endswith(JS_EXT):  # not `part in src`: a lone backslash of the source is an escape, not a backslash of the name
+        return js_spelling(part).search(src) is not None
     if part in src:
         return True
     if path.endswith(".sh"):
         return sh_spelling(part) in src
-    if path.endswith(JS_EXT):
-        return js_spelling(part).search(src) is not None
     return False
 
 

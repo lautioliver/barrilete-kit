@@ -156,7 +156,7 @@ GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-
 grep -q "explote.*name is not in" <<<"$out"; tap_check $? "casos: un id JS inventado con comilla sigue fallando"
 pr 12 "$(cuerpo "$RED" 2 'scripts/agents/x.test.ts::grupo > ruta C:\tmp' "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
-[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con barra invertida escrita \\\\ en el fuente se encuentra"
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con barra invertida escrita doble en el fuente se encuentra"
 pr 12 "$(cuerpo "$RED" 2 'scripts/agents/x.test.ts::grupo > ruta D:\tmp' "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id JS con barra invertida cuando el fuente tiene una sola falla"
