@@ -519,17 +519,41 @@ export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b
 tap_run out 0 "$LOCK" handoff "$TMP/wt"
 grep -q '^held: agente-a' <<<"$out"; tap_check $? "traspaso: handoff de otro dice held"
 leer; grep -q '^handoff=' <<<"$LK"; [ $? = 1 ]; tap_check $? "traspaso: handoff de otro no deja reserva"
-# Un candado con la reserva vacía no se toma con un token vacío.
+# Un token vacío nunca sirve, aunque la reserva sea el hash de la cadena vacía.
 cat >"$GDIR/agent-lock" <<LK
 pid=$VIVO
 start=$(TZ=UTC LC_ALL=C ps -o lstart= -p "$VIVO" | sed 's/^ *//; s/ *$//')
 agent=agente-a
 since=2026-01-01T00:00:00Z
-handoff=
+handoff=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 LK
 export WORKTREE_LOCK_HANDOFF=""
 tap_run out 0 "$LOCK" claim "$TMP/wt"
-grep -q '^held: agente-a' <<<"$out"; tap_check $? "traspaso: una reserva vacía no se toma con un token vacío"
+grep -q '^held: agente-a' <<<"$out"; tap_check $? "traspaso: un token vacío no toma una reserva con el hash de la cadena vacía"
+unset WORKTREE_LOCK_HANDOFF
+# El candado guarda el hash del token, no el token: leerlo no alcanza para tomarlo.
+rm -f "$GDIR/agent-lock"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+tap_run out 0 "$LOCK" handoff "$TMP/wt"
+TOKEN=${out#handed-off: }
+leer; grep -qF -- "$TOKEN" <<<"$LK"; [ $? = 1 ]; tap_check $? "traspaso: el candado no guarda el token en claro"
+leer; R=$(sed -n 's/^handoff=//p' <<<"$LK")
+export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b WORKTREE_LOCK_HANDOFF=$R
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -q '^held: agente-a' <<<"$out"; tap_check $? "traspaso: lo que guarda el candado no sirve como token"
+export WORKTREE_LOCK_HANDOFF=$TOKEN
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx "claimed" <<<"$out"; tap_check $? "traspaso: con el hash guardado, el token sigue tomándolo"
+unset WORKTREE_LOCK_HANDOFF
+# Un nombre de agente con salto de línea no planta una reserva en el candado.
+rm -f "$GDIR/agent-lock"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=$'agente-a\nhandoff=conocido'
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+leer; grep -qx 'handoff=conocido' <<<"$LK"; [ $? = 1 ]; tap_check $? "traspaso: un nombre con salto de línea no planta una reserva"
+export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b WORKTREE_LOCK_HANDOFF=conocido
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -qx "claimed" <<<"$out"; [ $? = 1 ]; tap_check $? "traspaso: la reserva plantada con el nombre no se toma"
 unset WORKTREE_LOCK_HANDOFF
 # Pasado y con el dueño muerto: stale, como cualquier candado de un dueño muerto.
 cat >"$GDIR/agent-lock" <<LK
@@ -562,13 +586,14 @@ rm -f "$GDIR/agent-lock"
 
 # 16. #356: los skills y el contrato dicen cómo pasar el candado a la sesión que sigue (handoff y WORKTREE_LOCK_HANDOFF).
 if [ "$CHICO" = 1 ]; then
-  for c in "implement-issue: al pasar el trabajo, handoff pasa el candado" "implement-issue: la sesión que sigue lo toma con el token" "review-pr: un worktree pasado no se toma sin el token" "contrato: handoff pasa el candado"; do
+  for c in "implement-issue: al pasar el trabajo, handoff pasa el candado" "implement-issue: la sesión que sigue lo toma con el token" "implement-issue: después de un handoff no se suelta al final" "review-pr: un worktree pasado no se toma sin el token" "contrato: handoff pasa el candado"; do
     tap_skip "$c" "proyecto chico (mode: small): su implement-issue no usa worktrees"
   done
 else
   seccion .claude/skills/implement-issue/SKILL.md "## 9."
   grep -qF -- "scripts/agents/worktree-lock.sh handoff <worktree>" <<<"$out"; tap_check $? "implement-issue: al pasar el trabajo, handoff pasa el candado"
   grep -qF -- "WORKTREE_LOCK_HANDOFF=<token> scripts/agents/worktree-lock.sh claim <worktree>" <<<"$out"; tap_check $? "implement-issue: la sesión que sigue lo toma con el token"
+  grep -qF -e "do not release it at the end" -e "no lo sueltes al final" <<<"$out"; tap_check $? "implement-issue: después de un handoff no se suelta al final"
   grep -qF -- "handed over" "$RAIZ/.claude/skills/review-pr/SKILL.md"; tap_check $? "review-pr: un worktree pasado no se toma sin el token"
   grep -qF -- "worktree-lock.sh handoff" "$RAIZ/docs/agents/subagent-contract.md"; tap_check $? "contrato: handoff pasa el candado"
 fi
@@ -576,10 +601,11 @@ if [ "$CHICO" = 0 ] && [ -f "$RAIZ/.claude/skills/implement-issue/SKILL.es.md" ]
   seccion .claude/skills/implement-issue/SKILL.es.md "## 9."
   grep -qF -- "scripts/agents/worktree-lock.sh handoff <worktree>" <<<"$out"; tap_check $? "implement-issue (es): al pasar el trabajo, handoff pasa el candado"
   grep -qF -- "WORKTREE_LOCK_HANDOFF=<token> scripts/agents/worktree-lock.sh claim <worktree>" <<<"$out"; tap_check $? "implement-issue (es): la sesión que sigue lo toma con el token"
+  grep -qF -- "no lo sueltes al final" <<<"$out"; tap_check $? "implement-issue (es): después de un handoff no se suelta al final"
   grep -qF -- "handed over" "$RAIZ/.claude/skills/review-pr/SKILL.es.md"; tap_check $? "review-pr (es): un worktree pasado no se toma sin el token"
   grep -qF -- "worktree-lock.sh handoff" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): handoff pasa el candado"
 else
-  for c in "implement-issue (es): al pasar el trabajo, handoff pasa el candado" "implement-issue (es): la sesión que sigue lo toma con el token" "review-pr (es): un worktree pasado no se toma sin el token" "contrato (es): handoff pasa el candado"; do
+  for c in "implement-issue (es): al pasar el trabajo, handoff pasa el candado" "implement-issue (es): la sesión que sigue lo toma con el token" "implement-issue (es): después de un handoff no se suelta al final" "review-pr (es): un worktree pasado no se toma sin el token" "contrato (es): handoff pasa el candado"; do
     tap_skip "$c" "no existe SKILL.es.md o proyecto chico"
   done
 fi
