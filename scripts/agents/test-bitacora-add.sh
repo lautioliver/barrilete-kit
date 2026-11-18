@@ -206,10 +206,12 @@ grep -qE -- '--font-mono:.*(ui-monospace|monospace)' "$CSS"; tap_check $? "sin r
 grep -qF 'bitacora.html' "$RAIZ/.gitignore"; es=$?; [ "$es" = 1 ]; tap_check $? "la bitácora no está en el .gitignore del kit"
 cat >"$TMP/deps.py" <<'EOF'
 import ast, sys
+# Una lista fija y no sys.stdlib_module_names, que no existe antes de Python 3.10 (el de macOS es 3.9).
+ESTANDAR = {"argparse", "datetime", "difflib", "html", "json", "os", "re", "subprocess", "sys", "tempfile", "unicodedata"}
 arbol = ast.parse(open(sys.argv[1], encoding="utf-8").read())
 mods = {a.name.split(".")[0] for n in ast.walk(arbol) if isinstance(n, ast.Import) for a in n.names}
 mods |= {n.module.split(".")[0] for n in ast.walk(arbol) if isinstance(n, ast.ImportFrom) and n.module and not n.level}
-print(" ".join(sorted(m for m in mods if m not in sys.stdlib_module_names)) or "ok")
+print(" ".join(sorted(m for m in mods if m not in ESTANDAR)) or "ok")
 EOF
 tap_run out 0 python3 -I "$TMP/deps.py" "$ADD"
 [ "$out" = ok ]; tap_check $? "bitacora_add.py usa solo la biblioteca estándar" "$out"
@@ -364,5 +366,27 @@ tap_run out 0 python3 -I -c 'import sys, re; t=open(sys.argv[1], newline="").rea
 [ "$out" = 0 ]; tap_check $? "en un archivo CRLF, lo que se inserta también va con CRLF" "saltos sin CR: $out"
 tap_run out 0 python3 -I -c 'import sys; print(open(sys.argv[1], newline="").read().count("\r"))' "$pagina"
 [ "$out" = 0 ]; tap_check $? "en un archivo LF, lo que se inserta no trae CR" "CR: $out"
+
+# 21. Tercera revisión de #344: una entrada que termina en una etiqueta a medias (el navegador se comería el cierre
+# del <article> como atributos), una class que no es una lista de clases, un </br> (el navegador lo vuelve un <br>
+# y no cierra nada), links a otro sitio sin esquema (//host, \\host) y un archivo con una sección sin su marcador.
+git init -q "$TMP/rev3"
+for malo in '<p>a</p><a href="x' '<p>a</p>
+<b' '<p>a</p><b ' '<p>a</p></b' '<p>a</p><' '<p class="a;b">x</p>' '<p>a</br>b</p>' \
+            '<p><a href="//x.test/y">a</a></p>' '<p><a href="\\x.test\y">a</a></p>' '<p><a href="/\x.test">a</a></p>'; do
+  printf '%s\n' "$malo" >"$TMP/malo.html"
+  tap_run out 64 python3 -I "$ADD" -C "$TMP/rev3" add --topic "Tema" --entry "$TMP/malo.html"
+  [ "$TAP_RC" = 64 ]; tap_check $? "add rechaza una etiqueta a medias al final, una class rara, </br> y links sin esquema a otro sitio" "$malo: rc=$TAP_RC"
+done
+printf '<p><a href="/docs/x.md">a</a> y <a href="docs/y.md">b</a></p>\n' >"$TMP/bueno.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/rev3" add --topic "Tema" --entry "$TMP/bueno.html"
+[ "$TAP_RC" = 0 ]; tap_check $? "add acepta links relativos a la raíz y a la carpeta" "rc=$TAP_RC $out"
+git init -q "$TMP/sinfin"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/sinfin" add --topic "Tema" --entry "$TMP/e1.html"
+tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p).read(); open(p, "w").write(t.replace("<!-- bitacora:end tema -->", ""))' "$TMP/sinfin/docs/bitacora.html"
+cp "$TMP/sinfin/docs/bitacora.html" "$TMP/sinfin-antes.html"
+tap_run out 65 python3 -I "$ADD" -C "$TMP/sinfin" add --topic "Otro" --entry "$TMP/e2.html"
+[ "$TAP_RC" = 65 ]; tap_check $? "con una sección sin su marcador de fin, add no escribe y dice que el archivo está roto" "rc=$TAP_RC $out"
+cmp -s "$TMP/sinfin-antes.html" "$TMP/sinfin/docs/bitacora.html"; tap_check $? "con el archivo roto, add no lo toca"
 
 tap_done
