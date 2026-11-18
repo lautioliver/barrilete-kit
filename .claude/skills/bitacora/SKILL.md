@@ -1,13 +1,13 @@
 ---
 name: bitacora
-description: Saves what is being talked about in this chat as an entry of the project log (docs/bitacora.html), in the section of a topic, with numbers, tables and status colors so a person can read it at a glance. Only when the person asks, with "/bitacora <topic>", "save this in the log", "add it to the bitácora".
+description: Draws the idea being thought through in this chat as an entry of the project log (docs/bitacora.html), in the section of a topic, with drawings, little text and plain words, to keep thinking it through and to record how it was reached. Only when the person asks, with "/bitacora <topic>", "save this in the log", "add it to the bitácora".
 ---
 
 # Project log (`/bitacora <topic>`)
 
 The project has **one** log, `docs/bitacora.html`, versioned in git so every member has it. It has one section per topic; each `/bitacora <topic>` adds an entry, with its date, **below** what the section already had. Nothing that was written is rewritten: `scripts/agents/bitacora_add.py` only inserts, and it creates the file the first time.
 
-Run it only when the person asks for it. The entry is written from **this conversation**: what changed and why, what was decided, how it was checked and what is still open. It is for a person who was not in the chat.
+Run it only when the person asks for it. The log is for **thinking ideas through**, not for reporting work: what was touched, how it was checked and what failed are already in the PRs and the retros. The entry draws the idea being discussed in **this conversation** so the person can keep thinking about it and, once it is built, it records how it was reached. It is for a person who does not read code.
 
 ## 1. Find the section
 
@@ -23,29 +23,37 @@ If no `<topic>` was given, propose one in a few words from the conversation and 
 
 ## 2. Write the entry
 
-A file with an HTML fragment (no `<html>`, `<head>` or `<body>`), in the language of the installation (`language` in `.agent-kit.json`; `en` without it), in plain words. Do not repeat the date or the topic: the script writes them. Keep it short: what someone needs to pick up the idea.
+A file with an HTML fragment (no `<html>`, `<head>` or `<body>`), in the language of the installation (`language` in `.agent-kit.json`; `en` without it). Do not repeat the date or the topic: the script writes them.
+
+How to write it:
+- **Drawings first.** Start with a drawing (steps, branches, map, comparison) and then the text that explains it. If something can be shown, do not tell it.
+- **Little text.** Short sentences: what each part does and why.
+- **Plain words,** no file names, paths, commands, functions, exit codes or PR or commit numbers. If a part of the system matters, name it by what it does ("the step that checks the entry"), not by its file.
+- **The whole path of the idea:** where it came from, which options there were, what was dropped and why, what was decided and what is missing, with who has to decide.
 
 What goes in, in this order, leaving out what does not apply:
-1. **What changed and why**, in one or two `<p>`.
-2. **A number or a graph when it helps**: before/after, progress, a flow.
-3. **Decisions**: the ones taken and the ones still open, with who has to decide.
-4. **What is next**, with its status.
+1. **The idea in one sentence**, in a note.
+2. **How it works**, with a flow or a map of parts.
+3. **The options**: a branch diagram, with the chosen one and the dropped ones, and why.
+4. **What was decided** and **what is missing**, with cards by status.
 
-Components (the page already has their styles; they use the design tokens and work in light and dark mode):
+Components (the page already has their styles and they use the design tokens):
 
-| Component | HTML |
-|---|---|
-| Key numbers | `<div class="kpis"><div class="kpi ok"><b>12</b> cases pass</div><div class="kpi warn"><b>2</b> open</div></div>` |
-| Cards by status | `<div class="cards"><div class="card ok"><h3>Done</h3><p>…</p></div><div class="card warn"><h3>In progress</h3><p>…</p></div><div class="card danger"><h3>Waiting on you</h3><p>…</p></div></div>` |
-| Table (before/after, options) | `<table class="tbl"><tr><th>Before</th><th>After</th></tr><tr><td>…</td><td>…</td></tr></table>` |
-| Bars | `<div class="bars"><div class="bar ok"><span>Done</span><i style="--v:70%"></i></div></div>` |
-| Flow | `<ol class="flow"><li>issue</li><li>red</li><li>green</li><li>PR</li></ol>` |
-| Note | `<div class="note warn"><p>…</p></div>` |
-| Status in text | `<span class="ok">done</span>`, `<span class="warn">in progress</span>`, `<span class="danger">waiting on you</span>` |
+| Component | What for | HTML |
+|---|---|---|
+| Branch diagram | a question and its options | `<div class="branch"><div class="root">Where is it kept?</div><div class="opts"><div class="opt ok"><h4>One file</h4><p>Chosen: …</p></div><div class="opt danger"><h4>One per topic</h4><p>Dropped: …</p></div></div></div>` |
+| Map of parts | how the parts connect | `<ul class="map"><li><span class="node">The chat</span><span class="edge">writes to</span><span class="node">The log</span></li></ul>` |
+| Flow | steps in order | `<ol class="flow"><li>we talk</li><li>it is drawn</li><li>we decide</li></ol>` |
+| Table | compare | `<table class="tbl"><tr><th>Before</th><th>After</th></tr><tr><td>…</td><td>…</td></tr></table>` |
+| Cards by status | decided, in progress, waiting on you | `<div class="cards"><div class="card ok"><h3>Decided</h3><p>…</p></div><div class="card warn"><h3>In progress</h3><p>…</p></div><div class="card danger"><h3>Waiting on you</h3><p>…</p></div></div>` |
+| Key numbers | a number that matters | `<div class="kpis"><div class="kpi ok"><b>3</b> steps</div></div>` |
+| Bars | proportions, progress | `<div class="bars"><div class="bar ok"><span>Done</span><i style="--v:70%"></i></div></div>` |
+| Note | the idea in one sentence, a warning | `<div class="note"><p><strong>The idea.</strong> …</p></div>` |
+| Status in text | | `<span class="ok">done</span>`, `<span class="warn">in progress</span>`, `<span class="danger">waiting on you</span>` |
 
-Status colors: `ok` done, `warn` in progress, `danger` waiting on a person or broken. Never only the color: the word says it too.
+Status colors: `ok` done or chosen, `warn` in progress, `danger` waiting on a person, broken or dropped. Never only the color: the word says it too. In a map, `node` also takes `ok`, `warn` and `danger`.
 
-Use only these components and plain text tags (`p`, `strong`, `em`, `code`, `ul`/`ol`/`li`, `a href`, `h3`…): the script checks the fragment against an allowlist and rejects (exit 64, the file is not touched) anything else, such as scripts, styles, `on…=` handlers, `javascript:`, comments, page structure tags, a loose `<` (write `&lt;`, which passes), tags left open (`<b/>` leaves it open: close it with `</b>`; only `<br/>` and `<hr/>` self-close; `</br>` does not pass), links to another site without a scheme (`//host`) or a tag left half written at the end (`<b`). Its message says what was wrong: fix the fragment and try again.
+Use only these components and plain text tags (`p`, `strong`, `em`, `ul`/`ol`/`li`, `a href`, `h3`, `h4`…): the script checks the fragment against an allowlist and rejects (exit 64, the file is not touched) anything else, such as scripts, styles, `on…=` handlers, `javascript:`, comments, page structure tags, a loose `<` (write `&lt;`, which passes), tags left open (`<b/>` leaves it open: close it with `</b>`; only `<br/>` and `<hr/>` self-close; `</br>` does not pass), links to another site without a scheme (`//host`) or a tag left half written at the end (`<b`). Its message says what was wrong: fix the fragment and try again.
 
 ## 3. Add it
 

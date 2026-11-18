@@ -210,7 +210,7 @@ They live in `.claude/skills/`.
 | 🔁 | `/improve-skills` | Gathers retros and objective signals (CI failures on agent branches, reverts) and proposes skill changes in a PR. Never loosens controls. |
 | 🌿 | `git-workflow` | Branches, commits and PRs. |
 | 👥 | `/add-member`, `/remove-member` | Add, edit, pause or remove the team members who receive issues. |
-| 📓 | `/bitacora <topic>` | Saves what was talked about in the chat as an entry of `docs/bitacora.html`, the project log (one section per topic, versioned), with numbers, tables and status colors. Only adds, never rewrites. |
+| 📓 | `/bitacora <topic>` | The place to think ideas through with the context of the chat: it draws the idea being discussed in `docs/bitacora.html` (one section per topic, versioned) with drawings, little text and plain words — where it came from, what was dropped and what was decided — and it stays as the record of how each idea was reached. It is not the retros or the PRs: it is for people. Only adds, never rewrites. More in [`docs/agents/bitacora.md`](docs/agents/bitacora.md#what-it-is-for). |
 
 ### 🤖 Subagents by model
 

@@ -1,6 +1,6 @@
 # Project log (`/bitacora`)
 
-`docs/bitacora.html` is the project log: one file per project, versioned in git so every member has it, with one section per topic (#343). A person adds an entry from the chat with `/bitacora <topic>` (skill `.claude/skills/bitacora/`): the agent writes it with the context of that conversation (what changed and why, what was decided, how it was checked, what is still open) and `scripts/agents/bitacora_add.py` inserts it. Nothing generates entries on its own.
+`docs/bitacora.html` is the project log: one file per project, versioned in git so every member has it, with one section per topic (#343). A person adds an entry from the chat with `/bitacora <topic>` (skill `.claude/skills/bitacora/`): the agent writes it with the context of that conversation (the idea, its options, what was dropped and why, what was decided, what is missing) and `scripts/agents/bitacora_add.py` inserts it. Nothing generates entries on its own.
 
 ```bash
 python3 scripts/agents/bitacora_add.py find --topic "Decide the route"
@@ -8,6 +8,16 @@ python3 scripts/agents/bitacora_add.py add --topic "Decide the route" --entry /t
 python3 scripts/agents/bitacora_add.py add --topic "Decide the routes" --into decide-the-route --entry /tmp/entry.html
 python3 scripts/agents/bitacora_add.py -C ../other-repo add --topic "Release" --new --entry /tmp/entry.html
 ```
+
+## What it is for
+
+The log is where the project's **ideas are thought through** with the context of the chat, and where it stays how each one was reached. A person asks for `/bitacora <topic>` while talking an idea through and the agent draws it in that topic's section: how it works, which options there were, what was dropped and why, what was decided and what is missing. It is written with drawings, little text and plain words, with no file names or code jargon (#361).
+
+| | Log | Retros | PRs |
+|---|---|---|---|
+| For whom | the people on the team | the agents and `/improve-skills` | whoever reviews the change |
+| What it tells | the idea, its options and why it was decided | what went well or wrong while working | what was touched and how it was checked |
+| How it speaks | drawings and plain words | technical | technical |
 
 ## How entries are added
 
@@ -32,28 +42,30 @@ The page carries the styles of these classes; the skill lists their HTML.
 | `bars` + `bar` | bars, with the width in `style="--v:70%"` |
 | `flow` | a flow of steps (`<ol>`) |
 | `note` | a highlighted note |
+| `branch` + `root`, `opts`, `opt` | branch diagram: a question and its options (`opt` with `ok` chosen or `danger` dropped) |
+| `map` + `node`, `edge` | map of parts: one row per connection, "part → what it does → part" |
 | `ok`, `warn`, `danger` | status: done, in progress, waiting on a person or broken |
 
 ## The design: tokens
 
-The page has the shape of the barrilete status HTML: on top the project name with the drone and the leash, the contents in a fixed dark bar, each topic as a numbered section (`>_ 01`) and its entries on the leash, one below the other, with their date. The brand colors of the drone, the bar and the footer are fixed; everything else uses only these tokens. The barrilete design (`scripts/agents/bitacora/barrilete.css`) gives them their default values, for light and dark mode (it follows the system with `prefers-color-scheme`).
+The page has the shape of the barrilete status HTML: on top the project name with the drone and the leash, the contents in a fixed light bar, each topic as a numbered section (`>_ 01`) and its entries on the leash, one below the other, with their date. The brand colors of the drone are fixed; everything else uses only these tokens. The barrilete design (`scripts/agents/bitacora/barrilete.css`) gives them their default values. The page is **always light**: it does not follow the system's dark mode (`color-scheme: light`; the person decided it in #361, before it followed the system).
 
-| Token | What it is | Light | Dark |
-|---|---|---|---|
-| `--bg` | page background | `#F6F7F9` | `#121418` |
-| `--surface` | blocks inside an entry, code | `#E9ECF1` | `#1C1F26` |
-| `--card` | entries | `#FFFFFF` | `#23262E` |
-| `--ink` | text | `#14161A` | `#ECEEF2` |
-| `--muted` | secondary text | `#5A6270` | `#A3AAB6` |
-| `--accent` | links and highlights | `#2450E0` | `#8FB0FF` |
-| `--ok` | done | `#17693D` | `#5FD39A` |
-| `--warn` | in progress | `#8A5300` | `#FFB020` |
-| `--danger` | waiting on you, broken | `#B4122B` | `#FF8A96` |
-| `--knot` | fill of the leash knots, in-progress bars and notes; never text | `#FFB020` | `#FFB020` |
-| `--font-display` | titles | Bricolage Grotesque, then the system's | |
-| `--font-mono` | everything else | JetBrains Mono, then the system's | |
+| Token | What it is | Value |
+|---|---|---|
+| `--bg` | page background | `#F6F7F9` |
+| `--surface` | blocks inside an entry, code | `#E9ECF1` |
+| `--card` | entries | `#FFFFFF` |
+| `--ink` | text | `#14161A` |
+| `--muted` | secondary text | `#5A6270` |
+| `--accent` | links and highlights | `#2450E0` |
+| `--ok` | done | `#17693D` |
+| `--warn` | in progress | `#8A5300` |
+| `--danger` | waiting on you, broken | `#B4122B` |
+| `--knot` | fill of the leash knots, in-progress bars and notes; never text | `#FFB020` |
+| `--font-display` | titles | Bricolage Grotesque, then the system's |
+| `--font-mono` | everything else | JetBrains Mono, then the system's |
 
-Every text color reaches WCAG AA (4.5:1) on `--bg`, `--surface` and `--card` in both modes; the test checks it. Two light values differ from the barrilete status page because they did not reach it as text: `--accent` (`#2B59FF` gave 4.46 on `--surface`) and `--warn` (`#FFB020` gave 1.7; it stays as the dark one).
+Every text color reaches WCAG AA (4.5:1) on `--bg`, `--surface` and `--card`; the test checks it. Two values differ from the barrilete status page because they did not reach it as text: `--accent` (`#2B59FF` gave 4.46 on `--surface`) and `--warn` (`#FFB020` gave 1.7; it is `#8A5300`).
 
 The fonts come from Google Fonts with `display=swap`: without network, the text is shown at once with the system fonts.
 
@@ -67,11 +79,8 @@ If the project has `.barrilete/bitacora.css`, it goes after the barrilete design
   --accent: #0E9F6E;
   --font-display: "Inter", system-ui, sans-serif;
 }
-@media (prefers-color-scheme: dark) {
-  :root { --accent: #6EE7B7; }
-}
 ```
 
-A token defined only in `:root` applies to both modes (a later `:root` wins over barrilete's dark block): to give dark mode its own value, define it in the `@media` block too, as in the example. If you change colors, check the contrast yourself: the test only checks barrilete's.
+If you change colors, check the contrast yourself: the test only checks barrilete's.
 
 The design is copied into the page when it is created, and entries never rewrite it: a page that already exists keeps the design it was born with. To give it a new one, change the `<style id="theme-…">` blocks by hand in a PR of its own.
