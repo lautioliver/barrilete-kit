@@ -306,9 +306,38 @@ done
 
 # 18. Revisión: el modo --small no lleva este test (no tiene quien lo corra) y el hub de docs lista el skill.
 tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/profiles/small/DELETE" "scripts/agents/test-bitacora-add.sh"
-case "$out" in sí|"no está") tap_ok "el modo --small no lleva el test de la bitácora" ;; *) tap_fail "el modo --small no lleva el test de la bitácora" "$out" ;; esac
+# En la plantilla el archivo tiene que estar; "no está" solo vale en un proyecto instalado (sin profiles/).
+case "$plantilla:$out" in *:sí|no:"no está") tap_ok "el modo --small no lleva el test de la bitácora" ;; *) tap_fail "el modo --small no lleva el test de la bitácora" "$out" ;; esac
 # shellcheck disable=SC2016  # las comillas invertidas son parte del texto que se busca
 tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/docs/README.md" '`orchestrate`, `bitacora`'
 [ "$out" = sí ]; tap_check $? "el hub de docs lista el skill bitacora" "$out"
+
+# 19. Revisión de #344: un < escrito como entidad pasa (el skill lo pide así), el texto puede nombrar on…= y
+# javascript:, el autocierre de una etiqueta que no es vacía no cuenta como cierre y el rechazo apunta al skill.
+git init -q "$TMP/rev"
+for bueno in '<p>la latencia baja a &lt; 200 ms</p>' '<p>corré <code>/bitacora &lt;tema&gt;</code></p>' \
+             '<p>a &#60; b</p>' '<p>la lista bloquea <code>onclick=</code> y <code>javascript:</code></p>' \
+             '<p>online=true</p>'; do
+  printf '%s\n' "$bueno" >"$TMP/bueno.html"
+  tap_run out 0 python3 -I "$ADD" -C "$TMP/rev" add --topic "Tema" --entry "$TMP/bueno.html"
+  [ "$TAP_RC" = 0 ]; tap_check $? "add acepta un < escrito como entidad y texto que nombra on…= o javascript:" "$bueno: rc=$TAP_RC $out"
+done
+for malo in '<p>a < b</p>' '<p onclick=x()>a</p>' '<p/onclick=x()>a</p>'; do
+  printf '%s\n' "$malo" >"$TMP/malo.html"
+  tap_run out 64 python3 -I "$ADD" -C "$TMP/rev" add --topic "Tema" --entry "$TMP/malo.html"
+  [ "$TAP_RC" = 64 ]; tap_check $? "add sigue rechazando un < suelto y un manejador on…= en una etiqueta" "$malo: rc=$TAP_RC"
+done
+for malo in '<p><b/>x</p>' '<p><a href="https://example.test/x"/>x</p>' '<div/>' '<ul/>'; do
+  printf '%s\n' "$malo" >"$TMP/malo.html"
+  tap_run out 64 python3 -I "$ADD" -C "$TMP/rev" add --topic "Tema" --entry "$TMP/malo.html"
+  [ "$TAP_RC" = 64 ]; tap_check $? "add rechaza el autocierre de una etiqueta que no es vacía" "$malo: rc=$TAP_RC"
+done
+printf '<p>uno<br/>dos</p>\n<hr/>\n' >"$TMP/bueno.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/rev" add --topic "Tema" --entry "$TMP/bueno.html"
+[ "$TAP_RC" = 0 ]; tap_check $? "add acepta <br/> y <hr/>" "rc=$TAP_RC $out"
+printf '<script>x()</script>\n' >"$TMP/malo.html"
+tap_run out 64 python3 -I "$ADD" -C "$TMP/rev" add --topic "Tema" --entry "$TMP/malo.html"
+case "$out" in *".claude/skills/bitacora/SKILL.md"*) es=sí ;; *) es=no ;; esac
+[ "$es" = sí ]; tap_check $? "el rechazo apunta al skill, que también está en el modo --small" "$out"
 
 tap_done
