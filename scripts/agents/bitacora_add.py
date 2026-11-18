@@ -13,7 +13,7 @@ sección y el link al final del índice; lo que ya estaba queda byte a byte igua
       Con un nombre parecido y sin --new ni --into, no escribe y sale con 3 (el skill le pregunta a la persona).
 
 Salidas: 0 bien, 3 hay secciones parecidas, 64 error de uso (también una entrada rechazada), 65 el archivo existe
-pero no tiene los marcadores (se editó a mano): no se toca. Contrato del diseño: docs/agents/bitacora.md.
+pero no tiene los marcadores (se editó a mano): no se toca. Componentes: el skill (.claude/skills/bitacora/SKILL.md); diseño: docs/agents/bitacora.md en el kit.
 """
 import argparse
 import datetime
@@ -62,8 +62,11 @@ VACIAS = {"br", "hr"}
 CLASE = re.compile(r"^[A-Za-z0-9_ -]*$")
 ESTILO = re.compile(r"^\s*--v\s*:\s*\d{1,3}(\.\d+)?%\s*;?\s*$")     # solo el ancho de una barra
 HREF = re.compile(r"^(https?://|mailto:|#)[^\s]*$|^[^:\s]*$", re.I)    # sin esquema (relativo) o uno de estos
-# Además, sobre el texto crudo: lo que un navegador podría leer distinto que HTMLParser.
-PROHIBIDO = re.compile(r"(?<![a-z])on[a-z]+\s*=|javascript\s*:|<!--|<!\[CDATA|<\?", re.I)
+# Sobre el texto crudo de cada etiqueta (no sobre el texto, que puede nombrarlos): lo que un navegador podría leer
+# como atributo aunque HTMLParser no lo haga.
+PROHIBIDO_EN_ETIQUETA = re.compile(r"(?<![a-z])on[a-z]+\s*=|javascript\s*:", re.I)
+# Y sobre toda la entrada: comentarios, CDATA e instrucciones de proceso, que podrían esconder marcadores.
+PROHIBIDO = re.compile(r"<!--|<!\[CDATA|<\?", re.I)
 
 # La estructura de la página y los componentes de una entrada: solo usan los tokens del contrato.
 ESTRUCTURA = """
@@ -215,7 +218,9 @@ class Revisor(HTMLParser):
     """Revisa una entrada contra la lista permitida y que cierre todo lo que abre (si no, se comería la página)."""
 
     def __init__(self):
-        super().__init__(convert_charrefs=True)
+        # Sin convertir las entidades en el texto: un "&lt;" es un < escrito bien y tiene que pasar; uno crudo, no.
+        # Los valores de los atributos HTMLParser los decodifica igual, y la lista permitida los revisa así.
+        super().__init__(convert_charrefs=False)
         self.pila, self.mal = [], None
 
     def falla(self, motivo):
@@ -224,6 +229,9 @@ class Revisor(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag not in ETIQUETAS:
             return self.falla(f"<{tag}> no está entre las etiquetas permitidas")
+        m = PROHIBIDO_EN_ETIQUETA.search(self.get_starttag_text() or "")
+        if m:
+            return self.falla(f"<{tag}> no puede traer {m.group(0).strip()!r} (manejadores on…=, javascript:)")
         for nombre, valor in attrs:
             valor = valor or ""
             if nombre not in ATRIBUTOS | ATRIBUTOS_DE.get(tag, set()):
@@ -238,9 +246,10 @@ class Revisor(HTMLParser):
             self.pila.append(tag)
 
     def handle_startendtag(self, tag, attrs):
+        # El navegador ignora la / de <b/> o <a/>: los deja abiertos y se comerían el resto de la página.
+        if tag not in VACIAS:
+            return self.falla(f"<{tag}/> queda abierto en el navegador; cerralo con </{tag}>")
         self.handle_starttag(tag, attrs)
-        if tag not in VACIAS and self.pila and self.pila[-1] == tag:
-            self.pila.pop()
 
     def handle_endtag(self, tag):
         if tag in VACIAS:
@@ -278,14 +287,13 @@ def leer_entrada(ruta):
         raise ErrorDeUso("--entry: la entrada está vacía")
     m = PROHIBIDO.search(texto)
     if m:
-        raise ErrorDeUso(f"--entry: la entrada no puede traer {m.group(0).strip()!r} (manejadores on…=, javascript:, "
-                         "comentarios)")
+        raise ErrorDeUso(f"--entry: la entrada no puede traer {m.group(0).strip()!r} (comentarios, CDATA)")
     rev = Revisor()
     rev.feed(texto)
     rev.close()
     if rev.mal or rev.pila or rev.rawdata:
         motivo = rev.mal or (f"queda abierto <{rev.pila[-1]}>" if rev.pila else "termina en una etiqueta sin cerrar")
-        raise ErrorDeUso(f"--entry: {motivo}. Componentes permitidos: docs/agents/bitacora.md o el skill /bitacora")
+        raise ErrorDeUso(f"--entry: {motivo}. Componentes permitidos: .claude/skills/bitacora/SKILL.md")
     return texto
 
 

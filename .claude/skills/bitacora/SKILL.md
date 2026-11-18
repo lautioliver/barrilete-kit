@@ -45,7 +45,7 @@ Components (the page already has their styles; they use the design tokens and wo
 
 Status colors: `ok` done, `warn` in progress, `danger` waiting on a person or broken. Never only the color: the word says it too.
 
-Use only these components and plain text tags (`p`, `strong`, `em`, `code`, `ul`/`ol`/`li`, `a href`, `h3`…): the script checks the fragment against an allowlist and rejects (exit 64, the file is not touched) anything else, such as scripts, styles, `on…=` handlers, `javascript:`, comments, page structure tags, a loose `<` (write `&lt;`) or tags left open. Its message says what was wrong: fix the fragment and try again.
+Use only these components and plain text tags (`p`, `strong`, `em`, `code`, `ul`/`ol`/`li`, `a href`, `h3`…): the script checks the fragment against an allowlist and rejects (exit 64, the file is not touched) anything else, such as scripts, styles, `on…=` handlers, `javascript:`, comments, page structure tags, a loose `<` (write `&lt;`, which passes) or tags left open (`<b/>` leaves it open: close it with `</b>`; only `<br/>` and `<hr/>` self-close). Its message says what was wrong: fix the fragment and try again.
 
 ## 3. Add it
 
