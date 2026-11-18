@@ -380,6 +380,17 @@ printf '{"pid":%s,"name":"a\\nheld: falso","status":"idle"}\n' "$VIVO" >"$TMP/se
 tap_run out 0 "$LOCK" status "$TMP/wt"
 n=$(printf '%s\n' "$out" | wc -l | tr -d ' ')
 [ "$n" = 1 ]; tap_check $? "sesión dueña: un nombre con salto de línea no agrega líneas al mensaje"
+LOCAL_START=$(LC_ALL=C ps -o lstart= -p "$VIVO" | sed 's/^ *//; s/ *$//')
+printf '{"pid":%s,"name":"chat-viejo","status":"idle","procStart":"Thu Jan  1 00:00:00 1970"}\n' "$VIVO" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat-viejo' <<<"$out"; [ $? = 1 ]; tap_check $? "sesión dueña: un archivo de otro proceso con el mismo pid (procStart distinto) no nombra la sesión"
+printf '{"pid":%s,"name":"chat, idle","status":"busy","procStart":"%s"}\n' "$VIVO" "$LOCAL_START" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat idle, busy' <<<"$out"; tap_check $? "sesión dueña: una coma en el nombre no finge el estado"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -qx "held: agente-a (pid $VIVO, since [^,)]*, session chat idle, busy)" <<<"$out"; tap_check $? "sesión dueña: status del propio dueño nombra su sesión"
+export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b
 rm -f "$TMP/sesiones/$VIVO.json"
 tap_run out 0 "$LOCK" status "$TMP/wt"
 grep -q "^held: agente-a (pid $VIVO, since [^,)]*); another agent" <<<"$out"; tap_check $? "sin archivo de sesión: el mensaje held queda como antes"
@@ -388,23 +399,34 @@ rm -f "$GDIR/agent-lock"
 
 # 14. #350: una sesión común que siguió implement-issue en un worktree suelta el candado al entregar (paso 9) y al soltar
 # el issue. Si no, la sesión queda abierta con el worktree held (los casos de #346 y #347).
+# seccion <archivo> <encabezado> [<otro encabezado>]: deja en $out la sección desde ese encabezado hasta el siguiente "## ".
+seccion() { tap_run out 0 awk -v a="$2" -v b="${3:-$2}" 'index($0, a) == 1 || index($0, b) == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/$1"; }
+SK=.claude/skills/implement-issue/SKILL.md
 if [ "$CHICO" = 1 ]; then
-  tap_skip "implement-issue: el paso 9 suelta el candado del worktree" "proyecto chico (mode: small): su implement-issue no usa worktrees"
-  tap_skip "implement-issue: soltar el issue suelta el candado del worktree" "proyecto chico (mode: small): su implement-issue no usa worktrees"
+  for c in "el paso 9 suelta el candado del worktree" "soltar el issue suelta el candado del worktree" "el candado se suelta al final, después de la retro" "un subagente no sigue el paso sin su nombre" "otra ronda toma el candado antes de editar"; do
+    tap_skip "implement-issue: $c" "proyecto chico (mode: small): su implement-issue no usa worktrees"
+  done
 else
-  tap_run out 0 awk -v h="## 9." 'index($0, h) == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/.claude/skills/implement-issue/SKILL.md"
+  seccion "$SK" "## 9."
   grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: el paso 9 suelta el candado del worktree"
-  tap_run out 0 awk 'index($0, "## If you have to drop") == 1 || index($0, "## Si hay que soltar") == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/.claude/skills/implement-issue/SKILL.md"
+  grep -qF -- "after the retro" <<<"$out"; tap_check $? "implement-issue: el candado se suelta al final, después de la retro"
+  grep -qF -- "you are not a subagent" <<<"$out"; tap_check $? "implement-issue: un subagente no sigue el paso sin su nombre"
+  grep -qF -- "before editing anything" <<<"$out"; tap_check $? "implement-issue: otra ronda toma el candado antes de editar"
+  seccion "$SK" "## If you have to drop" "## Si hay que soltar"
   grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: soltar el issue suelta el candado del worktree"
 fi
-if [ "$CHICO" = 0 ] && [ -f "$RAIZ/.claude/skills/implement-issue/SKILL.es.md" ]; then
-  tap_run out 0 awk 'index($0, "## 9.") == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/.claude/skills/implement-issue/SKILL.es.md"
+SK=.claude/skills/implement-issue/SKILL.es.md
+if [ "$CHICO" = 0 ] && [ -f "$RAIZ/$SK" ]; then
+  seccion "$SK" "## 9."
   grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue (es): el paso 9 suelta el candado del worktree"
-  tap_run out 0 awk 'index($0, "## Si hay que soltar") == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/.claude/skills/implement-issue/SKILL.es.md"
+  grep -qF -- "después de la retro" <<<"$out"; tap_check $? "implement-issue (es): el candado se suelta al final, después de la retro"
+  grep -qF -- "no sos un subagente" <<<"$out"; tap_check $? "implement-issue (es): un subagente no sigue el paso sin su nombre"
+  grep -qF -- "antes de editar nada" <<<"$out"; tap_check $? "implement-issue (es): otra ronda toma el candado antes de editar"
+  seccion "$SK" "## Si hay que soltar"
   grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue (es): soltar el issue suelta el candado del worktree"
 else
-  tap_skip "implement-issue (es): el paso 9 suelta el candado del worktree" "no existe SKILL.es.md o proyecto chico"
-  tap_skip "implement-issue (es): soltar el issue suelta el candado del worktree" "no existe SKILL.es.md o proyecto chico"
+  for c in "el paso 9 suelta el candado del worktree" "el candado se suelta al final, después de la retro" "un subagente no sigue el paso sin su nombre" "otra ronda toma el candado antes de editar" "soltar el issue suelta el candado del worktree"; do
+    tap_skip "implement-issue (es): $c" "no existe SKILL.es.md o proyecto chico"
+  done
 fi
-
 tap_done
