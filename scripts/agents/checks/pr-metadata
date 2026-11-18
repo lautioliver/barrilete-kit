@@ -34,6 +34,15 @@ CASE_BULLET = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
 BRANCH_ISSUE = re.compile(r"^(?!release/)[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # also claude/<type>/<n>-…
 
 
+SH_ESCAPE = re.compile(r'\\([\\"$`])')
+
+
+def unescape_sh(src):
+    """The source with the escapes of a bash double-quoted string undone (\\" \\\\ \\$ \\`): red.sh reports a case id
+    as bash printed it, unescaped, and the source keeps it escaped (#341)."""
+    return SH_ESCAPE.sub(r"\1", src)
+
+
 def run(*cmd):
     r = subprocess.run(list(cmd), capture_output=True, text=True)
     return r.returncode, r.stdout, r.stderr
@@ -127,7 +136,8 @@ def main(argv):
                 problems.append(f"failing case {case!r}: it has no file path before ::")
             elif rc != 0:
                 problems.append(f"failing case {case!r}: {path} does not exist at the red commit {red}")
-            elif not all(part and part in src for part in re.split(r"::| > ", cname)):
+            elif not all(part and (part in src or part in plain) for plain in [unescape_sh(src)]
+                         for part in re.split(r"::| > ", cname)):
                 problems.append(f"failing case {case!r}: the name is not in {path} at the red commit {red}")
 
     for line in lines:
