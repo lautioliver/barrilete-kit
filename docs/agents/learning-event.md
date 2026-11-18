@@ -4,7 +4,7 @@ What a project records so that `bk learn` can measure whether its rules work. Th
 
 ## Where it goes
 
-`.barrilete/learning.json` chooses the store (ADR-007 D2). `init`, `install` and `update` bring it with `local`:
+`.barrilete/learning.json` of the main checkout chooses the store (ADR-007 D2), also from a worktree: an old copy in a worktree does not open a second store. `init`, `install` and `update` bring it with `local`:
 
 ```json
 {"store": "local"}
@@ -31,13 +31,13 @@ One JSON line per event, only with the fields of the ADR-007 D3 table. Required:
 | `provider`, `harness`, `area`, `role`, `class`, `rule_id`, `outcome` | slug: lowercase, numbers and hyphens |
 | `model` | a model id without spaces (`claude-sonnet-5-5`, `openai/gpt-4o`) |
 | `kind` | `check_run`, `task_end`, `deviation` or `finding` |
-| `evidence_ref` | a local path or a URL, never the evidence |
+| `evidence_ref` | a local path or a URL, never the evidence. The URL carries no user or password, no query (`?`), no `%` and no `=` in the path or the fragment: `push` publishes the store, and a token travels there (`#issuecomment-1` is valid) |
 | `rules_ref` | `<12 hex>.<12 hex>` (below) |
 
 - `outcome`: `pass`, `fail` or `skipped` in `check_run`; `completed`, `failed`, `incomplete` or `cancelled` in `task_end`; it does not go in `deviation` or `finding`.
 - A field that is not in the table, or one with free text, makes the event invalid and nothing is written. The error names the field, never its value.
-- `model` comes from `BK_MODEL` (or, without it, from `BARRILETE_MODEL`, which `bk` exports); `harness` from `BK_HARNESS` (or `claude-code` with `CLAUDECODE=1`); `provider` from `BK_PROVIDER` (or `BARRILETE_PROVIDER`). Without a known model or harness the event says `unknown`: the emitter never guesses.
-- The v0 lines of #323 (the `check_run` of `verify.py` before v1, with `check` and `branch`) are not migrated: `validate` counts them apart as legacy and does not mark them broken, as long as they have exactly that shape.
+- `model` comes from `BK_MODEL` (or, without it, from `BARRILETE_MODEL`, which `bk` exports); `harness` from `BK_HARNESS` (or, if it is unset or empty, `claude-code` with `CLAUDECODE=1`; a non-empty invalid one is `unknown`); `provider` from `BK_PROVIDER` (or `BARRILETE_PROVIDER`). Without a known model or harness the event says `unknown`: the emitter never guesses.
+- The v0 lines of #323 (the `check_run` of `verify.py` before v1, with `check` and `branch`) are not migrated: `validate` counts them apart as legacy and does not mark them broken, as long as they have exactly that shape. Their `branch` is any name git accepts without spaces (`@`, `+`, `#` or `ñ` included), as v0 wrote it; their `task_id`, the ADR-005 one.
 - With `BK_TASK_DIR` (a `bk` agent, ADR-005) it also carries `task_id`, `role` and `pr` when `task.json` has them, and `rules_ref`.
 
 ### rules_ref
@@ -58,7 +58,7 @@ Writing never stops the work: if the event cannot be written, `verify.py` and th
 
 ```bash
 python3 scripts/agents/learning.py validate .barrilete/learning/events.jsonl   # 3 and the line of each broken event; counts legacy v0 lines apart
-python3 scripts/agents/learning.py emit check_run rule_id=pr-metadata outcome=pass
+python3 scripts/agents/learning.py emit check_run rule_id=pr-metadata outcome=pass   # only ts, pr, area, role, class, rule_id, outcome and evidence_ref; 64 with a field of who emits it (model, project…)
 python3 scripts/agents/learning.py push                                        # store branch only; 1 if git rejects it (with git's reason), 3 with an invalid learning.json
 python3 scripts/agents/learning.py rules-ref implementer
 ```
