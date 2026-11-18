@@ -6,12 +6,13 @@ Usage: scripts/agents/checks/pr-metadata --base <ref>      (verify.py runs it wi
 Reads the open PR of the current branch (`gh pr view --json number,body`) and compares what its body says with git:
   - every `red commit: <sha>` is a commit of <ref>..HEAD (not the base's, not one that does not exist);
   - every failing case of the red block (`- <file>::<name>`) is in that file at the red commit (the ids of the tests are
-    literals of the source: a case that is not there was not written by the red commit);
+    in the source, as written or with the escapes of a bash double-quoted string undone, `\\"` `\\\\` `\\$` and the backtick,
+    because red.sh reports the id unescaped: a case that is not there was not written by the red commit);
   - the `N commits` the body says is the number of commits of <ref>..HEAD;
   - `Closes`/`Refs #n` names the issue of the branch (`<type>/<n>-<description>`) and never the number of the PR itself.
 Code blocks (``` and ~~~) are not read: what is quoted there is not a claim of the PR.
 With no open PR for the branch it says it did not verify and exits with 4 (verify.py runs before the PR is opened).
-A case is looked up by substring (each part of its name has to be in the file at the red commit): it proves the case is not
+A case is looked up by substring, in the source and in the source with those escapes undone (each part of its name has to be in the file at the red commit): it proves the case is not
 invented, not that the red commit defines it; `red.sh` and the reviewer check that.
 Exit status: 0 verified and it matches; 3 the body does not match (each problem is printed); 4 it could not verify (no open PR,
 or gh failed: no network, no login, another wording): verify.py reports it as "not verified" and never as ok; 64 invalid usage.
@@ -32,6 +33,15 @@ ISSUE_LIST = re.compile(r"\b(?:closes|fixes|resolves|refs)\b:?\s+((?:" + _REF + 
 ISSUE_REF = re.compile(_REF)
 CASE_BULLET = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
 BRANCH_ISSUE = re.compile(r"^(?!release/)[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # also claude/<type>/<n>-…
+
+
+SH_ESCAPE = re.compile(r'\\([\\"$`])')
+
+
+def unescape_sh(src):
+    """The source with the escapes of a bash double-quoted string undone (\\" \\\\ \\$ \\`): red.sh reports a case id
+    as bash printed it, unescaped, and the source keeps it escaped (#341)."""
+    return SH_ESCAPE.sub(r"\1", src)
 
 
 def run(*cmd):
@@ -127,7 +137,8 @@ def main(argv):
                 problems.append(f"failing case {case!r}: it has no file path before ::")
             elif rc != 0:
                 problems.append(f"failing case {case!r}: {path} does not exist at the red commit {red}")
-            elif not all(part and part in src for part in re.split(r"::| > ", cname)):
+            elif not all(part and (part in src or part in plain) for plain in [unescape_sh(src)]
+                         for part in re.split(r"::| > ", cname)):
                 problems.append(f"failing case {case!r}: the name is not in {path} at the red commit {red}")
 
     for line in lines:

@@ -31,6 +31,13 @@ git -C "$P" remote set-head origin main
 BASE_SHA=$(git -C "$P" rev-parse HEAD)
 git -C "$P" switch -q -c claude/7-algo
 printf '#!/usr/bin/env bash\ntap_check $? "caso uno"\ntap_check $? "caso dos"\n' >"$P/scripts/agents/test-x.sh"
+# Ids con comillas, \\ y \$: en el fuente bash van escapados y red.sh los reporta desescapados (#341)
+cat >>"$P/scripts/agents/test-x.sh" <<'EOF2'
+tap_check $? "324: learning.json es {\"store\": \"local\"}"
+tap_check $? "comando \`ls\` aparte"
+EOF2
+# con %s: el fuente no tiene la forma de un caso cuyo id se arma al correr (test-tap.sh lo prohíbe), y el fixture sí
+printf '%s $? "ruta C:\\\\tmp y \\$HOME"\n' tap_check >>"$P/scripts/agents/test-x.sh"
 git -C "$P" add -A && git -C "$P" commit -qm rojo; RED=$(git -C "$P" rev-parse --short=10 HEAD)
 echo verde >"$P/impl.txt"
 git -C "$P" add -A && git -C "$P" commit -qm verde
@@ -101,6 +108,19 @@ grep -q '2' <<<"$out"; tap_check $? "commits: nombra también los 2 reales"
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso inventado" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'caso inventado.*name is not in' <<<"$out"; tap_check $? "casos: un caso que no está en el archivo del red commit falla y se nombra"
+# 6b. Un id con \", \\ o \$ en el fuente se encuentra con el nombre desescapado que reporta red.sh (#341)
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::324: learning.json es {"store": "local"}' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id con comillas escapadas en el fuente se encuentra desescapado"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::ruta C:\tmp y $HOME' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id con barra invertida y dólar escapados en el fuente se encuentra desescapado"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::comando `ls` aparte' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id con acento grave escapado en el fuente se encuentra desescapado"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::324: learning.json es {"store": "nube"}' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'nube.*name is not in' <<<"$out"; tap_check $? "casos: un caso inventado con comillas sigue fallando"
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/no-esta.sh::caso uno" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'no-esta.sh does not exist' <<<"$out"; tap_check $? "casos: un archivo que no existe en el red commit falla y se nombra"
