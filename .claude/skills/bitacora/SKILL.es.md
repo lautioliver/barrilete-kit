@@ -45,7 +45,7 @@ Componentes (la página ya trae sus estilos; usan los tokens del diseño y andan
 
 Colores de estado: `ok` hecho, `warn` en curso, `danger` espera a una persona o está roto. Nunca solo el color: la palabra también lo dice.
 
-Usá solo estos componentes y etiquetas de texto simples (`p`, `strong`, `em`, `code`, `ul`/`ol`/`li`, `a href`, `h3`…): el script revisa el fragmento contra una lista permitida y rechaza (sale con 64 y no toca el archivo) todo lo demás, como scripts, estilos, manejadores `on…=`, `javascript:`, comentarios, etiquetas de la estructura de la página, un `<` suelto (escribí `&lt;`, que pasa) o etiquetas que quedan abiertas (`<b/>` la deja abierta: cerrala con `</b>`; solo `<br/>` y `<hr/>` se cierran solas). Su mensaje dice qué estaba mal: arreglá el fragmento y probá de nuevo.
+Usá solo estos componentes y etiquetas de texto simples (`p`, `strong`, `em`, `code`, `ul`/`ol`/`li`, `a href`, `h3`…): el script revisa el fragmento contra una lista permitida y rechaza (sale con 64 y no toca el archivo) todo lo demás, como scripts, estilos, manejadores `on…=`, `javascript:`, comentarios, etiquetas de la estructura de la página, un `<` suelto (escribí `&lt;`, que pasa), etiquetas que quedan abiertas (`<b/>` la deja abierta: cerrala con `</b>`; solo `<br/>` y `<hr/>` se cierran solas; `</br>` no pasa), links a otro sitio sin esquema (`//host`) o una etiqueta a medio escribir al final (`<b`). Su mensaje dice qué estaba mal: arreglá el fragmento y probá de nuevo.
 
 ## 3. Agregarla
 

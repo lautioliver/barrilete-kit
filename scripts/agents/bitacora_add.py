@@ -64,12 +64,13 @@ ETIQUETAS = {"p", "br", "hr", "strong", "b", "em", "i", "u", "s", "small", "mark
              "span", "div", "h3", "h4", "ul", "ol", "li", "dl", "dt", "dd", "blockquote", "a", "abbr", "time",
              "table", "caption", "thead", "tbody", "tfoot", "tr", "th", "td"}
 ATRIBUTOS = {"class", "title"}
-ATRIBUTOS_DE = {"a": {"href"}, "abbr": set(), "time": {"datetime"}, "th": {"colspan", "rowspan", "scope"},
+ATRIBUTOS_DE = {"a": {"href"}, "time": {"datetime"}, "th": {"colspan", "rowspan", "scope"},
                 "td": {"colspan", "rowspan"}, "i": {"style"}}
 VACIAS = {"br", "hr"}
 CLASE = re.compile(r"^[A-Za-z0-9_ -]*$")
 ESTILO = re.compile(r"^\s*--v\s*:\s*\d{1,3}(\.\d+)?%\s*;?\s*$")     # solo el ancho de una barra
-HREF = re.compile(r"^(https?://|mailto:|#)[^\s]*$|^[^:\s]*$", re.I)    # sin esquema (relativo) o uno de estos
+# Sin esquema (relativo) o uno de estos. //host, \\host y /\host son de otro sitio aunque no tengan esquema.
+HREF = re.compile(r"^(https?://|mailto:|#)[^\s]*$|^(?![/\\]{2})[^:\s]*$", re.I)
 # Y sobre toda la entrada: comentarios, CDATA e instrucciones de proceso, que podrían esconder marcadores.
 PROHIBIDO = re.compile(r"<!--|<!\[CDATA|<\?", re.I)
 
@@ -336,8 +337,7 @@ class Revisor(HTMLParser):
         self.handle_starttag(tag, attrs)
 
     def handle_endtag(self, tag):
-        if tag in VACIAS:
-            return
+        # Un </br> no cierra nada: el navegador lo vuelve un <br>. Cae acá como cualquier cierre que no corresponde.
         if not self.pila or self.pila[-1] != tag:
             self.falla(f"</{tag}> no cierra lo último que se abrió")
         else:
@@ -374,8 +374,11 @@ def leer_entrada(ruta):
         raise ErrorDeUso(f"--entry: la entrada no puede traer {m.group(0).strip()!r} (comentarios, CDATA)")
     rev = Revisor()
     rev.feed(texto)
+    # Lo que feed() no pudo procesar es una etiqueta a medias al final ("<b", '<a href="x'). Se mira antes de close():
+    # en Python 3.15, close() la entrega como si estuviera completa y rawdata queda vacío (en 3.9 no).
+    resto = rev.rawdata
     rev.close()
-    if rev.mal or rev.pila or rev.rawdata:
+    if rev.mal or rev.pila or resto:
         motivo = rev.mal or (f"queda abierto <{rev.pila[-1]}>" if rev.pila else "termina en una etiqueta sin cerrar")
         raise ErrorDeUso(f"--entry: {motivo}. Componentes permitidos: .claude/skills/bitacora/SKILL.md")
     return texto
