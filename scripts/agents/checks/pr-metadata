@@ -8,7 +8,9 @@ Reads the open PR of the current branch (`gh pr view --json number,body`) and co
   - every failing case of the red block (`- <file>::<name>`) is in that file at the red commit (the ids of the tests are
     in the source, as written or in the spellings of the file's language (`.sh`: `\\"` `\\\\` `\\$` and the backtick escaped,
     as red_report.defines; `.js`/`.ts`: a backslash before any character, as red_report.unescape_js), because red.sh
-    reports the id unescaped: a case that is not there was not written by the red commit);
+    reports the id unescaped: a case that is not there was not written by the red commit); the last part of a `.js`/`.ts`
+    name may also be an it.each title with placeholders (`%s`, `$x`, `${...}`) the runner filled in (#355), matched as
+    red_report.js_defines does;
   - the `N commits` the body says is the number of commits of <ref>..HEAD;
   - `Closes`/`Refs #n` names the issue of the branch (`<type>/<n>-<description>`) and never the number of the PR itself.
 Code blocks (``` and ~~~) are not read: what is quoted there is not a claim of the PR.
