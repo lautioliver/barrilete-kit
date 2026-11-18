@@ -31,13 +31,29 @@ git -C "$P" remote set-head origin main
 BASE_SHA=$(git -C "$P" rev-parse HEAD)
 git -C "$P" switch -q -c claude/7-algo
 printf '#!/usr/bin/env bash\ntap_check $? "caso uno"\ntap_check $? "caso dos"\n' >"$P/scripts/agents/test-x.sh"
+# La última línea del heredoc (#349): escapes mezclados, solo \" escapado y $B suelto; bash lo expandiría y red.sh no lo reportaría
 # Ids con comillas, \\ y \$: en el fuente bash van escapados y red.sh los reporta desescapados (#341)
 cat >>"$P/scripts/agents/test-x.sh" <<'EOF2'
 tap_check $? "324: learning.json es {\"store\": \"local\"}"
 tap_check $? "comando \`ls\` aparte"
+tap_check $? "ls \"a\" y $B"
 EOF2
 # con %s: el fuente no tiene la forma de un caso cuyo id se arma al correr (test-tap.sh lo prohíbe), y el fixture sí
 printf '%s $? "ruta C:\\\\tmp y \\$HOME"\n' tap_check >>"$P/scripts/agents/test-x.sh"
+# Un fuente JS/TS: red.sh reporta el id con todo \x desescapado (red_report.unescape_js) y el fuente lo guarda escapado (#349)
+cat >"$P/scripts/agents/x.test.ts" <<'EOF3'
+describe('grupo', () => {
+  it('doesn\'t crash', () => {});
+  it('Don\'t "quote"', () => {});
+  it("say \"hi\"", () => {});
+  it('ruta C:\\tmp', () => {});
+  it('ruta D:\tmp', () => {});
+});
+EOF3
+cat >"$P/scripts/agents/y.test.mjs" <<'EOF4'
+it('it\'s mjs', () => {});
+EOF4
+printf 'def test_algo():\n    pass\n' >"$P/scripts/agents/test_x.py"
 git -C "$P" add -A && git -C "$P" commit -qm rojo; RED=$(git -C "$P" rev-parse --short=10 HEAD)
 echo verde >"$P/impl.txt"
 git -C "$P" add -A && git -C "$P" commit -qm verde
@@ -124,6 +140,39 @@ grep -q 'nube.*name is not in' <<<"$out"; tap_check $? "casos: un caso inventado
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/no-esta.sh::caso uno" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'no-esta.sh does not exist' <<<"$out"; tap_check $? "casos: un archivo que no existe en el red commit falla y se nombra"
+
+# 6c. JS/TS: las formas del id son las de unescape_js, no las de bash (#349)
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > doesn't crash" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con comilla simple escapada en el fuente se encuentra desescapado"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > Don't \"quote\"" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con comilla simple escapada y comillas dobles sin escapar se encuentra"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/x.test.ts::grupo > say "hi"' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con comillas dobles escapadas en el fuente se encuentra"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > doesn't explote" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "explote.*name is not in" <<<"$out"; tap_check $? "casos: un id JS inventado con comilla sigue fallando"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/x.test.ts::grupo > ruta C:\tmp' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id JS con barra invertida escrita doble en el fuente se encuentra"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/x.test.ts::grupo > ruta D:\tmp' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id JS con barra invertida cuando el fuente tiene una sola falla"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/y.test.mjs::it's mjs" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id de un .mjs con comilla escapada en el fuente se encuentra"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::ls "a" y $B' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id bash con escapes mezclados que red.sh no reportaría falla"
+
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test_x.py::test_algo' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id de otro lenguaje se busca tal cual en el fuente"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test_x.py::test_inventado' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'test_inventado.*name is not in' <<<"$out"; tap_check $? "casos: un id de otro lenguaje que no está en el fuente falla"
 
 # 7. El número del issue: el del `Closes`/`Refs` es el de la rama, y no es el del PR mismo.
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso uno" "Closes #8")"
