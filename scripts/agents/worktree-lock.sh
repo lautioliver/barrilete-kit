@@ -10,7 +10,8 @@
 #                                           El candado guarda solo el sha256 del token; el token en claro va en el handoff.
 #                                           El dueño lo retoma con claim o lo cancela con release. Un dueño muerto lo deja
 #                                           stale como siempre. No hay timeout: un dueño vivo que no lo pasa lo sigue teniendo.
-# Sale con 0 en esos casos (lo que pasó va en la salida; prepare.sh decide); 64 si el uso es inválido.
+# Sale con 0 en esos casos (lo que pasó va en la salida; prepare.sh decide); 64 si el uso es inválido o no pudo hacerlo
+# (no pudo escribir, el mutex está trabado, o handoff no encontró sha256sum ni shasum).
 # El dueño es el par (pid, agente): los subagentes de un mismo proceso claude comparten el pid, así que cada uno
 # fija su nombre en WORKTREE_LOCK_AGENT. Sin nombre: el de BK_TASK_DIR, o "agent".
 # held nombra también la sesión de Claude Code dueña, si la encuentra (#350; WORKTREE_LOCK_SESSIONS_DIR).
@@ -84,12 +85,21 @@ ocupado() {
   fi
 }
 # El candado guarda el sha256 del token, no el token: quien lo lee no puede tomarlo. El token en claro solo va en el handoff.
+# Falla (sin imprimir nada) si no hay sha256sum ni shasum o si lo que sale no son 64 caracteres hex.
 huella() {
-  if command -v sha256sum >/dev/null 2>&1; then printf %s "$1" | sha256sum | cut -d' ' -f1
-  else printf %s "$1" | shasum -a 256 | cut -d' ' -f1; fi
+  local h
+  if command -v sha256sum >/dev/null 2>&1; then h=$(printf %s "$1" | sha256sum 2>/dev/null | cut -d' ' -f1)
+  else h=$(printf %s "$1" | shasum -a 256 2>/dev/null | cut -d' ' -f1); fi
+  case "$h" in *[!0-9a-f]*) return 1 ;; esac
+  [ "${#h}" -eq 64 ] || return 1
+  echo "$h"
 }
-# La sesión que trae el token de un candado pasado lo puede tomar aunque el dueño viva (un token vacío nunca sirve).
-recibe() { [ -n "${WORKTREE_LOCK_HANDOFF:-}" ] && [ "$(huella "$WORKTREE_LOCK_HANDOFF")" = "$l_handoff" ]; }
+# La sesión que trae el token de un candado pasado lo puede tomar aunque el dueño viva. Un token vacío o un hash que no se
+# pudo calcular nunca sirven (huella falla, así que un candado sin reserva, con l_handoff vacío, nunca coincide).
+recibe() {
+  local h
+  [ -n "${WORKTREE_LOCK_HANDOFF:-}" ] && h=$(huella "$WORKTREE_LOCK_HANDOFF") && [ "$h" = "$l_handoff" ]
+}
 
 # Deja en E: free | stale | held, y el dueño del candado en l_pid, l_start, l_agent y l_since; si lo pasó, el token en
 # l_handoff y cuándo en l_hsince.
@@ -173,7 +183,8 @@ case "$cmd" in
     if [ "$E" = held ]; then
       token=$(LC_ALL=C od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
       case "$token" in ????????????????????????????????) ;; *) echo "$0: could not make a token" >&2; exit 64 ;; esac
-      { grep -v -e '^handoff=' -e '^handoff_since=' "$lock"; printf 'handoff=%s\nhandoff_since=%s\n' "$(huella "$token")" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"; } >"$tmp"
+      h=$(huella "$token") || { echo "$0: could not hash the token (no sha256sum or shasum); the lock was not handed off" >&2; exit 64; }
+      { grep -v -e '^handoff=' -e '^handoff_since=' "$lock"; printf 'handoff=%s\nhandoff_since=%s\n' "$h" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"; } >"$tmp"
       mv -f "$tmp" "$lock"; echo "handed-off: $token"
     else echo "$E"; fi
     ;;
