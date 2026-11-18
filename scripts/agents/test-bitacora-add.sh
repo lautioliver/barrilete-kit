@@ -35,7 +35,8 @@ p = open(sys.argv[1], encoding="utf-8").read()
 nav = re.search(r"<nav\b.*?</nav>", p, re.S)
 links = re.findall(r'href="#([^"]+)"', nav.group(0)) if nav else []
 secs = re.findall(r'<section id="([^"]+)"(.*?)</section>', p, re.S)
-resumen = " ".join(f"{i}:{len(re.findall(r'<article class=\"entrada\"', c))}" for i, c in secs)
+ENTRADA = r'<article class="entrada"'   # fuera del f-string: con la barra adentro no corre antes de Python 3.12
+resumen = " ".join(f"{i}:{len(re.findall(ENTRADA, c))}" for i, c in secs)
 sin_fecha = sum(1 for _, c in secs for a in re.findall(r'<article class="entrada".*?</article>', c, re.S)
                 if not re.search(r'<time datetime="\d{4}-\d{2}-\d{2}"', a))
 print(resumen)
@@ -339,5 +340,29 @@ printf '<script>x()</script>\n' >"$TMP/malo.html"
 tap_run out 64 python3 -I "$ADD" -C "$TMP/rev" add --topic "Tema" --entry "$TMP/malo.html"
 case "$out" in *".claude/skills/bitacora/SKILL.md"*) es=sí ;; *) es=no ;; esac
 [ "$es" = sí ]; tap_check $? "el rechazo apunta al skill, que también está en el modo --small" "$out"
+
+# 20. Segunda revisión de #344: un link o un title que traen "on…=" en su valor pasan (no son manejadores), y las
+# defensas que ningún caso cuidaba: una etiqueta sin cerrar, style fuera del ancho de una barra, declaraciones y
+# formas raras que el navegador se come hasta el próximo >, y el fin de línea de lo que se inserta en un archivo CRLF.
+git init -q "$TMP/rev2"
+for bueno in '<p><a href="https://x.test/list?only=open">lista</a></p>' \
+             '<p><a href="https://x.test/?a=1&amp;online=1">lista</a></p>' '<p title="the onion=1">a</p>'; do
+  printf '%s\n' "$bueno" >"$TMP/bueno.html"
+  tap_run out 0 python3 -I "$ADD" -C "$TMP/rev2" add --topic "Tema" --entry "$TMP/bueno.html"
+  [ "$TAP_RC" = 0 ]; tap_check $? "add acepta un valor de atributo que contiene on…=" "$bueno: rc=$TAP_RC $out"
+done
+for malo in '<p>abierta' '<div><p>a</p>' '<i style="position:fixed;inset:0">x</i>' '<!x>' '</ x>' '<!DOCTYPE html>'; do
+  printf '%s\n' "$malo" >"$TMP/malo.html"
+  tap_run out 64 python3 -I "$ADD" -C "$TMP/rev2" add --topic "Tema" --entry "$TMP/malo.html"
+  [ "$TAP_RC" = 64 ]; tap_check $? "add rechaza una etiqueta sin cerrar, un style que no es una barra y las declaraciones" "$malo: rc=$TAP_RC"
+done
+git init -q "$TMP/crlf2"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf2" add --topic "Tema" --entry "$TMP/e1.html"
+tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p, newline="").read(); open(p, "w", newline="").write(t.replace("\n", "\r\n"))' "$TMP/crlf2/docs/bitacora.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf2" add --topic "Otro" --entry "$TMP/e2.html"
+tap_run out 0 python3 -I -c 'import sys, re; t=open(sys.argv[1], newline="").read(); print(len(re.findall(r"(?<!\r)\n", t)))' "$TMP/crlf2/docs/bitacora.html"
+[ "$out" = 0 ]; tap_check $? "en un archivo CRLF, lo que se inserta también va con CRLF" "saltos sin CR: $out"
+tap_run out 0 python3 -I -c 'import sys; print(open(sys.argv[1], newline="").read().count("\r"))' "$pagina"
+[ "$out" = 0 ]; tap_check $? "en un archivo LF, lo que se inserta no trae CR" "CR: $out"
 
 tap_done
