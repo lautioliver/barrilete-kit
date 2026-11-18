@@ -59,6 +59,19 @@ def js_spelling(name):
 
 TEST_CALL = re.compile(r"(?<![\w$.])(?:it|test)(?=\s*[.(])")
 DESCRIBE_EACH = re.compile(r"(?<![\w$])describe(?=(?:\.[a-zA-Z]+)*\.each\b)")
+JS_STRING = re.compile(r"([\"'`])(?:\\.|(?!\1)[^\\])*\1")  # a backslash only as an escape: no backtracking
+
+
+def as_group(line):
+    """`describe` read as `it` before `.each`, and the tests' own `it`/`test` hidden, only outside the string
+    literals: a describe.each title such as `'it (%s)'` keeps its text."""
+    out, last = [], 0
+    for m in JS_STRING.finditer(line):
+        out.append(DESCRIBE_EACH.sub("it", TEST_CALL.sub("_t", line[last:m.start()])))
+        out.append(m.group(0))
+        last = m.end()
+    out.append(DESCRIBE_EACH.sub("it", TEST_CALL.sub("_t", line[last:])))
+    return "".join(out)
 
 
 def each_title(part, src, last):
@@ -67,7 +80,7 @@ def each_title(part, src, last):
     read as `it` before `.each` (and the tests' own `it`/`test` are hidden), so the same scan reads only the title of the table."""
     lines = src.split("\n")
     if not last:  # a group: only describe.each titles count, so the tests' own it/test are hidden first
-        lines = [DESCRIBE_EACH.sub("it", TEST_CALL.sub("_t", line)) for line in lines]
+        lines = [as_group(line) for line in lines]
     return red_report.js_defines(list(enumerate(lines, 1)), part)
 
 
