@@ -52,6 +52,12 @@ describe('grupo', () => {
   test.each([{ name: 'a' }])('caso $name', ({ name }) => {});
   it.each([[1]])('%s', () => {});
   it.each([[1]])('%s%s%s%s%s%s%s%sx', () => {});
+  it.each([[1]])('%sx%sx%sx%sx%sx%sx%sx%sxc', () => {});
+  it.each([[1]])('pide %s y %s', () => {});
+  it.each([['a::b']])('par %s', () => {});
+});
+describe.each([[1]])('tabla %s', () => {
+  it('anda', () => {});
 });
 EOF3
 cat >"$P/scripts/agents/y.test.mjs" <<'EOF4'
@@ -198,6 +204,25 @@ pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > ${largo// /a}" "Clos
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
 tap_no_traceback "$out"
 grep -qx 'rc=3' <<<"$out"; tap_check $? "casos: un título de it.each con 8 comodines contra un nombre de 3000 caracteres termina y falla" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > ${largo// /a}c" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=3' <<<"$out"; tap_check $? "casos: un título de it.each con el principio y el final del nombre y sin las partes del medio termina y falla" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > pide y z" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "pide y z.*name is not in" <<<"$out"; tap_check $? "casos: un nombre sin una parte literal del medio de un título de it.each falla"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::par a::b" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un valor de it.each con :: no parte el nombre de un caso JS"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::tabla 1 > anda" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un grupo de describe.each con %s se encuentra con el valor reemplazado"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::otra tabla 1 > anda" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "otra tabla 1.*name is not in" <<<"$out"; tap_check $? "casos: un grupo inventado sigue fallando aunque haya un describe.each"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::suma 1 > anda" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "suma 1 > anda.*name is not in" <<<"$out"; tap_check $? "casos: un grupo no se encuentra con el título de un it.each (es de un test, no de un grupo)"
 pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::ls "a" y $B' "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id bash con escapes mezclados que red.sh no reportaría falla"

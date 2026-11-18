@@ -9,8 +9,8 @@ Reads the open PR of the current branch (`gh pr view --json number,body`) and co
     in the source, as written or in the spellings of the file's language (`.sh`: `\\"` `\\\\` `\\$` and the backtick escaped,
     as red_report.defines; `.js`/`.ts`: a backslash before any character, as red_report.unescape_js), because red.sh
     reports the id unescaped: a case that is not there was not written by the red commit); the last part of a `.js`/`.ts`
-    name may also be an it.each title with placeholders (`%s`, `$x`, `${...}`) the runner filled in (#355), matched as
-    red_report.js_defines does;
+    name may also be an it.each title, and a group a describe.each title, with placeholders (`%s`, `$x`, `${...}`)
+    the runner filled in (#355), matched as red_report.js_defines does; a JS/TS name is split only on ` > `;
   - the `N commits` the body says is the number of commits of <ref>..HEAD;
   - `Closes`/`Refs #n` names the issue of the branch (`<type>/<n>-<description>`) and never the number of the PR itself.
 Code blocks (``` and ~~~) are not read: what is quoted there is not a claim of the PR.
@@ -57,15 +57,33 @@ def js_spelling(name):
     return re.compile("".join(r"\\\\" if c == "\\" else r"\\?" + re.escape(c) for c in name))
 
 
+TEST_CALL = re.compile(r"(?<![\w$.])(?:it|test)(?=\s*[.(])")
+DESCRIBE_EACH = re.compile(r"(?<![\w$])describe(?=(?:\.[a-zA-Z]+)*\.each\b)")
+
+
+def each_title(part, src, last):
+    """Is `part` an it.each title (`last`, the test's own) or a describe.each title (a group) of `src`, with the
+    placeholders the runner fills in (#355)? red_report.js_defines matches the whole title; for a group, `describe` is
+    read as `it` before `.each` (and the tests' own `it`/`test` are hidden), so the same scan reads only the title of the table."""
+    lines = src.split("\n")
+    if not last:  # a group: only describe.each titles count, so the tests' own it/test are hidden first
+        lines = [DESCRIBE_EACH.sub("it", TEST_CALL.sub("_t", line)) for line in lines]
+    return red_report.js_defines(list(enumerate(lines, 1)), part)
+
+
+def name_parts(path, cname):
+    """The parts of a case name: ` > ` between the groups and the test in JS/TS (red_report.base_name), where an it.each
+    value can carry `::`; also `::` in the rest."""
+    return cname.split(" > ") if path.endswith(JS_EXT) else re.split(r"::| > ", cname)
+
+
 def in_source(path, part, src, last=False):
     """Is `part` of a case name in `src`, as the file of `path` can write it? red.sh reports the id unescaped and the
     source keeps it escaped (#341 bash, #349 JS/TS); only the spellings of that language count, so a stray escape
-    elsewhere in the file does not make an invented name match. The `last` part of a JS/TS name is the test's own
-    title, and an it.each title has placeholders the runner fills in (#355): red_report.js_defines matches it whole."""
+    elsewhere in the file does not make an invented name match. A JS/TS part can also be an it.each (`last`) or
+    describe.each title with placeholders (#355)."""
     if path.endswith(JS_EXT):  # not `part in src`: a lone backslash of the source is an escape, not a backslash of the name
-        if js_spelling(part).search(src) is not None:
-            return True
-        return last and red_report.js_defines(list(enumerate(src.split("\n"), 1)), part)
+        return js_spelling(part).search(src) is not None or each_title(part, src, last)
     if part in src:
         return True
     if path.endswith(".sh"):
@@ -160,6 +178,7 @@ def main(argv):
             in_cases = True
             case = CASE_BULLET.sub("", t, count=1).strip().strip("`").strip()
             path, _, cname = case.partition("::")
+            parts = name_parts(path.strip(), cname)
             n_cases += 1
             rc, src, _ = run("git", "show", f"{red}:{path}") if path.strip() else (1, "", "")
             if not path.strip():
@@ -167,7 +186,7 @@ def main(argv):
             elif rc != 0:
                 problems.append(f"failing case {case!r}: {path} does not exist at the red commit {red}")
             elif not all(part and in_source(path.strip(), part, src, i == len(parts) - 1)
-                         for parts in [re.split(r"::| > ", cname)] for i, part in enumerate(parts)):
+                         for i, part in enumerate(parts)):
                 problems.append(f"failing case {case!r}: the name is not in {path} at the red commit {red}")
 
     for line in lines:
