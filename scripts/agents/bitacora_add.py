@@ -144,7 +144,7 @@ h4{font:800 17px/1.2 var(--font-display);margin:18px 0 8px}
 .tbl{width:100%;margin:16px 0;border:2px solid var(--ink);border-bottom-width:5px;
   border-radius:14px;background:var(--card);border-collapse:separate;border-spacing:0;font-size:14px}
 .tbl th,.tbl td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--surface);vertical-align:top}
-.tbl th{background:var(--surface);color:var(--ink);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.tbl th{background:var(--surface);color:var(--ink);border-bottom:2px solid var(--ink)!important;font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
 .tbl tr:last-child td{border-bottom:0}
 .tbl td:first-child{font-weight:700}
 .note,.note.ok,.note.warn,.note.danger{border:2px solid var(--ink);border-left:10px solid var(--knot);border-radius:12px;
@@ -163,7 +163,7 @@ h4{font:800 17px/1.2 var(--font-display);margin:18px 0 8px}
   border-radius:10px;padding:4px 12px 4px 4px;font-size:14px}
 .flow li::before{content:counter(paso);width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--bg);
   font-weight:700;font-size:12px;display:grid;place-items:center}
-footer{margin-top:64px;background:var(--surface);color:var(--ink);border-top:4px solid var(--ink);font-size:13px}
+footer{margin-top:64px;background:#E9ECF1;color:#14161A;border-top:4px solid var(--ink);font-size:13px}
 footer .wrap{padding-top:28px;padding-bottom:36px;display:flex;gap:20px;align-items:center}
 footer svg{flex:0 0 56px}
 footer code{background:transparent;color:inherit;border:1px solid}
@@ -171,13 +171,15 @@ footer code{background:transparent;color:inherit;border:1px solid}
 .branch{display:flex;flex-direction:column;align-items:center;margin:22px 0}
 .branch .root{position:relative;background:var(--card);border:2px solid var(--ink);border-bottom-width:5px;border-radius:14px;
   padding:10px 18px;font:800 18px/1.25 var(--font-display);text-align:center;max-width:100%}
-.branch .root::after{content:"";position:absolute;left:calc(50% - 2px);top:calc(100% + 5px);width:4px;height:20px;background:var(--ink)}
-.branch .opts{position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;width:100%;
-  margin-top:42px}
-.branch .opts::before{content:"";position:absolute;top:-17px;left:12%;right:12%;height:4px;background:var(--ink);border-radius:2px}
+.branch .root::after{content:"";position:absolute;left:calc(50% - 2px);top:calc(100% + 5px);width:4px;height:27px;background:var(--ink)}
+/* Las opciones van en una sola fila: cada una dibuja su tramo de la línea de arriba (la primera y la última, la mitad). */
+.branch .opts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:16px;width:100%;margin-top:42px}
 .opt,.opt.ok,.opt.warn,.opt.danger{position:relative;background:var(--card);border:2px solid var(--ink);border-bottom-width:5px;
   border-radius:14px;padding:14px 18px;color:var(--ink)}
 .branch .opt::before{content:"";position:absolute;left:calc(50% - 2px);top:-19px;width:4px;height:17px;background:var(--ink)}
+.branch .opt::after{content:"";position:absolute;top:-19px;left:-10px;right:-10px;height:4px;background:var(--ink)}
+.branch .opt:first-child::after{left:calc(50% - 2px)}.branch .opt:last-child::after{right:calc(50% - 2px)}
+.branch .opt:only-child::after{display:none}
 .opt.ok{border-color:var(--ok)}.opt.warn{background:color-mix(in srgb,var(--knot) 16%,var(--card))}
 .opt.danger{border-style:dashed;color:var(--muted)}
 .opt h3,.opt h4{font:800 18px/1.2 var(--font-display);margin:0 0 6px}
@@ -198,8 +200,8 @@ footer code{background:transparent;color:inherit;border:1px solid}
   .art{max-width:220px}
   .bar,.bar.ok,.bar.warn,.bar.danger{grid-template-columns:120px 1fr;font-size:13px}
   .tbl{display:block;overflow-x:auto}
-  .branch .opts::before,.branch .opt::before{display:none}
-  .branch .opts{margin-top:30px}
+  .branch .root::after,.branch .opt::before,.branch .opt::after{display:none}
+  .branch .opts{grid-auto-flow:row;margin-top:16px}
 }
 """
 

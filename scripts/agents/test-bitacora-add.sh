@@ -166,7 +166,7 @@ for clase in kpis kpi cards card tbl note ok warn danger; do
   grep -qE "\.${clase}[^a-z-]" "$pagina"; tap_check $? "la página trae los estilos de los componentes de una entrada" ".$clase"
 done
 
-# 11. Contraste AA del texto y los colores de estado en los dos modos; sin red, fuentes del sistema.
+# 11. Contraste AA del texto y los colores de estado (la página es siempre clara); sin red, fuentes del sistema.
 cat >"$TMP/contraste.py" <<'EOF'
 """Lee los tokens de barrilete.css (modo claro) y dice qué pares no llegan a WCAG AA (4.5:1)."""
 import re, sys
@@ -174,8 +174,6 @@ css = open(sys.argv[1], encoding="utf-8").read()
 TOKENS = ["--bg", "--surface", "--card", "--ink", "--muted", "--accent", "--ok", "--warn", "--danger"]
 def bloque(texto):
     return dict(re.findall(r"(--[a-z-]+)\s*:\s*(#[0-9A-Fa-f]{6})", texto))
-# La página es siempre clara (#361): un solo juego de tokens.
-modos = {"claro": bloque(css)}
 def lum(h):
     c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
     c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
@@ -183,17 +181,14 @@ def lum(h):
 def ratio(a, b):
     la, lb = sorted((lum(a), lum(b)), reverse=True)
     return (la + 0.05) / (lb + 0.05)
-malos = []
-for modo, t in modos.items():
-    faltan = [k for k in TOKENS if k not in t]
-    if faltan:
-        malos.append(f"{modo}: faltan {' '.join(faltan)}")
-        continue
-    for texto in ["--ink", "--muted", "--accent", "--ok", "--warn", "--danger"]:
-        for fondo in ["--bg", "--surface", "--card"]:
-            r = ratio(t[texto], t[fondo])
-            if r < 4.5:
-                malos.append(f"{modo}: {texto} sobre {fondo} {r:.2f}")
+# La página es siempre clara (#361): un solo juego de tokens.
+t = bloque(css)
+malos = [f"faltan {' '.join(k for k in TOKENS if k not in t)}"] if any(k not in t for k in TOKENS) else []
+for texto in ["--ink", "--muted", "--accent", "--ok", "--warn", "--danger"] if not malos else []:
+    for fondo in ["--bg", "--surface", "--card"]:
+        r = ratio(t[texto], t[fondo])
+        if r < 4.5:
+            malos.append(f"{texto} sobre {fondo} {r:.2f}")
 print("ok" if not malos else "; ".join(malos))
 EOF
 tap_run out 0 python3 -I "$TMP/contraste.py" "$CSS"
