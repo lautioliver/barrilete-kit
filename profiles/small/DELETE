@@ -22,6 +22,4 @@ scripts/agents/test-classes.sh
 scripts/agents/test-labels-check.sh
 scripts/agents/test-checks.sh
 scripts/agents/checks
-scripts/agents/bitacora.py
-scripts/agents/bitacora
-scripts/agents/test-bitacora.sh
+scripts/agents/test-bitacora-add.sh

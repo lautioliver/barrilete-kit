@@ -1,4 +1,4 @@
-/* Diseño de barrilete para la bitácora de agentes (#339). Contrato de tokens: docs/agents/bitacora.md.
+/* Diseño de barrilete para la bitácora del proyecto (docs/bitacora.html, #343). Contrato de tokens: docs/agents/bitacora.md en el kit.
    Un proyecto pisa los que quiera en .barrilete/bitacora.css; lo que no define queda como acá.
    Texto y colores de estado: contraste WCAG AA (4.5:1) sobre --bg, --surface y --card en los dos modos. */
 :root {
@@ -12,6 +12,7 @@
   --ok: #17693D;
   --warn: #8A5300;
   --danger: #B4122B;
+  --knot: #FFB020;   /* nudos de la rienda, barras y notas: relleno, nunca texto */
   --font-display: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }

@@ -212,6 +212,7 @@ Viven en `.claude/skills/`.
 | 🔁 | `/improve-skills` | Junta las retros y las señales objetivas (fallas de CI en ramas de agentes, reverts) y propone ajustes a las skills en un PR. Nunca afloja controles. |
 | 🌿 | `git-workflow` | Ramas, commits y PRs. |
 | 👥 | `/add-member`, `/remove-member` | Agregar, editar, pausar o quitar integrantes del equipo que recibe los issues. |
+| 📓 | `/bitacora <tema>` | Guarda lo que se habló en el chat como una entrada de `docs/bitacora.html`, la bitácora del proyecto (una sección por tema, versionada), con números, tablas y colores de estado. Solo suma, nunca reescribe. |
 
 ### 🤖 Subagentes por modelo
 
@@ -294,7 +295,7 @@ El idioma de la prosa se elige con `--lang en|es` (por defecto `en`, combina con
 
 | | 🦅 Completo | 🐣 `--small` |
 |---|---|---|
-| Skills | 13 | 6: `implement-issue`, `create-issue`, `debug`, `update-docs`, `add-member`, `remove-member` |
+| Skills | 14 | 7: `implement-issue`, `create-issue`, `debug`, `update-docs`, `add-member`, `remove-member`, `bitacora` |
 | Workflows | 4 | 2: docs y sync de labels |
 | Labels | `type:`, `area:`, `priority:`, `status:` y especiales | 7: `type:` y `priority:` |
 | Docs | hub con `reference/`, `development/`, `guides/` | un archivo de arquitectura y los ADRs |

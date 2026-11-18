@@ -210,6 +210,7 @@ They live in `.claude/skills/`.
 | 🔁 | `/improve-skills` | Gathers retros and objective signals (CI failures on agent branches, reverts) and proposes skill changes in a PR. Never loosens controls. |
 | 🌿 | `git-workflow` | Branches, commits and PRs. |
 | 👥 | `/add-member`, `/remove-member` | Add, edit, pause or remove the team members who receive issues. |
+| 📓 | `/bitacora <topic>` | Saves what was talked about in the chat as an entry of `docs/bitacora.html`, the project log (one section per topic, versioned), with numbers, tables and status colors. Only adds, never rewrites. |
 
 ### 🤖 Subagents by model
 
@@ -292,7 +293,7 @@ The prose language is chosen with `--lang en|es` (default `en`; it combines with
 
 | | 🦅 Full | 🐣 `--small` |
 |---|---|---|
-| Skills | 13 | 6: `implement-issue`, `create-issue`, `debug`, `update-docs`, `add-member`, `remove-member` |
+| Skills | 14 | 7: `implement-issue`, `create-issue`, `debug`, `update-docs`, `add-member`, `remove-member`, `bitacora` |
 | Workflows | 4 | 2: docs and label sync |
 | Labels | `type:`, `area:`, `priority:`, `status:` and specials | 7: `type:` and `priority:` |
 | Docs | hub with `reference/`, `development/`, `guides/` | one architecture file plus the ADRs |

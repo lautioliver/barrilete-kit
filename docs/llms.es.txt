@@ -24,7 +24,7 @@ Instrucciones para modelos: leer este archivo y AGENTS.md. Spec aspiracional = /
 - [ADR-007: aprendizaje por proyecto](decisions/kit/ADR-007-per-project-learning.md)
 - [Mapa para agentes: docs según cambios, rutas sensibles](agents-map.json)
 - [Contrato de los subagentes: reglas y salida común](agents/subagent-contract.md)
-- [Bitácora de agentes: contrato de retros y tokens de diseño](agents/bitacora.md)
+- [Bitácora del proyecto: /bitacora, componentes y tokens de diseño](agents/bitacora.md)
 - [Evento de aprendizaje v1 y su store](agents/learning-event.md)
 - [Clases de hallazgo de review-pr (la genera `scripts/agents/sync-rules` desde barrilete-rules, ADR-006)](agents/classes.yml)
 - [AGENTS.md](../AGENTS.md)

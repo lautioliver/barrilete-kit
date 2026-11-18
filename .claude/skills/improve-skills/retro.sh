@@ -7,8 +7,6 @@
 # <common .git>/pending-retros/ to retry with the same command.
 # The 0.9 branch agentes/retros is only read (--consolidated accepts its commits), never written.
 # Retros with 0.9 keys and values (modelo:, rol:...) are accepted and saved with the new ones.
-# scripts/agents/bitacora.py reads these retros with retros_dump (legacy-names.sh); the format it relies on
-# (keys, **Title:** sections) is in docs/agents/bitacora.md.
 # Usage: retro.sh <file.md>                          publishes a retro
 #        retro.sh --consolidated <commit> <PR link>  marks what is consolidated (used by /improve-skills)
 set -euo pipefail

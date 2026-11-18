@@ -1,51 +1,55 @@
-# Bitácora de agentes (`bitacora.py`)
+# Bitácora del proyecto (`/bitacora`)
 
-`scripts/agents/bitacora.py` arma una página con lo que hizo cada agente en cada cambio: una tarjeta por PR con cada agente que lo tocó (rol y modelo) y lo que reportó en su retro (#339). Lee las retros que `retro.sh` guarda en la rama `agents/retros` y el título, el estado y el link de los PRs que citan (una consulta `gh api graphql` cada 100 PRs; ninguna si ninguna retro cita un PR), y escribe `.barrilete/bitacora.html` (ignorado por git, un solo archivo).
+`docs/bitacora.html` es la bitácora del proyecto: un archivo por proyecto, versionado en git para que lo tengan todos los integrantes, con una sección por tema (#343). Una persona suma una entrada desde el chat con `/bitacora <tema>` (skill `.claude/skills/bitacora/`): el agente la escribe con el contexto de esa conversación (qué cambió y por qué, qué se decidió, cómo se verificó, qué sigue abierto) y `scripts/agents/bitacora_add.py` la inserta. Nada genera entradas solo.
 
 ```bash
-python3 scripts/agents/bitacora.py                      # este repo, diseño de barrilete (+ el del proyecto, si hay)
-python3 scripts/agents/bitacora.py -C ../otro-repo      # otro repo
-python3 scripts/agents/bitacora.py --theme barrilete    # ignora .barrilete/bitacora.css
-python3 scripts/agents/bitacora.py --theme diseño.css   # usa ese archivo en lugar de .barrilete/bitacora.css
+python3 scripts/agents/bitacora_add.py find --topic "Decidir la ruta"
+python3 scripts/agents/bitacora_add.py add --topic "Decidir la ruta" --entry /tmp/entrada.html
+python3 scripts/agents/bitacora_add.py add --topic "Decidir las rutas" --into decidir-la-ruta --entry /tmp/entrada.html
+python3 scripts/agents/bitacora_add.py -C ../otro-repo add --topic "Release" --new --entry /tmp/entrada.html
 ```
 
-Las etiquetas siguen `language` de `.agent-kit.json` (`en` o `es`; sin él, `en`). Imprime `ok: <ruta>` y termina con 0. Un error de uso (un `--theme` que no existe, una opción desconocida) es una línea y 64. Si `gh` falla (sin sesión, sin red), la página sale igual, sin títulos ni estado de los PRs. Sin retros, la página lo dice. Correrlo dos veces con las mismas retros da la misma página.
+## Cómo se suman las entradas
 
-No se instala en el modo `--small`, que no tiene retros (ahí no se instala `.claude/skills/improve-skills`).
+- **La sección es el tema.** Su slug (minúsculas, sin acentos, con guiones) es su id y su link: `docs/bitacora.html#decidir-la-ruta`. Dos temas con el mismo slug son la misma sección.
+- **Solo inserta.** Una sección nueva va al final de `<main>` y su link al final del índice; una entrada va al final de su sección, con la fecha (`--date AAAA-MM-DD`, hoy por defecto). Todo lo que estaba queda byte a byte igual; el test lo comprueba con un diff que solo admite líneas insertadas. Los lugares donde inserta son comentarios HTML (`<!-- bitacora:nav -->`, `<!-- bitacora:main -->`, `<!-- bitacora:end <slug> -->`): si el archivo los perdió (se editó a mano), el script no lo toca y sale con 65.
+- **Un nombre parecido se pregunta.** `find` responde `exact <slug>`, `none <slug>` (sale con 0) o una línea `similar <slug>\t<tema>` por cada sección parecida (sale con 3): un slug que contiene al otro entre guiones, o un ratio de `difflib` de 0,8 o más. `add` con una sección parecida y sin `--into <slug>` ni `--new` no escribe y sale con 3; el skill le pregunta a la persona y repite con su respuesta.
+- **La entrada es un fragmento HTML** que usa los componentes de abajo, revisado contra una lista permitida (los valores de los atributos, después de decodificar sus entidades; si no, sale con 64 y no toca el archivo). Etiquetas: texto y listas (`p`, `br`, `hr`, `strong`, `b`, `em`, `i`, `u`, `s`, `small`, `mark`, `code`, `pre`, `kbd`, `sub`, `sup`, `span`, `div`, `h3`, `h4`, `ul`, `ol`, `li`, `dl`, `dt`, `dd`, `blockquote`, `abbr`, `time`), links (`a`) y tablas (`table`, `caption`, `thead`, `tbody`, `tfoot`, `tr`, `th`, `td`). Atributos: `class` y `title` en cualquiera, `href` en `a` (solo relativos, `#`, `http(s)` o `mailto`; `//host` y `\\host` son otro sitio y no pasan), `datetime` en `time`, `colspan`, `rowspan` y `scope` en las celdas, y `style` solo en `i` y solo como el ancho de una barra (`--v:70%`). Así, un manejador `on…=` no pasa porque no está entre los atributos y `javascript:` tampoco, porque no es un esquema permitido en `href`; el texto y los valores de los atributos sí pueden nombrarlos (`?only=open` en un link pasa). Además, la entrada no puede tener comentarios, CDATA ni un `<` suelto (escribí `&lt;`, que pasa) y toda etiqueta que abre se tiene que cerrar con su cierre: `<b/>` no la cierra (solo `<br/>` y `<hr/>` se pueden escribir así; `</br>` no cierra nada y no pasa), y la entrada no puede terminar en una etiqueta a medio escribir (`<b`, `<a href="x`). El tema siempre se escribe escapado, como texto, y no puede tomar un id que ya usa la página (`theme-…`, `structure`).
+- **CRLF y modo.** Un archivo con fin de línea CRLF (un checkout de Windows) se lee igual y lo que se inserta respeta su fin de línea. Al escribir conserva el modo del archivo (uno nuevo toma el que da el umask).
+- **El archivo se crea** la primera vez, con las etiquetas en el idioma de `language` de `.agent-kit.json` (`en` o `es`; sin él, `en`) y el diseño de ese momento. Otras salidas: 64 por un error de uso (también fuera de un repo de git), 1 si no puede leer o escribir.
 
-## El contrato de las retros
+La página no lleva scripts. El kit no trae un `docs/bitacora.html`: cada proyecto crea el suyo con su primer `/bitacora`.
 
-La bitácora depende de lo que escribe `retro.sh` (`.claude/skills/improve-skills/retro.sh`, plantilla en `retro-template.md`). Si cambia algo de esto, cambiá `bitacora.py` en el mismo PR; `scripts/agents/test-bitacora.sh` escribe una retro con `retro.sh` y falla si la bitácora deja de leerla.
+## Componentes
 
-- **Dónde:** `retros/*.md` en la rama `agents/retros` y en la de la 0.9, `agentes/retros` (si un archivo está en las dos, gana la nueva). La de `origin` si el repo tiene ese remoto (la trae antes); si no, la local. Las lee con `retros_dump` de `.claude/skills/improve-skills/legacy-names.sh`, la misma tabla que usan `retro.sh` y `/improve-skills`: las claves y valores de la 0.9 (`rol:`, `modelo:`, `fecha:` y valores como `revisor`) se leen como los nuevos, las comillas alrededor de un valor se quitan y, si una clave se repite, gana la primera.
-- **Frontmatter** (entre dos líneas `---`), líneas `clave: valor`:
-  - `pr`: número del PR (con o sin `#`, hasta 9 cifras; otra cosa cuenta como sin PR). Las retros se agrupan por PR.
-  - `issue`: número del issue, que se ve en la tarjeta. Una retro con solo el issue va a la tarjeta del PR de ese issue si otra retro dice cuál es (y es uno solo); si no, se agrupan por issue. Sin ninguno de los dos, cada retro es su propia tarjeta.
-  - `role`: `implementer`, `implementer-light`, `reviewer`, `orchestrator` o `session` (`retro.sh` escribe `session` si falta).
-  - `model`: `opus`, `sonnet`, `haiku` o `unknown`.
-  - `skill`: `implement-issue`, `review-pr`, `orchestrate` o `improve-skills` (qué hizo el agente).
-  - `date`: `AAAA-MM-DD` (la completa `retro.sh`). Los cambios más recientes van primero.
-- **Cuerpo:** secciones que empiezan una línea con `**Título:**`. Las cuatro de la plantilla (`Desvíos`, `Decisiones no cubiertas`, `Lo que encontró la revisión`, `Propuesta`, o sus formas en inglés) se traducen al idioma de la página; cualquier otro título se muestra como está. El texto antes de la primera sección (o el cuerpo entero, si no tiene) se muestra como reporte.
-- **Bytes:** una retro que no es UTF-8 válido se muestra con los bytes malos reemplazados, nunca con un error.
-- **Fetch:** corre con `GIT_TERMINAL_PROMPT=0` y, salvo que la persona haya elegido su ssh (`GIT_SSH_COMMAND`, `GIT_SSH` o `core.sshCommand`), con `ssh -o BatchMode=yes -o ConnectTimeout=15`: sin red o sin clave usa lo que ya tiene en vez de esperar.
+La página trae los estilos de estas clases; el skill lista su HTML.
 
-Todo lo de una retro es texto: se escapa, nunca se interpreta como HTML.
+| Clase | Para qué |
+|---|---|
+| `kpis` + `kpi` | números clave, con `ok`, `warn` o `danger` |
+| `cards` + `card` | tarjetas por estado (hecho, en curso, te espera a vos) |
+| `tbl` | tablas: antes/después, opciones; en un teléfono se desplazan de costado |
+| `bars` + `bar` | barras, con el ancho en `style="--v:70%"` |
+| `flow` | un flujo de pasos (`<ol>`) |
+| `note` | una nota destacada |
+| `ok`, `warn`, `danger` | estado: hecho, en curso, espera a una persona o está roto |
 
 ## El diseño: tokens
 
-La página usa solo estos tokens. El diseño de barrilete (`scripts/agents/bitacora/barrilete.css`) les da sus valores por defecto, para modo claro y oscuro (sigue al sistema con `prefers-color-scheme`).
+La página tiene la forma del HTML de estado de barrilete: arriba el nombre del proyecto con el dron y la rienda, el índice en una barra oscura fija, cada tema como sección numerada (`>_ 01`) y sus entradas sobre la rienda, una debajo de otra, con su fecha. Los colores de marca del dron, la barra y el pie son fijos; todo lo demás usa solo estos tokens. El diseño de barrilete (`scripts/agents/bitacora/barrilete.css`) les da sus valores por defecto, para modo claro y oscuro (sigue al sistema con `prefers-color-scheme`).
 
 | Token | Qué es | Claro | Oscuro |
 |---|---|---|---|
 | `--bg` | fondo de la página | `#F6F7F9` | `#121418` |
-| `--surface` | bloques dentro de una tarjeta, código | `#E9ECF1` | `#1C1F26` |
-| `--card` | tarjetas | `#FFFFFF` | `#23262E` |
+| `--surface` | bloques dentro de una entrada, código | `#E9ECF1` | `#1C1F26` |
+| `--card` | entradas | `#FFFFFF` | `#23262E` |
 | `--ink` | texto | `#14161A` | `#ECEEF2` |
 | `--muted` | texto secundario | `#5A6270` | `#A3AAB6` |
-| `--accent` | links y etiquetas de agente | `#2450E0` | `#8FB0FF` |
-| `--ok` | mergeado | `#17693D` | `#5FD39A` |
-| `--warn` | abierto | `#8A5300` | `#FFB020` |
-| `--danger` | cerrado | `#B4122B` | `#FF8A96` |
+| `--accent` | links y destacados | `#2450E0` | `#8FB0FF` |
+| `--ok` | hecho | `#17693D` | `#5FD39A` |
+| `--warn` | en curso | `#8A5300` | `#FFB020` |
+| `--danger` | te espera a vos, roto | `#B4122B` | `#FF8A96` |
+| `--knot` | relleno de los nudos de la rienda, barras en curso y notas; nunca texto | `#FFB020` | `#FFB020` |
 | `--font-display` | títulos | Bricolage Grotesque, después las del sistema | |
 | `--font-mono` | todo lo demás | JetBrains Mono, después las del sistema | |
 
@@ -55,7 +59,7 @@ Las fuentes vienen de Google Fonts con `display=swap`: sin red, el texto se ve e
 
 ### El diseño del proyecto
 
-Si el proyecto tiene `.barrilete/bitacora.css`, va después del diseño de barrilete y pisa los tokens que define; lo que no define queda como barrilete. Es un archivo del proyecto: el kit no lo instala y se versiona como cualquier otro.
+Si el proyecto tiene `.barrilete/bitacora.css`, va después del diseño de barrilete (los dos se copian en la página al crearla) y pisa los tokens que define; lo que no define queda como barrilete. Es un archivo del proyecto: el kit no lo instala y se versiona como cualquier otro.
 
 ```css
 /* .barrilete/bitacora.css */
@@ -69,3 +73,5 @@ Si el proyecto tiene `.barrilete/bitacora.css`, va después del diseño de barri
 ```
 
 Un token definido solo en `:root` vale para los dos modos (un `:root` posterior le gana al bloque oscuro de barrilete): para darle al modo oscuro su propio valor, definilo también en el bloque `@media`, como en el ejemplo. Si cambiás colores, revisá el contraste vos: el test solo comprueba el de barrilete.
+
+El diseño se copia en la página cuando se crea, y las entradas nunca lo reescriben: una página que ya existe se queda con el diseño con el que nació. Para darle uno nuevo, cambiá a mano los bloques `<style id="theme-…">` en un PR aparte.
