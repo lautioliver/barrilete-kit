@@ -396,6 +396,12 @@ export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
 tap_run out 0 "$LOCK" status "$TMP/wt"
 grep -qx "held: agente-a (pid $VIVO, since [^,)]*, session chat idle, busy)" <<<"$out"; tap_check $? "sesión dueña: status del propio dueño nombra su sesión"
 export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b
+printf '{"pid":%s,"name":"%s","status":"idle"}\n' "$VIVO" "$(printf 'x%.0s' $(seq 200))" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -qE 'session x{60}, idle\)' <<<"$out"; tap_check $? "sesión dueña: un nombre de 200 caracteres queda en 60"
+printf '{"pid":%s,"name":"chat-ajeno","status":"idle"}\n' "$$" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat-ajeno' <<<"$out"; [ $? = 1 ]; tap_check $? "sesión dueña: un <pid>.json con otro pid adentro no nombra la sesión"
 rm -f "$TMP/sesiones/$VIVO.json"
 tap_run out 0 "$LOCK" status "$TMP/wt"
 grep -q "^held: agente-a (pid $VIVO, since [^,)]*); another agent" <<<"$out"; tap_check $? "sin archivo de sesión: el mensaje held queda como antes"
@@ -409,15 +415,18 @@ rm -f "$GDIR/agent-lock"
 seccion() { tap_run out 0 awk -v a="$2" -v b="${3:-$2}" 'index($0, a) == 1 || index($0, b) == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/$1"; }
 SK=.claude/skills/implement-issue/SKILL.md
 if [ "$CHICO" = 1 ]; then
-  for c in "el paso 9 suelta el candado del worktree" "soltar el issue suelta el candado del worktree" "el candado se suelta al final, después de la retro" "un subagente no sigue el paso sin su nombre" "otra ronda toma el candado antes de editar"; do
+  for c in "el paso 9 suelta el candado del worktree" "soltar el issue suelta el candado del worktree" "el candado se suelta al final, después de la retro" "un subagente no sigue el paso sin su nombre" "otra ronda toma el candado antes de editar" "al pasar el trabajo a otra sesión, se suelta antes"; do
     tap_skip "implement-issue: $c" "proyecto chico (mode: small): su implement-issue no usa worktrees"
   done
+  tap_skip "contrato: held nombra la sesión a la que pedirle que lo suelte" "proyecto chico (mode: small): su implement-issue no usa worktrees"
 else
   seccion "$SK" "## 9."
   grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: el paso 9 suelta el candado del worktree"
   grep -qF -e "after the retro" -e "después de la retro" <<<"$out"; tap_check $? "implement-issue: el candado se suelta al final, después de la retro"
   grep -qF -e "you are not a subagent" -e "no sos un subagente" <<<"$out"; tap_check $? "implement-issue: un subagente no sigue el paso sin su nombre"
   grep -qF -e "before editing anything" -e "antes de editar nada" <<<"$out"; tap_check $? "implement-issue: otra ronda toma el candado antes de editar"
+  grep -qF -e "release the lock before handing off" -e "soltá el candado antes de pasarlo" <<<"$out"; tap_check $? "implement-issue: al pasar el trabajo a otra sesión, se suelta antes"
+  mencion docs/agents/subagent-contract.md "the session to ask to release it" "la sesión a la que pedirle que lo suelte"; tap_check $? "contrato: held nombra la sesión a la que pedirle que lo suelte"
   seccion "$SK" "## If you have to drop" "## Si hay que soltar"
   grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: soltar el issue suelta el candado del worktree"
 fi
@@ -428,11 +437,14 @@ if [ "$CHICO" = 0 ] && [ -f "$RAIZ/$SK" ]; then
   grep -qF -- "después de la retro" <<<"$out"; tap_check $? "implement-issue (es): el candado se suelta al final, después de la retro"
   grep -qF -- "no sos un subagente" <<<"$out"; tap_check $? "implement-issue (es): un subagente no sigue el paso sin su nombre"
   grep -qF -- "antes de editar nada" <<<"$out"; tap_check $? "implement-issue (es): otra ronda toma el candado antes de editar"
+  grep -qF -- "soltá el candado antes de pasarlo" <<<"$out"; tap_check $? "implement-issue (es): al pasar el trabajo a otra sesión, se suelta antes"
+  grep -qF -- "la sesión a la que pedirle que lo suelte" "$RAIZ/docs/agents/subagent-contract.es.md"; tap_check $? "contrato (es): held nombra la sesión a la que pedirle que lo suelte"
   seccion "$SK" "## Si hay que soltar"
   grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue (es): soltar el issue suelta el candado del worktree"
 else
-  for c in "el paso 9 suelta el candado del worktree" "el candado se suelta al final, después de la retro" "un subagente no sigue el paso sin su nombre" "otra ronda toma el candado antes de editar" "soltar el issue suelta el candado del worktree"; do
+  for c in "el paso 9 suelta el candado del worktree" "el candado se suelta al final, después de la retro" "un subagente no sigue el paso sin su nombre" "otra ronda toma el candado antes de editar" "soltar el issue suelta el candado del worktree" "al pasar el trabajo a otra sesión, se suelta antes"; do
     tap_skip "implement-issue (es): $c" "no existe SKILL.es.md o proyecto chico"
   done
+  tap_skip "contrato (es): held nombra la sesión a la que pedirle que lo suelte" "no existe SKILL.es.md o proyecto chico"
 fi
 tap_done
