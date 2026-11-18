@@ -523,8 +523,10 @@ def title_matches(template, name):
 
 
 JS_PLAIN = re.compile(
-    r"(?<![\w$.])(?:it|test)(?:\.(?:only|skip|concurrent|todo|fails|failing|sequential))*\s*\(\s*([\"'`])((?:\\.|(?!\1).)*)\1")
-JS_EACH_CALL = re.compile(r"[)`]\s*\(\s*([\"'`])((?:\\.|(?!\1).)*)\1")
+    r"(?<![\w$.])(?:it|test)(?:\.(?:only|skip|concurrent|todo|fails|failing|sequential))*\s*\(\s*([\"'`])((?:\\.|(?!\1)[^\\])*)\1")
+# A backslash in a string literal is only an escape (`\\.`): with `(?!\1).` it could also be a plain character, and
+# a long run of them in an unterminated string backtracked exponentially (#355).
+JS_EACH_CALL = re.compile(r"[)`]\s*\(\s*([\"'`])((?:\\.|(?!\1)[^\\])*)\1")
 
 
 def unescape_js(s):
@@ -532,7 +534,7 @@ def unescape_js(s):
 
 
 JS_EACH = re.compile(r"(?<![\w$])(?:it|test)(?:\.[a-zA-Z]+)*\.each\b")
-JS_CLOSE = re.compile(r"^\s*[\])`]+\s*\(\s*([\"'`])((?:\\.|(?!\1).)*)\1")
+JS_CLOSE = re.compile(r"^\s*[\])`]+\s*\(\s*([\"'`])((?:\\.|(?!\1)[^\\])*)\1")
 
 
 def js_defines(added, name):

@@ -248,6 +248,10 @@ pr 12 "$(cuerpo "$RED" 2 "scripts/agents/z3.test.ts::ok 1" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
 tap_no_traceback "$out"
 grep -qx 'rc=0' <<<"$out"; tap_check $? "casos: un string sin cerrar con muchas barras en el cierre de una tabla de it.each no cuelga pr-metadata" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/z1.test.ts::nada 1 > ok 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=3' <<<"$out"; tap_check $? "casos: un string sin cerrar con muchas barras no cuelga la búsqueda de un grupo" "$(tail -1 <<<"$out")"
 pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::ls "a" y $B' "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id bash con escapes mezclados que red.sh no reportaría falla"
