@@ -6,13 +6,14 @@ Usage: scripts/agents/checks/pr-metadata --base <ref>      (verify.py runs it wi
 Reads the open PR of the current branch (`gh pr view --json number,body`) and compares what its body says with git:
   - every `red commit: <sha>` is a commit of <ref>..HEAD (not the base's, not one that does not exist);
   - every failing case of the red block (`- <file>::<name>`) is in that file at the red commit (the ids of the tests are
-    in the source, as written or with the escapes of a bash double-quoted string undone, `\\"` `\\\\` `\\$` and the backtick,
-    because red.sh reports the id unescaped: a case that is not there was not written by the red commit);
+    in the source, as written or in the spellings of the file's language (`.sh`: `\\"` `\\\\` `\\$` and the backtick escaped,
+    as red_report.defines; `.js`/`.ts`: a backslash before any character, as red_report.unescape_js), because red.sh
+    reports the id unescaped: a case that is not there was not written by the red commit);
   - the `N commits` the body says is the number of commits of <ref>..HEAD;
   - `Closes`/`Refs #n` names the issue of the branch (`<type>/<n>-<description>`) and never the number of the PR itself.
 Code blocks (``` and ~~~) are not read: what is quoted there is not a claim of the PR.
 With no open PR for the branch it says it did not verify and exits with 4 (verify.py runs before the PR is opened).
-A case is looked up by substring, in the source and in the source with those escapes undone (each part of its name has to be in the file at the red commit): it proves the case is not
+A case is looked up by substring, as written or in those spellings of each part of its name, never with the whole source unescaped (each part has to be in the file at the red commit): it proves the case is not
 invented, not that the red commit defines it; `red.sh` and the reviewer check that.
 Exit status: 0 verified and it matches; 3 the body does not match (each problem is printed); 4 it could not verify (no open PR,
 or gh failed: no network, no login, another wording): verify.py reports it as "not verified" and never as ok; 64 invalid usage.
@@ -35,13 +36,32 @@ CASE_BULLET = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
 BRANCH_ISSUE = re.compile(r"^(?!release/)[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # also claude/<type>/<n>-…
 
 
-SH_ESCAPE = re.compile(r'\\([\\"$`])')
+JS_EXT = (".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts")  # the same list as red_report.JS_EXT
 
 
-def unescape_sh(src):
-    """The source with the escapes of a bash double-quoted string undone (\\" \\\\ \\$ \\`): red.sh reports a case id
-    as bash printed it, unescaped, and the source keeps it escaped (#341)."""
-    return SH_ESCAPE.sub(r"\1", src)
+def sh_spelling(name):
+    r"""How tap.sh's id `name` is written in a bash double-quoted string: \ " $ ` escaped (red_report.defines, .sh)."""
+    return name.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")
+
+
+def js_spelling(name):
+    r"""A regex for the ways a JS/TS string literal can write `name`: red_report.unescape_js drops the backslash before
+    any character (`\x` reads as `x`), so each one may carry it, and a backslash of the name is written `\\`.
+    One fixed sequence per character: no backtracking."""
+    return re.compile("".join(r"\\\\" if c == "\\" else r"\\?" + re.escape(c) for c in name))
+
+
+def in_source(path, part, src):
+    """Is `part` of a case name in `src`, as the file of `path` can write it? red.sh reports the id unescaped and the
+    source keeps it escaped (#341 bash, #349 JS/TS); only the spellings of that language count, so a stray escape
+    elsewhere in the file does not make an invented name match."""
+    if part in src:
+        return True
+    if path.endswith(".sh"):
+        return sh_spelling(part) in src
+    if path.endswith(JS_EXT):
+        return js_spelling(part).search(src) is not None
+    return False
 
 
 def run(*cmd):
@@ -137,8 +157,7 @@ def main(argv):
                 problems.append(f"failing case {case!r}: it has no file path before ::")
             elif rc != 0:
                 problems.append(f"failing case {case!r}: {path} does not exist at the red commit {red}")
-            elif not all(part and (part in src or part in plain) for plain in [unescape_sh(src)]
-                         for part in re.split(r"::| > ", cname)):
+            elif not all(part and in_source(path.strip(), part, src) for part in re.split(r"::| > ", cname)):
                 problems.append(f"failing case {case!r}: the name is not in {path} at the red commit {red}")
 
     for line in lines:

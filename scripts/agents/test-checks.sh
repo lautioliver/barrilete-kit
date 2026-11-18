@@ -35,13 +35,11 @@ printf '#!/usr/bin/env bash\ntap_check $? "caso uno"\ntap_check $? "caso dos"\n'
 cat >>"$P/scripts/agents/test-x.sh" <<'EOF2'
 tap_check $? "324: learning.json es {\"store\": \"local\"}"
 tap_check $? "comando \`ls\` aparte"
-EOF2
-# con %s: el fuente no tiene la forma de un caso cuyo id se arma al correr (test-tap.sh lo prohíbe), y el fixture sí
-printf '%s $? "ruta C:\\\\tmp y \\$HOME"\n' tap_check >>"$P/scripts/agents/test-x.sh"
-# Un id con escapes mezclados (solo \" escapado y $B suelto): bash lo expandiría, red.sh no lo reportaría (#349)
-cat >>"$P/scripts/agents/test-x.sh" <<'EOF2'
 tap_check $? "ls \"a\" y $B"
 EOF2
+# la última línea del heredoc: escapes mezclados (solo \" escapado y $B suelto); bash lo expandiría y red.sh no lo reportaría (#349)
+# con %s: el fuente no tiene la forma de un caso cuyo id se arma al correr (test-tap.sh lo prohíbe), y el fixture sí
+printf '%s $? "ruta C:\\\\tmp y \\$HOME"\n' tap_check >>"$P/scripts/agents/test-x.sh"
 # Un fuente JS/TS: red.sh reporta el id con todo \x desescapado (red_report.unescape_js) y el fuente lo guarda escapado (#349)
 cat >"$P/scripts/agents/x.test.ts" <<'EOF3'
 describe('grupo', () => {
@@ -50,6 +48,7 @@ describe('grupo', () => {
   it("say \"hi\"", () => {});
 });
 EOF3
+printf 'def test_algo():\n    pass\n' >"$P/scripts/agents/test_x.py"
 git -C "$P" add -A && git -C "$P" commit -qm rojo; RED=$(git -C "$P" rev-parse --short=10 HEAD)
 echo verde >"$P/impl.txt"
 git -C "$P" add -A && git -C "$P" commit -qm verde
@@ -153,6 +152,13 @@ grep -q "explote.*name is not in" <<<"$out"; tap_check $? "casos: un id JS inven
 pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::ls "a" y $B' "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id bash con escapes mezclados que red.sh no reportaría falla"
+
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test_x.py::test_algo' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un id de otro lenguaje se busca tal cual en el fuente"
+pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test_x.py::test_inventado' "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q 'test_inventado.*name is not in' <<<"$out"; tap_check $? "casos: un id de otro lenguaje que no está en el fuente falla"
 
 # 7. El número del issue: el del `Closes`/`Refs` es el de la rama, y no es el del PR mismo.
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso uno" "Closes #8")"
