@@ -36,12 +36,20 @@ FUENTES = ("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@60
 PARECIDO = 0.8   # SequenceMatcher.ratio() entre slugs desde el que dos temas se consideran parecidos
 
 TEXTOS = {
-    "en": {"title": "Project log", "contents": "Contents",
+    "en": {"title": "Project log", "contents": "Contents", "stamp": "PROJECT LOG",
+           "motto": "The agents fly.<br>You hold the line.",
            "sub": "What we talked about and decided, by topic. Each entry is added with <code>/bitacora &lt;topic&gt;</code> "
-                  "from the chat and nothing above it is rewritten."},
-    "es": {"title": "Bitácora del proyecto", "contents": "Índice",
+                  "from the chat and nothing above it is rewritten.",
+           "since": "started on", "leash": ("talk", "decide", "log"),
+           "footer": "Each section is a topic and each entry was written from a chat with <code>/bitacora</code>. "
+                     "Nothing above an entry is rewritten."},
+    "es": {"title": "Bitácora del proyecto", "contents": "Índice", "stamp": "BITÁCORA",
+           "motto": "Los agentes vuelan.<br>Vos tenés la rienda.",
            "sub": "Lo que se habló y se decidió, por tema. Cada entrada se suma con <code>/bitacora &lt;tema&gt;</code> "
-                  "desde el chat y no se reescribe nada de lo anterior."},
+                  "desde el chat y no se reescribe nada de lo anterior.",
+           "since": "empezada el", "leash": ("charla", "decisión", "bitácora"),
+           "footer": "Cada sección es un tema y cada entrada se escribió desde un chat con <code>/bitacora</code>. "
+                     "Lo que está arriba de una entrada no se reescribe."},
 }
 
 MARCA_NAV = "<!-- bitacora:nav -->"
@@ -68,51 +76,118 @@ PROHIBIDO_EN_ETIQUETA = re.compile(r"(?<![a-z])on[a-z]+\s*=|javascript\s*:", re.
 # Y sobre toda la entrada: comentarios, CDATA e instrucciones de proceso, que podrían esconder marcadores.
 PROHIBIDO = re.compile(r"<!--|<!\[CDATA|<\?", re.I)
 
-# La estructura de la página y los componentes de una entrada: solo usan los tokens del contrato.
+# La estructura de la página y los componentes de una entrada, con la forma del HTML de estado de barrilete: hero con
+# el dron y la rienda, índice fijo, secciones numeradas, bloques con borde de tinta. Solo usan los tokens del contrato.
 ESTRUCTURA = """
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.6 var(--font-mono)}
-header,nav,main{max-width:960px;margin:0 auto;padding:0 16px}
-header{padding-top:32px}
-h1{font:800 clamp(28px,5vw,40px)/1.1 var(--font-display);margin:0 0 8px}
-h2{font:600 22px/1.3 var(--font-display);margin:0 0 12px}
-h3{font:600 16px/1.3 var(--font-display);margin:16px 0 6px}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.7 var(--font-mono)}
 a{color:var(--accent)}
-code{background:var(--surface);padding:1px 5px;border-radius:4px}
-.sub{color:var(--muted);margin:0 0 20px}
-nav{margin-bottom:24px}
-nav h2{font:700 12px/1.4 var(--font-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px}
-nav ol{margin:0;padding-left:20px}
-main{padding-bottom:64px}
-main>section{border-top:1px solid var(--surface);padding-top:24px;margin-top:24px}
-main>section>h2 a{color:inherit;text-decoration:none}
-.entrada{background:var(--card);border:1px solid var(--surface);border-radius:12px;padding:16px;margin-bottom:14px;
-  overflow-wrap:anywhere}
-.entrada p{margin:0 0 10px}
-.fecha{color:var(--muted);font-weight:700}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+code{font:500 .9em var(--font-mono);background:var(--surface);padding:1px 6px;border-radius:4px}
+p{max-width:78ch}
+.hero{border-bottom:4px solid var(--ink)}
+.hero .wrap{display:grid;grid-template-columns:1fr 300px;gap:48px;align-items:center;padding-top:56px;padding-bottom:48px}
+.tags{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.stamp{font-size:13px;font-weight:500;letter-spacing:.1em;color:#fff;background:#B4122B;border-bottom:3px solid var(--ink);
+  padding:4px 12px;border-radius:6px}
+.chip{font-size:12px;font-weight:500;color:var(--bg);background:var(--ink);padding:3px 10px;border-radius:999px}
+.hero h1{font:800 clamp(44px,8vw,88px)/.95 var(--font-display);letter-spacing:-.02em;margin:26px 0 14px;overflow-wrap:anywhere}
+.lema{font:600 clamp(22px,3vw,32px)/1.2 var(--font-display);margin:0 0 18px}
+.lead{color:var(--muted);max-width:58ch;margin:0 0 26px}
+.leash{display:flex;align-items:center;gap:12px;font-size:14px}
+.knot{width:14px;height:14px;border-radius:50%;background:var(--knot);flex:0 0 14px;
+  box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--ink)}
+.rope{flex:1;height:4px;background:var(--danger);border-radius:2px}
+.leash .mid{color:var(--muted)}
+.prompt{font-size:13px;color:var(--muted);margin-top:22px}
+.prompt b{color:var(--accent)}
+.art svg{width:100%;height:auto;display:block}
+/* El título del índice no se ve (la barra es el índice), pero lo leen los lectores de pantalla. */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+nav.toc{position:sticky;top:0;z-index:5;background:#14161A;border-bottom:1px solid var(--surface)}
+nav.toc ol{display:flex;gap:4px;overflow-x:auto;list-style:none;margin:0 auto;max-width:1120px;padding:10px 16px;
+  scrollbar-width:none}
+nav.toc a{color:#E9ECF1;text-decoration:none;font-size:13px;padding:4px 10px;border-radius:6px;white-space:nowrap;
+  display:block}
+nav.toc a:hover,nav.toc a:focus-visible{background:#B4122B;color:#fff}
+main{padding-bottom:16px}
+main>section{padding:64px 0 8px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+.sec-head .num{font:700 14px var(--font-mono);color:var(--accent);white-space:nowrap}
+.sec-head h2{font:800 clamp(30px,4vw,42px)/1.05 var(--font-display);letter-spacing:-.015em;margin:0}
+.sec-head h2 a{color:inherit;text-decoration:none}
+h3{font:800 22px/1.2 var(--font-display);margin:28px 0 12px}
+h4{font:800 17px/1.2 var(--font-display);margin:18px 0 8px}
+.entrada{position:relative;margin:0 0 0 8px;padding:0 0 26px 34px;overflow-wrap:anywhere}
+.entrada::before{content:"";position:absolute;left:9px;top:8px;bottom:0;width:4px;background:var(--danger);border-radius:2px}
+.entrada:last-of-type::before{bottom:auto;height:16px}
+.entrada::after{content:"";position:absolute;left:2px;top:6px;width:16px;height:16px;border-radius:50%;background:var(--knot);
+  box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--ink)}
+.entrada>p{margin:0 0 12px}
+.fecha{font:800 22px/1.1 var(--font-display);margin:0 0 10px!important}
+.fecha time{color:var(--ink)}
 .ok{color:var(--ok)}.warn{color:var(--warn)}.danger{color:var(--danger)}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:10px 0}
-.kpi{background:var(--surface);border-radius:10px;padding:10px 12px;border-left:4px solid var(--accent);color:var(--ink)}
-.kpi b{display:block;font:800 26px/1.1 var(--font-display)}
-.kpi.ok{border-left-color:var(--ok)}.kpi.warn{border-left-color:var(--warn)}.kpi.danger{border-left-color:var(--danger)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin:20px 0}
+.kpi,.kpi.ok,.kpi.warn,.kpi.danger{background:var(--card);border:2px solid var(--ink);border-bottom-width:5px;border-radius:14px;
+  padding:14px 16px;font-size:13px;color:var(--muted)}
+.kpi b{display:block;font:800 40px/1 var(--font-display);margin-bottom:6px;color:var(--ink)}
 .kpi.ok b{color:var(--ok)}.kpi.warn b{color:var(--warn)}.kpi.danger b{color:var(--danger)}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:10px 0}
-.card{background:var(--surface);border-radius:10px;padding:12px;border-top:4px solid var(--muted);color:var(--ink)}
-.card.ok{border-top-color:var(--ok)}.card.warn{border-top-color:var(--warn)}.card.danger{border-top-color:var(--danger)}
-.card h3{margin-top:0}
-.tbl{display:block;overflow-x:auto;border-collapse:collapse;margin:10px 0;max-width:100%}
-.tbl th,.tbl td{border:1px solid var(--surface);padding:6px 10px;text-align:left;vertical-align:top}
-.tbl th{background:var(--surface)}
-.note{background:var(--surface);border-left:4px solid var(--accent);border-radius:8px;padding:10px 12px;margin:10px 0}
-.note.ok{border-left-color:var(--ok)}.note.warn{border-left-color:var(--warn)}.note.danger{border-left-color:var(--danger)}
-.bars{margin:10px 0}
-.bar{display:grid;grid-template-columns:minmax(80px,30%) 1fr;gap:8px;align-items:center;margin:4px 0}
-.bar i{display:block;height:14px;border-radius:4px;background:var(--accent);width:var(--v,0%)}
-.bar.ok i{background:var(--ok)}.bar.warn i{background:var(--warn)}.bar.danger i{background:var(--danger)}
-.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0;padding:0;list-style:none}
-.flow li{background:var(--surface);border-radius:8px;padding:6px 10px}
-.flow li+li::before{content:"→";margin-right:6px;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:18px 0}
+.card,.card.ok,.card.warn,.card.danger{background:var(--card);border:2px solid var(--ink);border-bottom-width:5px;
+  border-radius:14px;padding:18px 20px;color:var(--ink)}
+.card.warn{background:color-mix(in srgb,var(--knot) 16%,var(--card))}
+.card.danger{border-color:var(--danger)}
+.card h3,.card h4{font:800 19px/1.2 var(--font-display);margin:0 0 8px}
+.card.ok h3,.card.ok h4{color:var(--ok)}.card.danger h3,.card.danger h4{color:var(--danger)}
+.card p,.card ul{margin:0}.card ul{padding-left:18px}
+.tbl{width:100%;margin:16px 0;border:2px solid var(--ink);border-bottom-width:5px;
+  border-radius:14px;background:var(--card);border-collapse:separate;border-spacing:0;font-size:14px}
+.tbl th,.tbl td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--surface);vertical-align:top}
+.tbl th{background:var(--ink);color:var(--bg);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{font-weight:700}
+.note,.note.ok,.note.warn,.note.danger{border:2px solid var(--ink);border-left:10px solid var(--knot);border-radius:12px;
+  background:var(--card);padding:14px 18px;margin:18px 0;color:var(--ink)}
+.note.ok{border-left-color:var(--ok)}.note.danger{border-left-color:var(--danger)}
+.note p{margin:0}
+.note b:first-child,.note strong:first-child{font-family:var(--font-display);font-weight:800;font-size:17px}
+.bars{display:grid;gap:10px;margin:16px 0}
+.bar,.bar.ok,.bar.warn,.bar.danger{display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:center;font-size:14px;
+  color:var(--ink)}
+.bar i{display:block;height:22px;border:2px solid var(--ink);border-radius:6px;--c:var(--ink);
+  background:linear-gradient(to right,var(--c) var(--v,0%),var(--surface) var(--v,0%))}
+.bar.ok i{--c:var(--ok)}.bar.warn i{--c:var(--knot)}.bar.danger i{--c:var(--danger)}
+.flow{counter-reset:paso;display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0;padding:0;list-style:none}
+.flow li{counter-increment:paso;display:flex;align-items:center;gap:8px;background:var(--card);border:2px solid var(--ink);
+  border-radius:10px;padding:4px 12px 4px 4px;font-size:14px}
+.flow li::before{content:counter(paso);width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--bg);
+  font-weight:700;font-size:12px;display:grid;place-items:center}
+footer{margin-top:64px;background:#14161A;color:#E9ECF1;font-size:13px}
+footer .wrap{padding-top:28px;padding-bottom:36px;display:flex;gap:20px;align-items:center}
+footer svg{flex:0 0 56px}
+footer code{background:transparent;color:inherit;border:1px solid}
+@media (max-width:860px){
+  .hero .wrap{grid-template-columns:1fr}
+  .art{max-width:220px}
+  .bar,.bar.ok,.bar.warn,.bar.danger{grid-template-columns:120px 1fr;font-size:13px}
+  .tbl{display:block;overflow-x:auto}
+}
 """
+
+# El dron de barrilete atado a su rienda (hero) y su cara (pie). Colores fijos: es la marca, no un token.
+DRON = """<svg viewBox="0 0 400 400" role="img" aria-label="barrilete">
+<rect width="400" height="400" rx="24" fill="#E9ECF1"/>
+<path d="M200 166 Q200 220 150 236 Q100 252 140 300 Q170 336 250 340" stroke="#B4122B" stroke-width="7" fill="none" stroke-linecap="round"/>
+<circle cx="150" cy="236" r="11" fill="#FFB020"/><circle cx="140" cy="300" r="11" fill="#FFB020"/>
+<rect x="246" y="328" width="72" height="24" rx="12" fill="#14161A"/><rect x="258" y="333" width="48" height="10" rx="4" fill="#B4122B"/><rect x="258" y="341" width="48" height="4" rx="2" fill="#5A6270"/>
+<rect x="120" y="52" width="64" height="8" rx="4" fill="#14161A"/><rect x="216" y="52" width="64" height="8" rx="4" fill="#14161A"/>
+<rect x="148" y="58" width="6" height="18" rx="3" fill="#14161A"/><rect x="246" y="58" width="6" height="18" rx="3" fill="#14161A"/>
+<rect x="140" y="70" width="120" height="98" rx="40" fill="#FFFFFF"/><rect x="158" y="92" width="84" height="46" rx="18" fill="#14161A"/>
+<circle cx="186" cy="115" r="7" fill="#8FB0FF"/><circle cx="214" cy="115" r="7" fill="#8FB0FF"/>
+<rect x="190" y="160" width="20" height="10" rx="4" fill="#B4122B"/>
+</svg>"""
+CARA = """<svg viewBox="0 0 160 140" width="56" height="49" aria-hidden="true"><rect x="0" y="12" width="64" height="10" rx="5" fill="#E9ECF1"/><rect x="96" y="12" width="64" height="10" rx="5" fill="#E9ECF1"/><rect x="27" y="18" width="8" height="18" rx="3" fill="#E9ECF1"/><rect x="125" y="18" width="8" height="18" rx="3" fill="#E9ECF1"/><rect x="20" y="30" width="120" height="98" rx="40" fill="#E9ECF1"/><rect x="38" y="52" width="84" height="46" rx="18" fill="#14161A"/><circle cx="66" cy="75" r="9" fill="#8FB0FF"/><circle cx="94" cy="75" r="9" fill="#8FB0FF"/><rect x="70" y="120" width="20" height="12" rx="4" fill="#B4122B"/></svg>"""
 
 
 class ErrorDeUso(Exception):
@@ -160,31 +235,46 @@ def pagina_vacia(repo):
     lang = idioma(repo)
     tx = TEXTOS[lang]
     estilos = "".join(f'<style id="theme-{nombre}">\n{css}\n</style>\n' for nombre, css in temas(repo))
+    nombre = html.escape(os.path.basename(os.path.abspath(repo)) or tx["title"])
+    hoy = datetime.date.today().isoformat()
+    ini, medio, fin = (html.escape(x) for x in tx["leash"])
     return f"""<!doctype html>
 <html lang="{lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(tx["title"])}</title>
+<title>{html.escape(tx["title"])} · {nombre}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="{html.escape(FUENTES)}">
 {estilos}<style id="structure">{ESTRUCTURA}</style>
 </head>
 <body>
-<header>
-<h1>{html.escape(tx["title"])}</h1>
-<p class="sub">{tx["sub"]}</p>
+<header class="hero">
+<div class="wrap">
+<div>
+<div class="tags"><span class="stamp">{html.escape(tx["stamp"])}</span><span class="chip">{tx["since"]} {hoy}</span></div>
+<h1>{nombre}</h1>
+<p class="lema">{tx["motto"]}</p>
+<p class="lead">{tx["sub"]}</p>
+<div class="leash"><span>{ini}</span><span class="knot"></span><span class="rope"></span><span class="mid">{medio}</span><span class="rope"></span><span class="knot"></span><span>{fin}</span></div>
+<div class="prompt"><b>&gt;_</b> /bitacora &lt;{"tema" if lang == "es" else "topic"}&gt;</div>
+</div>
+<div class="art">{DRON}</div>
+</div>
 </header>
-<nav aria-label="{html.escape(tx["contents"])}">
-<h2>{html.escape(tx["contents"])}</h2>
+<nav class="toc" aria-label="{html.escape(tx["contents"])}">
+<h2 class="sr">{html.escape(tx["contents"])}</h2>
 <ol>
 {MARCA_NAV}
 </ol>
 </nav>
-<main>
+<main class="wrap">
 {MARCA_MAIN}
 </main>
+<footer>
+<div class="wrap">{CARA}<div>{tx["footer"]}</div></div>
+</footer>
 </body>
 </html>
 """
@@ -404,9 +494,11 @@ def cmd_add(repo, a):
         destino, nueva = s, True
     if nueva:
         tema = html.escape(a.topic.strip())
-        texto = insertar(texto, MARCA_NAV, f'<li><a href="#{destino}">{tema}</a></li>\n')
+        num = f"{len(lista) + 1:02d}"   # el número de la sección, como en el HTML de estado: >_ 01
+        texto = insertar(texto, MARCA_NAV, f'<li><a href="#{destino}">{num} {tema}</a></li>\n')
         texto = insertar(texto, MARCA_MAIN, f'<section id="{destino}" data-topic="{tema}">\n'
-                                            f'<h2><a href="#{destino}">{tema}</a></h2>\n'
+                                            f'<div class="sec-head"><span class="num">&gt;_ {num}</span>'
+                                            f'<h2><a href="#{destino}">{tema}</a></h2></div>\n'
                                             f'{marca_fin(destino)}\n</section>\n')
     hoy = (a.date or datetime.date.today()).isoformat()
     texto = insertar(texto, marca_fin(destino), f'<article class="entrada">\n'

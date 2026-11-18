@@ -36,7 +36,7 @@ La página trae los estilos de estas clases; el skill lista su HTML.
 
 ## El diseño: tokens
 
-La página usa solo estos tokens. El diseño de barrilete (`scripts/agents/bitacora/barrilete.css`) les da sus valores por defecto, para modo claro y oscuro (sigue al sistema con `prefers-color-scheme`).
+La página tiene la forma del HTML de estado de barrilete: arriba el nombre del proyecto con el dron y la rienda, el índice en una barra oscura fija, cada tema como sección numerada (`>_ 01`) y sus entradas sobre la rienda, una debajo de otra, con su fecha. Los colores de marca del dron, la barra y el pie son fijos; todo lo demás usa solo estos tokens. El diseño de barrilete (`scripts/agents/bitacora/barrilete.css`) les da sus valores por defecto, para modo claro y oscuro (sigue al sistema con `prefers-color-scheme`).
 
 | Token | Qué es | Claro | Oscuro |
 |---|---|---|---|
@@ -49,6 +49,7 @@ La página usa solo estos tokens. El diseño de barrilete (`scripts/agents/bitac
 | `--ok` | hecho | `#17693D` | `#5FD39A` |
 | `--warn` | en curso | `#8A5300` | `#FFB020` |
 | `--danger` | te espera a vos, roto | `#B4122B` | `#FF8A96` |
+| `--knot` | relleno de los nudos de la rienda, barras en curso y notas; nunca texto | `#FFB020` | `#FFB020` |
 | `--font-display` | títulos | Bricolage Grotesque, después las del sistema | |
 | `--font-mono` | todo lo demás | JetBrains Mono, después las del sistema | |
 

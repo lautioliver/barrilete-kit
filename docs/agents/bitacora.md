@@ -36,7 +36,7 @@ The page carries the styles of these classes; the skill lists their HTML.
 
 ## The design: tokens
 
-The page uses only these tokens. The barrilete design (`scripts/agents/bitacora/barrilete.css`) gives them their default values, for light and dark mode (it follows the system with `prefers-color-scheme`).
+The page has the shape of the barrilete status HTML: on top the project name with the drone and the leash, the contents in a fixed dark bar, each topic as a numbered section (`>_ 01`) and its entries on the leash, one below the other, with their date. The brand colors of the drone, the bar and the footer are fixed; everything else uses only these tokens. The barrilete design (`scripts/agents/bitacora/barrilete.css`) gives them their default values, for light and dark mode (it follows the system with `prefers-color-scheme`).
 
 | Token | What it is | Light | Dark |
 |---|---|---|---|
@@ -49,6 +49,7 @@ The page uses only these tokens. The barrilete design (`scripts/agents/bitacora/
 | `--ok` | done | `#17693D` | `#5FD39A` |
 | `--warn` | in progress | `#8A5300` | `#FFB020` |
 | `--danger` | waiting on you, broken | `#B4122B` | `#FF8A96` |
+| `--knot` | fill of the leash knots, in-progress bars and notes; never text | `#FFB020` | `#FFB020` |
 | `--font-display` | titles | Bricolage Grotesque, then the system's | |
 | `--font-mono` | everything else | JetBrains Mono, then the system's | |
 
