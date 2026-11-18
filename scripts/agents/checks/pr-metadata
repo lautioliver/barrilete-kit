@@ -8,7 +8,9 @@ Reads the open PR of the current branch (`gh pr view --json number,body`) and co
   - every failing case of the red block (`- <file>::<name>`) is in that file at the red commit (the ids of the tests are
     in the source, as written or in the spellings of the file's language (`.sh`: `\\"` `\\\\` `\\$` and the backtick escaped,
     as red_report.defines; `.js`/`.ts`: a backslash before any character, as red_report.unescape_js), because red.sh
-    reports the id unescaped: a case that is not there was not written by the red commit);
+    reports the id unescaped: a case that is not there was not written by the red commit); the last part of a `.js`/`.ts`
+    name may also be an it.each title, and a group a describe.each title, with placeholders (`%s`, `$x`, `${...}`)
+    the runner filled in (#355), matched as red_report.js_defines does; a JS/TS name is split only on ` > `;
   - the `N commits` the body says is the number of commits of <ref>..HEAD;
   - `Closes`/`Refs #n` names the issue of the branch (`<type>/<n>-<description>`) and never the number of the PR itself.
 Code blocks (``` and ~~~) are not read: what is quoted there is not a claim of the PR.
@@ -20,9 +22,13 @@ or gh failed: no network, no login, another wording): verify.py reports it as "n
 (1 and 2 are left for a crash, a Python traceback, so that a test can tell it from an expected failure.)
 """
 import json
+import os
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
+import red_report  # noqa: E402  (scripts/agents/red_report.py: the same JS spellings and it.each titles red.sh accepts)
 
 USAGE = "Usage: scripts/agents/checks/pr-metadata --base <ref>"
 HEX = re.compile(r"^[0-9a-fA-F]{7,64}$")
@@ -36,7 +42,7 @@ CASE_BULLET = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
 BRANCH_ISSUE = re.compile(r"^(?!release/)[a-z]+/(?:[a-z]{1,20}/)?(\d+)-")  # also claude/<type>/<n>-…
 
 
-JS_EXT = (".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts")  # the same list as red_report.JS_EXT
+JS_EXT = red_report.JS_EXT
 
 
 def sh_spelling(name):
@@ -51,12 +57,46 @@ def js_spelling(name):
     return re.compile("".join(r"\\\\" if c == "\\" else r"\\?" + re.escape(c) for c in name))
 
 
-def in_source(path, part, src):
+TEST_CALL = re.compile(r"(?<![\w$.])(?:it|test)(?=\s*[.(])")
+DESCRIBE_EACH = re.compile(r"(?<![\w$])describe(?=(?:\.[a-zA-Z]+)*\.each\b)")
+JS_STRING = re.compile(r"([\"'`])(?:\\.|(?!\1)[^\\])*\1")  # a backslash only as an escape: no backtracking
+
+
+def as_group(line):
+    """`describe` read as `it` before `.each`, and the tests' own `it`/`test` hidden, only outside the string
+    literals: a describe.each title such as `'it (%s)'` keeps its text."""
+    out, last = [], 0
+    for m in JS_STRING.finditer(line):
+        out.append(DESCRIBE_EACH.sub("it", TEST_CALL.sub("_t", line[last:m.start()])))
+        out.append(m.group(0))
+        last = m.end()
+    out.append(DESCRIBE_EACH.sub("it", TEST_CALL.sub("_t", line[last:])))
+    return "".join(out)
+
+
+def each_title(part, src, last):
+    """Is `part` an it.each title (`last`, the test's own) or a describe.each title (a group) of `src`, with the
+    placeholders the runner fills in (#355)? red_report.js_defines matches the whole title; for a group, `describe` is
+    read as `it` before `.each` (and the tests' own `it`/`test` are hidden), so the same scan reads only the title of the table."""
+    lines = src.split("\n")
+    if not last:  # a group: only describe.each titles count, so the tests' own it/test are hidden first
+        lines = [as_group(line) for line in lines]
+    return red_report.js_defines(list(enumerate(lines, 1)), part)
+
+
+def name_parts(path, cname):
+    """The parts of a case name: ` > ` between the groups and the test in JS/TS (red_report.base_name), where an it.each
+    value can carry `::`; also `::` in the rest."""
+    return cname.split(" > ") if path.endswith(JS_EXT) else re.split(r"::| > ", cname)
+
+
+def in_source(path, part, src, last=False):
     """Is `part` of a case name in `src`, as the file of `path` can write it? red.sh reports the id unescaped and the
     source keeps it escaped (#341 bash, #349 JS/TS); only the spellings of that language count, so a stray escape
-    elsewhere in the file does not make an invented name match."""
+    elsewhere in the file does not make an invented name match. A JS/TS part can also be an it.each (`last`) or
+    describe.each title with placeholders (#355)."""
     if path.endswith(JS_EXT):  # not `part in src`: a lone backslash of the source is an escape, not a backslash of the name
-        return js_spelling(part).search(src) is not None
+        return js_spelling(part).search(src) is not None or each_title(part, src, last)
     if part in src:
         return True
     if path.endswith(".sh"):
@@ -151,13 +191,15 @@ def main(argv):
             in_cases = True
             case = CASE_BULLET.sub("", t, count=1).strip().strip("`").strip()
             path, _, cname = case.partition("::")
+            parts = name_parts(path.strip(), cname)
             n_cases += 1
             rc, src, _ = run("git", "show", f"{red}:{path}") if path.strip() else (1, "", "")
             if not path.strip():
                 problems.append(f"failing case {case!r}: it has no file path before ::")
             elif rc != 0:
                 problems.append(f"failing case {case!r}: {path} does not exist at the red commit {red}")
-            elif not all(part and in_source(path.strip(), part, src) for part in re.split(r"::| > ", cname)):
+            elif not all(part and in_source(path.strip(), part, src, i == len(parts) - 1)
+                         for i, part in enumerate(parts)):
                 problems.append(f"failing case {case!r}: the name is not in {path} at the red commit {red}")
 
     for line in lines:

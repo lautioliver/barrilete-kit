@@ -195,6 +195,7 @@
       "when": [
         "scripts/agents/verify.py",
         "scripts/agents/checks/**",
+        "scripts/agents/red_report.py",
         "scripts/agents/learning.py",
         "scripts/agents/test-checks.sh"
       ],

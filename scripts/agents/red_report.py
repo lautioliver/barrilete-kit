@@ -489,25 +489,44 @@ PLACEHOLDER = re.compile(r"%[sdifjoOp#]|%%|\$\{[^}]*\}|\$[A-Za-z_][\w.]*")
 
 
 def title_matches(template, name):
-    """An it.each template: placeholders are wildcards and the whole name has to match."""
-    parts, last, literal = [], 0, ""
+    """An it.each template: placeholders are wildcards and the whole name has to match.
+    Matched as a glob (the literal pieces in order, each one at its leftmost place), not as a regex of `.*`: that one
+    backtracks, and a title with a few placeholders against a long name took seconds or did not end (#355)."""
+    pieces, last, cur, literal = [], 0, "", ""
     for m in PLACEHOLDER.finditer(template):
         lit = template[last:m.start()]
         literal += lit
-        parts.append(re.escape(lit))
-        parts.append(re.escape("%") if m.group(0) == "%%" else ".*")
+        cur += lit
+        if m.group(0) == "%%":
+            cur += "%"
+        else:
+            pieces.append(cur)
+            cur = ""
         last = m.end()
     lit = template[last:]
     literal += lit
-    parts.append(re.escape(lit))
+    pieces.append(cur + lit)
     if not literal.strip():
         return False  # a title made only of placeholders would match any name
-    return re.fullmatch("".join(parts), name, re.S) is not None
+    if len(pieces) == 1:
+        return name == pieces[0]
+    head, tail = pieces[0], pieces[-1]
+    if len(name) < len(head) + len(tail) or not name.startswith(head) or not name.endswith(tail):
+        return False
+    pos, end = len(head), len(name) - len(tail)
+    for piece in pieces[1:-1]:
+        i = name.find(piece, pos, end)
+        if i < 0:
+            return False
+        pos = i + len(piece)
+    return True
 
 
 JS_PLAIN = re.compile(
-    r"(?<![\w$.])(?:it|test)(?:\.(?:only|skip|concurrent|todo|fails|failing|sequential))*\s*\(\s*([\"'`])((?:\\.|(?!\1).)*)\1")
-JS_EACH_CALL = re.compile(r"[)`]\s*\(\s*([\"'`])((?:\\.|(?!\1).)*)\1")
+    r"(?<![\w$.])(?:it|test)(?:\.(?:only|skip|concurrent|todo|fails|failing|sequential))*\s*\(\s*([\"'`])((?:\\.|(?!\1)[^\\])*)\1")
+# A backslash in a string literal is only an escape (`\\.`): with `(?!\1).` it could also be a plain character, and
+# a long run of them in an unterminated string backtracked exponentially (#355).
+JS_EACH_CALL = re.compile(r"[)`]\s*\(\s*([\"'`])((?:\\.|(?!\1)[^\\])*)\1")
 
 
 def unescape_js(s):
@@ -515,7 +534,7 @@ def unescape_js(s):
 
 
 JS_EACH = re.compile(r"(?<![\w$])(?:it|test)(?:\.[a-zA-Z]+)*\.each\b")
-JS_CLOSE = re.compile(r"^\s*[\])`]+\s*\(\s*([\"'`])((?:\\.|(?!\1).)*)\1")
+JS_CLOSE = re.compile(r"^\s*[\])`]+\s*\(\s*([\"'`])((?:\\.|(?!\1)[^\\])*)\1")
 
 
 def js_defines(added, name):

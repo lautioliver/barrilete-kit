@@ -48,11 +48,31 @@ describe('grupo', () => {
   it("say \"hi\"", () => {});
   it('ruta C:\\tmp', () => {});
   it('ruta D:\tmp', () => {});
+  it.each([[1], [2]])('suma %s', (n) => {});
+  test.each([{ name: 'a' }])('caso $name', ({ name }) => {});
+  it.each([[1]])('%s', () => {});
+  it.each([[1]])('%s%s%s%s%s%s%s%sx', () => {});
+  it.each([[1]])('%sx%sx%sx%sx%sx%sx%sx%sxc', () => {});
+  it.each([[1]])('pide %s y %s', () => {});
+  it.each([['a::b']])('par %s', () => {});
+});
+describe.each([[1]])('tabla %s', () => {
+  it('anda', () => {});
+});
+describe.each([[1]])('it (%s)', () => {
+  it('va', () => {});
 });
 EOF3
 cat >"$P/scripts/agents/y.test.mjs" <<'EOF4'
 it('it\'s mjs', () => {});
 EOF4
+# Un string sin cerrar con 60 barras invertidas antes de un it.each, una vez por cada regex de red_report.js_defines (it(,
+# it.each(...)( y la línea que cierra la tabla): `(?:\\.|(?!\1).)*` hacía backtracking y pr-metadata no terminaba.
+printf -v barras '%60s' ''
+barras=${barras// /\\}
+printf "it('%s\nit.each([[1]])('ok %%s', () => {});\n" "$barras" >"$P/scripts/agents/z1.test.ts"
+printf "it.each([[1]])('%s\nit.each([[1]])('ok %%s', () => {});\n" "$barras" >"$P/scripts/agents/z2.test.ts"
+printf "it.each([\n])('%s\nit.each([[1]])('ok %%s', () => {});\n" "$barras" >"$P/scripts/agents/z3.test.ts"
 printf 'def test_algo():\n    pass\n' >"$P/scripts/agents/test_x.py"
 git -C "$P" add -A && git -C "$P" commit -qm rojo; RED=$(git -C "$P" rev-parse --short=10 HEAD)
 echo verde >"$P/impl.txt"
@@ -83,6 +103,18 @@ BIEN=$(cuerpo "$RED" 2 "scripts/agents/test-x.sh::caso uno" "Closes #7")
 cat >"$TMP/rc.py" <<'EOF'
 import subprocess, sys
 r = subprocess.run(sys.argv[1:], capture_output=True, text=True)
+sys.stdout.write(r.stdout + r.stderr)
+print("rc=%d" % r.returncode)
+EOF
+# tiempo.py: como rc.py, pero corta a los 20 s e imprime `timeout` (#355: un título de it.each con muchos comodines no
+# puede colgar pr-metadata); sin corte, `rc=<estado>`. Sale con 0 en los dos casos: cada caso mira lo que imprimió.
+cat >"$TMP/tiempo.py" <<'EOF'
+import subprocess, sys
+try:
+    r = subprocess.run(sys.argv[1:], capture_output=True, text=True, timeout=20)
+except subprocess.TimeoutExpired:
+    print("timeout")
+    sys.exit(0)
 sys.stdout.write(r.stdout + r.stderr)
 print("rc=%d" % r.returncode)
 EOF
@@ -163,6 +195,63 @@ grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id JS con barra inve
 pr 12 "$(cuerpo "$RED" 2 "scripts/agents/y.test.mjs::it's mjs" "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
 [ "$TAP_RC" = 0 ]; tap_check $? "casos: un id de un .mjs con comilla escapada en el fuente se encuentra"
+
+# 6d. it.each: el runner reporta el título con los comodines ya reemplazados (#355), como lo acepta red_report.title_matches
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > suma 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un it.each con %s en el título se encuentra con el valor reemplazado"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > caso a" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un test.each con un comodín con nombre en el título se encuentra con el valor reemplazado"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > otra suma 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "otra suma 1.*name is not in" <<<"$out"; tap_check $? "casos: un nombre que solo contiene un título de it.each falla (el nombre entero)"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > cualquier cosa" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "cualquier cosa.*name is not in" <<<"$out"; tap_check $? "casos: un título de it.each hecho solo de comodines no acepta cualquier nombre"
+printf -v largo '%3000s' ''
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > ${largo// /a}" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=3' <<<"$out"; tap_check $? "casos: un título de it.each con 8 comodines contra un nombre de 3000 caracteres termina y falla" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > ${largo// /a}xc" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=3' <<<"$out"; tap_check $? "casos: un título de it.each con el principio y el final del nombre y sin las partes del medio termina y falla" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::grupo > pide y z" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "pide y z.*name is not in" <<<"$out"; tap_check $? "casos: un nombre sin una parte literal del medio de un título de it.each falla"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::par a::b" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un valor de it.each con :: no parte el nombre de un caso JS"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::tabla 1 > anda" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un grupo de describe.each con %s se encuentra con el valor reemplazado"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::otra tabla 1 > anda" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "otra tabla 1.*name is not in" <<<"$out"; tap_check $? "casos: un grupo inventado sigue fallando aunque haya un describe.each"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::it (1) > va" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 scripts/agents/checks/pr-metadata --base origin/main
+[ "$TAP_RC" = 0 ]; tap_check $? "casos: un título de describe.each que empieza con it ( se encuentra (no se oculta dentro del string)"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/x.test.ts::suma 1 > anda" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
+grep -q "suma 1 > anda.*name is not in" <<<"$out"; tap_check $? "casos: un grupo no se encuentra con el título de un it.each (es de un test, no de un grupo)"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/z1.test.ts::ok 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=0' <<<"$out"; tap_check $? "casos: un string sin cerrar con muchas barras en it( no cuelga pr-metadata" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/z2.test.ts::ok 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=0' <<<"$out"; tap_check $? "casos: un string sin cerrar con muchas barras en it.each(...)( no cuelga pr-metadata" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/z3.test.ts::ok 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=0' <<<"$out"; tap_check $? "casos: un string sin cerrar con muchas barras en el cierre de una tabla de it.each no cuelga pr-metadata" "$(tail -1 <<<"$out")"
+pr 12 "$(cuerpo "$RED" 2 "scripts/agents/z1.test.ts::nada 1 > ok 1" "Closes #7")"
+GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 0 python3 "$TMP/tiempo.py" python3 scripts/agents/checks/pr-metadata --base origin/main
+tap_no_traceback "$out"
+grep -qx 'rc=3' <<<"$out"; tap_check $? "casos: un string sin cerrar con muchas barras no cuelga la búsqueda de un grupo" "$(tail -1 <<<"$out")"
 pr 12 "$(cuerpo "$RED" 2 'scripts/agents/test-x.sh::ls "a" y $B' "Closes #7")"
 GH_MODE=pr PATH="$TMP/bin:$PATH" tap_run out 3 python3 scripts/agents/checks/pr-metadata --base origin/main
 grep -q 'name is not in' <<<"$out"; tap_check $? "casos: un id bash con escapes mezclados que red.sh no reportaría falla"
