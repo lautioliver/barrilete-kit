@@ -13,7 +13,7 @@ Reads the open PR of the current branch (`gh pr view --json number,body`) and co
   - `Closes`/`Refs #n` names the issue of the branch (`<type>/<n>-<description>`) and never the number of the PR itself.
 Code blocks (``` and ~~~) are not read: what is quoted there is not a claim of the PR.
 With no open PR for the branch it says it did not verify and exits with 4 (verify.py runs before the PR is opened).
-A case is looked up by substring, as written or in those spellings of each part of its name, never with the whole source unescaped (each part has to be in the file at the red commit): it proves the case is not
+A case is looked up by substring, as written (not in `.js`/`.ts`, where a lone backslash of the source is an escape) or in those spellings of each part of its name, never with the whole source unescaped (each part has to be in the file at the red commit): it proves the case is not
 invented, not that the red commit defines it; `red.sh` and the reviewer check that.
 Exit status: 0 verified and it matches; 3 the body does not match (each problem is printed); 4 it could not verify (no open PR,
 or gh failed: no network, no login, another wording): verify.py reports it as "not verified" and never as ok; 64 invalid usage.
