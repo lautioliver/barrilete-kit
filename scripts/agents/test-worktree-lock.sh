@@ -362,4 +362,49 @@ if [ -f "$RAIZ/.claude/skills/review-pr/SKILL.es.md" ]; then grep -qF -- "creado
 if [ "$CHICO" = 1 ]; then tap_skip "implement-issue (es): el agente de bk toma el candado al empezar" "proyecto chico (mode: small): su implement-issue no trae la parte de bk"
 elif [ -f "$RAIZ/.claude/skills/implement-issue/SKILL.es.md" ]; then grep -qF -- "scripts/agents/worktree-lock.sh claim" "$RAIZ/.claude/skills/implement-issue/SKILL.es.md"; tap_check $? "implement-issue (es): el agente de bk toma el candado al empezar"; else tap_skip "implement-issue (es): el agente de bk toma el candado al empezar" "no existe .claude/skills/implement-issue/SKILL.es.md en este proyecto"; fi
 
+# 13. #350: el mensaje held nombra la sesión dueña (el pid cruzado con <sesiones>/<pid>.json de Claude Code), así quien lo
+# recibe sabe a quién pedirle que lo suelte. Sin ese archivo, el mensaje queda como antes.
+rm -f "$GDIR/agent-lock"
+mkdir -p "$TMP/sesiones"
+printf '{"pid":%s,"name":"chat-duenio","status":"idle"}\n' "$VIVO" >"$TMP/sesiones/$VIVO.json"
+export WORKTREE_LOCK_SESSIONS_DIR="$TMP/sesiones"
+export WORKTREE_LOCK_PID=$VIVO WORKTREE_LOCK_AGENT=agente-a
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+export WORKTREE_LOCK_PID=$$ WORKTREE_LOCK_AGENT=agente-b
+tap_run out 0 "$LOCK" claim "$TMP/wt"
+grep -q 'session chat-duenio' <<<"$out"; tap_check $? "sesión dueña: claim held nombra la sesión"
+grep -q 'session chat-duenio, idle' <<<"$out"; tap_check $? "sesión dueña: claim held dice si la sesión está quieta"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q 'session chat-duenio' <<<"$out"; tap_check $? "sesión dueña: status held nombra la sesión"
+printf '{"pid":%s,"name":"a\\nheld: falso","status":"idle"}\n' "$VIVO" >"$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+n=$(printf '%s\n' "$out" | wc -l | tr -d ' ')
+[ "$n" = 1 ]; tap_check $? "sesión dueña: un nombre con salto de línea no agrega líneas al mensaje"
+rm -f "$TMP/sesiones/$VIVO.json"
+tap_run out 0 "$LOCK" status "$TMP/wt"
+grep -q "^held: agente-a (pid $VIVO, since [^,)]*); another agent" <<<"$out"; tap_check $? "sin archivo de sesión: el mensaje held queda como antes"
+unset WORKTREE_LOCK_SESSIONS_DIR WORKTREE_LOCK_PID WORKTREE_LOCK_AGENT
+rm -f "$GDIR/agent-lock"
+
+# 14. #350: una sesión común que siguió implement-issue en un worktree suelta el candado al entregar (paso 9) y al soltar
+# el issue. Si no, la sesión queda abierta con el worktree held (los casos de #346 y #347).
+if [ "$CHICO" = 1 ]; then
+  tap_skip "implement-issue: el paso 9 suelta el candado del worktree" "proyecto chico (mode: small): su implement-issue no usa worktrees"
+  tap_skip "implement-issue: soltar el issue suelta el candado del worktree" "proyecto chico (mode: small): su implement-issue no usa worktrees"
+else
+  tap_run out 0 awk -v h="## 9." 'index($0, h) == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/.claude/skills/implement-issue/SKILL.md"
+  grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: el paso 9 suelta el candado del worktree"
+  tap_run out 0 awk 'index($0, "## If you have to drop") == 1 || index($0, "## Si hay que soltar") == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/.claude/skills/implement-issue/SKILL.md"
+  grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue: soltar el issue suelta el candado del worktree"
+fi
+if [ "$CHICO" = 0 ] && [ -f "$RAIZ/.claude/skills/implement-issue/SKILL.es.md" ]; then
+  tap_run out 0 awk 'index($0, "## 9.") == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/.claude/skills/implement-issue/SKILL.es.md"
+  grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue (es): el paso 9 suelta el candado del worktree"
+  tap_run out 0 awk 'index($0, "## Si hay que soltar") == 1 {on=1; print; next} on && /^## / {exit} on {print}' "$RAIZ/.claude/skills/implement-issue/SKILL.es.md"
+  grep -qF -- "scripts/agents/worktree-lock.sh release <worktree>" <<<"$out"; tap_check $? "implement-issue (es): soltar el issue suelta el candado del worktree"
+else
+  tap_skip "implement-issue (es): el paso 9 suelta el candado del worktree" "no existe SKILL.es.md o proyecto chico"
+  tap_skip "implement-issue (es): soltar el issue suelta el candado del worktree" "no existe SKILL.es.md o proyecto chico"
+fi
+
 tap_done
