@@ -20,7 +20,7 @@ Enmendado en lautioliver/barrilete-kit#324 (2026-11-17), decidido por @lautioliv
 
 Enmendado en lautioliver/barrilete-kit#348 (2026-11-18), decidido por @lautioliver en el chat (registrado en https://github.com/lautioliver/barrilete-kit/issues/348#issuecomment-6968066532): D3 limita `evidence_ref` a una ruta local más las URLs de GitHub de la lista de D3, en lugar de cualquier URL sin credenciales ni query.
 
-Enmendado en lautioliver/barrilete-kit#345 (2026-11-18), decidido por @lautioliver en el chat (registrado en https://github.com/lautioliver/barrilete-kit/issues/345#issuecomment-6988907723): en D3, `class` de un `deviation` es el tipo del desvío y todos los desvíos van al store; en D5, los desvíos cuentan por el mapeo tipo → clase de `classes.yml`.
+Enmendado en lautioliver/barrilete-kit#345 (2026-11-18), decidido por @lautioliver en el chat (registrado en https://github.com/lautioliver/barrilete-kit/issues/345#issuecomment-6988907723): en D3, `class` de un `deviation` es el tipo del desvío y todos los desvíos van al store; en D5, los desvíos cuentan por el mapeo tipo → clase de `classes.yml`. ADR-006 D4 no cambia: las clases de desvío de `classes.yml` son las que reciben tipos por ese mapeo.
 
 ## Contexto
 
@@ -63,7 +63,7 @@ ADR-006 unificó las reglas en `barrilete-rules`, pero dejó los datos de aprend
    | `rules_ref` | ver D6 | qué versión de las reglas recibió el agente |
 
    - **`evidence_ref`:** una ruta local, o solo una de estas URLs, todas de `https://github.com/<owner>/<repo>/`: `pull/<n>` o `issues/<n>` con un `#issuecomment-<n>` o `#discussion_r<n>` opcional; `blob/<sha>/<ruta>` con un `#L<n>` o `#L<n>-L<m>` opcional; `commit/<sha>`. `<sha>` es hexadecimal (minúscula, de 7 a 40 dígitos). Cualquier otra URL se rechaza (en las otras viaja un webhook o un token, y `push` publica el store).
-   - **`class` en `deviation`:** el tipo del desvío como slug, no un id de `classes.yml`. Los que escribe hoy el adaptador de Claude Code (`bk learn`): `guardrail-block`, `hook-block`, `user-denied`, `interrupt`, `verify-fail`, `contract-*`, `plan-correction` y `user-correction`. Un tipo se conecta con su clase por el mapeo de D5.
+   - **`class` en `deviation`:** el tipo del desvío como slug, no un id de `classes.yml`. Por ejemplo, `guardrail-block` o `user-correction`; la lista completa es la del adaptador de Claude Code (`bk learn`, `lib/deviations.py` de barrilete-workspace). Un tipo se conecta con su clase por el mapeo de D5.
    - **Todos los desvíos van al store**, también las correcciones, los rechazos y las interrupciones de la persona (`user-correction`, `user-denied`, `interrupt`, `plan-correction`): el evento guarda el tipo, nunca lo que la persona escribió.
    - **Obligatorios:** `v`, `ts`, `project`, `kind`, `model` y `harness`. El resto va cuando se conoce. Quien emite no adivina: si no puede saber el modelo o el harness, escribe `unknown`, y el reporte los cuenta aparte.
    - **`outcome`:** en `check_run`, `pass`, `fail` o `skipped` (el check no pudo verificar), como en el v0 de #323. En `task_end`, los estados terminales de ADR-005 D3: `completed`, `failed`, `incomplete` o `cancelled`. En `deviation` y `finding` no va.

@@ -20,7 +20,7 @@ Amended in lautioliver/barrilete-kit#324 (2026-11-17), decided by @lautioliver: 
 
 Amended in lautioliver/barrilete-kit#348 (2026-11-18), decided by @lautioliver in the chat (recorded in https://github.com/lautioliver/barrilete-kit/issues/348#issuecomment-6968066532): D3 limits `evidence_ref` to a local path plus the GitHub URLs of the list in D3, instead of any URL without credentials or query.
 
-Amended in lautioliver/barrilete-kit#345 (2026-11-18), decided by @lautioliver in the chat (recorded in https://github.com/lautioliver/barrilete-kit/issues/345#issuecomment-6988907723): in D3, the `class` of a `deviation` is the deviation type and every deviation goes to the store; in D5, deviations count through the type → class mapping of `classes.yml`.
+Amended in lautioliver/barrilete-kit#345 (2026-11-18), decided by @lautioliver in the chat (recorded in https://github.com/lautioliver/barrilete-kit/issues/345#issuecomment-6988907723): in D3, the `class` of a `deviation` is the deviation type and every deviation goes to the store; in D5, deviations count through the type → class mapping of `classes.yml`. ADR-006 D4 does not change: the deviation classes of `classes.yml` are the ones that receive types through that mapping.
 
 ## Context
 
@@ -63,7 +63,7 @@ ADR-006 unified the rules in `barrilete-rules`, but left the learning data outsi
    | `rules_ref` | see D6 | which version of the rules the agent received |
 
    - **`evidence_ref`:** a local path, or only one of these URLs, all of `https://github.com/<owner>/<repo>/`: `pull/<n>` or `issues/<n>` with an optional `#issuecomment-<n>` or `#discussion_r<n>`; `blob/<sha>/<path>` with an optional `#L<n>` or `#L<n>-L<m>`; `commit/<sha>`. `<sha>` is hexadecimal (lowercase, 7 to 40 digits). Any other URL is rejected (a webhook or a token travels in the others, and `push` publishes the store).
-   - **`class` in `deviation`:** the deviation type as a slug, not an id from `classes.yml`. The ones the Claude Code adapter (`bk learn`) writes today: `guardrail-block`, `hook-block`, `user-denied`, `interrupt`, `verify-fail`, `contract-*`, `plan-correction` and `user-correction`. A type connects to its class through the D5 mapping.
+   - **`class` in `deviation`:** the deviation type as a slug, not an id from `classes.yml`. For example, `guardrail-block` or `user-correction`; the full list is the Claude Code adapter's (`bk learn`, `lib/deviations.py` in barrilete-workspace). A type connects to its class through the D5 mapping.
    - **Every deviation goes to the store**, also the person's corrections, denials and interruptions (`user-correction`, `user-denied`, `interrupt`, `plan-correction`): the event keeps the type, never what the person wrote.
    - **Required:** `v`, `ts`, `project`, `kind`, `model` and `harness`. The rest go when they are known. The emitter does not guess: if it cannot know the model or the harness, it writes `unknown`, and the report counts them apart.
    - **`outcome`:** in `check_run`, `pass`, `fail` or `skipped` (the check could not verify), as in the v0 of #323. In `task_end`, the terminal states of ADR-005 D3: `completed`, `failed`, `incomplete` or `cancelled`. In `deviation` and `finding` it does not go.
