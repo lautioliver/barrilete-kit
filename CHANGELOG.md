@@ -32,6 +32,7 @@ Cambios de la plantilla por versión. `scripts/update.py` muestra las secciones 
 
 ### Corregido
 
+- `pr-metadata` (#341): un caso del bloque rojo cuyo id tiene `\"`, `\\`, `\$` o un acento grave escapado en el fuente bash ya se encuentra: `red.sh` lo reporta desescapado y el check ahora busca también en el fuente con esos escapes deshechos. `scripts/agents/test-checks.sh` suma un caso para cada escape. Los escapes de JS/TS siguen en #349. Qué hacer: nada.
 - `scripts/agents/check-docs.py`, al validar `docs/agents/classes.yml` (#269, pendientes de #262): un `classes.yml` que no se puede leer (un directorio, sin permiso) da su propio error en vez de un traceback, y el resto del check sigue; un id que YAML 1.1 lee como booleano o null (`y`, `n`, `yes`, `no`, `true`, `false`, `on`, `off`, `null`) es un error; un error da un mensaje: un id mal escrito (entre comillas, `- ID:`, con un comentario o con dos espacios) da un solo error y, si se puede leer, cuenta igual como clase (no culpa a la skill) y no le pasa su descripción a la clase anterior, y una segunda descripción bajo el mismo id se dice como tal. `scripts/agents/test-classes.sh` suma un caso para cada regla del check que no tenía uno. Qué hacer: nada, salvo que tu `classes.yml` use uno de esos ids.
 
 ## [2.0.0] - 2026-11-07
