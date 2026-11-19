@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2154,SC2016,SC2319,SC2181  # out lo asigna tap_run; el $ de los JSON es texto
+# shellcheck disable=SC2034,SC2154,SC2016,SC2319,SC2181  # out lo asigna tap_run; el $ de los JSON es texto
 # Tests del evento `deviation` que guardrails.py deja en el store del proyecto cuando frena un comando (#325, ADR-007 D3):
 # lo que escribe con la entrada de cada harness (Claude Code, Codex, Copilot, Cursor) y que nunca cambia su salida.
 # Corre el comando de cada hook tal cual está registrado (.claude/settings.json, .codex/hooks.json, .cursor/hooks.json,
