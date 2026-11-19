@@ -633,7 +633,10 @@ if os.path.exists(CLASES_YML):
     # `  deviations: [<kebab-case>, …]` (ADR-007 D5: the deviation types that count for the class), nothing else.
     ids_leidos = set()
     actual = None  # [id, line, has_description, has_deviations]
-    clase_del_tipo = {}  # deviation type -> (the class that lists it, its line): a type goes in one class at most
+    clase_del_tipo = {}  # deviation type -> (the id of the class that lists it, or None; its line): a type goes in one class at most
+    def mostrar(texto, tope=40):
+        # Text of the file inside a message: cut to a maximum length and with no control or invisible characters (as repr writes them).
+        return repr(texto if len(texto) <= tope else texto[:tope] + "…")[1:-1]
     def cerrar():
         if actual and actual[0] and not actual[2]:
             errores.append(f"{CLASES_YML}:{actual[1]}: the class [{actual[0]}] has no description.")
@@ -687,7 +690,8 @@ if os.path.exists(CLASES_YML):
             actual = [cid, n, False, False]
         elif m_dev:
             quien = f"the class [{actual[0]}]" if actual and actual[0] else "this entry"
-            m_lista = re.fullmatch(r" \[(.*)\]", m_dev.group(1))
+            # No bracket and no `#` inside: a comment that ends in `]` or a nested list is not an inline list of types.
+            m_lista = re.fullmatch(r" \[([^\[\]#]*)\]", m_dev.group(1))
             if not actual:
                 errores.append(f"{CLASES_YML}:{n}: deviations outside a class (it goes below a `- id: <kebab-case>`).")
             elif actual[3]:
@@ -702,19 +706,20 @@ if os.path.exists(CLASES_YML):
                     if not tipo:
                         errores.append(f"{CLASES_YML}:{n}: the deviations of {quien} have an empty item (one comma too many).")
                     elif not re.fullmatch(KEBAB, tipo):
-                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{tipo}] of {quien} is not kebab-case (lowercase letters, "
-                                       "digits and hyphens, starting with a letter, unquoted).")
+                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{mostrar(tipo)}] of {quien} is not kebab-case (lowercase "
+                                       "letters, digits and hyphens, starting with a letter, unquoted).")
                     elif tipo in YAML11:
                         errores.append(f"{CLASES_YML}:{n}: the deviation type [{tipo}] of {quien} is a boolean or null in YAML 1.1, so a "
                                        "YAML parser would not read it as text: pick another type.")
                     elif tipo in tipos_aca:
-                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{tipo}] is repeated in {quien}.")
+                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{mostrar(tipo)}] is repeated in {quien}.")
                     elif tipo in clase_del_tipo:
-                        otra, linea_otra = clase_del_tipo[tipo]
-                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{tipo}] is already in {otra} (line {linea_otra}): "
+                        id_otra, linea_otra = clase_del_tipo[tipo]
+                        otra = f"the class [{id_otra}]" if id_otra else "the entry with a badly written id"
+                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{mostrar(tipo)}] is already in {otra} (line {linea_otra}): "
                                        "a type goes in one class at most.")
                     else:
-                        clase_del_tipo[tipo] = (quien, n)
+                        clase_del_tipo[tipo] = (actual[0], n)
                     tipos_aca.add(tipo)
             if actual:
                 actual[3] = True
