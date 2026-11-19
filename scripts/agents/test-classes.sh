@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2016  # los backticks y corchetes de los regex y del Markdown son literales
 # Tests de ADR-006 fase 0 (#259): docs/agents/classes.yml y la clase en cada hallazgo de review-pr.
+# También la lista `deviations` de una clase (#363, ADR-007 D5): los tipos de desvío que cuentan para ella.
 # El check de check-docs.py corre sobre una copia del repo (el helper de Python), así no toca el working tree.
 # Uso: bash scripts/agents/test-classes.sh
 set -uo pipefail
@@ -50,6 +51,13 @@ def edit(path, fn):
         t = open(path, encoding="utf-8").read(); open(path, "w", encoding="utf-8").write(fn(t))
 def skills(fn):
     for s in SK: edit(s, fn)
+# Agrega líneas debajo de la descripción de una clase. Si la clase no está, la mutación falla: no pasa por no haber hecho nada.
+def bajo(cid, lineas):
+    t = open(YML, encoding="utf-8").read()
+    nuevo, n = re.subn(r"(- id: %s\n  description: [^\n]*\n)" % re.escape(cid), lambda m: m.group(1) + lineas, t)
+    if n != 1: sys.exit("no hay una clase %s con su descripción en %s" % (cid, YML))
+    open(YML, "w", encoding="utf-8").write(nuevo)
+def dev(valor, cid="stale-docs"): return lambda: bajo(cid, "  deviations:" + valor + "\n")
 MUT = {
  "none": lambda: None,
  "drop-class": lambda: edit(YML, lambda t: re.sub(r"- id: stale-docs\n(  .*\n)*", "", t)),
@@ -99,6 +107,29 @@ MUT = {
  "dup-desc": lambda: edit(YML, lambda t: re.sub(r"(- id: stale-docs\n  description: [^\n]*\n)", r"\1  description: again\n", t)),
  "dir-yml": lambda: (os.remove(YML), os.mkdir(YML), edit("AGENTS.md", lambda t: t + "\n[roto](no-existe-269.md)\n")),
  "noperm-yml": lambda: (os.chmod(YML, 0), edit("AGENTS.md", lambda t: t + "\n[roto](no-existe-269.md)\n")),
+ "dev-valid": lambda: (bajo("pr-metadata", "  deviations: [interrupt]\n"), bajo("stale-docs", "  deviations: [attribution, user-correction]\n")),
+ "dev-before-desc": lambda: edit(YML, lambda t: t.replace("- id: stale-docs\n", "- id: stale-docs\n  deviations: [attribution]\n")),
+ "dev-empty": dev(" []"),
+ "dev-compact": dev(" [attribution,user-correction]"),
+ "dev-outside": lambda: edit(YML, lambda t: "  deviations: [attribution]\n" + t),
+ "dev-twice": lambda: bajo("stale-docs", "  deviations: [attribution]\n  deviations: [interrupt]\n"),
+ "dev-not-list": dev(" attribution"),
+ "dev-comment": dev(" [attribution] # nota"),
+ "dev-no-space": dev("[attribution]"),
+ "dev-no-value": dev(""),
+ "dev-not-slug": dev(" [contract-*]"),
+ "dev-upper": dev(" [Attribution]"),
+ "dev-quoted": dev(" [\"attribution\"]"),
+ "dev-snake": dev(" [user_correction]"),
+ "dev-digit": dev(" [1st-try]"),
+ "dev-empty-item": dev(" [attribution,,interrupt]"),
+ "dev-trailing-comma": dev(" [attribution,]"),
+ "dev-yaml11": dev(" [attribution, yes]"),
+ "dev-dup-in-class": dev(" [attribution, attribution]"),
+ "dev-two-classes": lambda: (bajo("pr-metadata", "  deviations: [attribution]\n"), bajo("stale-docs", "  deviations: [attribution]\n")),
+ "dev-bad-indent": lambda: bajo("stale-docs", "    deviations: [attribution]\n"),
+ "dev-bad-id": lambda: edit(YML, lambda t: t + "- id: \"Bad\"\n  description: z\n  deviations: [attribution]\n"),
+ "dev-no-desc": lambda: edit(YML, lambda t: t + "- id: sin-descripcion\n  deviations: [attribution]\n"),
 }
 MUT[name]()
 '
@@ -356,6 +387,78 @@ mutar dup-desc
 n_errores_nuevos
 [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: una segunda descripción bajo el mismo id da un solo error" "errores nuevos: $nuevos"
 grep -q 'classes.yml:[0-9]*:.*second description' <<<"$out"; tap_check $? "check-docs: dice que la clase tiene una segunda descripción"
+
+# #363: una clase puede llevar `  deviations: [<tipo>, …]`, los tipos de desvío que cuentan para ella (ADR-007 D5).
+# Es opcional, va en cualquier orden con la descripción, y una lista vacía o sin espacios tras las comas también vale.
+mutar dev-valid
+[ "$RC" -eq "$BASE_RC" ]; tap_check $? "check-docs: una clase con una lista deviations válida no hace fallar el check"
+[[ $out != *"classes.yml:"* ]]; tap_check $? "check-docs: una lista deviations válida no se lee como línea inesperada"
+mutar dev-before-desc
+n_errores_nuevos
+[ "$nuevos" -eq 0 ]; tap_check $? "check-docs: acepta deviations antes de la descripción" "errores nuevos: $nuevos"
+mutar dev-empty
+n_errores_nuevos
+[ "$nuevos" -eq 0 ]; tap_check $? "check-docs: acepta una lista deviations vacía" "errores nuevos: $nuevos"
+mutar dev-compact
+n_errores_nuevos
+[ "$nuevos" -eq 0 ]; tap_check $? "check-docs: acepta una lista deviations sin espacio tras la coma" "errores nuevos: $nuevos"
+# deviations no reemplaza a la descripción: la clase que solo trae la lista sigue sin descripción, y es su único error.
+mutar dev-no-desc
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: una clase con deviations y sin descripción da un solo error" "errores nuevos: $nuevos"
+grep -q 'classes.yml:[0-9]*:.*\[sin-descripcion\] has no description' <<<"$out"; tap_check $? "check-docs: una clase con deviations y sin descripción sigue sin descripción"
+# Cada rechazo, con su mensaje y un solo error: fuera de una clase, dos listas en la clase, y lo que no es una lista en línea.
+mutar dev-outside
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: una lista deviations antes de la primera clase da un solo error" "errores nuevos: $nuevos"
+grep -q 'classes.yml:[0-9]*:.*deviations outside a class' <<<"$out"; tap_check $? "check-docs: dice que deviations va debajo de una clase"
+mutar dev-twice
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: dos listas deviations en la misma clase dan un solo error" "errores nuevos: $nuevos"
+grep -q 'classes.yml:[0-9]*:.*the class \[stale-docs\] has a second deviations list' <<<"$out"; tap_check $? "check-docs: dice qué clase tiene una segunda lista deviations"
+for m in dev-not-list dev-comment dev-no-space dev-no-value; do
+  mutar "$m"
+  n_errores_nuevos
+  [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un deviations que no es una lista en línea da un solo error" "$m: errores nuevos: $nuevos"
+  grep -q 'classes.yml:[0-9]*:.*must be an inline list' <<<"$out"; tap_check $? "check-docs: dice que deviations tiene que ser una lista en línea (sin comentario, con un espacio y con valor)" "$m"
+done
+# Un tipo es kebab-case, como el id de una clase: sin comodines, mayúsculas, comillas ni guion bajo, y empieza con una letra.
+for m in dev-not-slug dev-upper dev-quoted dev-snake dev-digit; do
+  mutar "$m"
+  n_errores_nuevos
+  [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un tipo de desvío que no es kebab-case da un solo error" "$m: errores nuevos: $nuevos"
+  grep -q 'classes.yml:[0-9]*:.*deviation type \[.*\].*not kebab-case' <<<"$out"; tap_check $? "check-docs: dice qué tipo de desvío no es kebab-case" "$m"
+done
+mutar dev-not-slug
+grep -q 'classes.yml:[0-9]*:.*deviation type \[contract-\*\]' <<<"$out"; tap_check $? "check-docs: nombra el tipo de desvío con comodín que rechaza"
+for m in dev-empty-item dev-trailing-comma; do
+  mutar "$m"
+  n_errores_nuevos
+  [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: una coma de más en deviations da un solo error" "$m: errores nuevos: $nuevos"
+  grep -q 'classes.yml:[0-9]*:.*empty item' <<<"$out"; tap_check $? "check-docs: dice que deviations tiene un elemento vacío" "$m"
+done
+mutar dev-yaml11
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un tipo de desvío que YAML 1.1 lee como booleano da un solo error" "errores nuevos: $nuevos"
+grep -q 'classes.yml:[0-9]*:.*deviation type \[yes\].*YAML 1.1' <<<"$out"; tap_check $? "check-docs: dice que el tipo de desvío es un booleano o null en YAML 1.1"
+# Un tipo cae en una sola clase como máximo: ni repetido en la lista ni en la de otra clase.
+mutar dev-dup-in-class
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un tipo de desvío repetido en la lista da un solo error" "errores nuevos: $nuevos"
+grep -q 'classes.yml:[0-9]*:.*deviation type \[attribution\] is repeated in the class \[stale-docs\]' <<<"$out"; tap_check $? "check-docs: dice qué tipo de desvío está repetido en la clase"
+mutar dev-two-classes
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un tipo de desvío en dos clases da un solo error" "errores nuevos: $nuevos"
+grep -q 'classes.yml:[0-9]*:.*deviation type \[attribution\] is already in the class \[pr-metadata\]' <<<"$out"; tap_check $? "check-docs: dice en qué otra clase ya está el tipo de desvío"
+# Con otra indentación no es la lista de la clase: es una línea inesperada, y el mensaje nombra las tres formas que se esperan.
+mutar dev-bad-indent
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un deviations con otra indentación da un solo error" "errores nuevos: $nuevos"
+grep -q 'classes.yml:[0-9]*:.*unexpected line.*deviations' <<<"$out"; tap_check $? "check-docs: la línea inesperada dice que también se espera deviations"
+# Un error, un mensaje: la lista de un id mal escrito no es un segundo error.
+mutar dev-bad-id
+n_errores_nuevos
+[ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un id mal escrito con su lista deviations da un solo error" "errores nuevos: $nuevos"
 
 # Una skill que remite a un classes.yml que falta da un solo error por skill (el de rutas rotas), no dos.
 mutar drop-file
