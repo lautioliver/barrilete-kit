@@ -552,7 +552,9 @@ def leer_bitacora(repo, desde=None):
     de los meses, en ese orden. de_antes dice que la bitácora de antes todavía está en docs/bitacora.html, y add la
     tiene que mover a docs/bitacora-anterior.html antes de escribir la portada."""
     crudo = leer(repo, RUTA)
-    if crudo is not None and MARCA_MESES in crudo:
+    # Una portada que perdió el marcador de meses (se editó a mano) no es una bitácora de antes: su aviso nombra ese
+    # marcador. Solo la portada escribe <main class="wrap temas">.
+    if crudo is not None and (MARCA_MESES in crudo or 'class="wrap temas"' in crudo):
         validar(crudo, RUTA, MARCAS_PORTADA)
         return crudo, crudo, False
     de_antes = crudo is not None
@@ -624,14 +626,25 @@ def cmd_add(repo, a):
         raise ErrorDeUso(f"{'--date: ' if a.date else ''}la entrada es de {mes} y ya hay una página de {ultimo}: "
                          "las páginas de los meses pasados no se tocan")
     lista = dict(secciones(portada))
+    rel = ruta_mes(mes)
+    texto = leer(repo, rel)
+    if texto is None:
+        texto = pagina(repo, mes=mes)
+    else:
+        validar(texto, rel, MARCAS_PAGINA)
+    en_el_mes = secciones(texto)
     if a.into:
         if a.into not in lista:
             raise ErrorDeUso(f"--into: no hay una sección {a.into}")
         destino, nueva = a.into, False
     elif s in lista:
-        if a.new:
+        # Un add --new que se cortó después de escribir la portada dejó el tema ahí, enlazado solo a este mes, y la
+        # página del mes sin él: repetirlo igual lo termina.
+        enlaces = re.findall(r'href="([^"#]+)#%s"' % re.escape(s), portada)
+        reintento = a.new and enlaces == [href_mes(mes)] and s not in dict(en_el_mes)
+        if a.new and not reintento:
             raise ErrorDeUso(f"--new: ya hay una sección {s}; sin --new la entrada se suma a esa")
-        destino, nueva = s, False
+        destino, nueva = s, reintento
     else:
         cerca = parecidas(s, list(lista.items()))
         if cerca and not a.new:
@@ -641,17 +654,11 @@ def cmd_add(repo, a):
             return 3
         destino, nueva = s, True
     # Un tema que ya existe conserva su nombre en la página de cada mes, aunque ahora se lo haya escrito distinto.
-    nombre = a.topic.strip() if nueva else lista[destino]
-    rel = ruta_mes(mes)
-    texto = leer(repo, rel)
-    if texto is None:
-        texto = pagina(repo, mes=mes)
-    else:
-        validar(texto, rel, MARCAS_PAGINA)
+    nombre = lista.get(destino) or a.topic.strip()
 
     # La portada: lo que le falte de este tema, este mes y el enlace entre los dos. Lo que ya tiene no se repite, así
     # un add que se cortó después de escribirla se puede reintentar.
-    if nueva:
+    if destino not in lista:
         portada = con_tema(portada, destino, nombre, len(lista) + 1)
     if f'href="{href_mes(mes)}"' not in portada:
         portada = con_mes(portada, mes)
@@ -659,7 +666,6 @@ def cmd_add(repo, a):
         portada = con_enlace(portada, destino, href_mes(mes), mes)
 
     # La página del mes: la sección del tema, si este mes todavía no la tiene, y la entrada al final.
-    en_el_mes = secciones(texto)
     if destino not in dict(en_el_mes):
         tema = html.escape(nombre)
         num = f"{len(en_el_mes) + 1:02d}"   # el número de la sección, como en el HTML de estado: >_ 01
