@@ -166,6 +166,7 @@ footer code{background:transparent;color:inherit;border:1px solid}
 <h2 class="sr">Índice</h2>
 <ol>
 <li><a href="#resumen-de-sesiones-de-barrilete-kit">01 Resumen de sesiones de barrilete-kit</a></li>
+<li><a href="#estado-de-la-epica-321">02 estado de la epica #321</a></li>
 <!-- bitacora:nav -->
 </ol>
 </nav>
@@ -209,6 +210,71 @@ footer code{background:transparent;color:inherit;border:1px solid}
 </ul>
 </article>
 <!-- bitacora:end resumen-de-sesiones-de-barrilete-kit -->
+</section>
+<section id="estado-de-la-epica-321" data-topic="estado de la epica #321">
+<div class="sec-head"><span class="num">&gt;_ 02</span><h2><a href="#estado-de-la-epica-321">estado de la epica #321</a></h2></div>
+<article class="entrada">
+<p class="fecha"><time datetime="2026-11-19">2026-11-19</time></p>
+<p>Epic #321 makes agent learning live in each project (ADR-007): one metadata-only event for every harness, a store per project, and rules measured per cell (rule × model × harness). This session closed the open point about the <code>class</code> of a deviation and started the mapping that lets deviations count toward a rule.</p>
+
+<div class="kpis"><div class="kpi ok"><b>10</b> sub-issues closed</div><div class="kpi warn"><b>7</b> open</div><div class="kpi danger"><b>1</b> PR waiting on Lautaro</div></div>
+
+<div class="bars"><div class="bar ok"><span>Closed: 10 of 17</span><i style="--v:59%"></i></div></div>
+
+<h3>What changed</h3>
+<ul>
+<li><span class="ok">done</span> #360 (merged, closes #345) amends ADR-007. D3: the <code>class</code> of a <code>deviation</code> is its type as a slug (<code>guardrail-block</code>, <code>user-correction</code>…), and every deviation goes to the store, never with the person's text. D5: deviations count toward a rule through an optional <code>deviations</code> list on each class of <code>classes.yml</code>, one class per type at most. A type with no class is stored but not measured.</li>
+<li><span class="warn">in review</span> barrilete-rules#8 (closes barrilete-rules#7): the validator accepts <code>deviations</code> and rejects six malformed cases (35 tests pass). It adds the minimal mapping: <code>attribution</code> → <code>undecided-decision</code>. CI is green.</li>
+</ul>
+
+<h3>Decisions</h3>
+<table class="tbl">
+<tr><th>Decision</th><th>Who</th><th>Status</th></tr>
+<tr><td>Map deviations to classes now, in <code>classes.yml</code></td><td>Lautaro, in the chat</td><td><span class="ok">decided</span></td></tr>
+<tr><td>Minimal mapping: only <code>attribution</code>; the other 13 types have no class</td><td>Lautaro, in the chat</td><td><span class="ok">decided</span></td></tr>
+<tr><td>Change <code>check-docs.py</code> (a CI validation) to accept <code>deviations</code></td><td>Lautaro, in the chat</td><td><span class="ok">approved</span>, not built</td></tr>
+</table>
+
+<div class="note warn"><p>Order matters: the kit's <code>check-docs.py</code> rejects any <code>classes.yml</code> line other than <code>id</code> and <code>description</code>. #363 must be merged before <code>sync-rules</code> moves <code>rules.lock</code> to the SHA with the mapping. Otherwise the kit's <code>docs</code> CI fails.</p></div>
+
+<h3>What is next</h3>
+<ol class="flow"><li>merge barrilete-rules#8</li><li>#363: check-docs accepts deviations</li><li>sync-rules bumps rules.lock</li><li>workspace#20: bk learn effect counts mapped deviations</li></ol>
+
+<div class="cards">
+<div class="card danger"><h3>Waiting on you</h3><p>Review and merge barrilete-rules#8.</p></div>
+<div class="card warn"><h3>Next for an agent</h3><p>#363 in the kit (handoff written for a new chat).</p></div>
+<div class="card warn"><h3>Still open</h3><p>#325: events from Codex, Copilot, Cursor and pi (touches hooks, needs the design approved first). Workspace #12, #13 and #14. Workspace #20 is blocked by #13 and barrilete-rules#7.</p></div>
+</div>
+</article>
+<article class="entrada">
+<p class="fecha"><time datetime="2026-11-19">2026-11-19</time></p>
+<p>The sub-issue count has not moved (10 of 17 closed), but #363 is now built on its branch: <code>check-docs.py</code> accepts an optional <code>deviations: [type, …]</code> line under a class of <code>classes.yml</code>. Without it, moving <code>rules.lock</code> to the barrilete-rules SHA that carries the mapping would break the kit's <code>docs</code> CI.</p>
+<div class="kpis"><div class="kpi ok"><b>141</b> cases pass in test-classes.sh</div><div class="kpi ok"><b>19</b> cases failed in the red, before the code</div><div class="kpi warn"><b>0</b> PRs open for #363 yet</div><div class="kpi danger"><b>3</b> questions for Lautaro</div></div>
+<h3>What changed</h3>
+<ul>
+<li><span class="ok">done</span> Tests first: red commit <code>2583b4e</code>, accepted by <code>red.sh</code>. Then the reader: the list goes before or after the description, may be empty, and each rejection has its own message and gives a single error.</li>
+<li><span class="ok">done</span> Checked against the real file: with the <code>classes.yml</code> of barrilete-rules#8 in a copy of the repo, <code>check-docs.py</code> prints "Docs OK.".</li>
+<li><span class="ok">done</span> Each new guard was broken on purpose, one at a time (19 breaks): every one makes at least one new case fail. Lines with 200,000 items give no traceback and take under half a second.</li>
+<li><span class="ok">done</span> <code>verify.py</code>: everything that ran passed. <code>lint</code>, <code>typecheck</code> and <code>tests</code> are not configured, so they were not verified.</li>
+<li><span class="warn">in progress</span> Self-review with <code>/code-review</code> is still running. The PR is opened once its findings are resolved.</li>
+</ul>
+<h3>Decisions</h3>
+<table class="tbl">
+<tr><th>Point where the kit is stricter than barrilete-rules</th><th>Who</th><th>Status</th></tr>
+<tr><td>A type is written like a class id: it starts with a letter and is not a word YAML 1.1 reads as a boolean or null (<code>yes</code>, <code>no</code>, <code>null</code>…). barrilete-rules also accepts a leading digit.</td><td>Lautaro</td><td><span class="danger">waiting on you</span>, built as the default</td></tr>
+<tr><td>One comma too many (<code>[a,]</code>, <code>[a,,b]</code>) is an error. barrilete-rules ignores it.</td><td>Lautaro</td><td><span class="danger">waiting on you</span>, built as the default</td></tr>
+<tr><td>A comment after the list is an error. Same as barrilete-rules.</td><td>Lautaro</td><td><span class="danger">waiting on you</span>, built as the default</td></tr>
+</table>
+<div class="note warn"><p>The order from the previous entry still holds: #363 and barrilete-rules#8 are merged first, and only then <code>sync-rules</code> moves <code>rules.lock</code>.</p></div>
+<h3>What is next</h3>
+<ol class="flow"><li>resolve the self-review</li><li>open the PR of #363</li><li>merge it and barrilete-rules#8</li><li>sync-rules bumps rules.lock</li><li>workspace#20</li></ol>
+<div class="cards">
+<div class="card danger"><h3>Waiting on you</h3><p>Review and merge barrilete-rules#8 (CI green, still open). Answer the three questions when the PR of #363 is up.</p></div>
+<div class="card warn"><h3>In progress</h3><p>#363 on the branch <code>claude/363-aceptar-la-lista-deviations-de-classes</code>: three commits, not pushed yet.</p></div>
+<div class="card warn"><h3>Still open</h3><p>#325, workspace #12, #13 and #14, barrilete-rules#7 (closes with its PR #8) and workspace #20, blocked by #13.</p></div>
+</div>
+</article>
+<!-- bitacora:end estado-de-la-epica-321 -->
 </section>
 <!-- bitacora:main -->
 </main>
