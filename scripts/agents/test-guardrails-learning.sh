@@ -107,4 +107,21 @@ diff -q "$TMP/bueno.err" "$TMP/h.err" >/dev/null; tap_check $? "con el store rot
 [ -s "$TMP/bueno.err" ]; tap_check $? "el motivo no está vacío"
 rm -f "$P/.barrilete/learning.json"
 
+# --- un store lento no demora ni pierde el veredicto (store branch con un git que se cuelga al escribir) ---
+printf '{"store": "branch"}\n' >"$P/.barrilete/learning.json"
+mkdir -p "$TMP/bin"
+REAL_GIT=$(command -v git)
+cat >"$TMP/bin/git" <<SH
+#!/bin/sh
+case "\$*" in *commit-tree*|*update-ref*|*hash-object*|*mktree*) sleep 30 ;; esac
+exec "$REAL_GIT" "\$@"
+SH
+chmod +x "$TMP/bin/git"
+SECONDS=0
+PATH="$TMP/bin:$PATH" hook "$P/.codex/hooks.json" hooks PreToolUse 0 hooks 0 command "$IN_CLAUDE"
+[ "$SECONDS" -lt 12 ]; tap_check $? "un store colgado no demora el hook más de unos segundos"
+[ "$(cat "$TMP/h.rc")" = 2 ]; tap_check $? "con el store colgado sigue frenando con 2"
+[ -s "$TMP/h.err" ]; tap_check $? "con el store colgado el motivo sale igual"
+rm -f "$P/.barrilete/learning.json"
+
 tap_done

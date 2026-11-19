@@ -75,10 +75,11 @@ describe("guardrails", () => {
 	test("a block leaves a deviation event with harness pi, without changing the verdict", () => {
 		const repo = join(OUTSIDE, "learning-repo");
 		mkdirSync(join(repo, "scripts"), { recursive: true });
-		cpSync(join(KIT, "scripts/agents"), join(repo, "scripts/agents"), { recursive: true });
+		cpSync(join(KIT, "scripts/agents"), join(repo, "scripts/agents"), { recursive: true, filter: (src) => !src.includes("__pycache__") });
 		execFileSync("git", ["init", "-q", repo]);
-		const saved = process.env.BK_HARNESS;
-		delete process.env.BK_HARNESS;
+		const KEYS = ["BK_HARNESS", "BK_TASK_DIR", "BK_MODEL", "BK_PROVIDER", "BARRILETE_MODEL", "BARRILETE_PROVIDER", "CLAUDECODE"];
+		const saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
+		for (const k of KEYS) delete process.env[k];
 		try {
 			const v = check(repo, "git push origin main", repo);
 			assert.equal(v?.block, true);
@@ -88,7 +89,7 @@ describe("guardrails", () => {
 			assert.equal(ev.harness, "pi");
 			assert.equal(ev.class, "guardrail-block");
 		} finally {
-			if (saved !== undefined) process.env.BK_HARNESS = saved;
+			for (const k of KEYS) if (saved[k] !== undefined) process.env[k] = saved[k];
 		}
 	});
 
