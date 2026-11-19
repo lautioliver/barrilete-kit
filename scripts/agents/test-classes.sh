@@ -59,7 +59,8 @@ def bajo(cid, lineas):
     open(YML, "w", encoding="utf-8").write(nuevo)
 def dev(valor, cid="stale-docs"): return lambda: bajo(cid, "  deviations:" + valor + "\n")
 # Saca las listas deviations que classes.yml ya traiga, y planta unas conocidas: como después de sync-rules (el mapeo de
-# barrilete-rules), o con la lista antes de la descripción.
+# barrilete-rules), o con la lista antes de la descripción. Toda mutación parte de un classes.yml sin listas (abajo, SIN_NORMALIZAR):
+# así ningún caso depende de qué tipos mapea hoy barrilete-rules ni de dónde escribe la lista.
 def sin_listas(): edit(YML, lambda t: re.sub(r"(?m)^  deviations:.*\n", "", t))
 def plantar(antes):
     sin_listas()
@@ -133,7 +134,7 @@ MUT = {
  "dev-trailing-comma": dev(" [attribution,]"),
  "dev-yaml11": dev(" [attribution, yes]"),
  "dev-dup-in-class": dev(" [attribution, attribution]"),
- "dev-two-classes": lambda: (bajo("pr-metadata", "  deviations: [attribution]\n"), bajo("stale-docs", "  deviations: [attribution]\n")),
+ "dev-two-classes": lambda: edit(YML, lambda t: t + "- id: clase-uno\n  description: x\n  deviations: [attribution]\n- id: clase-dos\n  description: y\n  deviations: [attribution]\n"),
  "dev-bad-indent": lambda: bajo("stale-docs", "    deviations: [attribution]\n"),
  "dev-bad-id": lambda: edit(YML, lambda t: t + "- id: \"Bad\"\n  description: z\n  deviations: [attribution]\n"),
  "dev-no-desc": lambda: edit(YML, lambda t: t + "- id: sin-descripcion\n  deviations: [attribution]\n"),
@@ -146,6 +147,8 @@ MUT = {
  "dev-long": dev(" [" + "a" * 5000 + "_]"),
  "dev-long-dup": dev(" [" + "a" * 5000 + ", " + "a" * 5000 + "]"),
 }
+SIN_NORMALIZAR = ("none", "listas-previas", "lista-antes-de-la-descripcion")  # el repo tal cual, y las dos que plantan sus listas
+if name not in SIN_NORMALIZAR: sin_listas()
 MUT[name]()
 '
 
@@ -459,7 +462,8 @@ mutar dev-yaml11
 n_errores_nuevos
 [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un tipo de desvío que YAML 1.1 lee como booleano da un solo error" "errores nuevos: $nuevos"
 grep -q 'classes.yml:[0-9]*:.*deviation type \[yes\].*YAML 1.1' <<<"$out"; tap_check $? "check-docs: dice que el tipo de desvío es un booleano o null en YAML 1.1"
-# Un tipo cae en una sola clase como máximo: ni repetido en la lista ni en la de otra clase.
+# Un tipo cae en una sola clase como máximo: ni repetido en la lista ni en la de otra clase. Las dos clases del segundo caso son
+# propias (clase-uno y, después, clase-dos): cuál se nombra no depende del orden de las clases de classes.yml.
 mutar dev-dup-in-class
 n_errores_nuevos
 [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un tipo de desvío repetido en la lista da un solo error" "errores nuevos: $nuevos"
@@ -467,7 +471,7 @@ grep -q 'classes.yml:[0-9]*:.*deviation type \[attribution\] is repeated in the 
 mutar dev-two-classes
 n_errores_nuevos
 [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un tipo de desvío en dos clases da un solo error" "errores nuevos: $nuevos"
-grep -q 'classes.yml:[0-9]*:.*deviation type \[attribution\] is already in the class \[pr-metadata\]' <<<"$out"; tap_check $? "check-docs: dice en qué otra clase ya está el tipo de desvío"
+grep -q 'classes.yml:[0-9]*:.*deviation type \[attribution\] is already in the class \[clase-uno\]' <<<"$out"; tap_check $? "check-docs: dice en qué otra clase ya está el tipo de desvío"
 linea_de_la_lista attribution
 grep -q "already in the class \[[a-z-]*\] (line $linea_lista)" <<<"$out"; tap_check $? "check-docs: dice en qué línea está la otra lista con el tipo de desvío" "línea $linea_lista"
 # Con otra indentación no es la lista de la clase: es una línea inesperada, y el mensaje nombra las tres formas que se esperan.
