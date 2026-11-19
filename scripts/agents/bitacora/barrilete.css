@@ -1,5 +1,5 @@
 /* Diseño de barrilete para la bitácora del proyecto (docs/bitacora.html, #343). Contrato de tokens: docs/agents/bitacora.md en el kit.
-   Un proyecto pisa los que quiera en .barrilete/bitacora.css; lo que no define queda como acá.
+   Es el diseño de todos los proyectos que usan barrilete-kit: un proyecto no lo cambia (#361).
    La página es siempre clara (#361): no sigue el modo oscuro del sistema.
    Texto y colores de estado: contraste WCAG AA (4.5:1) sobre --bg, --surface y --card. */
 :root {

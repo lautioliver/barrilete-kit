@@ -144,7 +144,9 @@ h4{font:800 17px/1.2 var(--font-display);margin:18px 0 8px}
 .tbl{width:100%;margin:16px 0;border:2px solid var(--ink);border-bottom-width:5px;
   border-radius:14px;background:var(--card);border-collapse:separate;border-spacing:0;font-size:14px}
 .tbl th,.tbl td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--surface);vertical-align:top}
-.tbl th{background:var(--surface);color:var(--ink);border-bottom:2px solid var(--ink)!important;font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.tbl th{background:var(--surface);color:var(--ink);border-bottom:2px solid var(--ink);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+/* El encabezado es claro: sus esquinas se redondean para no salirse del borde de la tabla. */
+.tbl tr:first-child th:first-child{border-top-left-radius:12px}.tbl tr:first-child th:last-child{border-top-right-radius:12px}
 .tbl tr:last-child td{border-bottom:0}
 .tbl td:first-child{font-weight:700}
 .note,.note.ok,.note.warn,.note.danger{border:2px solid var(--ink);border-left:10px solid var(--knot);border-radius:12px;
@@ -245,11 +247,8 @@ def leer_css(ruta):
 
 
 def temas(repo):
-    lista = [("barrilete", leer_css(TEMA_BARRILETE))]
-    propio = os.path.join(repo, ".barrilete", "bitacora.css")
-    if os.path.isfile(propio):
-        lista.append(("project", leer_css(propio)))
-    return lista
+    # Un solo diseño para todos los proyectos, el de barrilete y siempre claro (#361): un .barrilete/bitacora.css no entra.
+    return [("barrilete", leer_css(TEMA_BARRILETE))]
 
 
 def idioma(repo):
