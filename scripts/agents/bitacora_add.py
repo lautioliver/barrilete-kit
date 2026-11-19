@@ -1,19 +1,30 @@
 #!/usr/bin/env python3
-"""Suma entradas a la bitácora del proyecto (docs/bitacora.html), una sección por tema (#343).
+"""Suma entradas a la bitácora del proyecto, partida por mes (#343, #365).
+
+docs/bitacora.html es la portada: el índice de meses y una sección por tema, con un enlace a cada mes donde el tema
+tiene entradas. Las entradas están en la página de su mes, docs/bitacora/AAAA-MM.html, en la sección de su tema.
 
 Lo usa el skill /bitacora: el chat escribe la entrada (un fragmento HTML) con el contexto de la conversación y este
-script la inserta. Solo inserta, nunca reescribe: una sección nueva va al final de <main>, una entrada al final de su
-sección y el link al final del índice; lo que ya estaba queda byte a byte igual.
+script la inserta. Solo inserta, nunca reescribe: en la página del mes, una sección nueva va al final de <main>, una
+entrada al final de su sección y el link al final del índice; en la portada, un mes va al principio de la lista de
+meses y un tema al final. Lo que ya estaba queda byte a byte igual, y las páginas de los meses pasados no se tocan.
+
+Una bitácora de antes de #365 (docs/bitacora.html con las entradas adentro) pasa sin cambios a
+docs/bitacora-anterior.html con la primera entrada nueva, y la portada la enlaza. Si falta la portada, se arma de nuevo
+con lo que hay en esa página y en las de los meses.
 
   bitacora_add.py [-C <dir>] find --topic <tema>
-      exact <slug>               la sección ya existe (sale con 0)
-      none <slug>                no hay sección con ese tema (sale con 0)
-      similar <slug>\\t<tema>     una línea por cada sección con un nombre parecido (sale con 3)
-  bitacora_add.py [-C <dir>] add --topic <tema> --entry <fragmento.html> [--new | --into <slug>]
+      exact <slug>               el tema ya existe, en cualquier mes (sale con 0)
+      none <slug>                no hay un tema con ese nombre (sale con 0)
+      similar <slug>\\t<tema>     una línea por cada tema con un nombre parecido (sale con 3)
+  bitacora_add.py [-C <dir>] add --topic <tema> --entry <fragmento.html> [--new | --into <slug>] [--date AAAA-MM-DD]
       Con un nombre parecido y sin --new ni --into, no escribe y sale con 3 (el skill le pregunta a la persona).
+      Imprime "ok: new|append <slug> <página del mes>": append si el tema ya existía, en cualquier mes.
+      --date: no puede ser una fecha futura ni de un mes anterior a la última página que existe.
 
-Salidas: 0 bien, 3 hay secciones parecidas, 64 error de uso (también una entrada rechazada), 65 el archivo existe
-pero no tiene los marcadores (se editó a mano): no se toca. Componentes: el skill (.claude/skills/bitacora/SKILL.md); diseño: docs/agents/bitacora.md en el kit.
+Salidas: 0 bien, 3 hay temas parecidos, 64 error de uso (también una entrada rechazada), 65 una página existe pero no
+tiene los marcadores (se editó a mano), o docs/bitacora-anterior.html ya existe y no se puede mover ahí la bitácora de
+antes: no se toca nada. Componentes: el skill (.claude/skills/bitacora/SKILL.md); diseño: docs/agents/bitacora.md en el kit.
 """
 import argparse
 import datetime
@@ -30,7 +41,13 @@ from html.parser import HTMLParser
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 TEMA_BARRILETE = os.path.join(AQUI, "bitacora", "barrilete.css")
-RUTA = os.path.join("docs", "bitacora.html")
+RUTA = os.path.join("docs", "bitacora.html")                # la portada
+RUTA_ANTERIOR = os.path.join("docs", "bitacora-anterior.html")   # una bitácora de antes de #365, sin cambios
+DIR_MESES = os.path.join("docs", "bitacora")
+PAGINA_MES = re.compile(r"^(\d{4}-(?:0[1-9]|1[0-2]))\.html$")
+# Los mismos lugares, como los escribe un link: desde la portada y desde la página de un mes.
+HREF_ANTERIOR = "bitacora-anterior.html"
+HREF_PORTADA = "../bitacora.html"
 FUENTES = ("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800"
            "&family=JetBrains+Mono:wght@400;500;700&display=swap")
 PARECIDO = 0.8   # SequenceMatcher.ratio() entre slugs desde el que dos temas se consideran parecidos
@@ -42,6 +59,7 @@ TEXTOS = {
                   "dropped and what was decided. Each entry is added with <code>/bitacora &lt;topic&gt;</code> and nothing "
                   "above it is rewritten.",
            "since": "started on", "leash": ("talk", "decide", "log"),
+           "months": "Months", "cover": "Front page", "earlier": "earlier",
            "footer": "Each section is a topic and each entry was written from a chat with <code>/bitacora</code>. "
                      "Nothing above an entry is rewritten."},
     "es": {"title": "Bitácora del proyecto", "contents": "Índice", "stamp": "BITÁCORA",
@@ -50,12 +68,16 @@ TEXTOS = {
                   "se decidió. Cada entrada se suma con <code>/bitacora &lt;tema&gt;</code> y no se reescribe nada de lo "
                   "anterior.",
            "since": "empezada el", "leash": ("charla", "decisión", "bitácora"),
+           "months": "Meses", "cover": "Portada", "earlier": "anterior",
            "footer": "Cada sección es un tema y cada entrada se escribió desde un chat con <code>/bitacora</code>. "
                      "Lo que está arriba de una entrada no se reescribe."},
 }
 
 MARCA_NAV = "<!-- bitacora:nav -->"
 MARCA_MAIN = "<!-- bitacora:main -->"
+MARCA_MESES = "<!-- bitacora:months -->"   # solo en la portada: es lo que la distingue de una bitácora de antes
+MARCAS_PAGINA = (MARCA_NAV, MARCA_MAIN)
+MARCAS_PORTADA = (MARCA_MESES, MARCA_MAIN)
 SECCION = re.compile(r'^<section id="([a-z0-9-]+)" data-topic="([^"]*)">\r?$', re.M)
 # Ids que ya usa la página: una sección con uno de ellos rompería su link.
 RESERVADOS = re.compile(r"^(theme-.*|structure)$")
@@ -197,6 +219,12 @@ footer code{background:transparent;color:inherit;border:1px solid}
 .map .edge{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
 .map .edge::before{content:"";width:24px;height:3px;background:var(--ink);border-radius:2px}
 .map .edge::after{content:"→";color:var(--ink);font-weight:700}
+/* Portada (#365): cada tema lista los meses donde tiene entradas. */
+main.temas>section{padding-top:36px}
+.meses{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:0;padding:0}
+.meses a{display:block;background:var(--card);color:var(--ink);border:2px solid var(--ink);border-bottom-width:4px;
+  border-radius:10px;padding:4px 12px;font-weight:700;font-size:14px;text-decoration:none}
+.meses a:hover,.meses a:focus-visible{background:#B4122B;color:#fff}
 @media (max-width:860px){
   .hero .wrap{grid-template-columns:1fr}
   .art{max-width:220px}
@@ -227,7 +255,10 @@ class ErrorDeUso(Exception):
 
 
 class ArchivoRoto(Exception):
-    pass
+    """Una página que existe y no se puede leer como parte de la bitácora: no se escribe nada (sale con 65)."""
+
+    def __init__(self, rel, motivo, salida="Arreglalo a mano o restauralo con git."):
+        super().__init__(f"{rel} no se toca: {motivo}. {salida}")
 
 
 class Argumentos(argparse.ArgumentParser):
@@ -260,19 +291,29 @@ def idioma(repo):
     return valor if valor in TEXTOS else "en"
 
 
-def pagina_vacia(repo):
+def pagina(repo, mes=None, desde=None, anterior=False):
+    """Una página sin temas todavía: la de un mes, o la portada si no se pasa el mes. En la portada, desde es la fecha
+    de la primera entrada (si se sabe) y anterior dice si hay una bitácora de antes de #365 que enlazar."""
     lang = idioma(repo)
     tx = TEXTOS[lang]
     estilos = "".join(f'<style id="theme-{nombre}">\n{css}\n</style>\n' for nombre, css in temas(repo))
     nombre = html.escape(os.path.basename(os.path.abspath(repo)) or tx["title"])
-    hoy = datetime.date.today().isoformat()
+    titulo = f'{html.escape(tx["title"])} · {nombre}'
     ini, medio, fin = (html.escape(x) for x in tx["leash"])
+    if mes:
+        titulo, chip, indice, clase = f"{mes} · {titulo}", mes, tx["contents"], "wrap"
+        lista = f'<li><a href="{HREF_PORTADA}">← {html.escape(tx["cover"])}</a></li>\n{MARCA_NAV}'
+    else:
+        chip, indice, clase = (f'{tx["since"]} {desde}' if desde else ""), tx["months"], "wrap temas"
+        # El mes más nuevo va primero (se inserta debajo del marcador), y lo de antes de partirla por mes, al final.
+        lista = MARCA_MESES + (f'\n<li><a href="{HREF_ANTERIOR}">{html.escape(tx["earlier"])}</a></li>' if anterior else "")
+    chip = f'<span class="chip">{chip}</span>' if chip else ""
     return f"""<!doctype html>
 <html lang="{lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(tx["title"])} · {nombre}</title>
+<title>{titulo}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="{html.escape(FUENTES)}">
@@ -282,7 +323,7 @@ def pagina_vacia(repo):
 <header class="hero">
 <div class="wrap">
 <div>
-<div class="tags"><span class="stamp">{html.escape(tx["stamp"])}</span><span class="chip">{tx["since"]} {hoy}</span></div>
+<div class="tags"><span class="stamp">{html.escape(tx["stamp"])}</span>{chip}</div>
 <h1>{nombre}</h1>
 <p class="lema">{tx["motto"]}</p>
 <p class="lead">{tx["sub"]}</p>
@@ -292,13 +333,13 @@ def pagina_vacia(repo):
 <div class="art">{DRON}</div>
 </div>
 </header>
-<nav class="toc" aria-label="{html.escape(tx["contents"])}">
-<h2 class="sr">{html.escape(tx["contents"])}</h2>
+<nav class="toc" aria-label="{html.escape(indice)}">
+<h2 class="sr">{html.escape(indice)}</h2>
 <ol>
-{MARCA_NAV}
+{lista}
 </ol>
 </nav>
-<main class="wrap">
+<main class="{clase}">
 {MARCA_MAIN}
 </main>
 <footer>
@@ -318,13 +359,13 @@ def marca_fin(s):
     return f"<!-- bitacora:end {s} -->"
 
 
-def validar(texto):
-    for marca in (MARCA_NAV, MARCA_MAIN):
+def validar(texto, rel, marcas):
+    for marca in marcas:
         if texto.count(marca) != 1:
-            raise ArchivoRoto(f"no encuentro una sola vez el marcador {marca}")
+            raise ArchivoRoto(rel, f"no encuentro una sola vez el marcador {marca}")
     for s, _ in secciones(texto):
         if texto.count(marca_fin(s)) != 1:
-            raise ArchivoRoto(f"la sección {s} no tiene una sola vez su marcador de fin")
+            raise ArchivoRoto(rel, f"la sección {s} no tiene una sola vez su marcador de fin")
 
 
 def parecidas(objetivo, lista):
@@ -415,11 +456,14 @@ def leer_entrada(ruta):
     return texto
 
 
-def insertar(texto, marca, bloque):
-    """Pone el bloque en las líneas de arriba de la marca: lo que ya estaba no cambia. Usa el fin de línea del archivo."""
+def insertar(texto, marca, bloque, debajo=False):
+    """Pone el bloque en las líneas de arriba de la marca (o en las de abajo, con debajo): lo que ya estaba no cambia.
+    Usa el fin de línea del archivo."""
     if "\r\n" in texto:
         bloque = bloque.replace("\n", "\r\n")
     i = texto.index(marca)
+    if debajo:
+        i = texto.find("\n", i) + 1 or len(texto)
     return texto[:i] + bloque + texto[i:]
 
 
@@ -458,13 +502,80 @@ def raiz(directorio):
     return camino
 
 
-def leer_pagina(ruta):
-    if not os.path.exists(ruta):
+def leer(repo, rel):
+    try:
+        with open(os.path.join(repo, rel), encoding="utf-8", newline="") as f:
+            return f.read()
+    except FileNotFoundError:
         return None
-    with open(ruta, encoding="utf-8", newline="") as f:
-        texto = f.read()
-    validar(texto)
-    return texto
+
+
+def ruta_mes(mes):
+    return os.path.join(DIR_MESES, f"{mes}.html")
+
+
+def href_mes(mes):
+    return f"bitacora/{mes}.html"
+
+
+def meses_en_disco(repo):
+    """Los meses que ya tienen página, del más viejo al más nuevo."""
+    try:
+        nombres = os.listdir(os.path.join(repo, DIR_MESES))
+    except FileNotFoundError:
+        return []
+    return sorted(m.group(1) for m in map(PAGINA_MES.match, nombres) if m)
+
+
+def con_tema(portada, s, tema, num):
+    """La portada con un tema más, al final: su sección junta los enlaces a los meses donde tiene entradas."""
+    tema = html.escape(tema)
+    return insertar(portada, MARCA_MAIN, f'<section id="{s}" data-topic="{tema}">\n'
+                                         f'<div class="sec-head"><span class="num">&gt;_ {num:02d}</span>'
+                                         f'<h2><a href="#{s}">{tema}</a></h2></div>\n'
+                                         f'<ul class="meses">\n{marca_fin(s)}\n</ul>\n</section>\n')
+
+
+def con_enlace(portada, s, href, texto):
+    return insertar(portada, marca_fin(s), f'<li><a href="{href}#{s}">{html.escape(texto)}</a></li>\n')
+
+
+def con_mes(portada, mes):
+    return insertar(portada, MARCA_MESES, f'<li><a href="{href_mes(mes)}">{mes}</a></li>\n', debajo=True)
+
+
+def leer_bitacora(repo, desde=None):
+    """La portada, como texto, y cómo está en el disco: (portada, en_disco, de_antes).
+
+    Si docs/bitacora.html ya es la portada, en_disco es ese mismo texto. Si no, la portada se arma en memoria con lo
+    que hay (en_disco es None: add la escribe entera): los temas de la bitácora de antes de #365 y los de las páginas
+    de los meses, en ese orden. de_antes dice que la bitácora de antes todavía está en docs/bitacora.html, y add la
+    tiene que mover a docs/bitacora-anterior.html antes de escribir la portada."""
+    crudo = leer(repo, RUTA)
+    if crudo is not None and MARCA_MESES in crudo:
+        validar(crudo, RUTA, MARCAS_PORTADA)
+        return crudo, crudo, False
+    de_antes = crudo is not None
+    anterior = crudo if de_antes else leer(repo, RUTA_ANTERIOR)
+    if anterior is not None:
+        validar(anterior, RUTA if de_antes else RUTA_ANTERIOR, MARCAS_PAGINA)
+    meses = meses_en_disco(repo)
+    paginas = [(None, anterior)] + [(mes, leer(repo, ruta_mes(mes))) for mes in meses]
+    paginas = [(mes, texto) for mes, texto in paginas if texto is not None]
+    # La fecha de inicio solo se sabe en una bitácora que nace ahora.
+    portada = pagina(repo, desde=None if paginas else desde, anterior=anterior is not None)
+    tx = TEXTOS[idioma(repo)]
+    vistos = set()
+    for mes, texto in paginas:
+        if mes:
+            validar(texto, ruta_mes(mes), MARCAS_PAGINA)
+            portada = con_mes(portada, mes)
+        for s, tema in secciones(texto):
+            if s not in vistos:
+                vistos.add(s)
+                portada = con_tema(portada, s, tema, len(vistos))
+            portada = con_enlace(portada, s, href_mes(mes) if mes else HREF_ANTERIOR, mes or tx["earlier"])
+    return portada, None, de_antes
 
 
 def imprimir_parecidas(lista):
@@ -483,8 +594,7 @@ def slug_de(tema):
 
 def cmd_find(repo, a):
     s = slug_de(a.topic)
-    texto = leer_pagina(os.path.join(repo, RUTA))
-    lista = secciones(texto) if texto else []
+    lista = secciones(leer_bitacora(repo)[0])
     if s in dict(lista):
         print(f"exact {s}")
         return 0
@@ -499,11 +609,21 @@ def cmd_find(repo, a):
 def cmd_add(repo, a):
     s = slug_de(a.topic)
     entrada = leer_entrada(a.entry)
-    ruta = os.path.join(repo, RUTA)
-    texto = leer_pagina(ruta)
-    if texto is None:
-        texto = pagina_vacia(repo)
-    lista = dict(secciones(texto))
+    hoy = datetime.date.today()
+    dia = a.date or hoy
+    if dia > hoy:
+        # Su página cerraría todos los meses hasta que llegue esa fecha.
+        raise ErrorDeUso(f"--date: {dia.isoformat()} es una fecha futura")
+    mes = dia.isoformat()[:7]
+    portada, en_disco, de_antes = leer_bitacora(repo, dia.isoformat())
+    if de_antes and os.path.lexists(os.path.join(repo, RUTA_ANTERIOR)):
+        raise ArchivoRoto(RUTA_ANTERIOR, f"ya existe, y {RUTA} es una bitácora de antes de partirla por mes que "
+                          "tendría que ir ahí", "Mové o borrá uno de los dos a mano.")
+    ultimo = (meses_en_disco(repo) or [mes])[-1]
+    if mes < ultimo:
+        raise ErrorDeUso(f"{'--date: ' if a.date else ''}la entrada es de {mes} y ya hay una página de {ultimo}: "
+                         "las páginas de los meses pasados no se tocan")
+    lista = dict(secciones(portada))
     if a.into:
         if a.into not in lista:
             raise ErrorDeUso(f"--into: no hay una sección {a.into}")
@@ -520,18 +640,44 @@ def cmd_add(repo, a):
                   file=sys.stderr)
             return 3
         destino, nueva = s, True
+    # Un tema que ya existe conserva su nombre en la página de cada mes, aunque ahora se lo haya escrito distinto.
+    nombre = a.topic.strip() if nueva else lista[destino]
+    rel = ruta_mes(mes)
+    texto = leer(repo, rel)
+    if texto is None:
+        texto = pagina(repo, mes=mes)
+    else:
+        validar(texto, rel, MARCAS_PAGINA)
+
+    # La portada: lo que le falte de este tema, este mes y el enlace entre los dos. Lo que ya tiene no se repite, así
+    # un add que se cortó después de escribirla se puede reintentar.
     if nueva:
-        tema = html.escape(a.topic.strip())
-        num = f"{len(lista) + 1:02d}"   # el número de la sección, como en el HTML de estado: >_ 01
+        portada = con_tema(portada, destino, nombre, len(lista) + 1)
+    if f'href="{href_mes(mes)}"' not in portada:
+        portada = con_mes(portada, mes)
+    if f'href="{href_mes(mes)}#{destino}"' not in portada:
+        portada = con_enlace(portada, destino, href_mes(mes), mes)
+
+    # La página del mes: la sección del tema, si este mes todavía no la tiene, y la entrada al final.
+    en_el_mes = secciones(texto)
+    if destino not in dict(en_el_mes):
+        tema = html.escape(nombre)
+        num = f"{len(en_el_mes) + 1:02d}"   # el número de la sección, como en el HTML de estado: >_ 01
         texto = insertar(texto, MARCA_NAV, f'<li><a href="#{destino}">{num} {tema}</a></li>\n')
         texto = insertar(texto, MARCA_MAIN, f'<section id="{destino}" data-topic="{tema}">\n'
                                             f'<div class="sec-head"><span class="num">&gt;_ {num}</span>'
                                             f'<h2><a href="#{destino}">{tema}</a></h2></div>\n'
                                             f'{marca_fin(destino)}\n</section>\n')
-    hoy = (a.date or datetime.date.today()).isoformat()
     texto = insertar(texto, marca_fin(destino), f'<article class="entrada">\n'
-                                                f'<p class="fecha"><time datetime="{hoy}">{hoy}</time></p>\n'
+                                                f'<p class="fecha"><time datetime="{dia.isoformat()}">{dia.isoformat()}</time></p>\n'
                                                 f'{entrada}\n</article>\n')
+
+    # En este orden: si se corta en el medio, lo ya escrito no se pierde y la entrada todavía no está en ningún lado.
+    if de_antes:
+        os.rename(os.path.join(repo, RUTA), os.path.join(repo, RUTA_ANTERIOR))
+    if portada != en_disco:
+        escribir(os.path.join(repo, RUTA), portada)
+    ruta = os.path.join(repo, rel)
     escribir(ruta, texto)
     print(f"ok: {'new' if nueva else 'append'} {destino} {ruta}")
     return 0
@@ -571,7 +717,7 @@ if __name__ == "__main__":
         print(f"bitacora_add.py: {err}", file=sys.stderr)
         sys.exit(64)
     except ArchivoRoto as err:
-        print(f"bitacora_add.py: {RUTA} no se toca: {err}. Arreglalo a mano o restauralo con git.", file=sys.stderr)
+        print(f"bitacora_add.py: {err}", file=sys.stderr)
         sys.exit(65)
     except (OSError, UnicodeDecodeError) as err:
         print(f"bitacora_add.py: {err}", file=sys.stderr)
