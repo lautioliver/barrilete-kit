@@ -142,10 +142,12 @@ MUT = {
  "lista-antes-de-la-descripcion": lambda: plantar(True),
  "dev-comment-bracket": dev(" [attribution] # see [x]"),
  "dev-nested": dev(" [[attribution]]"),
+ "dev-comment-inside": dev(" [attribution #x, interrupt]"),
  "dev-bad-id-two": lambda: edit(YML, lambda t: t + "- id: \"Bad\"\n  description: z\n  deviations: [tipo-raro]\n- id: clase-buena\n  description: w\n  deviations: [tipo-raro]\n"),
  "dev-control": dev(" [\x1bX]"),
  "dev-long": dev(" [" + "a" * 5000 + "_]"),
  "dev-long-dup": dev(" [" + "a" * 5000 + ", " + "a" * 5000 + "]"),
+ "dev-long-two": lambda: edit(YML, lambda t: t + "".join("- id: clase-%s\n  description: x\n  deviations: [%s]\n" % (c, "b" * 5000) for c in ("uno", "dos"))),
 }
 SIN_NORMALIZAR = ("none", "listas-previas", "lista-antes-de-la-descripcion")  # el repo tal cual, y las dos que plantan sus listas
 if name not in SIN_NORMALIZAR: sin_listas()
@@ -483,8 +485,9 @@ grep -q 'classes.yml:[0-9]*:.*unexpected line.*deviations' <<<"$out"; tap_check 
 mutar dev-bad-id
 n_errores_nuevos
 [ "$nuevos" -eq 1 ]; tap_check $? "check-docs: un id mal escrito con su lista deviations da un solo error" "errores nuevos: $nuevos"
-# De la auto-revisión de #363. Un comentario que termina en ] o una lista anidada no es una lista en línea, y nada de eso se lee como un tipo.
-for m in dev-comment-bracket dev-nested; do
+# De la auto-revisión de #363. Un comentario que termina en ] o que empieza dentro de los corchetes, o una lista anidada, no es una
+# lista en línea, y nada de eso se lee como un tipo.
+for m in dev-comment-bracket dev-nested dev-comment-inside; do
   mutar "$m"
   grep -q 'classes.yml:[0-9]*:.*must be an inline list' <<<"$out"; tap_check $? "check-docs: un comentario que termina en ] o una lista anidada da el error de lista en línea" "$m"
   [[ $out != *"deviation type ["* ]]; tap_check $? "check-docs: lo que sigue a la lista no se lee como un tipo de desvío" "$m"
@@ -502,6 +505,9 @@ grep -q 'classes.yml:[0-9]*:.*deviation type \[aaaaaaaaaa.*not kebab-case' <<<"$
 mutar dev-long-dup
 [[ $out != *aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa* ]]; tap_check $? "check-docs: el error de un tipo de desvío bien escrito y larguísimo también lo corta"
 grep -q 'classes.yml:[0-9]*:.*deviation type \[aaaaaaaaaa.*is repeated in the class \[stale-docs\]' <<<"$out"; tap_check $? "check-docs: el error de un tipo de desvío bien escrito y larguísimo sigue diciendo cuál es"
+mutar dev-long-two
+[[ $out != *bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb* ]]; tap_check $? "check-docs: el error de un tipo de desvío larguísimo que ya está en otra clase también lo corta"
+grep -q 'classes.yml:[0-9]*:.*deviation type \[bbbbbbbbbb.*is already in the class \[clase-uno\]' <<<"$out"; tap_check $? "check-docs: el error de un tipo de desvío larguísimo que ya está en otra clase sigue diciendo cuál es"
 
 # Una skill que remite a un classes.yml que falta da un solo error por skill (el de rutas rotas), no dos.
 mutar drop-file
