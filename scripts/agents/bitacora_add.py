@@ -20,7 +20,7 @@ con lo que hay en esa página y en las de los meses.
   bitacora_add.py [-C <dir>] add --topic <tema> --entry <fragmento.html> [--new | --into <slug>] [--date AAAA-MM-DD]
       Con un nombre parecido y sin --new ni --into, no escribe y sale con 3 (el skill le pregunta a la persona).
       Imprime "ok: new|append <slug> <página del mes>": append si el tema ya existía, en cualquier mes.
-      --date: no puede ser una fecha futura ni de un mes anterior a la última página que existe.
+      --date: no puede ser una fecha futura ni de un mes anterior a la última página que existe. Hoy es en UTC.
 
 Salidas: 0 bien, 3 hay temas parecidos, 64 error de uso (también una entrada rechazada), 65 una página existe pero no
 tiene los marcadores (se editó a mano), o docs/bitacora-anterior.html ya existe y no se puede mover ahí la bitácora de
@@ -611,7 +611,8 @@ def cmd_find(repo, a):
 def cmd_add(repo, a):
     s = slug_de(a.topic)
     entrada = leer_entrada(a.entry)
-    hoy = datetime.date.today()
+    # En UTC: el mes es el mismo para todo el equipo, esté donde esté (#365).
+    hoy = datetime.datetime.now(datetime.timezone.utc).date()
     dia = a.date or hoy
     if dia > hoy:
         # Su página cerraría todos los meses hasta que llegue esa fecha.

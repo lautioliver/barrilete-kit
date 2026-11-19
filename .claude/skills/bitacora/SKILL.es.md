@@ -68,7 +68,7 @@ python3 scripts/agents/bitacora_add.py add --topic "<tema>" --entry <fragmento.h
 
 Imprime `ok: new <slug> <ruta>` (tema nuevo) u `ok: append <slug> <ruta>` (el tema ya existía, en cualquier mes); `<ruta>` es la página del mes. Sale con 3: hay secciones parecidas y no pasaste `--into` ni `--new` (volvé al paso 1). Sale con 64 también con un `--date` futuro o de un mes anterior a la página más nueva: las páginas de los meses pasados no se tocan. Sale con 65: una página se editó a mano y perdió sus marcadores, o `docs/bitacora-anterior.html` ya existe y no se puede mover ahí la bitácora de antes; no se toca nada: avisale a la persona.
 
-No pases `--date` (es hoy) salvo que la persona pida otro día de este mes.
+No pases `--date` (es hoy en UTC) salvo que la persona pida otro día de este mes.
 
 Escribí el fragmento en un archivo temporal fuera del repo y borralo después. No edites a mano `docs/bitacora.html` ni las páginas de `docs/bitacora/`: el script es lo que garantiza que no se reescribe nada de arriba.
 

@@ -68,7 +68,7 @@ python3 scripts/agents/bitacora_add.py add --topic "<topic>" --entry <fragment.h
 
 It prints `ok: new <slug> <path>` (new topic) or `ok: append <slug> <path>` (the topic already existed, in any month); `<path>` is the month's page. Exit 3: there are similar sections and you did not pass `--into` or `--new` (back to step 1). Exit 64 also with a `--date` in the future or from a month before the newest page: the pages of past months are not touched. Exit 65: a page was edited by hand and lost its markers, or `docs/bitacora-anterior.html` already exists and the old log cannot be moved there; nothing is touched: tell the person.
 
-Leave out `--date` (today) unless the person asks for another day of this month.
+Leave out `--date` (today in UTC) unless the person asks for another day of this month.
 
 Write the fragment in a temporary file outside the repo and delete it afterwards. Do not edit `docs/bitacora.html` or the pages in `docs/bitacora/` by hand: the script is what guarantees that nothing above is rewritten.
 
