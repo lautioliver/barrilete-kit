@@ -24,7 +24,9 @@ Checks:
 - docs/agents/classes.yml (ADR-006 D4): readable UTF-8 (a BOM is fine), at least one class, only `- id: <kebab-case>` followed by
   `  description: <plain text>` (no quotes or YAML syntax that a real parser would read differently), ids not repeated and not
   a word YAML 1.1 reads as a boolean or null (y, n, yes, no, true, false, on, off, null), one description on each one, and
-  `other` (reserved) not listed. One mistake, one error: a quoted id is reported once and still counts as a class. The classes ([id]) that review-pr names exist in it; if the
+  `other` (reserved) not listed. A class may also carry `  deviations: [<kebab-case>, …]`, the deviation types that count for it
+  (ADR-007 D5): an inline list, one per class at most, before or after the description, with types written like an id
+  (kebab-case, not a YAML 1.1 boolean or null) and each type in one class at most. One mistake, one error: a quoted id is reported once and still counts as a class. The classes ([id]) that review-pr names exist in it; if the
   file is missing, unreadable or empty, that is its own error and the skill is not blamed for each tag.
 - Skills (.claude/skills/*/SKILL.md) over 120 lines.
 - Subagents (.claude/agents/*.md) without name, description or tools, with a model that is not
@@ -627,9 +629,11 @@ KEBAB = r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
 YAML11 = {"y", "n", "yes", "no", "true", "false", "on", "off", "null"}  # kebab-case words YAML 1.1 reads as a boolean or null
 ids_clases = None  # None: no usable list of classes (missing, unreadable or empty file), so the skill's tags are not checked
 if os.path.exists(CLASES_YML):
-    # A strict reader of the file (no YAML library): `- id: <kebab-case>` followed by `  description: <text>`, nothing else.
+    # A strict reader of the file (no YAML library): `- id: <kebab-case>` followed by `  description: <text>` and an optional
+    # `  deviations: [<kebab-case>, …]` (ADR-007 D5: the deviation types that count for the class), nothing else.
     ids_leidos = set()
-    actual = None  # [id, line, has_description]
+    actual = None  # [id, line, has_description, has_deviations]
+    clase_del_tipo = {}  # deviation type -> (the class that lists it, its line): a type goes in one class at most
     def cerrar():
         if actual and actual[0] and not actual[2]:
             errores.append(f"{CLASES_YML}:{actual[1]}: the class [{actual[0]}] has no description.")
@@ -656,6 +660,8 @@ if os.path.exists(CLASES_YML):
         # A line that tries to be an id but is not well written (quotes, `- ID:`, a comment, two spaces...): one error, and if
         # the id can still be told it counts as a class, so its description is not a second error and the skill is not blamed.
         m_clave = None if m_id else re.match(r"\s*-\s*id\s*:(.*)", linea, re.I)
+        # The deviations of the class: the key with its exact indentation; what follows is checked below, with its own errors.
+        m_dev = re.fullmatch(r"  deviations:(.*)", linea)
         if m_id or m_clave:
             cerrar()
             if m_id:
@@ -678,7 +684,40 @@ if os.path.exists(CLASES_YML):
                 errores.append(f"{CLASES_YML}:{n}: duplicate class id [{cid}].")
             if cid:
                 ids_leidos.add(cid)
-            actual = [cid, n, False]
+            actual = [cid, n, False, False]
+        elif m_dev:
+            quien = f"the class [{actual[0]}]" if actual and actual[0] else "this entry"
+            m_lista = re.fullmatch(r" \[(.*)\]", m_dev.group(1))
+            if not actual:
+                errores.append(f"{CLASES_YML}:{n}: deviations outside a class (it goes below a `- id: <kebab-case>`).")
+            elif actual[3]:
+                errores.append(f"{CLASES_YML}:{n}: {quien} has a second deviations list: leave a single one.")
+            elif not m_lista:
+                errores.append(f"{CLASES_YML}:{n}: the deviations of {quien} must be an inline list (expected "
+                               "`  deviations: [<kebab-case>, …]`, with one space and no comment).")
+            else:
+                tipos_aca = set()
+                dentro = m_lista.group(1).strip(" ")  # `[]` is a list with no types
+                for tipo in [p.strip(" ") for p in dentro.split(",")] if dentro else []:
+                    if not tipo:
+                        errores.append(f"{CLASES_YML}:{n}: the deviations of {quien} have an empty item (one comma too many).")
+                    elif not re.fullmatch(KEBAB, tipo):
+                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{tipo}] of {quien} is not kebab-case (lowercase letters, "
+                                       "digits and hyphens, starting with a letter, unquoted).")
+                    elif tipo in YAML11:
+                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{tipo}] of {quien} is a boolean or null in YAML 1.1, so a "
+                                       "YAML parser would not read it as text: pick another type.")
+                    elif tipo in tipos_aca:
+                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{tipo}] is repeated in {quien}.")
+                    elif tipo in clase_del_tipo:
+                        otra, linea_otra = clase_del_tipo[tipo]
+                        errores.append(f"{CLASES_YML}:{n}: the deviation type [{tipo}] is already in {otra} (line {linea_otra}): "
+                                       "a type goes in one class at most.")
+                    else:
+                        clase_del_tipo[tipo] = (quien, n)
+                    tipos_aca.add(tipo)
+            if actual:
+                actual[3] = True
         elif m_desc and actual and not actual[2]:
             actual[2] = True
         elif actual and actual[2] and re.fullmatch(r"  description:.*", linea):
@@ -687,7 +726,8 @@ if os.path.exists(CLASES_YML):
         else:
             if actual and re.fullmatch(r"  description:.*", linea):
                 actual[2] = True  # one mistake, one error: a bad description is reported as such, not also as a missing one
-            errores.append(f"{CLASES_YML}:{n}: unexpected line (expected `- id: <kebab-case>` and `  description: <text>`, unquoted).")
+            errores.append(f"{CLASES_YML}:{n}: unexpected line (expected `- id: <kebab-case>`, `  description: <text>` and an optional "
+                           "`  deviations: [<kebab-case>, …]`, unquoted).")
     cerrar()
     if ids_leidos:
         ids_clases = ids_leidos
