@@ -212,6 +212,17 @@
       "run": "bash scripts/agents/test-learning.sh && python3 -m unittest scripts/agents/test_task_events.py"
     },
     {
+      "name": "guardrails-learning",
+      "when": [
+        "scripts/agents/guardrails.py",
+        "scripts/agents/test-guardrails-learning.sh",
+        ".codex/hooks.json",
+        ".cursor/hooks.json",
+        ".github/hooks/guardrails.json"
+      ],
+      "run": "bash scripts/agents/test-guardrails-learning.sh"
+    },
+    {
       "name": "sync-rules",
       "when": [
         "scripts/agents/sync-rules",

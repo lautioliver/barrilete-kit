@@ -51,7 +51,8 @@ Una línea JSON por evento, solo con los campos de la tabla del ADR-007 D3. Obli
 |---|---|---|
 | `check_run` | `verify.py` | cada check de regla de `.barrilete/checks.json` que corre |
 | `task_end` | `task_events.py` | el `Stop` que sigue a `bk done`, cuando `task.json` ya es terminal; uno por tarea |
-| `deviation`, `finding` | `bk learn` (barrilete-workspace) | todavía no en el kit |
+| `deviation` (`class=guardrail-block`) | `guardrails.py` | cada comando que frena, en Claude Code, Codex, Copilot, Cursor y pi; el registro del hook de cada herramienta pone `BK_HARNESS` (`codex`, `copilot`, `cursor`; pi desde `guardrails.ts`) si no está definida. Nunca cambia lo que responde el hook: si el evento no se puede escribir, frena igual |
+| `deviation` (el resto), `finding` | `bk learn` (barrilete-workspace) | todavía no en el kit |
 
 Escribir nunca frena el trabajo: si el evento no se puede escribir, `verify.py` y el hook siguen.
 

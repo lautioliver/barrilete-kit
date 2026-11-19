@@ -392,6 +392,34 @@ def comando_de(entrada):
     return None, None
 
 
+def registrar_desvio(cwd):
+    """Leaves one `deviation` learning event (ADR-007 D3) in the project's store. It runs after the verdict is out and with
+    a time budget, and it never changes what the hook answers: any failure (no learning.py, a broken or slow store) is
+    swallowed. harness, model and provider come from the environment (BK_HARNESS, which each hook registration sets for
+    its tool, and BK_MODEL)."""
+    try:
+        import importlib.util
+        import signal
+
+        def vencio(*_):
+            raise TimeoutError("learning store too slow")
+
+        ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "learning.py")
+        spec = importlib.util.spec_from_file_location("learning", ruta)
+        learning = importlib.util.module_from_spec(spec)
+        sys.modules.setdefault("learning", learning)
+        spec.loader.exec_module(learning)
+        cwd = cwd if isinstance(cwd, str) else None
+        signal.signal(signal.SIGALRM, vencio)
+        signal.alarm(3)
+        try:
+            learning.escribir([learning.evento("deviation", {"class": "guardrail-block"}, cwd=cwd)], cwd=cwd)
+        finally:
+            signal.alarm(0)
+    except Exception:
+        pass
+
+
 def main():
     try:
         entrada = json.load(sys.stdin)
@@ -414,11 +442,16 @@ def main():
     # Copilot from the JSON (exit 2 denies anyway), Cursor from the JSON with exit 0.
     if herramienta == "copilot":
         print(json.dumps({"permissionDecision": "deny", "permissionDecisionReason": texto}, ensure_ascii=False))
-    elif herramienta == "cursor":
+    if herramienta == "cursor":
         print(json.dumps({"permission": "deny", "user_message": corto, "agent_message": texto}, ensure_ascii=False))
-        return 0
-    print(texto, file=sys.stderr)
-    return 2
+        retorno = 0
+    else:
+        print(texto, file=sys.stderr)
+        retorno = 2
+    sys.stdout.flush()
+    sys.stderr.flush()
+    registrar_desvio(entrada.get("cwd"))   # after the verdict: a slow store cannot delay or lose it
+    return retorno
 
 
 if __name__ == "__main__":
