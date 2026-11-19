@@ -18,7 +18,7 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-bitacora-add-XXXXXX")
 TMP=$(cd "$TMP" && pwd)
 # shellcheck disable=SC2016  # se expande al salir, no ahora
 tap_at_exit 'rm -rf "$TMP"'
-HOY=$(date +%F)
+HOY=$(date -u +%F)   # la bitácora fecha en UTC (#365)
 MES=${HOY%-*}
 
 git init -q "$TMP/p"
@@ -675,6 +675,17 @@ tap_run out 64 python3 -I "$ADD" -C "$TMP/corte" add --topic "Rutas nuevas" --ne
 # Pero --new con un tema que ya tiene entradas en otro mes se sigue rechazando.
 tap_run out 64 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema dos" --new --entry "$TMP/e2.html"
 [ "$TAP_RC" = 64 ]; tap_check $? "add --new con un tema que ya tiene entradas se rechaza" "rc=$TAP_RC $out"
+
+# La fecha de hoy es la de UTC, no la del reloj local: en dos husos a 26 horas de distancia, al menos uno está en otro
+# día que UTC, y los dos tienen que escribir el mismo día y la misma página.
+for tz in Etc/GMT-14 Etc/GMT+12; do
+  git init -q "$TMP/utc-${tz#Etc/}"
+  u=$(date -u +%F)
+  tap_run out 0 env TZ="$tz" python3 -I "$ADD" -C "$TMP/utc-${tz#Etc/}" add --topic "Tema" --entry "$TMP/e1.html"
+  [ "$out" = "ok: new tema $TMP/utc-${tz#Etc/}/docs/bitacora/${u%-*}.html" ]; tap_check $? "con TZ=$tz, la entrada va a la página del mes en UTC" "utc=$u $out"
+  grep -qF "<time datetime=\"$u\">" "$TMP/utc-${tz#Etc/}/docs/bitacora/${u%-*}.html" 2>/dev/null
+  tap_check $? "con TZ=$tz, la entrada lleva la fecha de hoy en UTC" "utc=$u"
+done
 
 # Una portada que perdió el marcador de meses no se toma por una bitácora de antes: el aviso nombra ese marcador.
 git init -q "$TMP/sinmeses"
