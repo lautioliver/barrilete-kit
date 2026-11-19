@@ -20,6 +20,8 @@ Enmendado en lautioliver/barrilete-kit#324 (2026-11-17), decidido por @lautioliv
 
 Enmendado en lautioliver/barrilete-kit#348 (2026-11-18), decidido por @lautioliver en el chat (registrado en https://github.com/lautioliver/barrilete-kit/issues/348#issuecomment-6968066532): D3 limita `evidence_ref` a una ruta local más las URLs de GitHub de la lista de D3, en lugar de cualquier URL sin credenciales ni query.
 
+Enmendado en lautioliver/barrilete-kit#345 (2026-11-18), decidido por @lautioliver en el chat (registrado en https://github.com/lautioliver/barrilete-kit/issues/345#issuecomment-6988907723): en D3, `class` de un `deviation` es el tipo del desvío y todos los desvíos van al store; en D5, los desvíos cuentan por el mapeo tipo → clase de `classes.yml`. ADR-006 D4 no cambia: las clases de desvío de `classes.yml` son las que reciben tipos por ese mapeo.
+
 ## Contexto
 
 ADR-006 unificó las reglas en `barrilete-rules`, pero dejó los datos de aprendizaje afuera de los proyectos:
@@ -54,13 +56,15 @@ ADR-006 unificó las reglas en `barrilete-rules`, pero dejó los datos de aprend
    | `area` | el label `area:` del issue | para el ruteo por área (#326) |
    | `role` | `implementer` · `reviewer`… | a qué rol le llega la regla |
    | `kind` | `deviation` · `finding` · `check_run` · `task_end` | qué pasó |
-   | `class` | id de `classes.yml` | conecta desvío, regla y hallazgo (ADR-006 D4) |
+   | `class` | en `finding`, id de `classes.yml`; en `deviation`, el tipo del desvío (abajo) | conecta desvío, regla y hallazgo (ADR-006 D4) |
    | `rule_id` | id de la regla | la regla mapeada, si la hay |
    | `outcome` | depende de `kind` (abajo) | el resultado |
    | `evidence_ref` | ruta local o una URL permitida (abajo) | dónde está la evidencia, nunca la evidencia |
    | `rules_ref` | ver D6 | qué versión de las reglas recibió el agente |
 
    - **`evidence_ref`:** una ruta local, o solo una de estas URLs, todas de `https://github.com/<owner>/<repo>/`: `pull/<n>` o `issues/<n>` con un `#issuecomment-<n>` o `#discussion_r<n>` opcional; `blob/<sha>/<ruta>` con un `#L<n>` o `#L<n>-L<m>` opcional; `commit/<sha>`. `<sha>` es hexadecimal (minúscula, de 7 a 40 dígitos). Cualquier otra URL se rechaza (en las otras viaja un webhook o un token, y `push` publica el store).
+   - **`class` en `deviation`:** el tipo del desvío como slug, no un id de `classes.yml`. Por ejemplo, `guardrail-block` o `user-correction`; la lista completa es la del adaptador de Claude Code (`bk learn`, `lib/deviations.py` de barrilete-workspace). Un tipo se conecta con su clase por el mapeo de D5.
+   - **Todos los desvíos van al store**, también las correcciones, los rechazos y las interrupciones de la persona (`user-correction`, `user-denied`, `interrupt`, `plan-correction`): el evento guarda el tipo, nunca lo que la persona escribió.
    - **Obligatorios:** `v`, `ts`, `project`, `kind`, `model` y `harness`. El resto va cuando se conoce. Quien emite no adivina: si no puede saber el modelo o el harness, escribe `unknown`, y el reporte los cuenta aparte.
    - **`outcome`:** en `check_run`, `pass`, `fail` o `skipped` (el check no pudo verificar), como en el v0 de #323. En `task_end`, los estados terminales de ADR-005 D3: `completed`, `failed`, `incomplete` o `cancelled`. En `deviation` y `finding` no va.
    - **Sin campos de texto.** El esquema no tiene campos de texto libre, y un evento con un campo que no está en la tabla se rechaza (lo prueba un test en lautioliver/barrilete-kit#324). Nunca entran prompts, código, texto de transcripts o de personas, nombres de clientes ni secretos: el evento se tiene que poder auditar sin ver nada del negocio.
@@ -71,6 +75,7 @@ ADR-006 unificó las reglas en `barrilete-rules`, pero dejó los datos de aprend
 5. **D5. Se miden las reglas que el proyecto aplica, por celda.** Reemplaza a ADR-006 D10 y responde su pregunta abierta sobre las rondas.
    - Las reglas medidas son las que el proyecto recibe: las del SHA de `.barrilete/rules.lock` que le aplican (las mismas que filtra `sync-rules`) y las de `.barrilete/rules/`.
    - Una celda es regla × modelo × harness. Por celda se miden los hallazgos de las `classes` de la regla por ronda de review, antes y después de `accepted`, y la tasa de fallo de su check si tiene.
+   - **Desvíos, por el mapeo de `classes.yml`.** Cada clase de `barrilete-rules` lleva una lista opcional `deviations` con los tipos de desvío que le corresponden, y un tipo cae en una sola clase como máximo. Por celda se miden también los desvíos de los tipos mapeados a las `classes` de la regla, por tarea (`task_end`), aparte de los hallazgos por ronda. Un tipo sin clase se guarda en el store pero no se mide. Los valores del mapeo se cargan con un PR a `barrilete-rules`, no en este ADR.
    - **Mínimo de 20 rondas por celda.** Con menos, el reporte dice "poca muestra" y no da veredicto.
    - Una regla sin efecto con muestra suficiente tiene las mismas tres salidas que en ADR-006, y elige la persona: pasa a check, se reescribe más concreta o pasa a `deprecated`.
 
@@ -124,3 +129,4 @@ Esto queda acá y no en el horizonte del proyecto (horizon.md): en el kit ese ar
 - **Issues de la épica #321** (ya abiertos):
   - **kit** #324: el evento v1 y el store (D2, D3, D6); #325: los adaptadores de Codex, Copilot, Cursor y pi (toca hooks: hay que preguntar antes);
   - **barrilete-workspace** lautioliver/barrilete-workspace#11: el adaptador de Claude Code; #12: las propuestas al proyecto (D4) y la alerta de stream callado; #13: el reporte por celda (D5); #14: un A/B con tareas del git.
+- **Lo que pide la enmienda de #345** (lautioliver/barrilete-rules#7 y lautioliver/barrilete-workspace#20): en `barrilete-rules`, la lista `deviations` en `classes.yml`, que su validador la acepte y los valores del mapeo; en `bk learn effect` (#13), contar los desvíos mapeados por tarea.
