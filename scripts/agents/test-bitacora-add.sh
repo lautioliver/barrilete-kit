@@ -678,14 +678,18 @@ tap_run out 64 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema dos" --new --entr
 
 # La fecha de hoy es la de UTC, no la del reloj local: en dos husos a 26 horas de distancia, al menos uno está en otro
 # día que UTC, y los dos tienen que escribir el mismo día y la misma página.
-for tz in Etc/GMT-14 Etc/GMT+12; do
-  git init -q "$TMP/utc-${tz#Etc/}"
+utc() {   # utc <TZ> <repo>: suma una entrada con ese huso y deja en $out lo que imprime y en $u el día en UTC
+  git init -q "$2"
   u=$(date -u +%F)
-  tap_run out 0 env TZ="$tz" python3 -I "$ADD" -C "$TMP/utc-${tz#Etc/}" add --topic "Tema" --entry "$TMP/e1.html"
-  [ "$out" = "ok: new tema $TMP/utc-${tz#Etc/}/docs/bitacora/${u%-*}.html" ]; tap_check $? "con TZ=$tz, la entrada va a la página del mes en UTC" "utc=$u $out"
-  grep -qF "<time datetime=\"$u\">" "$TMP/utc-${tz#Etc/}/docs/bitacora/${u%-*}.html" 2>/dev/null
-  tap_check $? "con TZ=$tz, la entrada lleva la fecha de hoy en UTC" "utc=$u"
-done
+  tap_run out 0 env TZ="$1" python3 -I "$ADD" -C "$2" add --topic "Tema" --entry "$TMP/e1.html"
+  pagina_utc="$2/docs/bitacora/${u%-*}.html"
+}
+utc Etc/GMT-14 "$TMP/utc-este"
+[ "$out" = "ok: new tema $pagina_utc" ]; tap_check $? "con UTC+14, la entrada va a la página del mes en UTC" "utc=$u $out"
+grep -qF "<time datetime=\"$u\">" "$pagina_utc" 2>/dev/null; tap_check $? "con UTC+14, la entrada lleva la fecha de hoy en UTC" "utc=$u"
+utc Etc/GMT+12 "$TMP/utc-oeste"
+[ "$out" = "ok: new tema $pagina_utc" ]; tap_check $? "con UTC-12, la entrada va a la página del mes en UTC" "utc=$u $out"
+grep -qF "<time datetime=\"$u\">" "$pagina_utc" 2>/dev/null; tap_check $? "con UTC-12, la entrada lleva la fecha de hoy en UTC" "utc=$u"
 
 # Una portada que perdió el marcador de meses no se toma por una bitácora de antes: el aviso nombra ese marcador.
 git init -q "$TMP/sinmeses"
