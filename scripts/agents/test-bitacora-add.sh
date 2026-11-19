@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2319,SC2154  # "<condición>; tap_check $?" es el patrón de los tests (tap.sh); tap_run asigna out
-# Tests de scripts/agents/bitacora_add.py (#343): /bitacora <tema> suma entradas a docs/bitacora.html, un archivo
-# por proyecto y versionado. find dice si el tema ya tiene sección (o una parecida); add solo inserta: sección nueva
-# al final, entrada al final de su sección, link al final del índice. Nunca reescribe lo que había.
+# Tests de scripts/agents/bitacora_add.py (#343, #365): /bitacora <tema> suma entradas a la bitácora del proyecto,
+# versionada y partida por mes: docs/bitacora.html es la portada (el índice de meses y el de temas) y las entradas van a
+# la página de su mes, docs/bitacora/AAAA-MM.html. find dice si el tema ya existe (o uno parecido); add solo inserta:
+# sección nueva al final, entrada al final de su sección, link al final del índice. Nunca reescribe lo que había.
 # No usa red ni GitHub. Uso: bash scripts/agents/test-bitacora-add.sh
 set -uo pipefail
 RAIZ=$(cd "$(dirname "$0")/../.." && pwd)
@@ -17,12 +18,15 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/test-bitacora-add-XXXXXX")
 TMP=$(cd "$TMP" && pwd)
 # shellcheck disable=SC2016  # se expande al salir, no ahora
 tap_at_exit 'rm -rf "$TMP"'
-HOY=$(date +%F)
+HOY=$(date -u +%F)   # la bitácora fecha en UTC (#365)
+MES=${HOY%-*}
 
 git init -q "$TMP/p"
 git -C "$TMP/p" commit -q --allow-empty -m base
 mkdir -p "$TMP/p/sub"
-pagina="$TMP/p/docs/bitacora.html"
+# La portada y la página del mes en curso, que es donde quedan las entradas (#365).
+portada="$TMP/p/docs/bitacora.html"
+pagina="$TMP/p/docs/bitacora/$MES.html"
 printf '<p>Primera entrada: decidimos <strong>docs/bitacora.html</strong>.</p>\n' >"$TMP/e1.html"
 printf '<div class="kpis"><div class="kpi ok"><b>3</b> hechos</div></div>\n<p>Segunda entrada del mismo tema.</p>\n' >"$TMP/e2.html"
 printf '<table class="tbl"><tr><th>antes</th><th>después</th></tr><tr><td>114 tarjetas</td><td>secciones</td></tr></table>\n' >"$TMP/e3.html"
@@ -55,9 +59,11 @@ malas = [op for op in ops if op[0] != "insert"]
 print("ok" if ops and not malas and len(b) > len(a) else f"ops={ops[:3]}")
 EOF
 
-# 1. Sin el archivo: add lo crea con la sección al final, con fecha, el índice y el ancla del tema.
+# 1. Sin la bitácora: add crea la portada y la página del mes, con la sección al final, con fecha, el índice y el
+# ancla del tema.
 tap_run out 0 python3 -I "$ADD" -C "$TMP/p/sub" add --topic "Decidir la ruta" --entry "$TMP/e1.html"
-[ -s "$pagina" ]; tap_check $? "sin archivo, add crea docs/bitacora.html en la raíz del repo"
+[ -s "$portada" ]; tap_check $? "sin archivo, add crea docs/bitacora.html en la raíz del repo"
+[ -s "$pagina" ]; tap_check $? "sin archivo, add crea la página del mes en docs/bitacora/ de la raíz del repo"
 grep -qF '<section id="decidir-la-ruta" data-topic="Decidir la ruta">' "$pagina"; tap_check $? "la sección se puede enlazar con el slug de su tema"
 grep -qF '<a href="#decidir-la-ruta">Decidir la ruta</a>' "$pagina"; tap_check $? "el índice enlaza la sección nueva"
 grep -qF "<time datetime=\"$HOY\"" "$pagina"; tap_check $? "la entrada nueva lleva la fecha de hoy"
@@ -93,22 +99,22 @@ tap_run out 3 python3 -I "$ADD" -C "$TMP/p" find --topic "Otro"
 grep -qxF "similar otro-tema	Otro tema" <<<"$out"; tap_check $? "un slug que contiene al otro también es parecido" "$out"
 
 # 5. add con un nombre parecido: sin --new ni --into no escribe y sale con 3; con --into suma a esa; con --new crea otra.
-cp "$pagina" "$TMP/v3.html"
+cp -R "$TMP/p/docs" "$TMP/v3"
 tap_run out 3 python3 -I "$ADD" -C "$TMP/p" add --topic "Decidir las rutas" --entry "$TMP/e1.html"
 [ "$TAP_RC" = 3 ]; tap_check $? "add con un nombre parecido no escribe sin --new ni --into" "rc=$TAP_RC"
-cmp -s "$TMP/v3.html" "$pagina"; tap_check $? "add con un nombre parecido deja el archivo igual"
+diff -rq "$TMP/v3" "$TMP/p/docs" >/dev/null; tap_check $? "add con un nombre parecido deja el archivo igual"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/p" add --topic "Decidir las rutas" --into decidir-la-ruta --entry "$TMP/e1.html"
 forma
 [ "$(sed -n 1p <<<"$forma_out")" = "decidir-la-ruta:3 otro-tema:1" ]; tap_check $? "add --into suma la entrada a la sección elegida" "$forma_out"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/p" add --topic "Decidir las rutas" --new --entry "$TMP/e1.html"
 forma
 [ "$(sed -n 1p <<<"$forma_out")" = "decidir-la-ruta:3 otro-tema:1 decidir-las-rutas:1" ]; tap_check $? "add --new crea otra sección aunque haya una parecida" "$forma_out"
-cp "$pagina" "$TMP/v4.html"
+cp -R "$TMP/p/docs" "$TMP/v4"
 tap_run out 64 python3 -I "$ADD" -C "$TMP/p" add --topic "Otro tema" --new --entry "$TMP/e1.html"
 [ "$TAP_RC" = 64 ]; tap_check $? "add --new con un tema que ya existe es un error de uso" "rc=$TAP_RC"
 tap_run out 64 python3 -I "$ADD" -C "$TMP/p" add --topic "x" --into no-existe --entry "$TMP/e1.html"
 [ "$TAP_RC" = 64 ]; tap_check $? "add --into una sección que no existe es un error de uso" "rc=$TAP_RC"
-cmp -s "$TMP/v4.html" "$pagina"; tap_check $? "un error de uso deja el archivo igual"
+diff -rq "$TMP/v4" "$TMP/p/docs" >/dev/null; tap_check $? "un error de uso deja el archivo igual"
 
 # 6. Lo que la entrada no puede traer: script, manejadores on…=, javascript:, cierres de la estructura y los marcadores.
 for malo in '<script>x()</script>' '<img src=x onerror=x()>' '<p ONCLICK = "x()">' '<a href="javascript:x()">a</a>' \
@@ -116,7 +122,7 @@ for malo in '<script>x()</script>' '<img src=x onerror=x()>' '<p ONCLICK = "x()"
   printf '%s\n' "$malo" >"$TMP/malo.html"
   tap_run out 64 python3 -I "$ADD" -C "$TMP/p" add --topic "Otro tema" --entry "$TMP/malo.html"
   [ "$TAP_RC" = 64 ]; tap_check $? "add rechaza una entrada con HTML que rompe la página" "$malo: rc=$TAP_RC"
-  cmp -s "$TMP/v4.html" "$pagina"; tap_check $? "una entrada rechazada deja el archivo igual" "$malo"
+  diff -rq "$TMP/v4" "$TMP/p/docs" >/dev/null; tap_check $? "una entrada rechazada deja el archivo igual" "$malo"
 done
 : >"$TMP/vacia.html"
 tap_run out 64 python3 -I "$ADD" -C "$TMP/p" add --topic "Otro tema" --entry "$TMP/vacia.html"
@@ -128,18 +134,19 @@ case "$out" in *Traceback*) tap_fail "un error de uso no da traceback" "$out" ;;
 # 7. El tema se escribe como texto; uno que no deja slug es un error de uso.
 tap_run out 0 python3 -I "$ADD" -C "$TMP/p" add --topic '<b>Ruta</b> & "otra"' --new --entry "$TMP/e1.html"
 grep -qF '&lt;b&gt;Ruta&lt;/b&gt; &amp; &quot;otra&quot;' "$pagina"; tap_check $? "el tema se escribe escapado"
-grep -qF '<b>Ruta</b>' "$pagina"; es=$?; [ "$es" = 1 ]; tap_check $? "el tema no se interpreta como HTML"
+grep -qF '&lt;b&gt;Ruta&lt;/b&gt; &amp; &quot;otra&quot;' "$portada"; tap_check $? "el tema se escribe escapado" "portada"
+grep -qF '<b>Ruta</b>' "$pagina" "$portada"; es=$?; [ "$es" = 1 ]; tap_check $? "el tema no se interpreta como HTML"
 tap_run out 64 python3 -I "$ADD" -C "$TMP/p" add --topic '¡¡ !!' --entry "$TMP/e1.html"
 [ "$TAP_RC" = 64 ]; tap_check $? "un tema sin letras ni números es un error de uso" "rc=$TAP_RC"
 
-# 8. Un archivo que no tiene los marcadores (editado a mano) no se toca: sale con 65 y lo dice.
+# 8. Un docs/bitacora.html que no tiene los marcadores (editado a mano) no se toca ni se mueve: sale con 65 y lo dice.
 git init -q "$TMP/roto"
 mkdir -p "$TMP/roto/docs"
 printf '<html><body><main><p>a mano</p></main></body></html>\n' >"$TMP/roto/docs/bitacora.html"
-cp "$TMP/roto/docs/bitacora.html" "$TMP/roto.html"
+cp -R "$TMP/roto/docs" "$TMP/roto-antes"
 tap_run out 65 python3 -I "$ADD" -C "$TMP/roto" add --topic "x" --entry "$TMP/e1.html"
 [ "$TAP_RC" = 65 ]; tap_check $? "un archivo sin los marcadores no se toca y sale con 65" "rc=$TAP_RC"
-cmp -s "$TMP/roto.html" "$TMP/roto/docs/bitacora.html"; tap_check $? "un archivo sin los marcadores queda igual"
+diff -rq "$TMP/roto-antes" "$TMP/roto/docs" >/dev/null; tap_check $? "un archivo sin los marcadores queda igual"
 
 # 9. Idioma de la instalación: inglés por defecto, español con "language": "es" en .agent-kit.json.
 grep -qF '<html lang="en">' "$pagina"; tap_check $? "sin idioma, la página va en inglés"
@@ -148,7 +155,9 @@ git init -q "$TMP/es"
 printf '{"language": "es"}\n' >"$TMP/es/.agent-kit.json"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/es" add --topic "Tema" --entry "$TMP/e1.html"
 grep -qF '<html lang="es">' "$TMP/es/docs/bitacora.html"; tap_check $? "con language es, la página va en español"
-grep -qF '>Índice<' "$TMP/es/docs/bitacora.html"; tap_check $? "en español, el índice se llama Índice"
+grep -qF '<html lang="es">' "$TMP/es/docs/bitacora/$MES.html"; tap_check $? "con language es, la página va en español" "la del mes"
+grep -qF '>Índice<' "$TMP/es/docs/bitacora/$MES.html"; tap_check $? "en español, el índice se llama Índice"
+grep -qF '>Meses<' "$TMP/es/docs/bitacora.html"; tap_check $? "en español, el índice de la portada se llama Meses"
 
 # 10. Diseño: uno solo para todos los proyectos, el de barrilete (#361); un .barrilete/bitacora.css no entra.
 grep -qF '<style id="theme-barrilete">' "$pagina"; tap_check $? "la página lleva el tema de barrilete"
@@ -156,10 +165,10 @@ git init -q "$TMP/tema"
 mkdir -p "$TMP/tema/.barrilete"
 printf ':root { --accent: #0E9F6E; }\n@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }\n' >"$TMP/tema/.barrilete/bitacora.css"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/tema" add --topic "Tema" --entry "$TMP/e1.html"
-grep -qF -- '#0E9F6E' "$TMP/tema/docs/bitacora.html"; es=$?; [ "$es" = 1 ]; tap_check $? "el CSS de un proyecto no cambia el diseño de la página"
-grep -qiF 'prefers-color-scheme' "$TMP/tema/docs/bitacora.html"; es=$?; [ "$es" = 1 ]; tap_check $? "aunque el proyecto traiga modo oscuro, la página nueva es siempre clara"
+grep -qF -- '#0E9F6E' "$TMP/tema/docs/bitacora.html" "$TMP/tema/docs/bitacora/$MES.html"; es=$?; [ "$es" = 1 ]; tap_check $? "el CSS de un proyecto no cambia el diseño de la página"
+grep -qiF 'prefers-color-scheme' "$TMP/tema/docs/bitacora.html" "$TMP/tema/docs/bitacora/$MES.html"; es=$?; [ "$es" = 1 ]; tap_check $? "aunque el proyecto traiga modo oscuro, la página nueva es siempre clara"
 grep -qF 'display=swap' "$pagina"; tap_check $? "las fuentes de Google se cargan sin dejar el texto invisible"
-grep -qiF '<script' "$pagina"; es=$?; [ "$es" = 1 ]; tap_check $? "la página no lleva scripts"
+grep -qiF '<script' "$pagina" "$portada"; es=$?; [ "$es" = 1 ]; tap_check $? "la página no lleva scripts"
 grep -qF '.tbl tr:first-child th:first-child{border-top-left-radius' "$pagina"; tap_check $? "las esquinas del encabezado de la tabla siguen el borde redondeado"
 grep -qF '.tbl tr:first-child th:last-child{border-top-right-radius' "$pagina"; tap_check $? "las esquinas del encabezado de la tabla siguen el borde redondeado" "derecha"
 for clase in kpis kpi cards card tbl note ok warn danger; do
@@ -276,11 +285,17 @@ tap_run out 0 python3 -I "$ADD" -C "$TMP/p" add --topic "Otro tema" --entry "$TM
 # 15. Revisión: un archivo con CRLF (checkout de Windows) se lee igual y no duplica la sección.
 git init -q "$TMP/crlf"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf" add --topic "Tema" --entry "$TMP/e1.html"
-tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p, newline="").read(); open(p, "w", newline="").write(t.replace("\n", "\r\n"))' "$TMP/crlf/docs/bitacora.html"
+cat >"$TMP/a-crlf.py" <<'EOF'
+import sys
+for p in sys.argv[1:]:
+    t = open(p, newline="").read()
+    open(p, "w", newline="").write(t.replace("\n", "\r\n"))
+EOF
+tap_run out 0 python3 -I "$TMP/a-crlf.py" "$TMP/crlf/docs/bitacora.html" "$TMP/crlf/docs/bitacora/$MES.html"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf" find --topic "Tema"
 [ "$out" = "exact tema" ]; tap_check $? "con CRLF, find encuentra la sección" "$out"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf" add --topic "Tema" --entry "$TMP/e2.html"
-tap_run forma_out 0 python3 -I "$TMP/forma.py" "$TMP/crlf/docs/bitacora.html"
+tap_run forma_out 0 python3 -I "$TMP/forma.py" "$TMP/crlf/docs/bitacora/$MES.html"
 [ "$(sed -n 1p <<<"$forma_out")" = "tema:2" ]; tap_check $? "con CRLF, la entrada se suma a la sección que ya estaba" "$forma_out"
 
 # 16. Revisión: el archivo queda legible para todos (umask) y conserva su modo al sumar entradas.
@@ -288,12 +303,17 @@ modo() { tap_run modo_out 0 python3 -I -c 'import os, sys; print(oct(os.stat(sys
 git init -q "$TMP/modo"
 umask 022
 tap_run out 0 python3 -I "$ADD" -C "$TMP/modo" add --topic "Tema" --entry "$TMP/e1.html"
-modo "$TMP/modo/docs/bitacora.html"
+modo "$TMP/modo/docs/bitacora/$MES.html"
 [ "$modo_out" = 0o644 ]; tap_check $? "un archivo nuevo sigue el umask" "$modo_out"
-chmod 664 "$TMP/modo/docs/bitacora.html"
-tap_run out 0 python3 -I "$ADD" -C "$TMP/modo" add --topic "Tema" --entry "$TMP/e2.html"
 modo "$TMP/modo/docs/bitacora.html"
+[ "$modo_out" = 0o644 ]; tap_check $? "un archivo nuevo sigue el umask" "portada: $modo_out"
+chmod 664 "$TMP/modo/docs/bitacora.html" "$TMP/modo/docs/bitacora/$MES.html"
+# Un tema nuevo, para que también se escriba la portada.
+tap_run out 0 python3 -I "$ADD" -C "$TMP/modo" add --topic "Otro" --entry "$TMP/e2.html"
+modo "$TMP/modo/docs/bitacora/$MES.html"
 [ "$modo_out" = 0o664 ]; tap_check $? "sumar una entrada conserva el modo del archivo" "$modo_out"
+modo "$TMP/modo/docs/bitacora.html"
+[ "$modo_out" = 0o664 ]; tap_check $? "sumar una entrada conserva el modo del archivo" "portada: $modo_out"
 
 # 17. Revisión: un tema no puede tomar el id de un bloque de la página.
 for t in "Theme barrilete" "Theme project" "Structure"; do
@@ -354,16 +374,20 @@ for malo in '<p>abierta' '<div><p>a</p>' '<i style="position:fixed;inset:0">x</i
 done
 git init -q "$TMP/crlf2"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf2" add --topic "Tema" --entry "$TMP/e1.html"
-tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p, newline="").read(); open(p, "w", newline="").write(t.replace("\n", "\r\n"))' "$TMP/crlf2/docs/bitacora.html"
+tap_run out 0 python3 -I "$TMP/a-crlf.py" "$TMP/crlf2/docs/bitacora.html" "$TMP/crlf2/docs/bitacora/$MES.html"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/crlf2" add --topic "Otro" --entry "$TMP/e2.html"
-tap_run out 0 python3 -I -c 'import sys, re; t=open(sys.argv[1], newline="").read(); print(len(re.findall(r"(?<!\r)\n", t)))' "$TMP/crlf2/docs/bitacora.html"
-[ "$out" = 0 ]; tap_check $? "en un archivo CRLF, lo que se inserta también va con CRLF" "saltos sin CR: $out"
-tap_run out 0 python3 -I -c 'import sys; print(open(sys.argv[1], newline="").read().count("\r"))' "$pagina"
-[ "$out" = 0 ]; tap_check $? "en un archivo LF, lo que se inserta no trae CR" "CR: $out"
+for f in bitacora.html "bitacora/$MES.html"; do
+  tap_run out 0 python3 -I -c 'import sys, re; t=open(sys.argv[1], newline="").read(); print(len(re.findall(r"(?<!\r)\n", t)))' "$TMP/crlf2/docs/$f"
+  [ "$out" = 0 ]; tap_check $? "en un archivo CRLF, lo que se inserta también va con CRLF" "$f: saltos sin CR: $out"
+done
+for f in "$pagina" "$portada"; do
+  tap_run out 0 python3 -I -c 'import sys; print(open(sys.argv[1], newline="").read().count("\r"))' "$f"
+  [ "$out" = 0 ]; tap_check $? "en un archivo LF, lo que se inserta no trae CR" "${f#"$TMP/p/"}: CR: $out"
+done
 
 # 21. Tercera revisión de #344: una entrada que termina en una etiqueta a medias (el navegador se comería el cierre
 # del <article> como atributos), una class que no es una lista de clases, un </br> (el navegador lo vuelve un <br>
-# y no cierra nada), links a otro sitio sin esquema (//host, \\host) y un archivo con una sección sin su marcador.
+# y no cierra nada), links a otro sitio sin esquema (//host, \\host) y una portada con un tema sin su marcador.
 git init -q "$TMP/rev3"
 for malo in '<p>a</p><a href="x' '<p>a</p>
 <b' '<p>a</p><b ' '<p>a</p></b' '<p>a</p><' '<p class="a;b">x</p>' '<p>a</br>b</p>' \
@@ -378,10 +402,10 @@ tap_run out 0 python3 -I "$ADD" -C "$TMP/rev3" add --topic "Tema" --entry "$TMP/
 git init -q "$TMP/sinfin"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/sinfin" add --topic "Tema" --entry "$TMP/e1.html"
 tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p).read(); open(p, "w").write(t.replace("<!-- bitacora:end tema -->", ""))' "$TMP/sinfin/docs/bitacora.html"
-cp "$TMP/sinfin/docs/bitacora.html" "$TMP/sinfin-antes.html"
+cp -R "$TMP/sinfin/docs" "$TMP/sinfin-antes"
 tap_run out 65 python3 -I "$ADD" -C "$TMP/sinfin" add --topic "Otro" --entry "$TMP/e2.html"
 [ "$TAP_RC" = 65 ]; tap_check $? "con una sección sin su marcador de fin, add no escribe y dice que el archivo está roto" "rc=$TAP_RC $out"
-cmp -s "$TMP/sinfin-antes.html" "$TMP/sinfin/docs/bitacora.html"; tap_check $? "con el archivo roto, add no lo toca"
+diff -rq "$TMP/sinfin-antes" "$TMP/sinfin/docs" >/dev/null; tap_check $? "con el archivo roto, add no lo toca"
 
 # 22. #361: la página es siempre clara (también el índice y el pie), hay un diagrama con ramas y un mapa de partes
 # que pasan la lista permitida, una página que ya existe no cambia su diseño y el skill pide la idea, no un informe.
@@ -389,10 +413,10 @@ grep -qiE 'prefers-color-scheme' "$CSS"; es=$?; [ "$es" = 1 ]; tap_check $? "el 
 grep -qE 'color-scheme:[[:space:]]*light[[:space:]]*;' "$CSS"; tap_check $? "el diseño de barrilete le pide al navegador el modo claro"
 git init -q "$TMP/claro"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/claro" add --topic "Tema" --entry "$TMP/e1.html"
-grep -qiE 'prefers-color-scheme' "$TMP/claro/docs/bitacora.html"; es=$?; [ "$es" = 1 ]; tap_check $? "una página nueva no cambia a oscuro con el sistema"
-grep -qiE 'background:#(14161A|121418)' "$TMP/claro/docs/bitacora.html"; es=$?; [ "$es" = 1 ]; tap_check $? "el índice y el pie de una página nueva no son negros"
+grep -qiE 'prefers-color-scheme' "$TMP/claro/docs/bitacora.html" "$TMP/claro/docs/bitacora/$MES.html"; es=$?; [ "$es" = 1 ]; tap_check $? "una página nueva no cambia a oscuro con el sistema"
+grep -qiE 'background:#(14161A|121418)' "$TMP/claro/docs/bitacora.html" "$TMP/claro/docs/bitacora/$MES.html"; es=$?; [ "$es" = 1 ]; tap_check $? "el índice y el pie de una página nueva no son negros"
 for clase in branch root opts opt map node edge; do
-  grep -qE "\.${clase}[^a-z-]" "$TMP/claro/docs/bitacora.html"; tap_check $? "la página trae los estilos del diagrama con ramas y del mapa" ".$clase"
+  grep -qE "\.${clase}[^a-z-]" "$TMP/claro/docs/bitacora/$MES.html"; tap_check $? "la página trae los estilos del diagrama con ramas y del mapa" ".$clase"
 done
 cat >"$TMP/diagramas.html" <<'EOF'
 <div class="branch"><div class="root">¿Dónde se guarda?</div><div class="opts"><div class="opt ok"><h4>Un archivo</h4><p>Elegida.</p></div><div class="opt danger"><h4>Uno por tema</h4><p>Descartada.</p></div></div></div>
@@ -409,9 +433,14 @@ done
 # Una página que nació con otro diseño (con modo oscuro) lo conserva al sumar entradas.
 git init -q "$TMP/vieja"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/vieja" add --topic "Tema" --entry "$TMP/e1.html"
-tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p).read(); open(p, "w").write(t.replace("<style id=\"theme-barrilete\">", "<style id=\"theme-barrilete\">\n@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }", 1))' "$TMP/vieja/docs/bitacora.html"
-tap_run out 0 python3 -I "$ADD" -C "$TMP/vieja" add --topic "Tema" --entry "$TMP/e2.html"
-grep -qF '@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }' "$TMP/vieja/docs/bitacora.html"; tap_check $? "una página que ya existe conserva el diseño con el que nació"
+for f in bitacora.html "bitacora/$MES.html"; do
+  tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p).read(); open(p, "w").write(t.replace("<style id=\"theme-barrilete\">", "<style id=\"theme-barrilete\">\n@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }", 1))' "$TMP/vieja/docs/$f"
+done
+# Un tema nuevo, para que se escriban las dos: la página del mes y la portada.
+tap_run out 0 python3 -I "$ADD" -C "$TMP/vieja" add --topic "Otro" --entry "$TMP/e2.html"
+for f in bitacora.html "bitacora/$MES.html"; do
+  grep -qF '@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }' "$TMP/vieja/docs/$f"; tap_check $? "una página que ya existe conserva el diseño con el que nació" "$f"
+done
 # En la plantilla cada archivo va en su idioma (X.md en inglés, X.es.md en español). En un proyecto instalado queda uno
 # solo, en el idioma de la instalación ("language" de .agent-kit.json; sin él, inglés, como lo lee bitacora_add.py):
 # con --lang es, SKILL.md y docs/agents/bitacora.md traen el texto en español y no quedan sus .es.md.
@@ -441,6 +470,333 @@ for f in $docs_bitacora; do
   case "$idioma" in es) titulo="## Para qué sirve" ;; *) titulo="## What it is for" ;; esac
   tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/$f" "$titulo"
   [ "$out" = sí ]; tap_check $? "la documentación explica qué es la bitácora y para qué sirve" "$f: $out"
+done
+
+# 23. #365: la bitácora se parte por mes. docs/bitacora.html es la portada (el índice de meses y el de temas) y cada mes
+# tiene su página en docs/bitacora/AAAA-MM.html, con una sección por tema. Las páginas de los meses pasados no cambian
+# ni un byte, y en la portada y en el último mes solo se insertan líneas.
+# Resume una página de mes: sus secciones en orden con cuántas entradas tiene cada una.
+cat >"$TMP/mes.py" <<'EOF'
+import os, re, sys
+if not os.path.isfile(sys.argv[1]):
+    print("no está")
+    raise SystemExit
+p = open(sys.argv[1], encoding="utf-8").read()
+secs = re.findall(r'<section id="([^"]+)"(.*?)</section>', p, re.S)
+ENTRADA = r'<article class="entrada"'
+print(" ".join(f"{i}:{len(re.findall(ENTRADA, c))}" for i, c in secs) or "sin secciones")
+EOF
+# Resume la portada en tres líneas: los enlaces a las páginas (en su orden), los de cada tema (la sección con el id
+# del tema, en su orden) y cuántas entradas lleva. "anterior" es docs/bitacora-anterior.html.
+cat >"$TMP/portada.py" <<'EOF'
+import os, re, sys
+if not os.path.isfile(sys.argv[1]):
+    print("no está")
+    raise SystemExit
+p = open(sys.argv[1], encoding="utf-8").read()
+PAGINA = r"(bitacora/\d{4}-\d{2}\.html|bitacora-anterior\.html)"
+def nombre(href):
+    return "anterior" if href == "bitacora-anterior.html" else href[len("bitacora/"):-len(".html")]
+print("meses: " + " ".join(nombre(h) for h in re.findall(r'href="%s"' % PAGINA, p)))
+temas = []
+for slug, cuerpo in re.findall(r'<section id="([^"]+)"(.*?)</section>', p, re.S):
+    enlaces = re.findall(r'href="%s#([^"]*)"' % PAGINA, cuerpo)
+    temas.append(f"{slug}=" + ",".join(nombre(h) + ("" if ancla == slug else f"#{ancla}") for h, ancla in enlaces))
+print("temas: " + " ".join(temas))
+print("entradas=%d" % len(re.findall(r'<article class="entrada"', p)))
+EOF
+# Compara dos copias de docs/, archivo por archivo: = igual byte a byte, + nuevo, - borrado, i solo se insertaron
+# líneas (lo anterior quedó igual), x se reescribió algo.
+cat >"$TMP/cambios.py" <<'EOF'
+import difflib, os, sys
+def arbol(raiz):
+    out = {}
+    for carpeta, _, archivos in os.walk(raiz):
+        for n in archivos:
+            ruta = os.path.join(carpeta, n)
+            with open(ruta, "rb") as f:
+                out[os.path.relpath(ruta, raiz)] = f.read()
+    return out
+a, b = arbol(sys.argv[1]), arbol(sys.argv[2])
+def codigo(n):
+    if n not in a:
+        return "+"
+    if n not in b:
+        return "-"
+    if a[n] == b[n]:
+        return "="
+    x, y = (t.decode("utf-8").splitlines(keepends=True) for t in (a[n], b[n]))
+    ops = [op for op in difflib.SequenceMatcher(None, x, y, autojunk=False).get_opcodes() if op[0] != "equal"]
+    return "i" if all(op[0] == "insert" for op in ops) else "x"
+print(" ".join(f"{n}:{codigo(n)}" for n in sorted(set(a) | set(b))) or "vacío")
+EOF
+cat >"$TMP/igual.py" <<'EOF'
+import os, sys
+a, b = sys.argv[1:3]
+if not (os.path.isfile(a) and os.path.isfile(b)):
+    print("no está")
+else:
+    print("igual" if open(a, "rb").read() == open(b, "rb").read() else "distinto")
+EOF
+# Le saca un texto a un archivo (para romper una página a propósito).
+cat >"$TMP/quita.py" <<'EOF'
+import os, sys
+ruta, texto = sys.argv[1:3]
+if not os.path.isfile(ruta):
+    print("no está")
+else:
+    t = open(ruta, encoding="utf-8").read()
+    open(ruta, "w", encoding="utf-8").write(t.replace(texto, ""))
+    print("quitado" if texto in t else "no lo tenía")
+EOF
+
+# Una bitácora nueva: la entrada va a la página del mes en curso y la portada enlaza ese mes y ese tema.
+git init -q "$TMP/n"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/n" add --topic "Decidir la ruta" --entry "$TMP/e1.html"
+[ "$out" = "ok: new decidir-la-ruta $TMP/n/docs/bitacora/$MES.html" ]; tap_check $? "add dice la página del mes donde dejó la entrada" "$out"
+tap_run mes 0 python3 -I "$TMP/mes.py" "$TMP/n/docs/bitacora/$MES.html"
+[ "$mes" = "decidir-la-ruta:1" ]; tap_check $? "en una bitácora nueva, la entrada queda en la página del mes en curso" "$mes"
+tap_run por 0 python3 -I "$TMP/portada.py" "$TMP/n/docs/bitacora.html"
+[ "$(sed -n 1p <<<"$por")" = "meses: $MES" ]; tap_check $? "en una bitácora nueva, la portada enlaza la página del mes" "$por"
+[ "$(sed -n 2p <<<"$por")" = "temas: decidir-la-ruta=$MES" ]; tap_check $? "en una bitácora nueva, la portada enlaza el tema con su mes" "$por"
+[ "$(sed -n 3p <<<"$por")" = "entradas=0" ]; tap_check $? "la portada no lleva entradas, solo enlaces" "$por"
+tap_run out 0 python3 -I "$TMP/contiene.py" "$TMP/n/docs/bitacora/$MES.html" 'href="../bitacora.html"'
+[ "$out" = sí ]; tap_check $? "la página de un mes enlaza de vuelta a la portada" "$out"
+
+# Varios meses: enero con dos temas, después febrero, después el mes en curso.
+git init -q "$TMP/m"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema uno" --date 2026-01-10 --entry "$TMP/e1.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema dos" --date 2026-01-15 --entry "$TMP/e2.html"
+cp -R "$TMP/m/docs" "$TMP/s1"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema uno" --date 2026-02-03 --entry "$TMP/e3.html"
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s1" "$TMP/m/docs"
+[ "$cam" = "bitacora.html:i bitacora/2026-01.html:= bitacora/2026-02.html:+" ]; tap_check $? "la primera entrada de un mes nuevo crea su página sin tocar la del mes anterior" "$cam"
+tap_run mes 0 python3 -I "$TMP/mes.py" "$TMP/m/docs/bitacora/2026-01.html"
+[ "$mes" = "tema-uno:1 tema-dos:1" ]; tap_check $? "la página de un mes tiene una sección por tema con las entradas de ese mes" "enero: $mes"
+tap_run mes 0 python3 -I "$TMP/mes.py" "$TMP/m/docs/bitacora/2026-02.html"
+[ "$mes" = "tema-uno:1" ]; tap_check $? "la página de un mes tiene una sección por tema con las entradas de ese mes" "febrero: $mes"
+tap_run por 0 python3 -I "$TMP/portada.py" "$TMP/m/docs/bitacora.html"
+[ "$(sed -n 1p <<<"$por")" = "meses: 2026-02 2026-01" ]; tap_check $? "la portada lista los meses, el más nuevo primero" "$por"
+[ "$(sed -n 2p <<<"$por")" = "temas: tema-uno=2026-01,2026-02 tema-dos=2026-01" ]; tap_check $? "en la portada, cada tema enlaza a todos los meses donde tiene entradas" "dos meses: $por"
+
+# El mes en curso: un tema que viene de enero, otra entrada del mismo tema y un tema nuevo.
+cp -R "$TMP/m/docs" "$TMP/s2"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema dos" --entry "$TMP/e1.html"
+[ "$out" = "ok: append tema-dos $TMP/m/docs/bitacora/$MES.html" ]; tap_check $? "un tema que ya existe en otro mes no es nuevo: add dice append y la página de este mes" "$out"
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s2" "$TMP/m/docs"
+[ "$cam" = "bitacora.html:i bitacora/2026-01.html:= bitacora/2026-02.html:= bitacora/$MES.html:+" ]; tap_check $? "sumar una entrada no cambia ningún byte de las páginas de los meses pasados" "$cam"
+cp -R "$TMP/m/docs" "$TMP/s3"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema dos" --entry "$TMP/e2.html"
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s3" "$TMP/m/docs"
+[ "$cam" = "bitacora.html:= bitacora/2026-01.html:= bitacora/2026-02.html:= bitacora/$MES.html:i" ]; tap_check $? "otra entrada del mismo tema en el mismo mes solo inserta líneas en la página del mes" "$cam"
+cp -R "$TMP/m/docs" "$TMP/s4"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema tres" --entry "$TMP/e3.html"
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s4" "$TMP/m/docs"
+[ "$cam" = "bitacora.html:i bitacora/2026-01.html:= bitacora/2026-02.html:= bitacora/$MES.html:i" ]; tap_check $? "un tema nuevo solo inserta líneas en la portada y en la página del mes" "$cam"
+
+# find y add miran toda la bitácora: «Tema uno» solo tiene entradas en enero y febrero.
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" find --topic "Tema UNO"
+[ "$out" = "exact tema-uno" ]; tap_check $? "find encuentra un tema aunque sus entradas estén en otro mes" "$out"
+tap_run out 3 python3 -I "$ADD" -C "$TMP/m" find --topic "Tema unos"
+[ "$TAP_RC" = 3 ]; tap_check $? "find avisa de un tema con nombre parecido aunque sus entradas estén en otro mes" "rc=$TAP_RC"
+grep -qxF "similar tema-uno	Tema uno" <<<"$out"; tap_check $? "find avisa de un tema con nombre parecido aunque sus entradas estén en otro mes" "$out"
+SIN_CAMBIOS="bitacora.html:= bitacora/2026-01.html:= bitacora/2026-02.html:= bitacora/$MES.html:="
+cp -R "$TMP/m/docs" "$TMP/s5"
+tap_run out 3 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema unos" --entry "$TMP/e1.html"
+rc=$TAP_RC
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s5" "$TMP/m/docs"
+[ "$rc $cam" = "3 $SIN_CAMBIOS" ]; tap_check $? "add con un nombre parecido a un tema de otro mes no escribe nada y sale con 3" "rc=$rc $cam"
+tap_run out 64 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema uno" --new --entry "$TMP/e1.html"
+rc=$TAP_RC
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s5" "$TMP/m/docs"
+[ "$rc $cam" = "64 $SIN_CAMBIOS" ]; tap_check $? "add --new con un tema que ya existe en otro mes es un error de uso y no escribe nada" "rc=$rc $cam"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema unos" --into tema-uno --entry "$TMP/e1.html"
+tap_run mes 0 python3 -I "$TMP/mes.py" "$TMP/m/docs/bitacora/$MES.html"
+[ "$mes" = "tema-dos:2 tema-tres:1 tema-uno:1" ]; tap_check $? "add --into un tema de otro mes le abre su sección en la página de este mes" "$mes"
+tap_run out 0 python3 -I "$TMP/contiene.py" "$TMP/m/docs/bitacora/$MES.html" '<section id="tema-uno" data-topic="Tema uno">'
+[ "$out" = sí ]; tap_check $? "la sección de un tema que viene de otro mes lleva el nombre que el tema ya tenía" "$out"
+tap_run por 0 python3 -I "$TMP/portada.py" "$TMP/m/docs/bitacora.html"
+[ "$(sed -n 1p <<<"$por")" = "meses: $MES 2026-02 2026-01" ]; tap_check $? "la portada lista los meses, el más nuevo primero" "tres meses: $por"
+TEMAS="temas: tema-uno=2026-01,2026-02,$MES tema-dos=2026-01,$MES tema-tres=$MES"
+[ "$(sed -n 2p <<<"$por")" = "$TEMAS" ]; tap_check $? "en la portada, cada tema enlaza a todos los meses donde tiene entradas" "tres meses: $por"
+
+# Lo que se rechaza no toca nada: una entrada fuera de la lista permitida, una fecha de un mes que ya tiene uno
+# posterior (ese mes está cerrado) y una fecha futura (cerraría todos los meses hasta que llegue).
+cp -R "$TMP/m/docs" "$TMP/s6"
+printf '<script>x()</script>\n' >"$TMP/malo.html"
+tap_run out 64 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema dos" --entry "$TMP/malo.html"
+rc=$TAP_RC
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s6" "$TMP/m/docs"
+[ "$rc $cam" = "64 $SIN_CAMBIOS" ]; tap_check $? "una entrada rechazada no toca ni la página del mes ni la portada" "rc=$rc $cam"
+tap_run out 64 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema uno" --date 2026-01-20 --entry "$TMP/e1.html"
+rc=$TAP_RC
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s6" "$TMP/m/docs"
+[ "$rc $cam" = "64 $SIN_CAMBIOS" ]; tap_check $? "add --date en un mes que ya tiene uno posterior se rechaza y no toca nada" "rc=$rc $cam"
+tap_run out 64 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema uno" --date 2999-01-01 --entry "$TMP/e1.html"
+rc=$TAP_RC
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s6" "$TMP/m/docs"
+[ "$rc $cam" = "64 $SIN_CAMBIOS" ]; tap_check $? "add --date con una fecha futura se rechaza y no toca nada" "rc=$rc $cam"
+
+# Sin la portada (se borró, o un add se cortó a la mitad), se arma de nuevo con lo que hay en las páginas.
+rm -f "$TMP/m/docs/bitacora.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" find --topic "Tema uno"
+[ "$out" = "exact tema-uno" ]; tap_check $? "sin la portada, find encuentra los temas en las páginas de los meses" "$out"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema tres" --entry "$TMP/e2.html"
+tap_run por 0 python3 -I "$TMP/portada.py" "$TMP/m/docs/bitacora.html"
+[ "$(sed -n 1p <<<"$por")" = "meses: $MES 2026-02 2026-01" ]; tap_check $? "sin la portada, add la arma de nuevo con todos los meses" "$por"
+[ "$(sed -n 2p <<<"$por")" = "$TEMAS" ]; tap_check $? "sin la portada, add la arma de nuevo con cada tema y sus meses" "$por"
+
+# Una página de mes que perdió un marcador (se editó a mano) no se toca, y la portada tampoco.
+git init -q "$TMP/rota"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/rota" add --topic "Tema" --entry "$TMP/e1.html"
+tap_run out 0 python3 -I "$TMP/quita.py" "$TMP/rota/docs/bitacora/$MES.html" "<!-- bitacora:end tema -->"
+cp -R "$TMP/rota/docs" "$TMP/s7"
+tap_run out 65 python3 -I "$ADD" -C "$TMP/rota" add --topic "Otro" --entry "$TMP/e2.html"
+rc=$TAP_RC
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s7" "$TMP/rota/docs"
+[ "$rc $cam" = "65 bitacora.html:= bitacora/$MES.html:=" ]; tap_check $? "con la página del mes rota, add no toca ni esa página ni la portada y sale con 65" "rc=$rc $cam"
+case "$out" in *"docs/bitacora/$MES.html"*) es=sí ;; *) es=no ;; esac
+[ "$es" = sí ]; tap_check $? "el aviso de una página rota dice cuál es" "$out"
+
+# Un add --new que se cortó después de escribir la portada (y antes de la página del mes) se termina repitiéndolo igual.
+git init -q "$TMP/corte"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/corte" add --topic "Tema" --entry "$TMP/e1.html"
+cp "$TMP/corte/docs/bitacora/$MES.html" "$TMP/corte-mes.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/corte" add --topic "Rutas nuevas" --new --entry "$TMP/e2.html"
+cp "$TMP/corte-mes.html" "$TMP/corte/docs/bitacora/$MES.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/corte" add --topic "Rutas nuevas" --new --entry "$TMP/e2.html"
+[ "$out" = "ok: new rutas-nuevas $TMP/corte/docs/bitacora/$MES.html" ]; tap_check $? "un add --new cortado después de la portada se termina repitiéndolo" "rc=$TAP_RC $out"
+tap_run mes 0 python3 -I "$TMP/mes.py" "$TMP/corte/docs/bitacora/$MES.html"
+[ "$mes" = "tema:1 rutas-nuevas:1" ]; tap_check $? "el reintento deja la entrada una sola vez en la página del mes" "$mes"
+tap_run por 0 python3 -I "$TMP/portada.py" "$TMP/corte/docs/bitacora.html"
+[ "$(sed -n 2p <<<"$por")" = "temas: tema=$MES rutas-nuevas=$MES" ]; tap_check $? "el reintento no repite el tema en la portada" "$por"
+tap_run out 64 python3 -I "$ADD" -C "$TMP/corte" add --topic "Rutas nuevas" --new --entry "$TMP/e2.html"
+[ "$TAP_RC" = 64 ]; tap_check $? "un add --new que ya se terminó no se repite" "rc=$TAP_RC $out"
+# Pero --new con un tema que ya tiene entradas en otro mes se sigue rechazando.
+tap_run out 64 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema dos" --new --entry "$TMP/e2.html"
+[ "$TAP_RC" = 64 ]; tap_check $? "add --new con un tema que ya tiene entradas se rechaza" "rc=$TAP_RC $out"
+
+# La fecha de hoy es la de UTC, no la del reloj local: en dos husos a 26 horas de distancia, al menos uno está en otro
+# día que UTC, y los dos tienen que escribir el mismo día y la misma página.
+utc() {   # utc <TZ> <repo>: suma una entrada con ese huso y deja en $out lo que imprime y en $u el día en UTC
+  git init -q "$2"
+  u=$(date -u +%F)
+  tap_run out 0 env TZ="$1" python3 -I "$ADD" -C "$2" add --topic "Tema" --entry "$TMP/e1.html"
+  pagina_utc="$2/docs/bitacora/${u%-*}.html"
+}
+utc Etc/GMT-14 "$TMP/utc-este"
+[ "$out" = "ok: new tema $pagina_utc" ]; tap_check $? "con UTC+14, la entrada va a la página del mes en UTC" "utc=$u $out"
+grep -qF "<time datetime=\"$u\">" "$pagina_utc" 2>/dev/null; tap_check $? "con UTC+14, la entrada lleva la fecha de hoy en UTC" "utc=$u"
+utc Etc/GMT+12 "$TMP/utc-oeste"
+[ "$out" = "ok: new tema $pagina_utc" ]; tap_check $? "con UTC-12, la entrada va a la página del mes en UTC" "utc=$u $out"
+grep -qF "<time datetime=\"$u\">" "$pagina_utc" 2>/dev/null; tap_check $? "con UTC-12, la entrada lleva la fecha de hoy en UTC" "utc=$u"
+
+# Una portada que perdió el marcador de meses no se toma por una bitácora de antes: el aviso nombra ese marcador.
+git init -q "$TMP/sinmeses"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/sinmeses" add --topic "Tema" --entry "$TMP/e1.html"
+tap_run out 0 python3 -I "$TMP/quita.py" "$TMP/sinmeses/docs/bitacora.html" "<!-- bitacora:months -->"
+cp -R "$TMP/sinmeses/docs" "$TMP/s10"
+tap_run out 65 python3 -I "$ADD" -C "$TMP/sinmeses" add --topic "Tema" --entry "$TMP/e2.html"
+rc=$TAP_RC
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s10" "$TMP/sinmeses/docs"
+[ "$rc $cam" = "65 bitacora.html:= bitacora/$MES.html:=" ]; tap_check $? "con la portada sin su marcador de meses, add no toca nada y sale con 65" "rc=$rc $cam"
+case "$out" in *"bitacora:months"*) es=sí ;; *) es=no ;; esac
+[ "$es" = sí ]; tap_check $? "el aviso de una portada sin su marcador de meses nombra ese marcador" "$out"
+
+# 24. #365: una bitácora de antes (un solo archivo en docs/bitacora.html). Lo ya escrito queda byte a byte igual, en
+# docs/bitacora-anterior.html; la portada lo enlaza y las entradas nuevas van a la página de su mes.
+git init -q "$TMP/v"
+mkdir -p "$TMP/v/docs"
+cat >"$TMP/v/docs/bitacora.html" <<'EOF'
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Bitácora del proyecto · v</title>
+<style id="theme-barrilete">
+:root{--bg:#F6F7F9}
+</style>
+<style id="structure">body{margin:0}</style>
+</head>
+<body>
+<nav class="toc" aria-label="Índice">
+<h2 class="sr">Índice</h2>
+<ol>
+<li><a href="#ruta-vieja">01 Ruta vieja</a></li>
+<li><a href="#otro-viejo">02 Otro viejo</a></li>
+<!-- bitacora:nav -->
+</ol>
+</nav>
+<main class="wrap">
+<section id="ruta-vieja" data-topic="Ruta vieja">
+<div class="sec-head"><span class="num">&gt;_ 01</span><h2><a href="#ruta-vieja">Ruta vieja</a></h2></div>
+<article class="entrada">
+<p class="fecha"><time datetime="2026-10-02">2026-10-02</time></p>
+<p>Escrita antes de partir la bitácora por mes.</p>
+</article>
+<article class="entrada">
+<p class="fecha"><time datetime="2026-11-05">2026-11-05</time></p>
+<p>Otra, del mes siguiente, con un <a href="#otro-viejo">link a otro tema</a>.</p>
+</article>
+<!-- bitacora:end ruta-vieja -->
+</section>
+<section id="otro-viejo" data-topic="Otro viejo">
+<div class="sec-head"><span class="num">&gt;_ 02</span><h2><a href="#otro-viejo">Otro viejo</a></h2></div>
+<article class="entrada">
+<p class="fecha"><time datetime="2026-11-06">2026-11-06</time></p>
+<p>Una sola.</p>
+</article>
+<!-- bitacora:end otro-viejo -->
+</section>
+<!-- bitacora:main -->
+</main>
+</body>
+</html>
+EOF
+cp "$TMP/v/docs/bitacora.html" "$TMP/v-antes.html"
+tap_run out 3 python3 -I "$ADD" -C "$TMP/v" find --topic "Ruta"
+grep -qxF "similar ruta-vieja	Ruta vieja" <<<"$out"; tap_check $? "en una bitácora de antes, find ve los temas ya escritos" "$out"
+tap_run ig 0 python3 -I "$TMP/igual.py" "$TMP/v-antes.html" "$TMP/v/docs/bitacora.html"
+[ "$ig" = igual ]; tap_check $? "en una bitácora de antes, find no mueve ni cambia nada" "$ig"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/v" add --topic "Ruta vieja" --entry "$TMP/e1.html"
+[ "$out" = "ok: append ruta-vieja $TMP/v/docs/bitacora/$MES.html" ]; tap_check $? "en una bitácora de antes, la entrada de un tema ya escrito es un append en la página de su mes" "$out"
+tap_run ig 0 python3 -I "$TMP/igual.py" "$TMP/v-antes.html" "$TMP/v/docs/bitacora-anterior.html"
+[ "$ig" = igual ]; tap_check $? "lo ya escrito de una bitácora de antes queda byte a byte igual en docs/bitacora-anterior.html" "$ig"
+tap_run mes 0 python3 -I "$TMP/mes.py" "$TMP/v/docs/bitacora/$MES.html"
+[ "$mes" = "ruta-vieja:1" ]; tap_check $? "en una bitácora de antes, las entradas nuevas van a la página de su mes" "$mes"
+tap_run por 0 python3 -I "$TMP/portada.py" "$TMP/v/docs/bitacora.html"
+[ "$(sed -n 1p <<<"$por")" = "meses: $MES anterior" ]; tap_check $? "la portada de una bitácora de antes enlaza lo ya escrito, después de los meses" "$por"
+[ "$(sed -n 2p <<<"$por")" = "temas: ruta-vieja=anterior,$MES otro-viejo=anterior" ]; tap_check $? "un enlace viejo a un tema cae en su lugar de la portada, que lleva a lo ya escrito y a sus meses" "$por"
+[ "$(sed -n 3p <<<"$por")" = "entradas=0" ]; tap_check $? "la portada de una bitácora de antes no lleva entradas" "$por"
+cp -R "$TMP/v/docs" "$TMP/s8"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/v" add --topic "Tema nuevo" --entry "$TMP/e2.html"
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s8" "$TMP/v/docs"
+[ "$cam" = "bitacora-anterior.html:= bitacora.html:i bitacora/$MES.html:i" ]; tap_check $? "las entradas que siguen no vuelven a tocar lo ya escrito" "$cam"
+tap_run out 64 python3 -I "$ADD" -C "$TMP/v" add --topic "Otro viejo" --new --entry "$TMP/e2.html"
+[ "$TAP_RC" = 64 ]; tap_check $? "add --new con un tema que solo tiene entradas en otra página se rechaza" "rc=$TAP_RC $out"
+# Si docs/bitacora-anterior.html ya existe, no se pisa: no se sabe cuál de los dos es lo ya escrito.
+git init -q "$TMP/v2"
+mkdir -p "$TMP/v2/docs"
+cp "$TMP/v-antes.html" "$TMP/v2/docs/bitacora.html"
+printf 'otra cosa\n' >"$TMP/v2/docs/bitacora-anterior.html"
+cp -R "$TMP/v2/docs" "$TMP/s9"
+tap_run out 65 python3 -I "$ADD" -C "$TMP/v2" add --topic "Ruta vieja" --entry "$TMP/e1.html"
+rc=$TAP_RC
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s9" "$TMP/v2/docs"
+[ "$rc $cam" = "65 bitacora-anterior.html:= bitacora.html:=" ]; tap_check $? "si docs/bitacora-anterior.html ya existe, add no pisa nada y sale con 65" "rc=$rc $cam"
+
+# 25. #365: el skill y la documentación cuentan la forma nueva (en la plantilla, en inglés y en español).
+for f in $archivos; do
+  for frase in 'docs/bitacora/' 'docs/bitacora-anterior.html'; do
+    tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/.claude/skills/bitacora/$f" "$frase"
+    [ "$out" = sí ]; tap_check $? "el skill cuenta la portada, las páginas por mes y dónde queda lo ya escrito" "$f: $frase: $out"
+  done
+done
+for f in $docs_bitacora; do
+  for frase in 'docs/bitacora/' 'docs/bitacora-anterior.html'; do
+    tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/$f" "$frase"
+    [ "$out" = sí ]; tap_check $? "la documentación cuenta la portada, las páginas por mes y dónde queda lo ya escrito" "$f: $frase: $out"
+  done
 done
 
 tap_done

@@ -1,11 +1,11 @@
 ---
 name: bitacora
-description: Draws the idea being thought through in this chat as an entry of the project log (docs/bitacora.html), in the section of a topic, with drawings, little text and plain words, to keep thinking it through and to record how it was reached. Only when the person asks, with "/bitacora <topic>", "save this in the log", "add it to the bitácora".
+description: Draws the idea being thought through in this chat as an entry of the project log (docs/bitacora.html and one page per month in docs/bitacora/), in the section of a topic, with drawings, little text and plain words, to keep thinking it through and to record how it was reached. Only when the person asks, with "/bitacora <topic>", "save this in the log", "add it to the bitácora".
 ---
 
 # Project log (`/bitacora <topic>`)
 
-The project has **one** log, `docs/bitacora.html`, versioned in git so every member has it. It has one section per topic; each `/bitacora <topic>` adds an entry, with its date, **below** what the section already had. Nothing that was written is rewritten: `scripts/agents/bitacora_add.py` only inserts, and it creates the file the first time.
+The project has **one** log, versioned in git so every member has it, split by month: `docs/bitacora.html` is the front page (the index of months and one section per topic, with a link to each month where the topic has entries) and the entries live in the page of their month, `docs/bitacora/YYYY-MM.html`, one section per topic. Each `/bitacora <topic>` adds an entry, with its date, **below** what that topic already had this month. Nothing that was written is rewritten: `scripts/agents/bitacora_add.py` only inserts, only writes the newest month's page (the ones before it are not touched) and creates the pages the first time. A log from before the split (all the entries in `docs/bitacora.html`) is moved unchanged to `docs/bitacora-anterior.html` with the first new entry, and the front page links it.
 
 Run it only when the person asks for it. The log is for **thinking ideas through**, not for reporting work: what was touched, how it was checked and what failed are already in the PRs and the retros. The entry draws the idea being discussed in **this conversation** so the person can keep thinking about it and, once it is built, it records how it was reached. It is for a person who does not read code.
 
@@ -15,8 +15,8 @@ Run it only when the person asks for it. The log is for **thinking ideas through
 python3 scripts/agents/bitacora_add.py find --topic "<topic>"
 ```
 
-- `exact <slug>` (exit 0): the section exists; the entry goes below.
-- `none <slug>` (exit 0): there is no section; it is created at the end.
+- `exact <slug>` (exit 0): the topic exists, in any month; the entry goes below (if the topic has no section in this month's page yet, it gets one).
+- `none <slug>` (exit 0): there is no topic; its section is created at the end.
 - `similar <slug>\t<topic>` (exit 3), one line per section with a similar name: **ask the person before writing**, naming the sections it found ("Do you mean the section «Decide the route», or is it a new one?"). Their answer decides the flag of step 3: `--into <slug>` for an existing section, `--new` for a new one. Without an answer, do not write.
 
 If no `<topic>` was given, propose one in a few words from the conversation and confirm it before step 3.
@@ -28,6 +28,7 @@ A file with an HTML fragment (no `<html>`, `<head>` or `<body>`), in the languag
 How to write it:
 - **Drawings first.** Start with a drawing (steps, branches, map, comparison) and then the text that explains it. If something can be shown, do not tell it.
 - **Little text.** Short sentences: what each part does and why.
+- **Links.** The entry lives in `docs/bitacora/`: a link to another topic is `../bitacora.html#<slug>` (its section on the front page, with its months), and a relative link to a doc needs `../` in front.
 - **Plain words,** no file names, paths, commands, functions, exit codes or PR or commit numbers. If a part of the system matters, name it by what it does ("the step that checks the entry"), not by its file.
 - **The whole path of the idea:** where it came from, which options there were, what was dropped and why, what was decided and what is missing, with who has to decide.
 
@@ -53,7 +54,7 @@ Components (the page already has their styles and they use the design tokens):
 
 In `.opts` put only `.opt` items, two or three: the lines that join them assume that.
 
-A page created before the diagrams does not have their styles (the design is copied when it is created): if the `<style>` of `docs/bitacora.html` has no `.branch{` or `.map{` rule (look for the rule, not the word, which can be in an entry), draw the options with cards or a table and the parts with a flow.
+A page created before the diagrams does not have their styles (the design is copied when it is created): if the `<style>` of the month's page (`docs/bitacora/YYYY-MM.html`) has no `.branch{` or `.map{` rule (look for the rule, not the word, which can be in an entry), draw the options with cards or a table and the parts with a flow.
 
 Status colors: `ok` done or chosen, `warn` in progress, `danger` waiting on a person, broken or dropped. Never only the color: the word says it too. In a map, `node` also takes `ok`, `warn` and `danger`.
 
@@ -65,12 +66,14 @@ Use only these components and plain text tags (`p`, `strong`, `em`, `ul`/`ol`/`l
 python3 scripts/agents/bitacora_add.py add --topic "<topic>" --entry <fragment.html> [--into <slug> | --new]
 ```
 
-It prints `ok: new <slug> <path>` (new section) or `ok: append <slug> <path>` (entry below). Exit 3: there are similar sections and you did not pass `--into` or `--new` (back to step 1). Exit 65: the file was edited by hand and lost its markers; it is not touched: tell the person.
+It prints `ok: new <slug> <path>` (new topic) or `ok: append <slug> <path>` (the topic already existed, in any month); `<path>` is the month's page. Exit 3: there are similar sections and you did not pass `--into` or `--new` (back to step 1). Exit 64 also with a `--date` in the future or from a month before the newest page: the pages of past months are not touched. Exit 65: a page was edited by hand and lost its markers, or `docs/bitacora-anterior.html` already exists and the old log cannot be moved there; nothing is touched: tell the person.
 
-Write the fragment in a temporary file outside the repo and delete it afterwards. Do not edit `docs/bitacora.html` by hand: the script is what guarantees that nothing above is rewritten.
+Leave out `--date` (today in UTC) unless the person asks for another day of this month.
+
+Write the fragment in a temporary file outside the repo and delete it afterwards. Do not edit `docs/bitacora.html` or the pages in `docs/bitacora/` by hand: the script is what guarantees that nothing above is rewritten.
 
 ## 4. Tell the person
 
-One line with the section and the link: `docs/bitacora.html#<slug>`. The file is versioned: commit it on the branch you are working on, or tell the person it is left to commit. Do not open a PR only for the log unless they ask.
+One line with the section and the link: `docs/bitacora/YYYY-MM.html#<slug>`. The files are versioned: commit the front page and the month's page (and `docs/bitacora-anterior.html`, if it was just moved) on the branch you are working on, or tell the person they are left to commit. Do not open a PR only for the log unless they ask.
 
 Design: `scripts/agents/bitacora/barrilete.css`, one for every project that uses barrilete-kit and always light; a project does not change it. The full detail is in the kit's log doc (docs/agents/bitacora.md, not installed in `--small` mode).
