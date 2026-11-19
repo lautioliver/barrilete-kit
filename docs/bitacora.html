@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitácora del proyecto · barrilete-kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style id="theme-barrilete">
+/* Diseño de barrilete para la bitácora del proyecto (docs/bitacora.html, #343). Contrato de tokens: docs/agents/bitacora.md en el kit.
+   Un proyecto pisa los que quiera en .barrilete/bitacora.css; lo que no define queda como acá.
+   Texto y colores de estado: contraste WCAG AA (4.5:1) sobre --bg, --surface y --card en los dos modos. */
+:root {
+  color-scheme: light dark;
+  --bg: #F6F7F9;
+  --surface: #E9ECF1;
+  --card: #FFFFFF;
+  --ink: #14161A;
+  --muted: #5A6270;
+  --accent: #2450E0;
+  --ok: #17693D;
+  --warn: #8A5300;
+  --danger: #B4122B;
+  --knot: #FFB020;   /* nudos de la rienda, barras y notas: relleno, nunca texto */
+  --font-display: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121418;
+    --surface: #1C1F26;
+    --card: #23262E;
+    --ink: #ECEEF2;
+    --muted: #A3AAB6;
+    --accent: #8FB0FF;
+    --ok: #5FD39A;
+    --warn: #FFB020;
+    --danger: #FF8A96;
+  }
+}
+
+</style>
+<style id="structure">
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.7 var(--font-mono)}
+a{color:var(--accent)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+code{font:500 .9em var(--font-mono);background:var(--surface);padding:1px 6px;border-radius:4px}
+p{max-width:78ch}
+.hero{border-bottom:4px solid var(--ink)}
+.hero .wrap{display:grid;grid-template-columns:1fr 300px;gap:48px;align-items:center;padding-top:56px;padding-bottom:48px}
+.tags{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.stamp{font-size:13px;font-weight:500;letter-spacing:.1em;color:#fff;background:#B4122B;border-bottom:3px solid var(--ink);
+  padding:4px 12px;border-radius:6px}
+.chip{font-size:12px;font-weight:500;color:var(--bg);background:var(--ink);padding:3px 10px;border-radius:999px}
+.hero h1{font:800 clamp(44px,8vw,88px)/.95 var(--font-display);letter-spacing:-.02em;margin:26px 0 14px;overflow-wrap:anywhere}
+.lema{font:600 clamp(22px,3vw,32px)/1.2 var(--font-display);margin:0 0 18px}
+.lead{color:var(--muted);max-width:58ch;margin:0 0 26px}
+.leash{display:flex;align-items:center;gap:12px;font-size:14px}
+.knot{width:14px;height:14px;border-radius:50%;background:var(--knot);flex:0 0 14px;
+  box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--ink)}
+.rope{flex:1;height:4px;background:var(--danger);border-radius:2px}
+.leash .mid{color:var(--muted)}
+.prompt{font-size:13px;color:var(--muted);margin-top:22px}
+.prompt b{color:var(--accent)}
+.art svg{width:100%;height:auto;display:block}
+/* El título del índice no se ve (la barra es el índice), pero lo leen los lectores de pantalla. */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+nav.toc{position:sticky;top:0;z-index:5;background:#14161A;border-bottom:1px solid var(--surface)}
+nav.toc ol{display:flex;gap:4px;overflow-x:auto;list-style:none;margin:0 auto;max-width:1120px;padding:10px 16px;
+  scrollbar-width:none}
+nav.toc a{color:#E9ECF1;text-decoration:none;font-size:13px;padding:4px 10px;border-radius:6px;white-space:nowrap;
+  display:block}
+nav.toc a:hover,nav.toc a:focus-visible{background:#B4122B;color:#fff}
+main{padding-bottom:16px}
+main>section{padding:64px 0 8px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+.sec-head .num{font:700 14px var(--font-mono);color:var(--accent);white-space:nowrap}
+.sec-head h2{font:800 clamp(30px,4vw,42px)/1.05 var(--font-display);letter-spacing:-.015em;margin:0}
+.sec-head h2 a{color:inherit;text-decoration:none}
+h3{font:800 22px/1.2 var(--font-display);margin:28px 0 12px}
+h4{font:800 17px/1.2 var(--font-display);margin:18px 0 8px}
+.entrada{position:relative;margin:0 0 0 8px;padding:0 0 26px 34px;overflow-wrap:anywhere}
+.entrada::before{content:"";position:absolute;left:9px;top:8px;bottom:0;width:4px;background:var(--danger);border-radius:2px}
+.entrada:last-of-type::before{bottom:auto;height:16px}
+.entrada::after{content:"";position:absolute;left:2px;top:6px;width:16px;height:16px;border-radius:50%;background:var(--knot);
+  box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--ink)}
+.entrada>p{margin:0 0 12px}
+.fecha{font:800 22px/1.1 var(--font-display);margin:0 0 10px!important}
+.fecha time{color:var(--ink)}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.danger{color:var(--danger)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin:20px 0}
+.kpi,.kpi.ok,.kpi.warn,.kpi.danger{background:var(--card);border:2px solid var(--ink);border-bottom-width:5px;border-radius:14px;
+  padding:14px 16px;font-size:13px;color:var(--muted)}
+.kpi b{display:block;font:800 40px/1 var(--font-display);margin-bottom:6px;color:var(--ink)}
+.kpi.ok b{color:var(--ok)}.kpi.warn b{color:var(--warn)}.kpi.danger b{color:var(--danger)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:18px 0}
+.card,.card.ok,.card.warn,.card.danger{background:var(--card);border:2px solid var(--ink);border-bottom-width:5px;
+  border-radius:14px;padding:18px 20px;color:var(--ink)}
+.card.warn{background:color-mix(in srgb,var(--knot) 16%,var(--card))}
+.card.danger{border-color:var(--danger)}
+.card h3,.card h4{font:800 19px/1.2 var(--font-display);margin:0 0 8px}
+.card.ok h3,.card.ok h4{color:var(--ok)}.card.danger h3,.card.danger h4{color:var(--danger)}
+.card p,.card ul{margin:0}.card ul{padding-left:18px}
+.tbl{width:100%;margin:16px 0;border:2px solid var(--ink);border-bottom-width:5px;
+  border-radius:14px;background:var(--card);border-collapse:separate;border-spacing:0;font-size:14px}
+.tbl th,.tbl td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--surface);vertical-align:top}
+.tbl th{background:var(--ink);color:var(--bg);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{font-weight:700}
+.note,.note.ok,.note.warn,.note.danger{border:2px solid var(--ink);border-left:10px solid var(--knot);border-radius:12px;
+  background:var(--card);padding:14px 18px;margin:18px 0;color:var(--ink)}
+.note.ok{border-left-color:var(--ok)}.note.danger{border-left-color:var(--danger)}
+.note p{margin:0}
+.note b:first-child,.note strong:first-child{font-family:var(--font-display);font-weight:800;font-size:17px}
+.bars{display:grid;gap:10px;margin:16px 0}
+.bar,.bar.ok,.bar.warn,.bar.danger{display:grid;grid-template-columns:220px 1fr;gap:12px;align-items:center;font-size:14px;
+  color:var(--ink)}
+.bar i{display:block;height:22px;border:2px solid var(--ink);border-radius:6px;--c:var(--ink);
+  background:linear-gradient(to right,var(--c) var(--v,0%),var(--surface) var(--v,0%))}
+.bar.ok i{--c:var(--ok)}.bar.warn i{--c:var(--knot)}.bar.danger i{--c:var(--danger)}
+.flow{counter-reset:paso;display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0;padding:0;list-style:none}
+.flow li{counter-increment:paso;display:flex;align-items:center;gap:8px;background:var(--card);border:2px solid var(--ink);
+  border-radius:10px;padding:4px 12px 4px 4px;font-size:14px}
+.flow li::before{content:counter(paso);width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--bg);
+  font-weight:700;font-size:12px;display:grid;place-items:center}
+footer{margin-top:64px;background:#14161A;color:#E9ECF1;font-size:13px}
+footer .wrap{padding-top:28px;padding-bottom:36px;display:flex;gap:20px;align-items:center}
+footer svg{flex:0 0 56px}
+footer code{background:transparent;color:inherit;border:1px solid}
+@media (max-width:860px){
+  .hero .wrap{grid-template-columns:1fr}
+  .art{max-width:220px}
+  .bar,.bar.ok,.bar.warn,.bar.danger{grid-template-columns:120px 1fr;font-size:13px}
+  .tbl{display:block;overflow-x:auto}
+}
+</style>
+</head>
+<body>
+<header class="hero">
+<div class="wrap">
+<div>
+<div class="tags"><span class="stamp">BITÁCORA</span><span class="chip">empezada el 2026-11-18</span></div>
+<h1>barrilete-kit</h1>
+<p class="lema">Los agentes vuelan.<br>Vos tenés la rienda.</p>
+<p class="lead">Lo que se habló y se decidió, por tema. Cada entrada se suma con <code>/bitacora &lt;tema&gt;</code> desde el chat y no se reescribe nada de lo anterior.</p>
+<div class="leash"><span>charla</span><span class="knot"></span><span class="rope"></span><span class="mid">decisión</span><span class="rope"></span><span class="knot"></span><span>bitácora</span></div>
+<div class="prompt"><b>&gt;_</b> /bitacora &lt;tema&gt;</div>
+</div>
+<div class="art"><svg viewBox="0 0 400 400" role="img" aria-label="barrilete">
+<rect width="400" height="400" rx="24" fill="#E9ECF1"/>
+<path d="M200 166 Q200 220 150 236 Q100 252 140 300 Q170 336 250 340" stroke="#B4122B" stroke-width="7" fill="none" stroke-linecap="round"/>
+<circle cx="150" cy="236" r="11" fill="#FFB020"/><circle cx="140" cy="300" r="11" fill="#FFB020"/>
+<rect x="246" y="328" width="72" height="24" rx="12" fill="#14161A"/><rect x="258" y="333" width="48" height="10" rx="4" fill="#B4122B"/><rect x="258" y="341" width="48" height="4" rx="2" fill="#5A6270"/>
+<rect x="120" y="52" width="64" height="8" rx="4" fill="#14161A"/><rect x="216" y="52" width="64" height="8" rx="4" fill="#14161A"/>
+<rect x="148" y="58" width="6" height="18" rx="3" fill="#14161A"/><rect x="246" y="58" width="6" height="18" rx="3" fill="#14161A"/>
+<rect x="140" y="70" width="120" height="98" rx="40" fill="#FFFFFF"/><rect x="158" y="92" width="84" height="46" rx="18" fill="#14161A"/>
+<circle cx="186" cy="115" r="7" fill="#8FB0FF"/><circle cx="214" cy="115" r="7" fill="#8FB0FF"/>
+<rect x="190" y="160" width="20" height="10" rx="4" fill="#B4122B"/>
+</svg></div>
+</div>
+</header>
+<nav class="toc" aria-label="Índice">
+<h2 class="sr">Índice</h2>
+<ol>
+<li><a href="#resumen-de-sesiones-de-barrilete-kit">01 Resumen de sesiones de barrilete-kit</a></li>
+<li><a href="#estado-de-la-epica-321">02 estado de la epica #321</a></li>
+<!-- bitacora:nav -->
+</ol>
+</nav>
+<main class="wrap">
+<section id="resumen-de-sesiones-de-barrilete-kit" data-topic="Resumen de sesiones de barrilete-kit">
+<div class="sec-head"><span class="num">&gt;_ 01</span><h2><a href="#resumen-de-sesiones-de-barrilete-kit">Resumen de sesiones de barrilete-kit</a></h2></div>
+<article class="entrada">
+<p class="fecha"><time datetime="2026-11-18">2026-11-18</time></p>
+<p>Dos sesiones del 18/11 trabajaron en <a href="https://github.com/lautioliver/barrilete-kit/issues/356">#356</a>. El problema: después de un <code>bk handoff</code>, el candado del worktree quedaba en la sesión vieja, que seguía viva pero quieta, y la sesión nueva recibía <code>held</code> hasta que alguien lo soltaba a mano. El candado solo se va cuando su dueño lo suelta o cuando su proceso muere.</p>
+<p>El arreglo está en el <a href="https://github.com/lautioliver/barrilete-kit/pull/357">PR #357</a>. El dueño corre <code>worktree-lock.sh handoff &lt;worktree&gt;</code> y recibe un token. Mientras el dueño viva, solo la sesión que trae ese token (<code>WORKTREE_LOCK_HANDOFF=&lt;token&gt; … claim</code>) puede tomar el candado. No hay timeout, así que la regla de #267 (un solo dueño vivo por worktree) no cambia.</p>
+
+<div class="kpis"><div class="kpi ok"><b>173/173</b> tests del candado pasan</div><div class="kpi ok"><b>3</b> commits en rojo verificados</div><div class="kpi ok"><b>0</b> bloqueantes en la review</div><div class="kpi warn"><b>1</b> PR esperando merge</div></div>
+
+<ol class="flow"><li>decisión en el issue</li><li>rojo</li><li>handoff + token</li><li>/code-review (8 hallazgos)</li><li>/review-pr desde otra sesión</li><li>/security-review</li><li>2 arreglos</li><li>CI verde</li></ol>
+
+<h3>Qué hizo cada sesión</h3>
+<table class="tbl">
+<tr><th>Sesión</th><th>Qué hizo</th><th>Estado</th></tr>
+<tr><td>Implementación (11a4cc02)</td><td>Dejó la decisión en el issue: traspaso explícito, sin timeout. Agregó el subcomando <code>handoff</code>. El candado guarda solo el sha256 del token. El nombre del agente pierde los caracteres de control. <code>release</code> y <code>handoff</code> ahora corren bajo el mutex. Actualizó <code>implement-issue</code>, <code>review-pr</code> y el contrato de subagentes, en inglés y en castellano. Arregló 5 de los 8 hallazgos de <code>/code-review</code> y explicó los otros 3 en el PR.</td><td><span class="ok">hecho</span></td></tr>
+<tr><td>Revisión (00c282f8)</td><td>Corrió <code>/review-pr 357</code> y comprobó los dos rojos contra el cuerpo del PR: 17 y 6 casos. No encontró bloqueantes y sí 2 puntos para corregir. Corrió aparte <code>/security-review</code>: nada con confianza 8 o más. Publicó la review como comentario en el PR. Arregló los 2 puntos en la rama del PR: rojo cf37d5d, arreglo 2a54b9e. Guardó la retro en <code>agents/retros</code>.</td><td><span class="ok">hecho</span></td></tr>
+</table>
+
+<h3>Qué arregló la review</h3>
+<div class="cards">
+<div class="card ok"><h3>Candado sin herramienta de hash</h3><p>En una máquina sin <code>sha256sum</code> ni <code>shasum</code>, cualquier token tomaba cualquier candado vivo, porque un texto vacío daba igual a otro texto vacío. Ahora la huella falla cuando no se puede calcular: <code>handoff</code> sale con 64 y no reserva nada, y ningún token toma el candado. Lo cubren 4 casos nuevos.</p></div>
+<div class="card ok"><h3>Un test que no podía fallar</h3><p>El caso de una reserva plantada en el nombre del agente seguía pasando aunque se quitara la limpieza del nombre. Ahora planta el sha256 real, así que falla sin la limpieza. Se quitó cada guarda de a una para confirmar que su caso falla.</p></div>
+</div>
+
+<h3>Decisiones</h3>
+<ul>
+<li><span class="ok">tomada</span>: traspaso explícito con reserva por token, sin timeout (Lautaro, en #356).</li>
+<li><span class="ok">tomada</span>: si <code>prepare.sh</code> falla después de un claim hecho con el token, no suelta el candado. El camino documentado es el <code>claim</code> directo (explicado en el PR).</li>
+<li><span class="warn">propuesta</span>: que <code>bk handoff</code> corra <code>worktree-lock.sh handoff</code> y escriba la línea del claim en su archivo. Se decide en barrilete-workspace: <a href="https://github.com/lautioliver/barrilete-workspace/issues/19">barrilete-workspace#19</a>.</li>
+</ul>
+
+<h3>Qué sigue</h3>
+<ul>
+<li><span class="danger">te espera a vos</span>: revisar y mergear <a href="https://github.com/lautioliver/barrilete-kit/pull/357">#357</a>.</li>
+<li><span class="warn">opcional</span>: sugerencias de la review. Avisar cuando <code>release</code> sale con 64 (en <code>prepare.sh</code> y en <code>bk done</code>). Llevar a una función el chequeo de dueño, que hoy se repite antes y después del mutex. Que <code>status</code> use <code>ocupado()</code>.</li>
+<li><span class="danger">te espera a vos</span>: #355 en triage. La rama <code>claude/notas-en-la-bitacora</code>: decidir si <code>.barrilete/notes/</code> va al <code>.gitignore</code>. barrilete-workspace#17.</li>
+</ul>
+</article>
+<!-- bitacora:end resumen-de-sesiones-de-barrilete-kit -->
+</section>
+<section id="estado-de-la-epica-321" data-topic="estado de la epica #321">
+<div class="sec-head"><span class="num">&gt;_ 02</span><h2><a href="#estado-de-la-epica-321">estado de la epica #321</a></h2></div>
+<article class="entrada">
+<p class="fecha"><time datetime="2026-11-19">2026-11-19</time></p>
+<p>Epic #321 makes agent learning live in each project (ADR-007): one metadata-only event for every harness, a store per project, and rules measured per cell (rule × model × harness). This session closed the open point about the <code>class</code> of a deviation and started the mapping that lets deviations count toward a rule.</p>
+
+<div class="kpis"><div class="kpi ok"><b>10</b> sub-issues closed</div><div class="kpi warn"><b>7</b> open</div><div class="kpi danger"><b>1</b> PR waiting on Lautaro</div></div>
+
+<div class="bars"><div class="bar ok"><span>Closed: 10 of 17</span><i style="--v:59%"></i></div></div>
+
+<h3>What changed</h3>
+<ul>
+<li><span class="ok">done</span> #360 (merged, closes #345) amends ADR-007. D3: the <code>class</code> of a <code>deviation</code> is its type as a slug (<code>guardrail-block</code>, <code>user-correction</code>…), and every deviation goes to the store, never with the person's text. D5: deviations count toward a rule through an optional <code>deviations</code> list on each class of <code>classes.yml</code>, one class per type at most. A type with no class is stored but not measured.</li>
+<li><span class="warn">in review</span> barrilete-rules#8 (closes barrilete-rules#7): the validator accepts <code>deviations</code> and rejects six malformed cases (35 tests pass). It adds the minimal mapping: <code>attribution</code> → <code>undecided-decision</code>. CI is green.</li>
+</ul>
+
+<h3>Decisions</h3>
+<table class="tbl">
+<tr><th>Decision</th><th>Who</th><th>Status</th></tr>
+<tr><td>Map deviations to classes now, in <code>classes.yml</code></td><td>Lautaro, in the chat</td><td><span class="ok">decided</span></td></tr>
+<tr><td>Minimal mapping: only <code>attribution</code>; the other 13 types have no class</td><td>Lautaro, in the chat</td><td><span class="ok">decided</span></td></tr>
+<tr><td>Change <code>check-docs.py</code> (a CI validation) to accept <code>deviations</code></td><td>Lautaro, in the chat</td><td><span class="ok">approved</span>, not built</td></tr>
+</table>
+
+<div class="note warn"><p>Order matters: the kit's <code>check-docs.py</code> rejects any <code>classes.yml</code> line other than <code>id</code> and <code>description</code>. #363 must be merged before <code>sync-rules</code> moves <code>rules.lock</code> to the SHA with the mapping. Otherwise the kit's <code>docs</code> CI fails.</p></div>
+
+<h3>What is next</h3>
+<ol class="flow"><li>merge barrilete-rules#8</li><li>#363: check-docs accepts deviations</li><li>sync-rules bumps rules.lock</li><li>workspace#20: bk learn effect counts mapped deviations</li></ol>
+
+<div class="cards">
+<div class="card danger"><h3>Waiting on you</h3><p>Review and merge barrilete-rules#8.</p></div>
+<div class="card warn"><h3>Next for an agent</h3><p>#363 in the kit (handoff written for a new chat).</p></div>
+<div class="card warn"><h3>Still open</h3><p>#325: events from Codex, Copilot, Cursor and pi (touches hooks, needs the design approved first). Workspace #12, #13 and #14. Workspace #20 is blocked by #13 and barrilete-rules#7.</p></div>
+</div>
+</article>
+<article class="entrada">
+<p class="fecha"><time datetime="2026-11-19">2026-11-19</time></p>
+<p>The sub-issue count has not moved (10 of 17 closed), but #363 is now built on its branch: <code>check-docs.py</code> accepts an optional <code>deviations: [type, …]</code> line under a class of <code>classes.yml</code>. Without it, moving <code>rules.lock</code> to the barrilete-rules SHA that carries the mapping would break the kit's <code>docs</code> CI.</p>
+<div class="kpis"><div class="kpi ok"><b>141</b> cases pass in test-classes.sh</div><div class="kpi ok"><b>19</b> cases failed in the red, before the code</div><div class="kpi warn"><b>0</b> PRs open for #363 yet</div><div class="kpi danger"><b>3</b> questions for Lautaro</div></div>
+<h3>What changed</h3>
+<ul>
+<li><span class="ok">done</span> Tests first: red commit <code>2583b4e</code>, accepted by <code>red.sh</code>. Then the reader: the list goes before or after the description, may be empty, and each rejection has its own message and gives a single error.</li>
+<li><span class="ok">done</span> Checked against the real file: with the <code>classes.yml</code> of barrilete-rules#8 in a copy of the repo, <code>check-docs.py</code> prints "Docs OK.".</li>
+<li><span class="ok">done</span> Each new guard was broken on purpose, one at a time (19 breaks): every one makes at least one new case fail. Lines with 200,000 items give no traceback and take under half a second.</li>
+<li><span class="ok">done</span> <code>verify.py</code>: everything that ran passed. <code>lint</code>, <code>typecheck</code> and <code>tests</code> are not configured, so they were not verified.</li>
+<li><span class="warn">in progress</span> Self-review with <code>/code-review</code> is still running. The PR is opened once its findings are resolved.</li>
+</ul>
+<h3>Decisions</h3>
+<table class="tbl">
+<tr><th>Point where the kit is stricter than barrilete-rules</th><th>Who</th><th>Status</th></tr>
+<tr><td>A type is written like a class id: it starts with a letter and is not a word YAML 1.1 reads as a boolean or null (<code>yes</code>, <code>no</code>, <code>null</code>…). barrilete-rules also accepts a leading digit.</td><td>Lautaro</td><td><span class="danger">waiting on you</span>, built as the default</td></tr>
+<tr><td>One comma too many (<code>[a,]</code>, <code>[a,,b]</code>) is an error. barrilete-rules ignores it.</td><td>Lautaro</td><td><span class="danger">waiting on you</span>, built as the default</td></tr>
+<tr><td>A comment after the list is an error. Same as barrilete-rules.</td><td>Lautaro</td><td><span class="danger">waiting on you</span>, built as the default</td></tr>
+</table>
+<div class="note warn"><p>The order from the previous entry still holds: #363 and barrilete-rules#8 are merged first, and only then <code>sync-rules</code> moves <code>rules.lock</code>.</p></div>
+<h3>What is next</h3>
+<ol class="flow"><li>resolve the self-review</li><li>open the PR of #363</li><li>merge it and barrilete-rules#8</li><li>sync-rules bumps rules.lock</li><li>workspace#20</li></ol>
+<div class="cards">
+<div class="card danger"><h3>Waiting on you</h3><p>Review and merge barrilete-rules#8 (CI green, still open). Answer the three questions when the PR of #363 is up.</p></div>
+<div class="card warn"><h3>In progress</h3><p>#363 on the branch <code>claude/363-aceptar-la-lista-deviations-de-classes</code>: three commits, not pushed yet.</p></div>
+<div class="card warn"><h3>Still open</h3><p>#325, workspace #12, #13 and #14, barrilete-rules#7 (closes with its PR #8) and workspace #20, blocked by #13.</p></div>
+</div>
+</article>
+<!-- bitacora:end estado-de-la-epica-321 -->
+</section>
+<!-- bitacora:main -->
+</main>
+<footer>
+<div class="wrap"><svg viewBox="0 0 160 140" width="56" height="49" aria-hidden="true"><rect x="0" y="12" width="64" height="10" rx="5" fill="#E9ECF1"/><rect x="96" y="12" width="64" height="10" rx="5" fill="#E9ECF1"/><rect x="27" y="18" width="8" height="18" rx="3" fill="#E9ECF1"/><rect x="125" y="18" width="8" height="18" rx="3" fill="#E9ECF1"/><rect x="20" y="30" width="120" height="98" rx="40" fill="#E9ECF1"/><rect x="38" y="52" width="84" height="46" rx="18" fill="#14161A"/><circle cx="66" cy="75" r="9" fill="#8FB0FF"/><circle cx="94" cy="75" r="9" fill="#8FB0FF"/><rect x="70" y="120" width="20" height="12" rx="4" fill="#B4122B"/></svg><div>Cada sección es un tema y cada entrada se escribió desde un chat con <code>/bitacora</code>. Lo que está arriba de una entrada no se reescribe.</div></div>
+</footer>
+</body>
+</html>
