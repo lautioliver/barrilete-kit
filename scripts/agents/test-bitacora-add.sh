@@ -658,6 +658,36 @@ tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s7" "$TMP/rota/docs"
 case "$out" in *"docs/bitacora/$MES.html"*) es=sí ;; *) es=no ;; esac
 [ "$es" = sí ]; tap_check $? "el aviso de una página rota dice cuál es" "$out"
 
+# Un add --new que se cortó después de escribir la portada (y antes de la página del mes) se termina repitiéndolo igual.
+git init -q "$TMP/corte"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/corte" add --topic "Tema" --entry "$TMP/e1.html"
+cp "$TMP/corte/docs/bitacora/$MES.html" "$TMP/corte-mes.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/corte" add --topic "Rutas nuevas" --new --entry "$TMP/e2.html"
+cp "$TMP/corte-mes.html" "$TMP/corte/docs/bitacora/$MES.html"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/corte" add --topic "Rutas nuevas" --new --entry "$TMP/e2.html"
+[ "$out" = "ok: new rutas-nuevas $TMP/corte/docs/bitacora/$MES.html" ]; tap_check $? "un add --new cortado después de la portada se termina repitiéndolo" "rc=$TAP_RC $out"
+tap_run mes 0 python3 -I "$TMP/mes.py" "$TMP/corte/docs/bitacora/$MES.html"
+[ "$mes" = "tema:1 rutas-nuevas:1" ]; tap_check $? "el reintento deja la entrada una sola vez en la página del mes" "$mes"
+tap_run por 0 python3 -I "$TMP/portada.py" "$TMP/corte/docs/bitacora.html"
+[ "$(sed -n 2p <<<"$por")" = "temas: tema=$MES rutas-nuevas=$MES" ]; tap_check $? "el reintento no repite el tema en la portada" "$por"
+tap_run out 64 python3 -I "$ADD" -C "$TMP/corte" add --topic "Rutas nuevas" --new --entry "$TMP/e2.html"
+[ "$TAP_RC" = 64 ]; tap_check $? "un add --new que ya se terminó no se repite" "rc=$TAP_RC $out"
+# Pero --new con un tema que ya tiene entradas en otro mes se sigue rechazando.
+tap_run out 64 python3 -I "$ADD" -C "$TMP/m" add --topic "Tema dos" --new --entry "$TMP/e2.html"
+[ "$TAP_RC" = 64 ]; tap_check $? "add --new con un tema que ya tiene entradas se rechaza" "rc=$TAP_RC $out"
+
+# Una portada que perdió el marcador de meses no se toma por una bitácora de antes: el aviso nombra ese marcador.
+git init -q "$TMP/sinmeses"
+tap_run out 0 python3 -I "$ADD" -C "$TMP/sinmeses" add --topic "Tema" --entry "$TMP/e1.html"
+tap_run out 0 python3 -I "$TMP/quita.py" "$TMP/sinmeses/docs/bitacora.html" "<!-- bitacora:months -->"
+cp -R "$TMP/sinmeses/docs" "$TMP/s10"
+tap_run out 65 python3 -I "$ADD" -C "$TMP/sinmeses" add --topic "Tema" --entry "$TMP/e2.html"
+rc=$TAP_RC
+tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s10" "$TMP/sinmeses/docs"
+[ "$rc $cam" = "65 bitacora.html:= bitacora/$MES.html:=" ]; tap_check $? "con la portada sin su marcador de meses, add no toca nada y sale con 65" "rc=$rc $cam"
+case "$out" in *"bitacora:months"*) es=sí ;; *) es=no ;; esac
+[ "$es" = sí ]; tap_check $? "el aviso de una portada sin su marcador de meses nombra ese marcador" "$out"
+
 # 24. #365: una bitácora de antes (un solo archivo en docs/bitacora.html). Lo ya escrito queda byte a byte igual, en
 # docs/bitacora-anterior.html; la portada lo enlaza y las entradas nuevas van a la página de su mes.
 git init -q "$TMP/v"
@@ -727,6 +757,8 @@ cp -R "$TMP/v/docs" "$TMP/s8"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/v" add --topic "Tema nuevo" --entry "$TMP/e2.html"
 tap_run cam 0 python3 -I "$TMP/cambios.py" "$TMP/s8" "$TMP/v/docs"
 [ "$cam" = "bitacora-anterior.html:= bitacora.html:i bitacora/$MES.html:i" ]; tap_check $? "las entradas que siguen no vuelven a tocar lo ya escrito" "$cam"
+tap_run out 64 python3 -I "$ADD" -C "$TMP/v" add --topic "Otro viejo" --new --entry "$TMP/e2.html"
+[ "$TAP_RC" = 64 ]; tap_check $? "add --new con un tema que solo tiene entradas en otra página se rechaza" "rc=$TAP_RC $out"
 # Si docs/bitacora-anterior.html ya existe, no se pisa: no se sabe cuál de los dos es lo ya escrito.
 git init -q "$TMP/v2"
 mkdir -p "$TMP/v2/docs"
