@@ -1,6 +1,6 @@
 # Bitácora del proyecto (`/bitacora`)
 
-`docs/bitacora.html` es la bitácora del proyecto: un archivo por proyecto, versionado en git para que lo tengan todos los integrantes, con una sección por tema (#343). Una persona suma una entrada desde el chat con `/bitacora <tema>` (skill `.claude/skills/bitacora/`): el agente la escribe con el contexto de esa conversación (qué cambió y por qué, qué se decidió, cómo se verificó, qué sigue abierto) y `scripts/agents/bitacora_add.py` la inserta. Nada genera entradas solo.
+`docs/bitacora.html` es la bitácora del proyecto: un archivo por proyecto, versionado en git para que lo tengan todos los integrantes, con una sección por tema (#343). Una persona suma una entrada desde el chat con `/bitacora <tema>` (skill `.claude/skills/bitacora/`): el agente la escribe con el contexto de esa conversación (la idea, sus opciones, qué se descartó y por qué, qué se decidió, qué falta) y `scripts/agents/bitacora_add.py` la inserta. Nada genera entradas solo.
 
 ```bash
 python3 scripts/agents/bitacora_add.py find --topic "Decidir la ruta"
@@ -8,6 +8,16 @@ python3 scripts/agents/bitacora_add.py add --topic "Decidir la ruta" --entry /tm
 python3 scripts/agents/bitacora_add.py add --topic "Decidir las rutas" --into decidir-la-ruta --entry /tmp/entrada.html
 python3 scripts/agents/bitacora_add.py -C ../otro-repo add --topic "Release" --new --entry /tmp/entrada.html
 ```
+
+## Para qué sirve
+
+La bitácora es el lugar donde se **piensan las ideas** del proyecto con el contexto del chat, y donde después queda cómo se llegó a cada una. Una persona pide `/bitacora <tema>` mientras charla una idea y el agente la dibuja en la sección de ese tema: cómo funciona, qué opciones hubo, qué se descartó y por qué, qué se decidió y qué falta. Se escribe con gráficos, poco texto y palabras de persona, sin nombres de archivos ni jerga de código (#361).
+
+| | Bitácora | Retros | PRs |
+|---|---|---|---|
+| Para quién | personas del equipo | los agentes y `/improve-skills` | quien revisa el cambio |
+| Qué cuenta | la idea, sus opciones y por qué se decidió | qué salió bien o mal al trabajar | qué se tocó y cómo se verificó |
+| Cómo habla | gráficos y palabras simples | técnico | técnico |
 
 ## Cómo se suman las entradas
 
@@ -32,46 +42,35 @@ La página trae los estilos de estas clases; el skill lista su HTML.
 | `bars` + `bar` | barras, con el ancho en `style="--v:70%"` |
 | `flow` | un flujo de pasos (`<ol>`) |
 | `note` | una nota destacada |
+| `branch` + `root`, `opts`, `opt` | diagrama con ramas: una pregunta y sus opciones (`opt` con `ok` elegida o `danger` descartada) |
+| `map` + `node`, `edge` | mapa de partes: una fila por conexión, «parte → lo que hace → parte» |
 | `ok`, `warn`, `danger` | estado: hecho, en curso, espera a una persona o está roto |
 
 ## El diseño: tokens
 
-La página tiene la forma del HTML de estado de barrilete: arriba el nombre del proyecto con el dron y la rienda, el índice en una barra oscura fija, cada tema como sección numerada (`>_ 01`) y sus entradas sobre la rienda, una debajo de otra, con su fecha. Los colores de marca del dron, la barra y el pie son fijos; todo lo demás usa solo estos tokens. El diseño de barrilete (`scripts/agents/bitacora/barrilete.css`) les da sus valores por defecto, para modo claro y oscuro (sigue al sistema con `prefers-color-scheme`).
+La página tiene la forma del HTML de estado de barrilete: arriba el nombre del proyecto con el dron y la rienda, el índice en una barra clara fija, cada tema como sección numerada (`>_ 01`) y sus entradas sobre la rienda, una debajo de otra, con su fecha. Los colores de marca del dron, el pie y el resaltado del índice son fijos; todo lo demás usa estos tokens, con los valores del diseño de barrilete (`scripts/agents/bitacora/barrilete.css`). La página es **siempre clara**: no sigue el modo oscuro del sistema (`color-scheme: light`; lo decidió la persona en #361, antes seguía al sistema).
 
-| Token | Qué es | Claro | Oscuro |
-|---|---|---|---|
-| `--bg` | fondo de la página | `#F6F7F9` | `#121418` |
-| `--surface` | bloques dentro de una entrada, código | `#E9ECF1` | `#1C1F26` |
-| `--card` | entradas | `#FFFFFF` | `#23262E` |
-| `--ink` | texto | `#14161A` | `#ECEEF2` |
-| `--muted` | texto secundario | `#5A6270` | `#A3AAB6` |
-| `--accent` | links y destacados | `#2450E0` | `#8FB0FF` |
-| `--ok` | hecho | `#17693D` | `#5FD39A` |
-| `--warn` | en curso | `#8A5300` | `#FFB020` |
-| `--danger` | te espera a vos, roto | `#B4122B` | `#FF8A96` |
-| `--knot` | relleno de los nudos de la rienda, barras en curso y notas; nunca texto | `#FFB020` | `#FFB020` |
-| `--font-display` | títulos | Bricolage Grotesque, después las del sistema | |
-| `--font-mono` | todo lo demás | JetBrains Mono, después las del sistema | |
+| Token | Qué es | Valor |
+|---|---|---|
+| `--bg` | fondo de la página | `#F6F7F9` |
+| `--surface` | bloques dentro de una entrada, código | `#E9ECF1` |
+| `--card` | entradas | `#FFFFFF` |
+| `--ink` | texto | `#14161A` |
+| `--muted` | texto secundario | `#5A6270` |
+| `--accent` | links y destacados | `#2450E0` |
+| `--ok` | hecho | `#17693D` |
+| `--warn` | en curso | `#8A5300` |
+| `--danger` | te espera a vos, roto | `#B4122B` |
+| `--knot` | relleno de los nudos de la rienda, barras en curso y notas; nunca texto | `#FFB020` |
+| `--font-display` | títulos | Bricolage Grotesque, después las del sistema |
+| `--font-mono` | todo lo demás | JetBrains Mono, después las del sistema |
 
-Cada color de texto llega a WCAG AA (4.5:1) sobre `--bg`, `--surface` y `--card` en los dos modos; el test lo comprueba. Dos valores del modo claro cambian respecto del HTML de estado de barrilete porque como texto no llegaban: `--accent` (`#2B59FF` daba 4,46 sobre `--surface`) y `--warn` (`#FFB020` daba 1,7; queda como el del modo oscuro).
+Cada color de texto llega a WCAG AA (4.5:1) sobre `--bg`, `--surface` y `--card`; el test lo comprueba. Dos valores cambian respecto del HTML de estado de barrilete porque como texto no llegaban: `--accent` (`#2B59FF` daba 4,46 sobre `--surface`) y `--warn` (`#FFB020` daba 1,7; queda `#8A5300`).
 
 Las fuentes vienen de Google Fonts con `display=swap`: sin red, el texto se ve enseguida con las fuentes del sistema.
 
-### El diseño del proyecto
+### Un solo diseño para todos los proyectos
 
-Si el proyecto tiene `.barrilete/bitacora.css`, va después del diseño de barrilete (los dos se copian en la página al crearla) y pisa los tokens que define; lo que no define queda como barrilete. Es un archivo del proyecto: el kit no lo instala y se versiona como cualquier otro.
-
-```css
-/* .barrilete/bitacora.css */
-:root {
-  --accent: #0E9F6E;
-  --font-display: "Inter", system-ui, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --accent: #6EE7B7; }
-}
-```
-
-Un token definido solo en `:root` vale para los dos modos (un `:root` posterior le gana al bloque oscuro de barrilete): para darle al modo oscuro su propio valor, definilo también en el bloque `@media`, como en el ejemplo. Si cambiás colores, revisá el contraste vos: el test solo comprueba el de barrilete.
+Todos los proyectos que usan barrilete-kit tienen la misma bitácora: el diseño de barrilete, siempre claro (lo decidió la persona en #361). Un proyecto no lo cambia: el script ya no lee `.barrilete/bitacora.css`, y si el archivo existe no entra en la página. Si tu proyecto lo tenía, podés borrarlo.
 
 El diseño se copia en la página cuando se crea, y las entradas nunca lo reescriben: una página que ya existe se queda con el diseño con el que nació. Para darle uno nuevo, cambiá a mano los bloques `<style id="theme-…">` en un PR aparte.

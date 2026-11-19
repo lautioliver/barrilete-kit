@@ -212,7 +212,7 @@ Viven en `.claude/skills/`.
 | 🔁 | `/improve-skills` | Junta las retros y las señales objetivas (fallas de CI en ramas de agentes, reverts) y propone ajustes a las skills en un PR. Nunca afloja controles. |
 | 🌿 | `git-workflow` | Ramas, commits y PRs. |
 | 👥 | `/add-member`, `/remove-member` | Agregar, editar, pausar o quitar integrantes del equipo que recibe los issues. |
-| 📓 | `/bitacora <tema>` | Guarda lo que se habló en el chat como una entrada de `docs/bitacora.html`, la bitácora del proyecto (una sección por tema, versionada), con números, tablas y colores de estado. Solo suma, nunca reescribe. |
+| 📓 | `/bitacora <tema>` | El lugar para pensar ideas con el contexto del chat: dibuja la idea que se está charlando en `docs/bitacora.html` (una sección por tema, versionada) con gráficos, poco texto y palabras de persona — de dónde salió, qué se descartó y qué se decidió — y queda como la historia de cómo se llegó a cada idea. No son las retros ni los PRs: es para personas. Solo suma, nunca reescribe. Más en [`docs/agents/bitacora.md`](docs/agents/bitacora.md). |
 
 ### 🤖 Subagentes por modelo
 

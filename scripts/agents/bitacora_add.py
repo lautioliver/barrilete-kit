@@ -38,15 +38,17 @@ PARECIDO = 0.8   # SequenceMatcher.ratio() entre slugs desde el que dos temas se
 TEXTOS = {
     "en": {"title": "Project log", "contents": "Contents", "stamp": "PROJECT LOG",
            "motto": "The agents fly.<br>You hold the line.",
-           "sub": "What we talked about and decided, by topic. Each entry is added with <code>/bitacora &lt;topic&gt;</code> "
-                  "from the chat and nothing above it is rewritten.",
+           "sub": "The ideas we think through in the chat, by topic and with drawings: where each one came from, what was "
+                  "dropped and what was decided. Each entry is added with <code>/bitacora &lt;topic&gt;</code> and nothing "
+                  "above it is rewritten.",
            "since": "started on", "leash": ("talk", "decide", "log"),
            "footer": "Each section is a topic and each entry was written from a chat with <code>/bitacora</code>. "
                      "Nothing above an entry is rewritten."},
     "es": {"title": "Bitácora del proyecto", "contents": "Índice", "stamp": "BITÁCORA",
            "motto": "Los agentes vuelan.<br>Vos tenés la rienda.",
-           "sub": "Lo que se habló y se decidió, por tema. Cada entrada se suma con <code>/bitacora &lt;tema&gt;</code> "
-                  "desde el chat y no se reescribe nada de lo anterior.",
+           "sub": "Las ideas que pensamos en el chat, por tema y con dibujos: de dónde salió cada una, qué se descartó y qué "
+                  "se decidió. Cada entrada se suma con <code>/bitacora &lt;tema&gt;</code> y no se reescribe nada de lo "
+                  "anterior.",
            "since": "empezada el", "leash": ("charla", "decisión", "bitácora"),
            "footer": "Cada sección es un tema y cada entrada se escribió desde un chat con <code>/bitacora</code>. "
                      "Lo que está arriba de una entrada no se reescribe."},
@@ -103,10 +105,10 @@ p{max-width:78ch}
 .art svg{width:100%;height:auto;display:block}
 /* El título del índice no se ve (la barra es el índice), pero lo leen los lectores de pantalla. */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-nav.toc{position:sticky;top:0;z-index:5;background:#14161A;border-bottom:1px solid var(--surface)}
+nav.toc{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:2px solid var(--ink)}
 nav.toc ol{display:flex;gap:4px;overflow-x:auto;list-style:none;margin:0 auto;max-width:1120px;padding:10px 16px;
   scrollbar-width:none}
-nav.toc a{color:#E9ECF1;text-decoration:none;font-size:13px;padding:4px 10px;border-radius:6px;white-space:nowrap;
+nav.toc a{color:var(--ink);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:6px;white-space:nowrap;
   display:block}
 nav.toc a:hover,nav.toc a:focus-visible{background:#B4122B;color:#fff}
 main{padding-bottom:16px}
@@ -142,7 +144,9 @@ h4{font:800 17px/1.2 var(--font-display);margin:18px 0 8px}
 .tbl{width:100%;margin:16px 0;border:2px solid var(--ink);border-bottom-width:5px;
   border-radius:14px;background:var(--card);border-collapse:separate;border-spacing:0;font-size:14px}
 .tbl th,.tbl td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--surface);vertical-align:top}
-.tbl th{background:var(--ink);color:var(--bg);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.tbl th{background:var(--surface);color:var(--ink);border-bottom:2px solid var(--ink);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+/* El encabezado es claro: sus esquinas se redondean para no salirse del borde de la tabla. */
+.tbl tr:first-child th:first-child{border-top-left-radius:12px}.tbl tr:first-child th:last-child{border-top-right-radius:12px}
 .tbl tr:last-child td{border-bottom:0}
 .tbl td:first-child{font-weight:700}
 .note,.note.ok,.note.warn,.note.danger{border:2px solid var(--ink);border-left:10px solid var(--knot);border-radius:12px;
@@ -161,15 +165,45 @@ h4{font:800 17px/1.2 var(--font-display);margin:18px 0 8px}
   border-radius:10px;padding:4px 12px 4px 4px;font-size:14px}
 .flow li::before{content:counter(paso);width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--bg);
   font-weight:700;font-size:12px;display:grid;place-items:center}
-footer{margin-top:64px;background:#14161A;color:#E9ECF1;font-size:13px}
+footer{margin-top:64px;background:#E9ECF1;color:#14161A;border-top:4px solid var(--ink);font-size:13px}
 footer .wrap{padding-top:28px;padding-bottom:36px;display:flex;gap:20px;align-items:center}
 footer svg{flex:0 0 56px}
 footer code{background:transparent;color:inherit;border:1px solid}
+/* Diagrama con ramas (#361): una pregunta arriba y sus opciones abajo, unidas por líneas. */
+.branch{display:flex;flex-direction:column;align-items:center;margin:22px 0}
+.branch .root{position:relative;background:var(--card);border:2px solid var(--ink);border-bottom-width:5px;border-radius:14px;
+  padding:10px 18px;font:800 18px/1.25 var(--font-display);text-align:center;max-width:100%}
+.branch .root::after{content:"";position:absolute;left:calc(50% - 2px);top:calc(100% + 5px);width:4px;height:27px;background:var(--ink)}
+/* Las opciones van en una sola fila: cada una dibuja su tramo de la línea de arriba (la primera y la última, la mitad). */
+.branch .opts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:16px;width:100%;margin-top:42px}
+.opt,.opt.ok,.opt.warn,.opt.danger{position:relative;background:var(--card);border:2px solid var(--ink);border-bottom-width:5px;
+  border-radius:14px;padding:14px 18px;color:var(--ink)}
+.branch .opt::before{content:"";position:absolute;left:calc(50% - 2px);top:-19px;width:4px;height:17px;background:var(--ink)}
+.branch .opt::after{content:"";position:absolute;top:-19px;left:-10px;right:-10px;height:4px;background:var(--ink)}
+.branch .opt:first-child::after{left:calc(50% - 2px)}.branch .opt:last-child::after{right:calc(50% - 2px)}
+.branch .opt:only-child::after{display:none}
+.opt.ok{border-color:var(--ok)}.opt.warn{background:color-mix(in srgb,var(--knot) 16%,var(--card))}
+.opt.danger{border-style:dashed;color:var(--muted)}
+.opt h3,.opt h4{font:800 18px/1.2 var(--font-display);margin:0 0 6px}
+.opt.ok h3,.opt.ok h4{color:var(--ok)}.opt.danger h3,.opt.danger h4{color:var(--danger)}
+.opt p{margin:0}
+/* Mapa de partes (#361): una fila por conexión, «parte → lo que hace → parte». */
+.map{list-style:none;padding:0;margin:18px 0;display:grid;gap:12px}
+.map li{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.map .node,.map .node.ok,.map .node.warn,.map .node.danger{background:var(--card);border:2px solid var(--ink);
+  border-bottom-width:4px;border-radius:10px;padding:6px 14px;font-weight:700;color:var(--ink)}
+.map .node.ok{border-color:var(--ok)}.map .node.warn{background:color-mix(in srgb,var(--knot) 16%,var(--card))}
+.map .node.danger{border-color:var(--danger)}
+.map .edge{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+.map .edge::before{content:"";width:24px;height:3px;background:var(--ink);border-radius:2px}
+.map .edge::after{content:"→";color:var(--ink);font-weight:700}
 @media (max-width:860px){
   .hero .wrap{grid-template-columns:1fr}
   .art{max-width:220px}
   .bar,.bar.ok,.bar.warn,.bar.danger{grid-template-columns:120px 1fr;font-size:13px}
   .tbl{display:block;overflow-x:auto}
+  .branch .root::after,.branch .opt::before,.branch .opt::after{display:none}
+  .branch .opts{grid-auto-flow:row;margin-top:16px}
 }
 """
 
@@ -185,7 +219,7 @@ DRON = """<svg viewBox="0 0 400 400" role="img" aria-label="barrilete">
 <circle cx="186" cy="115" r="7" fill="#8FB0FF"/><circle cx="214" cy="115" r="7" fill="#8FB0FF"/>
 <rect x="190" y="160" width="20" height="10" rx="4" fill="#B4122B"/>
 </svg>"""
-CARA = """<svg viewBox="0 0 160 140" width="56" height="49" aria-hidden="true"><rect x="0" y="12" width="64" height="10" rx="5" fill="#E9ECF1"/><rect x="96" y="12" width="64" height="10" rx="5" fill="#E9ECF1"/><rect x="27" y="18" width="8" height="18" rx="3" fill="#E9ECF1"/><rect x="125" y="18" width="8" height="18" rx="3" fill="#E9ECF1"/><rect x="20" y="30" width="120" height="98" rx="40" fill="#E9ECF1"/><rect x="38" y="52" width="84" height="46" rx="18" fill="#14161A"/><circle cx="66" cy="75" r="9" fill="#8FB0FF"/><circle cx="94" cy="75" r="9" fill="#8FB0FF"/><rect x="70" y="120" width="20" height="12" rx="4" fill="#B4122B"/></svg>"""
+CARA = """<svg viewBox="0 0 160 140" width="56" height="49" aria-hidden="true"><rect x="0" y="12" width="64" height="10" rx="5" fill="#14161A"/><rect x="96" y="12" width="64" height="10" rx="5" fill="#14161A"/><rect x="27" y="18" width="8" height="18" rx="3" fill="#14161A"/><rect x="125" y="18" width="8" height="18" rx="3" fill="#14161A"/><rect x="20" y="30" width="120" height="98" rx="40" fill="#FFFFFF" stroke="#14161A" stroke-width="4"/><rect x="38" y="52" width="84" height="46" rx="18" fill="#14161A"/><circle cx="66" cy="75" r="9" fill="#8FB0FF"/><circle cx="94" cy="75" r="9" fill="#8FB0FF"/><rect x="70" y="120" width="20" height="12" rx="4" fill="#B4122B"/></svg>"""
 
 
 class ErrorDeUso(Exception):
@@ -213,11 +247,8 @@ def leer_css(ruta):
 
 
 def temas(repo):
-    lista = [("barrilete", leer_css(TEMA_BARRILETE))]
-    propio = os.path.join(repo, ".barrilete", "bitacora.css")
-    if os.path.isfile(propio):
-        lista.append(("project", leer_css(propio)))
-    return lista
+    # Un solo diseño para todos los proyectos, el de barrilete y siempre claro (#361): un .barrilete/bitacora.css no entra.
+    return [("barrilete", leer_css(TEMA_BARRILETE))]
 
 
 def idioma(repo):

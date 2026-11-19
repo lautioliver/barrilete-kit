@@ -1,13 +1,13 @@
 ---
 name: bitacora
-description: Guarda lo que se está hablando en este chat como una entrada de la bitácora del proyecto (docs/bitacora.html), en la sección de un tema, con números, tablas y colores de estado para que una persona lo lea de un vistazo. Solo cuando la persona lo pide, con "/bitacora <tema>", "guardá esto en la bitácora", "sumalo a la bitácora".
+description: Dibuja la idea que se está pensando en este chat como una entrada de la bitácora del proyecto (docs/bitacora.html), en la sección de un tema, con gráficos, poco texto y palabras de persona, para seguir pensándola y que quede cómo se llegó a ella. Solo cuando la persona lo pide, con "/bitacora <tema>", "guardá esto en la bitácora", "sumalo a la bitácora".
 ---
 
 # Bitácora del proyecto (`/bitacora <tema>`)
 
 El proyecto tiene **una** bitácora, `docs/bitacora.html`, versionada en git para que la tengan todos los integrantes. Tiene una sección por tema; cada `/bitacora <tema>` suma una entrada, con su fecha, **abajo** de lo que ya tenía la sección. Nada de lo escrito se reescribe: `scripts/agents/bitacora_add.py` solo inserta, y crea el archivo la primera vez.
 
-Correlo solo cuando la persona lo pide. La entrada se escribe con **esta conversación**: qué cambió y por qué, qué se decidió, cómo se verificó y qué sigue abierto. Es para una persona que no estuvo en el chat.
+Correlo solo cuando la persona lo pide. La bitácora es para **pensar ideas**, no para informar trabajo: lo que se tocó, cómo se verificó y qué falló ya está en los PRs y en las retros. La entrada dibuja la idea que se viene hablando en **esta conversación** para que la persona la siga pensando y para que, cuando se construya, quede cómo se llegó a ella. Es para una persona que no lee código.
 
 ## 1. Buscar la sección
 
@@ -23,29 +23,41 @@ Si no te pasaron `<tema>`, proponé uno en pocas palabras a partir de la convers
 
 ## 2. Escribir la entrada
 
-Un archivo con un fragmento HTML (sin `<html>`, `<head>` ni `<body>`), en el idioma de la instalación (`language` de `.agent-kit.json`; sin él, `en`), en palabras simples. No repitas la fecha ni el tema: los escribe el script. Que sea corta: lo que alguien necesita para retomar la idea.
+Un archivo con un fragmento HTML (sin `<html>`, `<head>` ni `<body>`), en el idioma de la instalación (`language` de `.agent-kit.json`; sin él, `en`). No repitas la fecha ni el tema: los escribe el script.
+
+Cómo se escribe:
+- **Gráficos primero.** Empezá con un dibujo (pasos, ramas, mapa, comparación) y después el texto que lo explica. Si algo se puede mostrar, no lo cuentes.
+- **Poco texto.** Frases cortas: qué hace cada parte y por qué.
+- **Palabras de persona,** sin nombres de archivos, rutas, comandos, funciones, códigos de salida ni números de PR o de commit. Si una parte del sistema importa, nombrala por lo que hace («el paso que revisa la entrada»), no por su archivo.
+- **Todo el camino de la idea:** de dónde salió, qué opciones hubo, qué se descartó y por qué, qué se decidió y qué falta, con quién tiene que decidir.
 
 Qué lleva, en este orden y salteando lo que no aplica:
-1. **Qué cambió y por qué**, en uno o dos `<p>`.
-2. **Un número o un gráfico cuando ayude**: antes/después, avance, un flujo.
-3. **Decisiones**: las tomadas y las que siguen abiertas, con quién tiene que decidir.
-4. **Qué sigue**, con su estado.
+1. **Cómo funciona**, con un flujo o un mapa de partes: la entrada empieza con este dibujo.
+2. **La idea en una frase**, en una nota justo debajo.
+3. **Las opciones**: un diagrama con ramas, con la elegida y las descartadas, y por qué.
+4. **Lo decidido** y **lo que falta**, con tarjetas por estado.
 
-Componentes (la página ya trae sus estilos; usan los tokens del diseño y andan en modo claro y oscuro):
+Componentes (la página ya trae sus estilos y usan los tokens del diseño):
 
-| Componente | HTML |
-|---|---|
-| Números clave | `<div class="kpis"><div class="kpi ok"><b>12</b> casos pasan</div><div class="kpi warn"><b>2</b> abiertos</div></div>` |
-| Tarjetas por estado | `<div class="cards"><div class="card ok"><h3>Hecho</h3><p>…</p></div><div class="card warn"><h3>En curso</h3><p>…</p></div><div class="card danger"><h3>Te espera a vos</h3><p>…</p></div></div>` |
-| Tabla (antes/después, opciones) | `<table class="tbl"><tr><th>Antes</th><th>Después</th></tr><tr><td>…</td><td>…</td></tr></table>` |
-| Barras | `<div class="bars"><div class="bar ok"><span>Hecho</span><i style="--v:70%"></i></div></div>` |
-| Flujo | `<ol class="flow"><li>issue</li><li>rojo</li><li>verde</li><li>PR</li></ol>` |
-| Nota | `<div class="note warn"><p>…</p></div>` |
-| Estado en el texto | `<span class="ok">hecho</span>`, `<span class="warn">en curso</span>`, `<span class="danger">te espera a vos</span>` |
+| Componente | Para qué | HTML |
+|---|---|---|
+| Diagrama con ramas | una pregunta y sus opciones | `<div class="branch"><div class="root">¿Dónde se guarda?</div><div class="opts"><div class="opt ok"><h4>Un archivo</h4><p>Elegida: …</p></div><div class="opt danger"><h4>Uno por tema</h4><p>Descartada: …</p></div></div></div>` |
+| Mapa de partes | cómo se conectan las partes | `<ul class="map"><li><span class="node">El chat</span><span class="edge">escribe en</span><span class="node">La bitácora</span></li></ul>` |
+| Flujo | pasos en orden | `<ol class="flow"><li>charlamos</li><li>se dibuja</li><li>se decide</li></ol>` |
+| Tabla | comparar | `<table class="tbl"><tr><th>Antes</th><th>Después</th></tr><tr><td>…</td><td>…</td></tr></table>` |
+| Tarjetas por estado | decidido, en curso, te espera | `<div class="cards"><div class="card ok"><h3>Decidido</h3><p>…</p></div><div class="card warn"><h3>En curso</h3><p>…</p></div><div class="card danger"><h3>Te espera a vos</h3><p>…</p></div></div>` |
+| Números clave | un número que importa | `<div class="kpis"><div class="kpi ok"><b>3</b> pasos</div></div>` |
+| Barras | proporciones, avance | `<div class="bars"><div class="bar ok"><span>Hecho</span><i style="--v:70%"></i></div></div>` |
+| Nota | la idea en una frase, un aviso | `<div class="note"><p><strong>La idea.</strong> …</p></div>` |
+| Estado en el texto | | `<span class="ok">hecho</span>`, `<span class="warn">en curso</span>`, `<span class="danger">te espera a vos</span>` |
 
-Colores de estado: `ok` hecho, `warn` en curso, `danger` espera a una persona o está roto. Nunca solo el color: la palabra también lo dice.
+En `.opts` van solo `.opt`, dos o tres: las líneas que las unen cuentan con eso.
 
-Usá solo estos componentes y etiquetas de texto simples (`p`, `strong`, `em`, `code`, `ul`/`ol`/`li`, `a href`, `h3`…): el script revisa el fragmento contra una lista permitida y rechaza (sale con 64 y no toca el archivo) todo lo demás, como scripts, estilos, manejadores `on…=`, `javascript:`, comentarios, etiquetas de la estructura de la página, un `<` suelto (escribí `&lt;`, que pasa), etiquetas que quedan abiertas (`<b/>` la deja abierta: cerrala con `</b>`; solo `<br/>` y `<hr/>` se cierran solas; `</br>` no pasa), links a otro sitio sin esquema (`//host`) o una etiqueta a medio escribir al final (`<b`). Su mensaje dice qué estaba mal: arreglá el fragmento y probá de nuevo.
+Una página creada antes de los diagramas no trae sus estilos (el diseño se copia al crearla): si el `<style>` de `docs/bitacora.html` no tiene una regla `.branch{` ni `.map{` (buscá la regla, no la palabra, que puede estar en una entrada), dibujá las opciones con tarjetas o una tabla y las partes con un flujo.
+
+Colores de estado: `ok` hecho o elegida, `warn` en curso, `danger` espera a una persona, está roto o se descartó. Nunca solo el color: la palabra también lo dice. En un mapa, `node` también acepta `ok`, `warn` y `danger`.
+
+Usá solo estos componentes y etiquetas de texto simples (`p`, `strong`, `em`, `ul`/`ol`/`li`, `a href`, `h3`, `h4`…): el script revisa el fragmento contra una lista permitida y rechaza (sale con 64 y no toca el archivo) todo lo demás, como scripts, estilos, manejadores `on…=`, `javascript:`, comentarios, etiquetas de la estructura de la página, un `<` suelto (escribí `&lt;`, que pasa), etiquetas que quedan abiertas (`<b/>` la deja abierta: cerrala con `</b>`; solo `<br/>` y `<hr/>` se cierran solas; `</br>` no pasa), links a otro sitio sin esquema (`//host`) o una etiqueta a medio escribir al final (`<b`). Su mensaje dice qué estaba mal: arreglá el fragmento y probá de nuevo.
 
 ## 3. Agregarla
 
@@ -61,4 +73,4 @@ Escribí el fragmento en un archivo temporal fuera del repo y borralo después. 
 
 Una línea con la sección y el link: `docs/bitacora.html#<slug>`. El archivo es versionado: commitealo en la rama en la que estás trabajando, o decile a la persona que queda para commitear. No abras un PR solo para la bitácora salvo que lo pida.
 
-Tokens del diseño: `scripts/agents/bitacora/barrilete.css`; un proyecto los pisa en su propio .barrilete/bitacora.css, que se lee al crear la página. El detalle está en el doc de la bitácora del kit (docs/agents/bitacora.md, que el modo `--small` no instala).
+Diseño: `scripts/agents/bitacora/barrilete.css`, uno solo para todos los proyectos que usan barrilete-kit y siempre claro; un proyecto no lo cambia. El detalle está en el doc de la bitácora del kit (docs/agents/bitacora.md, que el modo `--small` no instala).
