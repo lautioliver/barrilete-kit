@@ -412,8 +412,22 @@ tap_run out 0 python3 -I "$ADD" -C "$TMP/vieja" add --topic "Tema" --entry "$TMP
 tap_run out 0 python3 -I -c 'import sys; p=sys.argv[1]; t=open(p).read(); open(p, "w").write(t.replace("<style id=\"theme-barrilete\">", "<style id=\"theme-barrilete\">\n@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }", 1))' "$TMP/vieja/docs/bitacora.html"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/vieja" add --topic "Tema" --entry "$TMP/e2.html"
 grep -qF '@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }' "$TMP/vieja/docs/bitacora.html"; tap_check $? "una página que ya existe conserva el diseño con el que nació"
+# En la plantilla cada archivo va en su idioma (X.md en inglés, X.es.md en español). En un proyecto instalado queda uno
+# solo, en el idioma de la instalación ("language" de .agent-kit.json; sin él, inglés, como lo lee bitacora_add.py):
+# con --lang es, SKILL.md y docs/agents/bitacora.md traen el texto en español y no quedan sus .es.md.
+idioma_inst=en
+case "$plantilla" in no) tap_run idioma_inst 0 python3 -I -c '
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as f:
+        valor = json.load(f).get("language")
+except (OSError, ValueError, AttributeError):
+    valor = None
+print("es" if valor == "es" else "en")' "$RAIZ/.agent-kit.json" ;; esac
 for f in $archivos; do
-  case "$f" in SKILL.es.md) camino="de dónde salió"; jerga="sin nombres de archivos" ;; *) camino="where it came from"; jerga="no file names" ;; esac
+  idioma=$idioma_inst
+  case "$plantilla:$f" in sí:*.es.md) idioma=es ;; sí:*) idioma=en ;; esac
+  case "$idioma" in es) camino="de dónde salió"; jerga="sin nombres de archivos" ;; *) camino="where it came from"; jerga="no file names" ;; esac
   for frase in "$camino" "$jerga" 'class="branch"' 'class="map"'; do
     tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/.claude/skills/bitacora/$f" "$frase"
     [ "$out" = sí ]; tap_check $? "el skill pide la idea con gráficos y en lenguaje de persona, no un informe" "$f: $frase: $out"
@@ -422,7 +436,9 @@ done
 docs_bitacora="docs/agents/bitacora.md"
 case "$plantilla" in sí) docs_bitacora="docs/agents/bitacora.md docs/agents/bitacora.es.md" ;; esac
 for f in $docs_bitacora; do
-  case "$f" in *.es.md) titulo="## Para qué sirve" ;; *) titulo="## What it is for" ;; esac
+  idioma=$idioma_inst
+  case "$plantilla:$f" in sí:*.es.md) idioma=es ;; sí:*) idioma=en ;; esac
+  case "$idioma" in es) titulo="## Para qué sirve" ;; *) titulo="## What it is for" ;; esac
   tap_run out 0 python3 -I "$TMP/contiene.py" "$RAIZ/$f" "$titulo"
   [ "$out" = sí ]; tap_check $? "la documentación explica qué es la bitácora y para qué sirve" "$f: $out"
 done
