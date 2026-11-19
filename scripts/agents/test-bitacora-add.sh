@@ -150,18 +150,18 @@ tap_run out 0 python3 -I "$ADD" -C "$TMP/es" add --topic "Tema" --entry "$TMP/e1
 grep -qF '<html lang="es">' "$TMP/es/docs/bitacora.html"; tap_check $? "con language es, la página va en español"
 grep -qF '>Índice<' "$TMP/es/docs/bitacora.html"; tap_check $? "en español, el índice se llama Índice"
 
-# 10. Diseño: barrilete por defecto; .barrilete/bitacora.css pisa los tokens, va después y no puede cerrar su bloque.
+# 10. Diseño: uno solo para todos los proyectos, el de barrilete (#361); un .barrilete/bitacora.css no entra.
 grep -qF '<style id="theme-barrilete">' "$pagina"; tap_check $? "la página lleva el tema de barrilete"
 git init -q "$TMP/tema"
 mkdir -p "$TMP/tema/.barrilete"
-printf ':root { --accent: #0E9F6E; }\n/* </style><script>x()</script> */\n' >"$TMP/tema/.barrilete/bitacora.css"
+printf ':root { --accent: #0E9F6E; }\n@media (prefers-color-scheme: dark) { :root { --bg: #121418; } }\n' >"$TMP/tema/.barrilete/bitacora.css"
 tap_run out 0 python3 -I "$ADD" -C "$TMP/tema" add --topic "Tema" --entry "$TMP/e1.html"
-grep -qF -- '--accent: #0E9F6E' "$TMP/tema/docs/bitacora.html"; tap_check $? "el CSS del proyecto entra en la página"
-tap_run orden 0 awk '/<style id="theme-barrilete">/ && !b {b=NR} /<style id="theme-project">/ && !p {p=NR} END {print (b && p && p > b) ? "después" : "no"}' "$TMP/tema/docs/bitacora.html"
-[ "$orden" = "después" ]; tap_check $? "el CSS del proyecto va después del de barrilete"
-grep -qF '</style><script>x()</script>' "$TMP/tema/docs/bitacora.html"; es=$?; [ "$es" = 1 ]; tap_check $? "el CSS del proyecto no puede cerrar su bloque de estilo"
+grep -qF -- '#0E9F6E' "$TMP/tema/docs/bitacora.html"; es=$?; [ "$es" = 1 ]; tap_check $? "el CSS de un proyecto no cambia el diseño de la página"
+grep -qiF 'prefers-color-scheme' "$TMP/tema/docs/bitacora.html"; es=$?; [ "$es" = 1 ]; tap_check $? "aunque el proyecto traiga modo oscuro, la página nueva es siempre clara"
 grep -qF 'display=swap' "$pagina"; tap_check $? "las fuentes de Google se cargan sin dejar el texto invisible"
 grep -qiF '<script' "$pagina"; es=$?; [ "$es" = 1 ]; tap_check $? "la página no lleva scripts"
+grep -qF '.tbl tr:first-child th:first-child{border-top-left-radius' "$pagina"; tap_check $? "las esquinas del encabezado de la tabla siguen el borde redondeado"
+grep -qF '.tbl tr:first-child th:last-child{border-top-right-radius' "$pagina"; tap_check $? "las esquinas del encabezado de la tabla siguen el borde redondeado" "derecha"
 for clase in kpis kpi cards card tbl note ok warn danger; do
   grep -qE "\.${clase}[^a-z-]" "$pagina"; tap_check $? "la página trae los estilos de los componentes de una entrada" ".$clase"
 done
