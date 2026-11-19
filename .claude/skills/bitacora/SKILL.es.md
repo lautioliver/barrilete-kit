@@ -32,8 +32,8 @@ Cómo se escribe:
 - **Todo el camino de la idea:** de dónde salió, qué opciones hubo, qué se descartó y por qué, qué se decidió y qué falta, con quién tiene que decidir.
 
 Qué lleva, en este orden y salteando lo que no aplica:
-1. **La idea en una frase**, en una nota.
-2. **Cómo funciona**, con un flujo o un mapa de partes.
+1. **Cómo funciona**, con un flujo o un mapa de partes: la entrada empieza con este dibujo.
+2. **La idea en una frase**, en una nota justo debajo.
 3. **Las opciones**: un diagrama con ramas, con la elegida y las descartadas, y por qué.
 4. **Lo decidido** y **lo que falta**, con tarjetas por estado.
 
@@ -51,7 +51,9 @@ Componentes (la página ya trae sus estilos y usan los tokens del diseño):
 | Nota | la idea en una frase, un aviso | `<div class="note"><p><strong>La idea.</strong> …</p></div>` |
 | Estado en el texto | | `<span class="ok">hecho</span>`, `<span class="warn">en curso</span>`, `<span class="danger">te espera a vos</span>` |
 
-Una página creada antes de los diagramas no trae sus estilos (el diseño se copia al crearla): si `docs/bitacora.html` no tiene `.branch` ni `.map`, dibujá las opciones con tarjetas o una tabla y las partes con un flujo.
+En `.opts` van solo `.opt`, dos o tres: las líneas que las unen cuentan con eso.
+
+Una página creada antes de los diagramas no trae sus estilos (el diseño se copia al crearla): si el `<style>` de `docs/bitacora.html` no tiene una regla `.branch{` ni `.map{` (buscá la regla, no la palabra, que puede estar en una entrada), dibujá las opciones con tarjetas o una tabla y las partes con un flujo.
 
 Colores de estado: `ok` hecho o elegida, `warn` en curso, `danger` espera a una persona, está roto o se descartó. Nunca solo el color: la palabra también lo dice. En un mapa, `node` también acepta `ok`, `warn` y `danger`.
 
@@ -71,4 +73,4 @@ Escribí el fragmento en un archivo temporal fuera del repo y borralo después. 
 
 Una línea con la sección y el link: `docs/bitacora.html#<slug>`. El archivo es versionado: commitealo en la rama en la que estás trabajando, o decile a la persona que queda para commitear. No abras un PR solo para la bitácora salvo que lo pida.
 
-Tokens del diseño: `scripts/agents/bitacora/barrilete.css`; un proyecto los pisa en su propio .barrilete/bitacora.css, que se lee al crear la página. El detalle está en el doc de la bitácora del kit (docs/agents/bitacora.md, que el modo `--small` no instala).
+Diseño: `scripts/agents/bitacora/barrilete.css`, uno solo para todos los proyectos que usan barrilete-kit y siempre claro; un proyecto no lo cambia. El detalle está en el doc de la bitácora del kit (docs/agents/bitacora.md, que el modo `--small` no instala).

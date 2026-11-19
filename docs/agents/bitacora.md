@@ -48,7 +48,7 @@ The page carries the styles of these classes; the skill lists their HTML.
 
 ## The design: tokens
 
-The page has the shape of the barrilete status HTML: on top the project name with the drone and the leash, the contents in a fixed light bar, each topic as a numbered section (`>_ 01`) and its entries on the leash, one below the other, with their date. The brand colors of the drone are fixed; everything else uses only these tokens. The barrilete design (`scripts/agents/bitacora/barrilete.css`) gives them their default values. The page is **always light**: it does not follow the system's dark mode (`color-scheme: light`; the person decided it in #361, before it followed the system).
+The page has the shape of the barrilete status HTML: on top the project name with the drone and the leash, the contents in a fixed light bar, each topic as a numbered section (`>_ 01`) and its entries on the leash, one below the other, with their date. The brand colors of the drone, the footer and the contents highlight are fixed; everything else uses these tokens, with the values of the barrilete design (`scripts/agents/bitacora/barrilete.css`). The page is **always light**: it does not follow the system's dark mode (`color-scheme: light`; the person decided it in #361, before it followed the system).
 
 | Token | What it is | Value |
 |---|---|---|
@@ -69,18 +69,8 @@ Every text color reaches WCAG AA (4.5:1) on `--bg`, `--surface` and `--card`; th
 
 The fonts come from Google Fonts with `display=swap`: without network, the text is shown at once with the system fonts.
 
-### The project's design
+### One design for every project
 
-If the project has `.barrilete/bitacora.css`, it goes after the barrilete design (both are copied into the page when it is created) and overrides the tokens it defines; whatever it does not define stays as barrilete. It is the project's file: the kit does not install it, and it is versioned like any other.
-
-```css
-/* .barrilete/bitacora.css */
-:root {
-  --accent: #0E9F6E;
-  --font-display: "Inter", system-ui, sans-serif;
-}
-```
-
-The page is always light: do not add a `@media (prefers-color-scheme: dark)` block (if you have one from the earlier example, remove it), because it would bring dark colors back onto a light background. If you change colors, check the contrast yourself: the test only checks barrilete's.
+Every project that uses barrilete-kit has the same log: the barrilete design, always light (the person decided it in #361). A project does not change it: the script no longer reads `.barrilete/bitacora.css`, and if the file exists it does not go into the page. If your project had one, you can delete it.
 
 The design is copied into the page when it is created, and entries never rewrite it: a page that already exists keeps the design it was born with. To give it a new one, change the `<style id="theme-…">` blocks by hand in a PR of its own.

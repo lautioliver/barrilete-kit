@@ -48,7 +48,7 @@ La página trae los estilos de estas clases; el skill lista su HTML.
 
 ## El diseño: tokens
 
-La página tiene la forma del HTML de estado de barrilete: arriba el nombre del proyecto con el dron y la rienda, el índice en una barra clara fija, cada tema como sección numerada (`>_ 01`) y sus entradas sobre la rienda, una debajo de otra, con su fecha. Los colores de marca del dron son fijos; todo lo demás usa solo estos tokens. El diseño de barrilete (`scripts/agents/bitacora/barrilete.css`) les da sus valores por defecto. La página es **siempre clara**: no sigue el modo oscuro del sistema (`color-scheme: light`; lo decidió la persona en #361, antes seguía al sistema).
+La página tiene la forma del HTML de estado de barrilete: arriba el nombre del proyecto con el dron y la rienda, el índice en una barra clara fija, cada tema como sección numerada (`>_ 01`) y sus entradas sobre la rienda, una debajo de otra, con su fecha. Los colores de marca del dron, el pie y el resaltado del índice son fijos; todo lo demás usa estos tokens, con los valores del diseño de barrilete (`scripts/agents/bitacora/barrilete.css`). La página es **siempre clara**: no sigue el modo oscuro del sistema (`color-scheme: light`; lo decidió la persona en #361, antes seguía al sistema).
 
 | Token | Qué es | Valor |
 |---|---|---|
@@ -69,18 +69,8 @@ Cada color de texto llega a WCAG AA (4.5:1) sobre `--bg`, `--surface` y `--card`
 
 Las fuentes vienen de Google Fonts con `display=swap`: sin red, el texto se ve enseguida con las fuentes del sistema.
 
-### El diseño del proyecto
+### Un solo diseño para todos los proyectos
 
-Si el proyecto tiene `.barrilete/bitacora.css`, va después del diseño de barrilete (los dos se copian en la página al crearla) y pisa los tokens que define; lo que no define queda como barrilete. Es un archivo del proyecto: el kit no lo instala y se versiona como cualquier otro.
-
-```css
-/* .barrilete/bitacora.css */
-:root {
-  --accent: #0E9F6E;
-  --font-display: "Inter", system-ui, sans-serif;
-}
-```
-
-La página es siempre clara: no le sumes un bloque `@media (prefers-color-scheme: dark)` (si ya lo tenías del ejemplo anterior, sacalo), porque traería de vuelta colores oscuros sobre un fondo claro. Si cambiás colores, revisá el contraste vos: el test solo comprueba el de barrilete.
+Todos los proyectos que usan barrilete-kit tienen la misma bitácora: el diseño de barrilete, siempre claro (lo decidió la persona en #361). Un proyecto no lo cambia: el script ya no lee `.barrilete/bitacora.css`, y si el archivo existe no entra en la página. Si tu proyecto lo tenía, podés borrarlo.
 
 El diseño se copia en la página cuando se crea, y las entradas nunca lo reescriben: una página que ya existe se queda con el diseño con el que nació. Para darle uno nuevo, cambiá a mano los bloques `<style id="theme-…">` en un PR aparte.

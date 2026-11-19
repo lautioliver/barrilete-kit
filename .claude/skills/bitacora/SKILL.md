@@ -32,8 +32,8 @@ How to write it:
 - **The whole path of the idea:** where it came from, which options there were, what was dropped and why, what was decided and what is missing, with who has to decide.
 
 What goes in, in this order, leaving out what does not apply:
-1. **The idea in one sentence**, in a note.
-2. **How it works**, with a flow or a map of parts.
+1. **How it works**, with a flow or a map of parts: the entry starts with this drawing.
+2. **The idea in one sentence**, in a note right below it.
 3. **The options**: a branch diagram, with the chosen one and the dropped ones, and why.
 4. **What was decided** and **what is missing**, with cards by status.
 
@@ -51,7 +51,9 @@ Components (the page already has their styles and they use the design tokens):
 | Note | the idea in one sentence, a warning | `<div class="note"><p><strong>The idea.</strong> …</p></div>` |
 | Status in text | | `<span class="ok">done</span>`, `<span class="warn">in progress</span>`, `<span class="danger">waiting on you</span>` |
 
-A page created before the diagrams does not have their styles (the design is copied when it is created): if `docs/bitacora.html` has no `.branch` or `.map`, draw the options with cards or a table and the parts with a flow.
+In `.opts` put only `.opt` items, two or three: the lines that join them assume that.
+
+A page created before the diagrams does not have their styles (the design is copied when it is created): if the `<style>` of `docs/bitacora.html` has no `.branch{` or `.map{` rule (look for the rule, not the word, which can be in an entry), draw the options with cards or a table and the parts with a flow.
 
 Status colors: `ok` done or chosen, `warn` in progress, `danger` waiting on a person, broken or dropped. Never only the color: the word says it too. In a map, `node` also takes `ok`, `warn` and `danger`.
 
@@ -71,4 +73,4 @@ Write the fragment in a temporary file outside the repo and delete it afterwards
 
 One line with the section and the link: `docs/bitacora.html#<slug>`. The file is versioned: commit it on the branch you are working on, or tell the person it is left to commit. Do not open a PR only for the log unless they ask.
 
-Design tokens: `scripts/agents/bitacora/barrilete.css`; a project overrides them in its own .barrilete/bitacora.css, read when the page is created. The full detail is in the kit's log doc (docs/agents/bitacora.md, not installed in `--small` mode).
+Design: `scripts/agents/bitacora/barrilete.css`, one for every project that uses barrilete-kit and always light; a project does not change it. The full detail is in the kit's log doc (docs/agents/bitacora.md, not installed in `--small` mode).
