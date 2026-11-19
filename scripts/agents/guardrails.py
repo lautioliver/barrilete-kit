@@ -392,6 +392,19 @@ def comando_de(entrada):
     return None, None
 
 
+def registrar_desvio(cwd):
+    """Leaves one `deviation` learning event (ADR-007 D3) in the project's store. It never changes what the hook answers: any
+    failure (no learning.py, a broken store) is swallowed. harness, model and provider come from the environment
+    (BK_HARNESS, which each hook registration sets for its tool, and BK_MODEL)."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import learning
+        learning.escribir([learning.evento("deviation", {"class": "guardrail-block"}, cwd=cwd if isinstance(cwd, str) else None)],
+                          cwd=cwd if isinstance(cwd, str) else None)
+    except BaseException:
+        pass
+
+
 def main():
     try:
         entrada = json.load(sys.stdin)
@@ -406,6 +419,7 @@ def main():
         m = a_ojo(comando)
     if not m:
         return 0
+    registrar_desvio(entrada.get("cwd"))
     corto = f"Blocked by the template guardrails (scripts/agents/guardrails.py): {m}."
     texto = (f"{corto}\nAGENTS.md ('Agent autonomy' / 'Autonomía del agente'): an agent does not merge, does not approve PRs, does not create tags or releases, "
              f"does not push to trunk branches and does not skip checks. Do not look for another way: if the person asked for it, "

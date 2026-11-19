@@ -27,6 +27,8 @@ export function check(root: string, command: string, cwd: string): Verdict {
 		input,
 		encoding: "utf8",
 		timeout: 10_000,
+		// guardrails.py leaves a `deviation` learning event when it blocks: this is the harness it writes (ADR-007 D3).
+		env: { ...process.env, BK_HARNESS: process.env.BK_HARNESS || "pi" },
 	});
 	if (r.status !== 2) return undefined;
 	const reason = (r.stderr || "").trim() || "Blocked by scripts/agents/guardrails.py.";

@@ -5,7 +5,7 @@
       {
         "type": "command",
         "matcher": "bash",
-        "bash": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/guardrails.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\"",
+        "bash": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/scripts/agents/guardrails.py\"; [ -f \"$f\" ] || exit 0; BK_HARNESS=\"${BK_HARNESS:-copilot}\" exec python3 \"$f\"",
         "timeoutSec": 15
       }
     ]

@@ -2,7 +2,7 @@
 // repo, with a fake `pi` that records what each extension registers. Run: node --test packages/pi/test/
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { after, describe, test } from "node:test";
@@ -70,6 +70,26 @@ describe("guardrails", () => {
 		const v = check(KIT, "git push origin main", KIT);
 		assert.equal(v?.block, true);
 		assert.match(v!.reason, /guardrails/);
+	});
+
+	test("a block leaves a deviation event with harness pi, without changing the verdict", () => {
+		const repo = join(OUTSIDE, "learning-repo");
+		mkdirSync(join(repo, "scripts"), { recursive: true });
+		cpSync(join(KIT, "scripts/agents"), join(repo, "scripts/agents"), { recursive: true });
+		execFileSync("git", ["init", "-q", repo]);
+		const saved = process.env.BK_HARNESS;
+		delete process.env.BK_HARNESS;
+		try {
+			const v = check(repo, "git push origin main", repo);
+			assert.equal(v?.block, true);
+			const lines = readFileSync(join(repo, ".barrilete/learning/events.jsonl"), "utf8").trim().split("\n");
+			const ev = JSON.parse(lines[lines.length - 1]);
+			assert.equal(ev.kind, "deviation");
+			assert.equal(ev.harness, "pi");
+			assert.equal(ev.class, "guardrail-block");
+		} finally {
+			if (saved !== undefined) process.env.BK_HARNESS = saved;
+		}
 	});
 
 	test("lets through what guardrails.py lets through", () => {
