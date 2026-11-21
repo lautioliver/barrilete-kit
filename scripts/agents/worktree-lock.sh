@@ -4,7 +4,14 @@
 # Uso: worktree-lock.sh claim <worktree>    toma el candado: imprime "claimed" o "held: <agente> (pid N, since T)…"
 #      worktree-lock.sh status <worktree>   imprime "free", "stale" (dueño muerto) o "held: …"
 #      worktree-lock.sh release <worktree>  el dueño lo suelta: "released", "free" o "held: …" si es de otro
-# Sale con 0 en esos casos (lo que pasó va en la salida; prepare.sh decide); 64 si el uso es inválido.
+#      worktree-lock.sh handoff <worktree>  el dueño lo pasa a la sesión que sigue (#356): "handed-off: <token>", "free",
+#                                           "stale" o "held: …" si es de otro. Mientras el dueño viva, solo un claim con
+#                                           WORKTREE_LOCK_HANDOFF=<token> lo toma; para los demás sigue held ("handed over").
+#                                           El candado guarda solo el sha256 del token; el token en claro va en el handoff.
+#                                           El dueño lo retoma con claim o lo cancela con release. Un dueño muerto lo deja
+#                                           stale como siempre. No hay timeout: un dueño vivo que no lo pasa lo sigue teniendo.
+# Sale con 0 en esos casos (lo que pasó va en la salida; prepare.sh decide); 64 si el uso es inválido o no pudo hacerlo
+# (no pudo escribir, el mutex está trabado, o handoff no encontró sha256sum ni shasum).
 # El dueño es el par (pid, agente): los subagentes de un mismo proceso claude comparten el pid, así que cada uno
 # fija su nombre en WORKTREE_LOCK_AGENT. Sin nombre: el de BK_TASK_DIR, o "agent".
 # held nombra también la sesión de Claude Code dueña, si la encuentra (#350; WORKTREE_LOCK_SESSIONS_DIR).
@@ -13,11 +20,9 @@
 # Ojo: sin claude entre los ancestros, el dueño es el primer ancestro que no es un shell. Si ese proceso es un wrapper
 # efímero (que muere al terminar el comando), el candado queda stale apenas muere: abre en vez de cerrar y el worktree
 # queda libre. Con otro agente que no sea claude, fijá WORKTREE_LOCK_PID al pid del agente que dura toda la sesión.
-# release no toma el mutex a propósito: solo borra un candado que ya es suyo y vivo, y nadie más puede reemplazarlo
-# (claim solo reemplaza uno stale), así que no hay carrera que cerrar.
 set -uo pipefail
-if [ $# -ne 2 ] || { [ "$1" != claim ] && [ "$1" != status ] && [ "$1" != release ]; }; then
-  echo "Usage: $0 claim|status|release <worktree>" >&2; exit 64
+if [ $# -ne 2 ] || { [ "$1" != claim ] && [ "$1" != status ] && [ "$1" != release ] && [ "$1" != handoff ]; }; then
+  echo "Usage: $0 claim|status|release|handoff <worktree>" >&2; exit 64
 fi
 cmd=$1; wt=$2
 gdir=$(git -C "$wt" rev-parse --absolute-git-dir 2>/dev/null) || { echo "$0: $wt is not a git worktree" >&2; exit 64; }
@@ -71,15 +76,39 @@ sesion() {
   # procStart se compara con la hora de inicio en UTC (la que escribe Claude Code hoy) y en la hora local.
   python3 -I -c "$SESION_PY" "$dir/$1.json" "$1" "$(inicio "$1")" "$(LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null)" 2>/dev/null || true
 }
-# El mensaje de un candado ajeno, con la sesión dueña si se la encuentra.
-ocupado() { echo "held: ${l_agent:-agent} (pid ${l_pid:-?}, since ${l_since:-?}$(sesion "$l_pid")); another agent is working in $wt. Use your own worktree (prepare.sh <n> --worktree) and do not share it."; }
+# El mensaje de un candado ajeno, con la sesión dueña si se la encuentra. Si el dueño lo pasó (handoff), lo dice, sin el token.
+ocupado() {
+  if [ -n "$l_handoff" ]; then
+    echo "held: ${l_agent:-agent} (pid ${l_pid:-?}, since ${l_since:-?}$(sesion "$l_pid")); handed over at ${l_hsince:-?} to the session that got its token: only WORKTREE_LOCK_HANDOFF=<token> scripts/agents/worktree-lock.sh claim $wt takes it. Without the token, use your own worktree (prepare.sh <n> --worktree) and do not share it."
+  else
+    echo "held: ${l_agent:-agent} (pid ${l_pid:-?}, since ${l_since:-?}$(sesion "$l_pid")); another agent is working in $wt. Use your own worktree (prepare.sh <n> --worktree) and do not share it."
+  fi
+}
+# El candado guarda el sha256 del token, no el token: quien lo lee no puede tomarlo. El token en claro solo va en el handoff.
+# Falla (sin imprimir nada) si no hay sha256sum ni shasum o si lo que sale no son 64 caracteres hex.
+huella() {
+  local h
+  if command -v sha256sum >/dev/null 2>&1; then h=$(printf %s "$1" | sha256sum 2>/dev/null | cut -d' ' -f1)
+  else h=$(printf %s "$1" | shasum -a 256 2>/dev/null | cut -d' ' -f1); fi
+  case "$h" in *[!0-9a-f]*) return 1 ;; esac
+  [ "${#h}" -eq 64 ] || return 1
+  echo "$h"
+}
+# La sesión que trae el token de un candado pasado lo puede tomar aunque el dueño viva. Un token vacío o un hash que no se
+# pudo calcular nunca sirven (huella falla, así que un candado sin reserva, con l_handoff vacío, nunca coincide).
+recibe() {
+  local h
+  [ -n "${WORKTREE_LOCK_HANDOFF:-}" ] && h=$(huella "$WORKTREE_LOCK_HANDOFF") && [ "$h" = "$l_handoff" ]
+}
 
-# Deja en E: free | stale | held, y el dueño del candado en l_pid, l_start, l_agent y l_since.
-l_pid=""; l_start=""; l_agent=""; l_since=""; E=free
+# Deja en E: free | stale | held, y el dueño del candado en l_pid, l_start, l_agent y l_since; si lo pasó, el token en
+# l_handoff y cuándo en l_hsince.
+l_pid=""; l_start=""; l_agent=""; l_since=""; l_handoff=""; l_hsince=""; E=free
 estado() {
-  l_pid=""; l_start=""; l_agent=""; l_since=""
+  l_pid=""; l_start=""; l_agent=""; l_since=""; l_handoff=""; l_hsince=""
   [ -f "$lock" ] || { E=free; return; }
   l_pid=$(campo pid); l_start=$(campo start); l_agent=$(campo agent); l_since=$(campo since)
+  l_handoff=$(campo handoff); l_hsince=$(campo handoff_since)
   case "$l_pid" in ''|*[!0-9]*) E=stale; return ;; esac
   kill -0 "$l_pid" 2>/dev/null || { E=stale; return; }
   # El pid puede haberlo reutilizado otro proceso: la hora de inicio tiene que ser la misma.
@@ -89,54 +118,81 @@ estado() {
 
 agente=${WORKTREE_LOCK_AGENT:-}
 if [ -z "$agente" ] && [ -n "${BK_TASK_DIR:-}" ]; then agente=$(basename "$BK_TASK_DIR"); fi
+# Sin caracteres de control: un salto de línea en el nombre agregaría campos al candado (un handoff= plantado).
+agente=$(printf %s "$agente" | LC_ALL=C tr -d '\000-\037\177')
 agente=${agente:-agent}
 mio=$(dueno)
 
 estado
 ajeno=""
 if [ "$E" = held ] && { [ "$l_pid" != "$mio" ] || [ "$l_agent" != "$agente" ]; }; then ajeno=1; fi
-if [ -n "$ajeno" ]; then
+if [ -n "$ajeno" ] && ! { [ "$cmd" = claim ] && recibe; }; then
+  ocupado
+  exit 0
+fi
+
+if [ "$cmd" = status ]; then
+  if [ "$E" = held ]; then
+    echo "held: ${l_agent:-agent} (pid $l_pid, since ${l_since:-?}$(sesion "$l_pid"))${l_handoff:+; handed over at ${l_hsince:-?}}"
+  else echo "$E"; fi
+  exit 0
+fi
+
+# claim, release y handoff cambian el candado, así que corren bajo un mutex corto (agent-lock.mutex, tomado con ln):
+# adentro se vuelve a mirar el estado, y nadie borra o reescribe a ciegas un candado que otro tomó entre medio (desde #356
+# un claim con el token reemplaza un candado vivo ajeno, así que release y handoff también lo necesitan). Los candados se
+# escriben completos en un temporal y se mueven o se enlazan: nadie ve uno a medio escribir. Los temporales se borran
+# aunque el proceso muera (EXIT, INT, TERM).
+tmp=""; mtmp=""; mtx="$gdir/agent-lock.mutex"
+limpiar() { rm -f ${tmp:+"$tmp"} ${mtmp:+"$mtmp"}; }
+trap 'limpiar' EXIT
+trap 'limpiar; exit 143' INT TERM
+# release no escribe un candado, así que no necesita temporal.
+if [ "$cmd" != release ]; then
+  tmp=$(mktemp "$gdir/agent-lock.XXXXXX") || { echo "$0: could not write in $gdir" >&2; exit 64; }
+fi
+# El candado de un claim se escribe antes del mutex, así la sección crítica es corta.
+[ "$cmd" = claim ] && printf 'pid=%s\nstart=%s\nagent=%s\nsince=%s\n' "$mio" "$(inicio "$mio")" "$agente" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$tmp"
+mtmp=$(mktemp "$gdir/agent-lock.XXXXXX") || { echo "$0: could not write in $gdir" >&2; exit 64; }
+printf 'pid=%s\n' "$$" >"$mtmp"
+n=0
+until ln "$mtmp" "$mtx" 2>/dev/null; do
+  # Un mutex cuyo dueño murió dentro de la sección crítica se retira (se compara el pid antes de borrar).
+  mp=$(sed -n 's/^pid=//p' "$mtx" 2>/dev/null | head -1)
+  if [ -n "$mp" ] && ! kill -0 "$mp" 2>/dev/null && [ "$(sed -n 's/^pid=//p' "$mtx" 2>/dev/null | head -1)" = "$mp" ]; then rm -f "$mtx"; continue; fi
+  n=$((n + 1)); [ "$n" -gt 100 ] && { echo "$0: the lock of $wt is busy (remove $mtx if no claim, release or handoff is running)" >&2; exit 64; }
+  sleep 0.05
+done
+trap 'rm -f "$mtx"; limpiar' EXIT
+trap 'rm -f "$mtx"; limpiar; exit 143' INT TERM
+
+estado
+ajeno=""
+if [ "$E" = held ] && { [ "$l_pid" != "$mio" ] || [ "$l_agent" != "$agente" ]; }; then ajeno=1; fi
+if [ -n "$ajeno" ] && ! { [ "$cmd" = claim ] && recibe; }; then
   ocupado
   exit 0
 fi
 
 case "$cmd" in
-  status)
-    if [ "$E" = held ]; then echo "held: ${l_agent:-agent} (pid $l_pid, since ${l_since:-?}$(sesion "$l_pid"))"; else echo "$E"; fi
-    ;;
   release)
     if [ "$E" = held ]; then rm -f "$lock"; echo released; else echo "$E"; fi
     ;;
+  handoff)
+    # El token nuevo invalida el de un handoff anterior.
+    if [ "$E" = held ]; then
+      token=$(LC_ALL=C od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+      case "$token" in ????????????????????????????????) ;; *) echo "$0: could not make a token" >&2; exit 64 ;; esac
+      h=$(huella "$token") || { echo "$0: could not hash the token (no sha256sum or shasum); the lock was not handed off" >&2; exit 64; }
+      { grep -v -e '^handoff=' -e '^handoff_since=' "$lock"; printf 'handoff=%s\nhandoff_since=%s\n' "$h" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"; } >"$tmp"
+      mv -f "$tmp" "$lock"; echo "handed-off: $token"
+    else echo "$E"; fi
+    ;;
   claim)
-    # Se escribe completo en un temporal y se toma con ln, que falla si el candado ya existe: nadie ve un candado a
-    # medio escribir. Reemplazar uno stale o renovar el propio no es atómico, así que todo el claim corre bajo un
-    # mutex corto (agent-lock.mutex, también tomado con ln): adentro se vuelve a mirar el estado, y nadie borra a ciegas
-    # un candado que otro tomó entre medio. El temporal se borra aunque el proceso muera (EXIT, INT, TERM).
-    tmp=$(mktemp "$gdir/agent-lock.XXXXXX") || { echo "$0: could not write in $gdir" >&2; exit 64; }
-    mtx="$gdir/agent-lock.mutex"; mtmp=""
-    limpiar() { rm -f "$tmp" ${mtmp:+"$mtmp"}; }
-    trap 'limpiar' EXIT
-    trap 'limpiar; exit 143' INT TERM
-    printf 'pid=%s\nstart=%s\nagent=%s\nsince=%s\n' "$mio" "$(inicio "$mio")" "$agente" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$tmp"
-    mtmp=$(mktemp "$gdir/agent-lock.XXXXXX") || { echo "$0: could not write in $gdir" >&2; exit 64; }
-    printf 'pid=%s\n' "$$" >"$mtmp"
-    n=0
-    until ln "$mtmp" "$mtx" 2>/dev/null; do
-      # Un mutex cuyo dueño murió dentro de la sección crítica se retira (se compara el pid antes de borrar).
-      mp=$(sed -n 's/^pid=//p' "$mtx" 2>/dev/null | head -1)
-      if [ -n "$mp" ] && ! kill -0 "$mp" 2>/dev/null && [ "$(sed -n 's/^pid=//p' "$mtx" 2>/dev/null | head -1)" = "$mp" ]; then rm -f "$mtx"; continue; fi
-      n=$((n + 1)); [ "$n" -gt 100 ] && { echo "$0: the lock of $wt is busy (remove $mtx if no claim is running)" >&2; exit 64; }
-      sleep 0.05
-    done
-    trap 'rm -f "$mtx"; limpiar' EXIT
-    trap 'rm -f "$mtx"; limpiar; exit 143' INT TERM
-    estado
-    ajeno=""
-    if [ "$E" = held ] && { [ "$l_pid" != "$mio" ] || [ "$l_agent" != "$agente" ]; }; then ajeno=1; fi
-    if [ -n "$ajeno" ]; then
-      ocupado
-    elif [ "$E" = held ]; then
-      mv -f "$tmp" "$lock"; echo claimed   # el mismo dueño la renueva
+    if [ "$E" = held ]; then
+      # El mismo dueño la renueva (y retoma un candado que había pasado), o la toma la sesión que trae el token: el
+      # candado nuevo no lleva la reserva, así que el token sirve una sola vez.
+      mv -f "$tmp" "$lock"; echo claimed
     else
       [ "$E" = stale ] && rm -f "$lock"
       if ln "$tmp" "$lock" 2>/dev/null; then echo claimed
